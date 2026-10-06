@@ -104,8 +104,10 @@ describe("Home", () => {
 			start,
 			html.indexOf('data-testid="home-chat-dock"'),
 		);
+		// The prompt and its note share one group; the spacers bracket the
+		// group, so the prompt leads it and the flex-3 spacer follows it.
 		expect(thread).toMatch(
-			/<div aria-hidden="true" class="flex-2"><\/div><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p><div aria-hidden="true" class="flex-3"><\/div>/,
+			/<div aria-hidden="true" class="flex-2"><\/div><div[^>]*><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p>(?:<p[^>]*>[^<]*<\/p>)*<\/div><div aria-hidden="true" class="flex-3"><\/div>/,
 		);
 	});
 
