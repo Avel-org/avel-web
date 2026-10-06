@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Surface } from "@/components/avel/surface";
-import { linkFor } from "../shell/nav";
+import {
+	AddSourceButton,
+	CatalogSources,
+} from "@/components/avel/catalog-sources";
 import { Page, pageHead } from "../shell/page";
 
 export const Route = createFileRoute("/catalog/sources")({
@@ -11,17 +13,8 @@ export const Route = createFileRoute("/catalog/sources")({
 
 function CatalogSourcesPage() {
 	return (
-		<Page to="/catalog/sources">
-			<Surface
-				data-testid="skill-sources"
-				notBuilt={{
-					icon: linkFor("/catalog/sources").icon,
-					title: "Where skills come from",
-					what: "The sources your skill library is imported from, kept in one place so every skill can be traced back to its origin.",
-					// ROUTES.md lists skillSource procedures as a gap, unnamed.
-					needs: [],
-				}}
-			/>
+		<Page to="/catalog/sources" actions={<AddSourceButton />}>
+			<CatalogSources />
 		</Page>
 	);
 }

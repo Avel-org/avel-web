@@ -1,26 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Surface } from "@/components/avel/surface";
-import { linkFor } from "../shell/nav";
+import { z } from "zod";
+import { CatalogAgents } from "@/components/avel/catalog-agents";
 import { Page, pageHead } from "../shell/page";
+
+/** `agent` is the selected template's slug; a selection is a link. */
+export const catalogAgentsSearch = z.object({
+	agent: z.string().max(100).optional().catch(undefined),
+});
 
 export const Route = createFileRoute("/catalog/agents")({
 	staticData: { device: "construction" },
+	validateSearch: catalogAgentsSearch,
 	head: pageHead("/catalog/agents"),
 	component: CatalogAgentsPage,
 });
 
 function CatalogAgentsPage() {
+	const { agent } = Route.useSearch();
 	return (
 		<Page to="/catalog/agents">
-			<Surface
-				data-testid="agent-templates"
-				notBuilt={{
-					icon: linkFor("/catalog/agents").icon,
-					title: "Agent templates and their identities",
-					what: "Review each agent's generated identity and every earlier version, each with its hash. An identity changes only when its role does, so this view is read-only.",
-					needs: ["agentTemplate.list"],
-				}}
-			/>
+			<CatalogAgents selected={agent} />
 		</Page>
 	);
 }
