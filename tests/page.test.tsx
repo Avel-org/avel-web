@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_LINKS } from "../src/shell/nav";
+import { ALL_LINKS, linkFor } from "../src/shell/nav";
 import { renderPage, tagOf } from "./render-page";
 
 /** The markup of the top bar alone. */
@@ -30,6 +30,8 @@ describe("on every sidebar page", () => {
 			const drawer = tagOf(header, "drawer-open");
 			expect(drawer).toContain('aria-label="Open navigation"');
 			expect(drawer).toMatch(/\bmd:hidden\b/);
+			// The heading is the sidebar's label, read from nav.ts on every page.
+			expect(header.match(/<h1[^>]*>([^<]*)<\/h1>/)?.[1]).toBe(label);
 
 			const title = `${label} · AVEL`;
 			expect(html.match(/<title>[^<]*<\/title>/g)).toEqual([
@@ -116,6 +118,13 @@ describe("the top bar", () => {
 		const html = await renderPage("/");
 		expect(html).not.toContain('data-testid="topbar-actions"');
 		expect(topbarOf(html)).not.toContain('data-slot="separator"');
+	});
+
+	it("keeps a canvas page's definition: canvas lays out only the body", async () => {
+		const { purpose } = linkFor("/");
+		const header = topbarOf(await renderPage("/"));
+		expect(header).toMatch(/data-testid="topbar-definition"/);
+		expect(header).toContain(`>${purpose}</p>`);
 	});
 
 	it("sets its title and definition in the type scale", async () => {
