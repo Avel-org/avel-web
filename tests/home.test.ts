@@ -1,0 +1,396 @@
+import { createElement } from "react";
+import { renderToString } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { ChatComposer } from "../src/components/avel/chat-composer";
+import { TooltipProvider } from "../src/components/ui/tooltip";
+import { Route } from "../src/routes/index";
+import { linkFor } from "../src/shell/nav";
+import {
+	countText,
+	renderPage,
+	tagOf,
+	tagWithId,
+	textOfId,
+} from "./render-page";
+
+const SEND_REASON = "Chat is not built yet. avel-server has no chat endpoint.";
+
+/** Text as React's server output escapes it, ready to drop into a RegExp. */
+const escapedText = (text: string) =>
+	text
+		.replaceAll("&", "&amp;")
+		.replaceAll("'", "&#x27;")
+		.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+describe("Home", () => {
+	it("is a capture route, so it works on a phone", () => {
+		expect(Route.options.staticData?.device).toBe("capture");
+	});
+
+	it("shows its title and definition from the sidebar, visibly", async () => {
+		// Read from nav.ts, never hard-coded: the label is the sidebar's to set.
+		const { label, purpose } = linkFor("/");
+		const html = await renderPage("/");
+		expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+		expect(tagOf(html, "topbar-title")).not.toMatch(/\bsr-only\b/);
+		expect(html).toMatch(new RegExp(`<h1[^>]*>${label}</h1>`));
+		expect(html).toMatch(
+			new RegExp(
+				`data-testid="topbar-definition"[^>]*>${escapedText(purpose)}<`,
+			),
+		);
+	});
+
+	it("has no resting border under the top bar", async () => {
+		expect(tagOf(await renderPage("/"), "topbar")).toMatch(
+			/\bborder-transparent\b/,
+		);
+	});
+
+	it("fills the content area: the body and the chat grow to full height", async () => {
+		const html = await renderPage("/");
+		expect(tagOf(html, "page")).toMatch(/\bflex-1\b/);
+		expect(tagOf(html, "page-body")).toMatch(
+			/\bflex-1\b[^"]*\bflex-col\b|\bflex-col\b[^"]*\bflex-1\b/,
+		);
+		expect(tagOf(html, "page-body")).not.toMatch(/\bp[xy]-\d/);
+		expect(tagOf(html, "home-chat")).toMatch(/\bflex-1\b/);
+		expect(tagOf(html, "home-chat-thread")).toMatch(/\bflex-1\b/);
+	});
+
+	it("puts nothing around the chat: no panel, no not-built box, no queue", async () => {
+		const html = await renderPage("/");
+		const body = html.slice(html.indexOf('data-testid="page-body"'));
+		expect(body).not.toContain("section-panel");
+		expect(body).not.toContain("surface-not-built");
+		expect(body).not.toContain("home-needs-you");
+		expect(tagOf(html, "home-chat")).not.toMatch(
+			/\bborder\b|\bbg-app-panel\b|\bshadow-e/,
+		);
+	});
+
+	it("opens with Canon's one calm, centred line, and says chat is not built", async () => {
+		const html = await renderPage("/");
+		expect(html).toMatch(
+			/data-testid="home-chat-prompt"[^>]*>What should we work on\?</,
+		);
+		const block = html.slice(
+			html.lastIndexOf("<div", html.indexOf('data-testid="home-chat-prompt"')),
+		);
+		expect(block).toMatch(/^<div class="[^"]*\btext-center\b/);
+		expect(tagOf(html, "home-chat-note")).toMatch(/\btext-text-subtle\b/);
+		expect(html).toMatch(
+			/data-testid="home-chat-note"[^>]*>Canon can&#x27;t answer yet: chat is not built\.</,
+		);
+	});
+
+	it("pins the composer below the thread, on the canvas surface", async () => {
+		const html = await renderPage("/");
+		const thread = html.indexOf('data-testid="home-chat-thread"');
+		const dock = html.indexOf('data-testid="home-chat-dock"');
+		const composer = html.indexOf('data-testid="chat-composer"');
+		expect(dock).toBeGreaterThan(thread);
+		expect(composer).toBeGreaterThan(dock);
+		const classes = tagOf(html, "home-chat-dock");
+		expect(classes).toMatch(/\bsticky\b/);
+		expect(classes).toMatch(/\bbottom-0\b/);
+		expect(classes).toMatch(/\bbg-card\b/);
+	});
+
+	it("sets the prompt at the optical centre: two parts above, three below", async () => {
+		const html = await renderPage("/");
+		const start = html.indexOf('data-testid="home-chat-thread"');
+		const thread = html.slice(
+			start,
+			html.indexOf('data-testid="home-chat-dock"'),
+		);
+		expect(thread).toMatch(
+			/<div aria-hidden="true" class="flex-2"><\/div><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p><div aria-hidden="true" class="flex-3"><\/div>/,
+		);
+	});
+
+	it("puts the cluster on the canvas gutter, not a content edge", async () => {
+		const html = await renderPage("/");
+		const row = tagOf(html, "topbar-row");
+		expect(row).toMatch(/\bw-full\b/);
+		expect(row).toMatch(/\bpx-4 md:px-6 lg:px-8\b/);
+		expect(row).not.toMatch(/max-w-/);
+	});
+
+	it("centres the thread at --chat-max and the wider composer at 52rem", async () => {
+		const html = await renderPage("/");
+		const thread = tagOf(html, "home-chat-thread");
+		const composer = tagOf(html, "home-chat-composer-column");
+		for (const tag of [thread, composer]) {
+			expect(tag).toMatch(/\bmx-auto\b/);
+			expect(tag).toMatch(/\bpx-4 md:px-6 lg:px-8\b/);
+		}
+		expect(thread).toMatch(/\bmax-w-\(--chat-max\)/);
+		expect(composer).toContain("max-w-[52rem]");
+		expect(composer).not.toContain("max-w-(--chat-max)");
+		// The composer column sits inside the pinned dock.
+		const dock = html.indexOf('data-testid="home-chat-dock"');
+		expect(
+			html.indexOf('data-testid="home-chat-composer-column"'),
+		).toBeGreaterThan(dock);
+	});
+
+	it("sets the prompt line in the type scale", async () => {
+		expect(tagOf(await renderPage("/"), "home-chat-prompt")).toMatch(
+			/\btype-h2\b/,
+		);
+	});
+
+	it("disables Send with its reason linked, and prints the reason nowhere visible", async () => {
+		const html = await renderPage("/");
+		const send = tagOf(html, "chat-composer-send");
+		expect(send).toMatch(/\sdisabled=""/);
+		const id = send.match(/aria-describedby="([^"]+)"/)?.[1] ?? "";
+		expect(textOfId(html, id)).toBe(SEND_REASON);
+		expect(tagWithId(html, id)).toMatch(/class="sr-only"/);
+		expect(countText(html, SEND_REASON)).toBe(1);
+	});
+});
+
+describe("the chat composer", () => {
+	const html = renderToString(
+		createElement(
+			TooltipProvider,
+			null,
+			createElement(ChatComposer, { sendDisabledReason: SEND_REASON }),
+		),
+	);
+
+	it("takes text: the input is real, not disabled", () => {
+		const input = tagOf(html, "chat-composer-input");
+		expect(input).toMatch(/^<textarea/);
+		expect(input).not.toMatch(/\sdisabled=""/);
+	});
+
+	it("labels the input", () => {
+		const id = tagOf(html, "chat-composer-input").match(/\sid="([^"]+)"/)?.[1];
+		expect(html).toContain(`for="${id}"`);
+	});
+
+	it("draws nothing when the field is focused: the caret is the indicator", () => {
+		// Ruling 31: no ring, no border step, no fill change, on the pill or
+		// the field. The pill has no focus styles of its own at all.
+		const pill = tagOf(html, "chat-composer-pill");
+		expect(pill).not.toMatch(/focus|has-\[/);
+		const input = tagOf(html, "chat-composer-input");
+		// Every focus style the field primitive brings is undone here.
+		expect(input).toContain("focus-visible:outline-none");
+		expect(input).toContain("focus-visible:bg-transparent");
+		expect(input).toMatch(/\bborder-0\b/);
+		expect(input).toContain("shadow-none!");
+	});
+
+	it("is a steel pill at the 15px body size, with room around its contents", () => {
+		const pill = tagOf(html, "chat-composer-pill");
+		expect(pill).toMatch(/\bsurface-steel\b/);
+		expect(pill).toMatch(/\bp-3\b/);
+		const input = tagOf(html, "chat-composer-input");
+		expect(input).toContain("text-[0.9375rem]");
+		expect(input).toContain("md:text-[0.9375rem]");
+		// The primitive's 16px/14px sizes are replaced, not left to fight it.
+		expect(input).not.toMatch(/\btext-base\b|\bmd:text-sm\b/);
+	});
+
+	it("floats the pill and its glow together, never the field, still while typing", () => {
+		const float = tagOf(html, "chat-composer-float");
+		expect(float).toMatch(/\banimate-float\b/);
+		expect(float).toContain("focus-within:[animation-play-state:paused]");
+		expect(float).toContain("motion-reduce:animate-none");
+		// One wrapper moves both, so the glow can never drift from the pill.
+		const inside = html.slice(
+			html.indexOf('data-testid="chat-composer-float"'),
+		);
+		expect(inside.indexOf('data-testid="chat-composer-glow"')).toBeGreaterThan(
+			0,
+		);
+		expect(inside.indexOf('data-testid="chat-composer-pill"')).toBeGreaterThan(
+			0,
+		);
+		expect(tagOf(html, "chat-composer-pill")).not.toMatch(/animate-/);
+		expect(tagOf(html, "chat-composer-input")).not.toMatch(/animate-/);
+	});
+
+	it("puts a blurred accent glow behind and below the pill, out of reach", () => {
+		const glow = tagOf(html, "chat-composer-glow");
+		expect(glow).toContain('aria-hidden="true"');
+		for (const cls of [
+			"pointer-events-none",
+			"absolute",
+			"-z-10",
+			"inset-x-[10%]",
+			"top-3",
+			"-bottom-3",
+		]) {
+			expect(glow).toContain(cls);
+		}
+		expect(tagOf(html, "chat-composer-float")).toMatch(/\bisolate\b/);
+		const pulse = tagOf(html, "chat-composer-glow-pulse");
+		expect(pulse).toMatch(/\bbg-accent\b/);
+		expect(pulse).toMatch(/\bblur-2xl\b/);
+	});
+
+	it("pulses the glow in step with the float, peaking as the pill rises", () => {
+		const pulse = tagOf(html, "chat-composer-glow-pulse");
+		// Same 4s period as animate-float; half a period ahead, so avelPulse's
+		// bright end (1) lands on the float's top (50%).
+		expect(pulse).toContain("animate-[avelPulse_4s_ease-in-out_infinite]");
+		expect(pulse).toContain("[animation-delay:-2s]");
+		expect(pulse).toContain(
+			"group-focus-within/float:[animation-play-state:paused]",
+		);
+	});
+
+	it("sets the glow's range, stronger in light, static and soft under reduced motion", () => {
+		// React escapes the & of the [.light_&] variant inside the attribute.
+		const glow = tagOf(html, "chat-composer-glow").replaceAll("&amp;", "&");
+		expect(glow).toMatch(/\sopacity-55\s/);
+		expect(glow).toContain("[.light_&]:opacity-80");
+		expect(glow).toContain("motion-reduce:opacity-35");
+		expect(glow).toContain("[.light_&]:motion-reduce:opacity-50");
+		const pulse = tagOf(html, "chat-composer-glow-pulse");
+		expect(pulse).toContain("motion-reduce:animate-none");
+	});
+
+	it("glows only in the glow: no ring or shadow hack anywhere else", () => {
+		const rest = html.replace(
+			/<div[^>]*data-testid="chat-composer-glow[^"]*"[^>]*>/g,
+			"",
+		);
+		expect(rest).not.toMatch(/shadow-\[|ring-\[|blur/);
+	});
+
+	it("is one generously rounded pill: the field above, the tool row below", () => {
+		const pill = tagOf(html, "chat-composer-pill");
+		expect(pill).toMatch(/\bflex-col\b/);
+		expect(pill).toContain("rounded-[1.75rem]");
+		const input = html.indexOf('data-testid="chat-composer-input"');
+		const row = html.indexOf('data-testid="chat-composer-tool-row"');
+		const pillEnd = html.indexOf('data-testid="chat-composer-send"');
+		expect(input).toBeGreaterThan(
+			html.indexOf('data-testid="chat-composer-pill"'),
+		);
+		expect(row).toBeGreaterThan(input);
+		expect(pillEnd).toBeGreaterThan(row);
+	});
+
+	it("puts the tools on the left and Send on the right of the tool row", () => {
+		expect(tagOf(html, "chat-composer-tool-row")).toMatch(
+			/\bjustify-between\b/,
+		);
+		const tools = html.indexOf('data-testid="chat-composer-tools"');
+		const send = html.indexOf('data-testid="chat-composer-send"');
+		expect(tools).toBeGreaterThan(-1);
+		expect(send).toBeGreaterThan(tools);
+		expect(tagOf(html, "chat-composer-tools")).toMatch(
+			/role="toolbar"[^>]*aria-label="Tools"|aria-label="Tools"[^>]*role="toolbar"/,
+		);
+	});
+
+	/** The toolbar's markup, up to the start of Send's own <button> tag. */
+	const toolbarOf = (markup: string) =>
+		markup.slice(
+			markup.indexOf('data-testid="chat-composer-tools"'),
+			markup.lastIndexOf(
+				"<button",
+				markup.indexOf('data-testid="chat-composer-send"'),
+			),
+		);
+
+	it("holds exactly the chosen tools, in order: attach, model, web search", () => {
+		const toolbar = toolbarOf(html);
+		expect(toolbar.match(/<button/g)).toHaveLength(3);
+		const ids = [
+			...toolbar.matchAll(/data-testid="(chat-composer-tool-[a-z]+)"/g),
+		].map((m) => m[1]);
+		expect(ids).toEqual([
+			"chat-composer-tool-attach",
+			"chat-composer-tool-model",
+			"chat-composer-tool-search",
+		]);
+		expect(toolbar).not.toContain("add-context");
+	});
+
+	for (const [id, reason] of [
+		["chat-composer-tool-attach", "File upload is not built yet."],
+		["chat-composer-tool-model", "Model choice is not built yet."],
+		["chat-composer-tool-search", "Web search is not built yet."],
+	] as const) {
+		it(`${id}: disabled by state, its reason linked and only in the tooltip`, () => {
+			const tool = tagOf(html, id);
+			expect(tool).toMatch(/\sdisabled=""/);
+			expect(tool).toContain('data-variant="ghost"');
+			const describedBy = tool.match(/aria-describedby="([^"]+)"/)?.[1] ?? "";
+			expect(textOfId(html, describedBy)).toBe(reason);
+			expect(tagWithId(html, describedBy)).toMatch(/class="sr-only"/);
+			expect(countText(html, reason)).toBe(1);
+		});
+	}
+
+	it("sizes every tool at 32px", () => {
+		expect(tagOf(html, "chat-composer-tool-attach")).toContain(
+			'data-size="icon-sm"',
+		);
+		expect(tagOf(html, "chat-composer-tool-search")).toContain(
+			'data-size="icon-sm"',
+		);
+		expect(tagOf(html, "chat-composer-tool-model")).toContain('data-size="sm"');
+	});
+
+	it("names each tool: icons by aria-label, the model by its word", () => {
+		expect(tagOf(html, "chat-composer-tool-attach")).toContain(
+			'aria-label="Attach file"',
+		);
+		expect(tagOf(html, "chat-composer-tool-search")).toContain(
+			'aria-label="Web search"',
+		);
+		expect(html).toMatch(
+			/data-testid="chat-composer-tool-model"[^>]*>Model<svg[^>]*lucide-chevron-down/,
+		);
+	});
+
+	it("makes web search a toggle, unpressed", () => {
+		expect(tagOf(html, "chat-composer-tool-search")).toContain(
+			'aria-pressed="false"',
+		);
+		expect(tagOf(html, "chat-composer-tool-attach")).not.toContain(
+			"aria-pressed",
+		);
+	});
+
+	it("names no model: no list exists, so none is shown", () => {
+		const toolbar = toolbarOf(html);
+		expect(toolbar).not.toMatch(
+			/claude|opus|sonnet|haiku|fable|gpt|gemini|llama|mistral|o\d-|\b\d+(?:\.\d+)?b\b/i,
+		);
+		expect(tagOf(html, "chat-composer-tool-model")).not.toMatch(
+			/aria-haspopup|role="combobox"/,
+		);
+	});
+
+	it("renders given tools in the slot, in place of the placeholder", () => {
+		const withTools = renderToString(
+			createElement(
+				TooltipProvider,
+				null,
+				createElement(ChatComposer, {
+					sendDisabledReason: SEND_REASON,
+					tools: createElement(
+						"button",
+						{ type: "button", "data-testid": "tool-x" },
+						"X",
+					),
+				}),
+			),
+		);
+		const start = withTools.indexOf('data-testid="chat-composer-tools"');
+		expect(withTools.indexOf('data-testid="tool-x"')).toBeGreaterThan(start);
+		for (const tool of ["attach", "model", "search"]) {
+			expect(withTools).not.toContain(`chat-composer-tool-${tool}`);
+		}
+	});
+});

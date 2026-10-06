@@ -1,0 +1,230 @@
+# AVEL design system
+
+Version 2026-10-05. Source of truth for the Command Center frontend. The live showcase is `AVEL System.dc.html`; this file is the written half. Where the two disagree, the showcase is wrong and this file wins.
+
+## 1. What the interface is for
+
+AVEL runs AI agents on real client work and refuses to ship anything it cannot prove. The interface therefore has one job: it must never look more finished, more certain, or more enforced than the system actually is. Evidence, hashes and verification results are content, not decoration. Every rule below follows from that.
+
+Consequences:
+
+- A button that cannot act is disabled by state, with its reason printed beside it. Never greyed by styling alone.
+- Absence is stated, never faked. "Not built", "none attached", "none set", "Not yet derived." and "—" are four distinct absences and stay distinct.
+- Attested is not mechanical, stale is not fresh, reconstructed is not recorded. Each pair has its own glyph and label.
+- Colour never carries meaning alone. Every state has a glyph and a word.
+
+## 2. Palette
+
+Dark is the default. Light is applied by `.light` on the app shell. Use exactly these values; never re-derive.
+
+### Surfaces, dark
+
+| token | hex | role |
+|---|---|---|
+| bg | #1a1d23 | desktop, sidebar, wells for machine output |
+| recessed | #1a1d23 | same as bg on dark |
+| panel | #2a2e36 | cards, panels, tables |
+| band | #30343c | panel and table header strips, one step above panel |
+| field | #30343c | inputs, textarea, select, checkbox, radio |
+| raised | #393e46 | hover, active row, active nav item |
+| float | #4a5058 | popover, dropdown, dialog, sheet, command |
+| skeleton | #333842 | loading rows |
+| text | #eeeeee | |
+| text-muted | #a0a8b0 | secondary text, 5.65:1 on panel |
+| text-subtle | #8b939e | labels you scan but never decide on, 4.39:1 on panel |
+| border | rgb(238 238 238 / 0.08) | hairline, rest |
+| border-strong | rgb(238 238 238 / 0.16) | raised surfaces, inputs, chips |
+
+Adjacent surfaces differ by roughly 3–5 L*, not by contrast ratio. Band and field were added during the build because the desktop colour inside a panel read as a hole; both sit one step above panel.
+
+### Surfaces, light
+
+| token | hex |
+|---|---|
+| bg | #eaedf0 |
+| recessed | #f2f4f6 |
+| panel | #ffffff |
+| band | #f2f4f6 |
+| field | #f7f8fa |
+| raised | #ffffff + border-strong + shadow e2 |
+| float | #ffffff + border-strong + shadow e3 |
+| skeleton | #eeeeee |
+| text | #1a1d23 |
+| text-muted | #4a5058 |
+| text-subtle | #6e7681 |
+
+Light cannot go up from white, so extra steps go down and elevation above the panel is carried by border and shadow only. Do not "fix" this by making cards grey.
+
+### Accent
+
+One chromatic colour. Nothing else is cyan or blue.
+
+| token | dark | light |
+|---|---|---|
+| accent | #0092ca | #0092ca |
+| accent-text | #0092ca | #0078ab |
+| accent-soft | rgb(0 146 202 / 0.12) | rgb(0 146 202 / 0.10) |
+| ink on accent | #1a1d23 | #1a1d23 |
+
+### Gate states (triples: solid, soft 12%, line 35%)
+
+| state | dark | light | glyph |
+|---|---|---|---|
+| pass | #22c55e | #15803d | filled ring |
+| block | #ef4444 | #b91c1c | filled ring |
+| warn | #f59e0b | #a16207 | filled ring |
+| pending | #a0a8b0 | #393e46 | empty ring |
+| stale | #8b939e | #6e7681 | ring with a broken segment |
+
+Pending and stale are neutral on purpose so "pending" never collides with the accent. Mechanical gates are a solid ring; attested gates are a dashed ring and name the attester.
+
+### Diff states (what a delivery would do, not whether it may proceed)
+
+create = pass colour · overwrite = warn colour, never block · unchanged = text-muted · preserve = text-subtle. Zero counts are a dash in subtle.
+
+### Export status vocabulary
+
+pending, rendering, verifying, previewing, delivering are pending-toned (in motion). previewed, pr-open are warn (waiting on a person). done is pass. failed is block.
+
+### Interaction overlays
+
+hover rgb(255 255 255 / 0.035) · active 0.060 · selected accent-soft · disabled opacity 0.35. Light inverts the first two to rgb(26 29 35 / …). Disabled is opacity, not a colour: a disabled danger button still reads as danger.
+
+## 3. Type
+
+| role | face | size/line | weight |
+|---|---|---|---|
+| display | Space Grotesk | 32/36 | 500, letter-spacing −0.01em |
+| h1 | Space Grotesk | 24/30 | 500 |
+| h2 | Space Grotesk | 18/24 | 500 |
+| panel title | Space Grotesk | 14/20 | 500 |
+| body | Inter | 14/20 | 400 |
+| small | Inter | 13/18 | 400 |
+| caption | Inter | 12/16 | 400, text-muted |
+| mono | Geist Mono | 13/18 | hashes, paths, IDs, vocabulary terms |
+| mono small | Geist Mono | 12/16 | compact rows |
+| editorial | Fraunces italic | 16/22 | one use: the refusal line "AVEL will not ship this." |
+
+Sentence case everywhere. No uppercase and no positive letter-spacing on any heading or label. Mono is only for machine text; never a heading or a group label. Machine output always sets tabular numerals.
+
+## 4. Radius, elevation, spacing, motion
+
+Radius: 4 chips, tags, inputs, focus ring · 6 buttons, rows · 10 cards, panels, tables · 14 popovers, sheets · 18 modals, app frame · full pills, badges, avatars. One radius per element, never mixed.
+
+Elevation: e0 none · e1 `0 1px 2px rgb(0 0 0 / .40)` resting card · e2 `0 4px 14px rgb(0 0 0 / .45)` popover · e3 `0 16px 44px rgb(0 0 0 / .55)` modal, sheet. Light: .07 / .10 / .14 with rgb(26 29 35). Above the panel, elevation is border plus shadow, not lighter fills.
+
+Z: base 0 · raised 10 · window 100–199 (reserved) · dock 200 · popover 300 · modal 400 · toast 500.
+
+Density: comfortable 12px row padding for reading; compact 6px for scanning a 40-row gate result. Set on the container, not the row.
+
+Motion: micro 120ms (hover, focus, toggles) · state 200ms (panel change, stamp, tab indicator) · enter 320ms (entrances, gate draw-on). Easing `cubic-bezier(0.2, 0.7, 0.3, 1)`. Nothing bouncy, no overshoot. One continuous loop at rest per page: the period in the wordmark (3s, opacity 1 → 0.85). The skeleton pulse runs only while loading. Nothing else repeats. Reduced motion: every state still reads with motion off.
+
+Signature moments, one per family: gate ring draws on as it resolves; verdict stamp lands 1.15 → 1 in 200ms and stops (block adds a 2px displacement, no shake); hash pair fills its shared prefix left to right; proposal collapses to a receipt on approve; tab indicator slides.
+
+## 5. Focus and active states
+
+Focus: 2px accent outline at 2px offset, on the radius scale. On the chat composer it is drawn on the pill wrapper so it follows the pill, with the border stepped up to border-strong. No glow, blur, bloom, gradient wash or pulse anywhere.
+
+Nav active item: raised fill plus a static 2px accent bar along the bottom edge, text at full colour. Collapsed rail keeps the bar and names the link in a tooltip.
+
+Accent left edges are functional markers only: the selected list row and the AVEL-addition block that separates AVEL's text from imported text. Never a card style.
+
+## 6. Shell
+
+Sidebar-only, full-bleed, no mat and no window border. Sidebar sits on bg, separated by a border, 248px open and 56px collapsed, drawer below md.
+
+Twelve links in three groups:
+- Work: Home, Missions, Clients
+- Library: Agent templates, Skills, Sources, Presets, Playbooks
+- System: Activity, Repositories, Connections, Account
+
+Sidebar anatomy: brand block (A. mark, "avel", workspace name), search with ⌘K badge, nav groups, Recent work grouped Today / Yesterday / Last week with mono status chips and a fade mask, footer with account, theme toggle and collapse.
+
+Top bar: title in h2, then a subtitle (a count) or a definition (one plain sentence). Breadcrumb only when the parent differs from the title. Action slot has primary and secondary tiers and reserves no space when empty. Pages never print their own h1.
+
+Movable evidence windows remain a proposal, off by default; the z band 100–199 is reserved.
+
+## 7. Meta strings
+
+No middle dots in meta. Header subtitles join facts with commas: "full-build, sprint 2", "14 skills, 2 revoked, from 3 sources". Facts inside a row are separate elements with a gap. Gate badge: "attested, not run". Skill type: "Capability (declarative)". The one exception is agent identity, name and territory ("Atlas · scheduling"), inside the identity chip only.
+
+## 8. Four states, plus one
+
+Every data region has loading, empty, error and success, enforced by one wrapper.
+
+- Loading: content-shaped skeleton in the real widths; Missions loads six rows. Pulse stops when content lands.
+- Empty: explains why it is empty and what to do. First-run empty state is onboarding.
+- Error: says what happened and whether anything was written. Try again appears only when retrying could change the result.
+- Not built: a fifth state, dashed border on a recessed fill. A stated absence, never a fake.
+
+Every solid border bounds something real; a dashed border means a placeholder.
+
+## 9. Device classes
+
+Each route declares one: capture (works on a phone), construction (desktop only; on a phone its actions are links to desktop routes, never inline controls), approve (read and approve; a phone can approve a preview but cannot start one). Hit targets on a phone are 44px minimum.
+
+## 10. Components and their shadcn equivalents
+
+Primitives keep shadcn's anatomy and prop names (new-york, neutral base, lucide icons) and are restyled fully: Button, Input, Textarea, Select, Checkbox, Switch, Radio, Tabs, Badge, Tooltip, Popover, DropdownMenu, Dialog, Sheet, Command, Table, Toast, Skeleton, Separator, ScrollArea, Breadcrumb, Avatar. Button adds hold-to-confirm (320ms, for deliver and abort) and disabled-with-reason. Badge adds a neutral mono tag for values with no declared vocabulary (mission status, IDs, slugs, waves, runtime).
+
+AVEL components built: gate glyph and row, verdict stamp, hash and hash pair, blast radius table (base SHA and read age always visible), proposal card (approve collapses to a receipt; expired keeps content at 0.6 opacity with Approve truly disabled), finding entry, device-boundary notice, mission list row, section panel, roster row (slug, runtime with its rule in words, kind, wave, three mounts, shared-path notes), library list and reader, filter chips with counts, check line and banner, Command Center chat (AI SDK useChat parts: text, reasoning, tool-invocation; status ready / submitted / streaming / error).
+
+Proposed, not in the data model yet, never present as built: agent identity chip with sides, role card, skill card with layer and granted tools, identity viewer, module timeline M0–M9, token budget meter, coherence panel.
+
+## 11. Rulings, 2026-10-05
+
+1. Sentence case everywhere; mono only for machine text.
+2. Composer focus is the 2px ring; underglow removed; "glow" deleted as a pattern.
+3. Twelve nav links; "16" was a stale field count.
+4. No middle dots in meta strings; agent identity is the exception.
+5. Accent left edges are functional markers only.
+6. Agents use the code's structure; brief-only components stay marked proposed.
+7. Light mode: globals-patch.css exactly as applied.
+8. Sidebar-only shell; evidence windows remain a proposal.
+9. One loop at rest, the wordmark period; skeleton pulse only while loading.
+10. Truncated copy replaced with the exact strings from the code.
+
+### Operator rulings, 2026-10-05 (later the same day)
+
+These supersede the sections they name.
+
+11. A disabled button's reason shows in a tooltip, not printed beside it (supersedes section 1 and section 12). The button keeps the real `disabled` attribute. The tooltip trigger is a focusable wrapper, because a disabled button receives no pointer or focus events, and a tap opens it on touch. The reason stays linked by aria-describedby, so screen readers always get it.
+12. The active nav item carries its accent on the right edge, as a 2px bar with a soft glow fading leftward. There is no full-width fill. This supersedes section 5's bottom bar and its "no glow" rule, for this element only.
+13. The sidebar nests links: Library holds Catalog (Agent templates, Skills, Sources), and System holds Settings (Repositories, Connections, Account). The twelve destinations are unchanged.
+14. The collapse control sits at the top of the sidebar. Search leaves the sidebar for an icon in a global header cluster (search, notifications, theme) on every page.
+15. The sidebar footer shows the operator: name and role.
+16. Home is chat-first: full height, with only the chat input and no panel around it.
+17. The content sits on an inset, rounded canvas: 8px from the viewport's top, right and bottom edges, with an 18px radius. The canvas scrolls; the window does not. The sidebar stays on bg with no border, and the gap is the seam. Below md the canvas is edge to edge with no radius. Anything rounded inside the canvas follows the concentric rule: inner radius equals outer radius minus the padding between them. This supersedes section 6's "full-bleed, no mat".
+18. Recent work leaves the sidebar until the contract can supply mission activity. The brand block shows "Command Center" until workspaces exist in the data model. Both supersede section 6's sidebar anatomy for now.
+19. On the collapsed rail, the active item keeps ruling 12's right-edge mark. The collapse control sits under the mark, so the brand row grows by 40px on the rail, animated. The canvas carries a hairline border, so its edge reads against light-mode bg.
+20. A disabled menu item states its reason inline in the item. Ruling 11's tooltip applies to buttons. Browser tab titles take the form "Missions · AVEL": a tab title is not a meta string, so ruling 4 does not apply to it.
+21. The chat composer floats: a slow 4s, 6px up and down movement. It pauses while the field has focus and stops under reduced motion. It is the second loop at rest, beside the mark's period. This supersedes section 4's "one continuous loop".
+22. Text fields show focus by their border stepping from border-strong to text-muted, with no ring and no accent (operator request). Every other focusable element keeps the 2px accent ring. This supersedes section 5, and BUILDING-AVEL-WEB.md's "in the accent color", for fields only.
+23. A soft accent glow pulses under the chat composer, slowly, in step with its float (operator request). Together they are the composer's one loop at rest. Like the nav glow (ruling 12), it is an exception to ruling 2 for this element only, and it stops under reduced motion.
+24. New palette (operator request: dark was too light with a too-dark sidebar, and light was too bright). This supersedes section 2's surface, text and gate values. `src/styles/app.css` holds them; `avel-tokens.css` is now historical. Every text and gate colour measures at least 4.5:1 on panel and band.
+    - Dark: bg/sidebar #1b1e24, panel/canvas #202329 (2.4 L* apart; the old gap was 8.2), band and field #262a31, raised #2c3038, float #33373f, skeleton #2a2e35. Text #ececec, muted #a3abb3, subtle #8d95a0. accent-text #2ba3d6 (the old #0092ca measured 3.87:1 as text). block #f26363 (the old #ef4444 measured 3.62:1). The brand accent #0092ca is unchanged for fills.
+    - Light, smooth grey: bg/sidebar #e3e5e9, panel/canvas #f2f3f5 (no longer white), band #eaecef, field #fafafb, raised #f9fafb, float #fcfcfd. Muted #454b53, subtle #5f6670, accent-text #006c99, pass #137a39, block #b01b1b, warn #8f5806 (the old subtle, accent-text, pass and warn fell below 4.5:1 on grey).
+25. Dark surfaces move onto Radix slate's dark scale (operator request: the content area was still too light and the sidebar too dark). This supersedes ruling 24's dark surfaces; ruling 24's light values stand. Radix reserves steps 1-2 for app backgrounds and sidebars; the old canvas, #202329, sat at steps 3-4. The canvas is now the darkest surface and the sidebar sits 2 L* above it.
+    - canvas/panel #141517, sidebar/bg #18191b, recessed #111113, band #1c1d20, field #202124, float #232428, raised #26282c, skeleton #222326.
+    - Text #edeef0 is unchanged in effect. Muted #b0b4ba and subtle #8a8f98 are slate 11 and an AA-safe step below it. Every text and gate colour is at least 4.5:1 on every surface.
+26. Menus (dropdown, select, command list) use a 10px radius with 4px padding and 6px rows (concentric), 32px rows (36px in the palette), and caption-style group labels. A row's highlight is its focus indicator, so menu rows draw no ring. Content popovers keep 14px. The modal scrim is lighter in light mode, and toasts follow the theme.
+27. When the contract adds the export status `closed` (a PR closed without merging), its tone is stale: it is terminal, but not a gate failure. Until the contract defines it, no UI shows it. Export tones key on the contract's status union, so a status with no tone fails the build.
+28. One family: Geist for display, headings and prose, Geist Mono for machine text (operator request: clean, minimalist, professional). This supersedes section 3's faces; its sizes, line heights and weights stand. Space Grotesk and Inter are removed. Fraunces is removed too: nothing rendered it, and the refusal line it was reserved for is not built. Geist sets slightly wider than Inter, so tracking tightens: display and h1 −0.02em, h2 −0.015em, panel title −0.01em, body and small −0.005em. Inter-only font features (cv11, ss01) are dropped.
+29. Placeholder data, for the mission detail page only (operator request, while avel-server lacks per-mission exports, team entries, halt reasons and spend). Sections the contract can't supply yet render clearly labelled sample data instead of "not built". Every placeholder section carries a dashed "Sample data" pill, names the missing route in its tooltip, and sits behind the same layout the real data will use. Placeholder values live in one module (`mission-placeholders.ts`), are never sent anywhere, and never mix into a real field. A placeholder section switches to real data, and its placeholder is deleted, when its route lands. This supersedes section 1's "absence is stated, never faked" for that page only.
+30. Stainless Steel (operator request): machined, brushed stainless, restrained and industrial; not chrome, not skeuomorphic. This supersedes ruling 25's surface values, ruling 28's faces, section 3's sizes and section 4's 6px button radius.
+    - Palette: cool blue-grey steel, hue about 210-215 at very low chroma. Dark "Gunmetal": sidebar and window #121518, canvas #16191d (2 L* above the frame), recessed #0f1215, band #1b1f24, field #1d2126, raised #22272d, float #262b31; borders rgb(200 215 230 / 0.08) and 0.14; text #e8ecf0, muted #aab3bd, subtle #9da6b0. Light "Polished steel", never white: sidebar #d5dae0, canvas #e4e8ec, recessed #dce0e5, band #dde2e7, field #f1f3f6, raised #eef1f4, float #f5f7f9; borders rgb(30 40 52 / 0.10) and 0.18; text #14181d, muted #3a434d, subtle #4c5561. The accent stays #0092ca; accent text is #47afdb dark and #005b82 light. Gates keep their meaning, re-measured: dark block #f58585, pending and stale follow muted and subtle; light pass #0e622d. Every text and gate colour clears 4.5:1 on every surface, and on each surface under the sheen, hover, active and selected overlays, in both themes; `tests/steel.test.ts` computes it from app.css.
+    - Metal is suggested by three things only, each a token and a utility: a faint vertical sheen, lighter at the top (`sheen`); a 1px top highlight, the light catching a chamfer (`edge-highlight`); and a near-invisible horizontal grain at 1.5-2% (`brushed`), on the sidebar and the top bar only, never behind dense text. `surface-steel` is sheen plus edge. Fields are flat and set in (`field-inset`). Engraved labels (`engraved`) carry a 1px shadow, above in dark and below in light. Edge, inset and elevation compose in any order.
+    - Steel surfaces: the canvas's edge, the top bar (brushed), panel headers (SectionPanel), DataPanel, Surface's error card, the empty-state tile, popovers, menus, select lists, dialogs, sheets, the command menu, the operator card, the mission page's cards, and secondary and outline buttons. The primary button stays a solid accent.
+    - Buttons are pills: rounded-full at every variant and size, icon buttons are circles, with a step more horizontal padding. Chip-like controls follow: segmented controls (a pill track with pill segments), filter chips, tabs. Rows and surfaces keep their radii: nav plates, menu items, list rows, tree items, panel header rows, inputs and cards. `tests/pill-buttons.test.ts` scans the source.
+    - Type: IBM Plex Sans (variable) for display, headings and prose, IBM Plex Mono for machine text. Sizes: display 33/40, h1 25/32, h2 19/26, panel title 15/22, body 15/22, small 14/20, caption 12.5/16, mono 13.5/20. Headings track -0.01em (panel title -0.005em), body 0.
+    - Navigation: rows 36px, Plex 15px at 450, muted at rest; hover is a soft steel fill; the current row sits on a machined plate (raised, sheen, top edge) with its label at full colour and 500 and its icon in accent text, and ruling 12's right-edge glow rides the plate as it slides. Group labels are engraved. Nested links hang off a ruler: a 1px line with a 4px tick at each child, a 6px accent tick at the current child; children are 32px and 14px, under the parent's label.
+31. The chat composer shows no focus at all (operator request): clicking or focusing its field draws no ring, no border step and no fill change; the caret is the indicator. This applies to the chat composer only and supersedes ruling 22 there; every other text field keeps ruling 22's border step, and every other control keeps the 2px ring.
+
+## 12. Rules for every screen
+
+- A screen starts from a block: shell + top bar, then three-pane workspace, pre-flight stack, queue, registry list or overview.
+- Loading, empty, error and success are mandatory on every data region; not built where the endpoint does not exist.
+- Disabled by state, with the reason visible. Never by styling alone.
+- Hashes and evidence are content: full value on demand, copy copies the full value, base SHA and read age never scroll away.
+- Keyboard first: focus order, the 2px ring, ⌘K command palette.
+- A screen never invents a component. Anything missing is added to this system first.

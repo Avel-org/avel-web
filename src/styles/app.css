@@ -1,0 +1,568 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* One family (ruling 30): IBM Plex Sans for prose and headings, IBM Plex
+   Mono for machine text. Engineered faces for a machined surface. Plex Sans
+   is variable (weights 100-700, so 450 exists); Plex Mono ships no variable
+   build, so its two weights in use load as static files. */
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+/*
+ * The only place token values are defined. Values come from
+ * design/AVEL-DESIGN.md (2026-10-05); names and rationale from
+ * avel-server/docs/patches/globals-patch.css.
+ *
+ * `static` is load-bearing: Tailwind v4 drops theme tokens no utility class
+ * uses, and AVEL reads many tokens through plain var(), which Tailwind cannot
+ * see. Without it the previous build shipped correct in light mode and wrong
+ * in dark, with a green build.
+ */
+
+/* Brand tokens. The accent is the landing page's. Ruling 30 cools the text
+   and the window to the steel palette (the landing page's were #eeeeee and
+   #1a1d23); the window matches the sidebar, so nothing shows at the edges
+   before the app paints. */
+@theme static {
+	--color-bg: #121518;
+	--color-accent: #0092ca;
+	--color-text: #e8ecf0;
+
+	--font-display: "IBM Plex Sans Variable", system-ui, sans-serif;
+	--font-sans: "IBM Plex Sans Variable", system-ui, sans-serif;
+	--font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* The Command Center set. Dark is the default; .light overrides below. */
+@theme static {
+	/* Surfaces (ruling 30, "Gunmetal"): cool blue-grey steel, hue about
+	   210-215 at very low chroma. The sidebar and window are the deepest
+	   frame (L* 6.6); the canvas sits 2 L* above it, the calm work surface.
+	   Band, field, raised and float climb in about 3 L* steps. */
+	--color-app-bg: #121518;
+	--color-app-recessed: #0f1215;
+	--color-app-panel: #16191d;
+	--color-app-band: #1b1f24;
+	--color-app-field: #1d2126;
+	--color-app-raised: #22272d;
+	--color-app-float: #262b31;
+	--color-skeleton: #1f2429;
+
+	/* Every text and gate colour measures at least 4.5:1 on every surface,
+	   including the sheen's top and the active and selected overlays. */
+	--color-text-muted: #aab3bd;
+	--color-text-subtle: #9da6b0;
+
+	--color-border: rgb(200 215 230 / 0.08);
+	--color-border-strong: rgb(200 215 230 / 0.14);
+
+	/* Metal (ruling 30), suggested by three things only: a faint vertical
+	   sheen, lighter at the top; a 1px top highlight, the light catching a
+	   chamfer; and a near-invisible brushed grain on the frame only. */
+	--color-sheen: rgb(255 255 255 / 0.035);
+	--color-edge-highlight: rgb(255 255 255 / 0.05);
+	--color-grain: rgb(255 255 255 / 0.015);
+	--color-inset-shadow: rgb(0 0 0 / 0.35);
+	--color-engrave: rgb(255 255 255 / 0.06);
+
+	/* One chromatic colour; nothing else is cyan or blue. */
+	--color-accent-text: #47afdb;
+	--color-accent-soft: rgb(0 146 202 / 0.12);
+	--color-accent-ink: #1a1d23;
+	--color-focus-ring: #0092ca;
+
+	/* Translucent overlays, so one token works on every surface. Disabled is
+	   opacity, not a colour: a disabled danger button still reads as danger. */
+	--color-state-hover: rgb(200 215 230 / 0.045);
+	--color-state-active: rgb(200 215 230 / 0.07);
+	--color-state-selected: rgb(0 146 202 / 0.12);
+	--opacity-disabled: 0.35;
+
+	/* Gate states: solid, soft 12%, line 35%. Pending and stale are neutral so
+	   "pending" never collides with the accent. */
+	--color-gate-pass: #22c55e;
+	--color-gate-pass-soft: rgb(34 197 94 / 0.12);
+	--color-gate-pass-line: rgb(34 197 94 / 0.35);
+	--color-gate-block: #f58585;
+	--color-gate-block-soft: rgb(245 133 133 / 0.12);
+	--color-gate-block-line: rgb(245 133 133 / 0.35);
+	--color-gate-warn: #f59e0b;
+	--color-gate-warn-soft: rgb(245 158 11 / 0.12);
+	--color-gate-warn-line: rgb(245 158 11 / 0.35);
+	--color-gate-pending: #aab3bd;
+	--color-gate-pending-soft: rgb(170 179 189 / 0.12);
+	--color-gate-pending-line: rgb(170 179 189 / 0.35);
+	--color-gate-stale: #9da6b0;
+	--color-gate-stale-soft: rgb(157 166 176 / 0.12);
+	--color-gate-stale-line: rgb(157 166 176 / 0.35);
+
+	/* Radius encodes hierarchy. These replace Tailwind's scale, so rounded-xs
+	   is 4px, rounded-sm 6px, and so on. One radius per element. */
+	--radius-xs: 4px; /* chips, tags, inputs, focus ring */
+	--radius-sm: 6px; /* buttons, list rows, small controls */
+	--radius-md: 10px; /* cards, panels, tables */
+	--radius-lg: 14px; /* popovers, sheets */
+	--radius-xl: 18px; /* modals, the app frame */
+	--radius-full: 999px; /* pills, status badges, avatars */
+
+	/* Above the panel, elevation is border plus shadow, not lighter fills. */
+	--shadow-e0: none;
+	--shadow-e1: 0 1px 2px rgb(0 0 0 / 0.4);
+	--shadow-e2: 0 4px 14px rgb(0 0 0 / 0.45);
+	--shadow-e3: 0 16px 44px rgb(0 0 0 / 0.55);
+
+	--z-base: 0;
+	--z-raised: 10;
+	--z-window: 100; /* 100 to 199, reserved for evidence windows */
+	--z-dock: 200;
+	--z-popover: 300;
+	--z-modal: 400;
+	--z-toast: 500;
+
+	--row-comfortable: 12px;
+	--row-compact: 6px;
+
+	/* Shell geometry (ruling 17). The canvas is inset from the viewport and
+	   rounded; anything rounded inside it follows the concentric rule: inner
+	   radius = outer radius minus the padding between them. */
+	--canvas-inset: 8px;
+	--radius-canvas: 18px;
+	--topbar-height: 56px;
+	--content-max: 75rem;
+	--chat-max: 45rem;
+
+	/* Nothing bouncy, no overshoot. */
+	--duration-micro: 120ms; /* hover, focus, toggles */
+	--duration-state: 200ms; /* panel change, stamp, tab indicator */
+	--duration-enter: 320ms; /* entrances, gate draw-on */
+	--ease-avel: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/*
+ * Aliases. No `static`: aliases are read through utilities, never var().
+ * `inline` makes each utility read the source token directly, so a
+ * .light subtree resolves them to light values. A non-inline alias is computed
+ * once at :root and stays dark.
+ *
+ * shadcn's names point at AVEL tokens, never the reverse. shadcn's own
+ * "accent" means a subtle hover surface; it is renamed accent-surface so
+ * --color-accent stays the brand cyan. Keep this comment: the next person will
+ * otherwise "simplify" it back, and every ghost hover turns cyan.
+ */
+@theme inline {
+	--color-diff-create: var(--color-gate-pass);
+	--color-diff-overwrite: var(--color-gate-warn);
+	--color-diff-unchanged: var(--color-text-muted);
+	--color-diff-preserve: var(--color-text-subtle);
+
+	--color-foreground: var(--color-text);
+	--color-card: var(--color-app-panel);
+	--color-popover: var(--color-app-float);
+	--color-popover-foreground: var(--color-text);
+	--color-primary: var(--color-accent);
+	--color-primary-foreground: var(--color-accent-ink);
+	--color-secondary: var(--color-app-raised);
+	--color-secondary-foreground: var(--color-text);
+	--color-muted: var(--color-app-band);
+	--color-muted-foreground: var(--color-text-muted);
+	--color-accent-surface: var(--color-state-active);
+	--color-destructive: var(--color-gate-block);
+	--color-input: var(--color-border-strong);
+}
+
+/*
+ * Light, applied by .light on the app shell, never on <html>. "Polished
+ * steel" (ruling 30): a soft steel grey, never white. The sidebar frame is
+ * deepest; the canvas a step lighter; raised and float step toward, but
+ * stop short of, white.
+ */
+.light {
+	--color-app-bg: #d5dae0;
+	--color-app-recessed: #dce0e5;
+	--color-app-panel: #e4e8ec;
+	--color-app-band: #dde2e7;
+	--color-app-field: #f1f3f6;
+	--color-app-raised: #eef1f4;
+	--color-app-float: #f5f7f9;
+	--color-skeleton: #d9dee3;
+
+	--color-text: #14181d;
+	--color-text-muted: #3a434d;
+	--color-text-subtle: #4c5561;
+	--color-border: rgb(30 40 52 / 0.1);
+	--color-border-strong: rgb(30 40 52 / 0.18);
+
+	--color-sheen: rgb(255 255 255 / 0.35);
+	--color-edge-highlight: rgb(255 255 255 / 0.7);
+	--color-grain: rgb(20 28 38 / 0.02);
+	--color-inset-shadow: rgb(20 28 38 / 0.08);
+	--color-engrave: rgb(20 28 38 / 0.12);
+
+	--color-accent-text: #005b82;
+	--color-accent-soft: rgb(0 146 202 / 0.1);
+
+	--color-state-hover: rgb(20 28 38 / 0.04);
+	--color-state-active: rgb(20 28 38 / 0.07);
+	--color-state-selected: rgb(0 146 202 / 0.1);
+
+	--color-gate-pass: #0e622d;
+	--color-gate-pass-soft: rgb(14 98 45 / 0.1);
+	--color-gate-pass-line: rgb(14 98 45 / 0.3);
+	--color-gate-block: #a51919;
+	--color-gate-block-soft: rgb(165 25 25 / 0.1);
+	--color-gate-block-line: rgb(165 25 25 / 0.3);
+	--color-gate-warn: #7a4a04;
+	--color-gate-warn-soft: rgb(122 74 4 / 0.1);
+	--color-gate-warn-line: rgb(122 74 4 / 0.3);
+	--color-gate-pending: #323a44;
+	--color-gate-pending-soft: rgb(50 58 68 / 0.08);
+	--color-gate-pending-line: rgb(50 58 68 / 0.3);
+	--color-gate-stale: #4c5561;
+	--color-gate-stale-soft: rgb(76 85 97 / 0.1);
+	--color-gate-stale-line: rgb(76 85 97 / 0.3);
+
+	--shadow-e1: 0 1px 2px rgb(20 28 38 / 0.08);
+	--shadow-e2: 0 4px 14px rgb(20 28 38 / 0.11);
+	--shadow-e3: 0 16px 44px rgb(20 28 38 / 0.15);
+}
+
+/*
+ * Tailwind compiles --shadow-* theme values into its shadow utilities, so the
+ * .light overrides above would never reach them. These read the variable at
+ * runtime instead.
+ */
+@utility shadow-e1 {
+	--avel-elevation: var(--shadow-e1);
+	box-shadow:
+		var(--avel-edge, 0 0 transparent), var(--avel-inset, 0 0 transparent),
+		var(--shadow-e1);
+}
+
+@utility shadow-e2 {
+	--avel-elevation: var(--shadow-e2);
+	box-shadow:
+		var(--avel-edge, 0 0 transparent), var(--avel-inset, 0 0 transparent),
+		var(--shadow-e2);
+}
+
+@utility shadow-e3 {
+	--avel-elevation: var(--shadow-e3);
+	box-shadow:
+		var(--avel-edge, 0 0 transparent), var(--avel-inset, 0 0 transparent),
+		var(--shadow-e3);
+}
+
+/*
+ * Steel (ruling 30). Each utility sets its own custom property and then
+ * paints all three, so an edge, an inset and an elevation compose in any
+ * class order instead of the last box-shadow winning.
+ */
+
+/* The 1px top highlight: light catching the chamfer. */
+@utility edge-highlight {
+	--avel-edge: inset 0 1px 0 var(--color-edge-highlight);
+	box-shadow:
+		var(--avel-edge), var(--avel-inset, 0 0 transparent),
+		var(--avel-elevation, 0 0 transparent);
+}
+
+/* The vertical sheen: lighter at the top, gone by two thirds down. Over the
+   element's own background colour, so any surface token takes it. */
+@utility sheen {
+	background-image: linear-gradient(
+		to bottom,
+		var(--color-sheen),
+		transparent 66%
+	);
+}
+
+/* A machined surface: sheen and top highlight together. Canvas, panels,
+   cards, popovers, menus, dialogs, the top bar, secondary buttons. */
+@utility surface-steel {
+	--avel-edge: inset 0 1px 0 var(--color-edge-highlight);
+	background-image: linear-gradient(
+		to bottom,
+		var(--color-sheen),
+		transparent 66%
+	);
+	box-shadow:
+		var(--avel-edge), var(--avel-inset, 0 0 transparent),
+		var(--avel-elevation, 0 0 transparent);
+}
+
+/* Brushed grain, for the frame only (sidebar, top bar), never behind dense
+   text: 1px horizontal lines every 3px at 1.5-2% contrast, under the sheen. */
+@utility brushed {
+	background-image:
+		linear-gradient(to bottom, var(--color-sheen), transparent 66%),
+		repeating-linear-gradient(
+			to bottom,
+			var(--color-grain) 0 1px,
+			transparent 1px 3px
+		);
+}
+
+/* Fields sit into the surface: a soft inner shadow, no sheen. */
+@utility field-inset {
+	--avel-inset: inset 0 1px 2px var(--color-inset-shadow);
+	box-shadow:
+		var(--avel-edge, 0 0 transparent), var(--avel-inset),
+		var(--avel-elevation, 0 0 transparent);
+}
+
+/* Engraved label: caption-quiet text with a 1px shadow, the edge of a cut
+   (above in dark, where the light rim is; below in light). */
+@utility engraved {
+	text-shadow: 0 -1px 0 var(--color-engrave);
+	:where(.light) & {
+		text-shadow: 0 1px 0 var(--color-engrave);
+	}
+}
+
+/* Tailwind v4 defaults a bare `border` to currentColor, which draws every
+   hairline at full text colour. shadcn's init adds this rule; it is the
+   hairline token, so a border is quiet unless a class says otherwise. */
+@layer base {
+	*,
+	::before,
+	::after,
+	::backdrop {
+		border-color: var(--color-border);
+	}
+}
+
+/* Loading only. Stops when content lands. */
+@keyframes avelPulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.4;
+	}
+}
+
+@utility skeleton-pulse {
+	animation: avelPulse 1.6s var(--ease-avel) infinite;
+}
+
+/* Every state still reads with motion off; only the movement goes. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		/* biome-ignore lint/complexity/noImportantStyles: must beat every component's own duration */
+		animation-duration: 0.01ms !important;
+		/* biome-ignore lint/complexity/noImportantStyles: an infinite loop at 0.01ms flickers; it must run once and stop */
+		animation-iteration-count: 1 !important;
+		/* biome-ignore lint/complexity/noImportantStyles: must beat every component's own duration */
+		transition-duration: 0.01ms !important;
+	}
+}
+
+html,
+body {
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	margin: 0;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+}
+
+/* The themed subtree. Paints its own background so light mode covers the
+   page. dvh, so a phone's browser chrome never hides the bottom. */
+.app {
+	background: var(--color-app-bg);
+	color: var(--color-text);
+	min-height: 100dvh;
+}
+
+::selection {
+	background: var(--color-accent-soft);
+	color: var(--color-text);
+}
+
+/* Lucide defaults to a 2px stroke, which reads heavy at 14-16px. */
+.lucide {
+	stroke-width: 1.75;
+}
+
+/*
+ * Type scale (ruling 30, superseding section 3's sizes and ruling 28's
+ * face). Use these instead of ad hoc text-lg and text-sm: each sets face,
+ * size, line height, weight and tracking together. Plex sets a touch wider
+ * and more open than the previous face, so the sizes step up and headings tighten only
+ * to -0.01em; body text is tracked at 0.
+ */
+@utility type-display {
+	font-family: var(--font-display);
+	font-size: 2.0625rem;
+	line-height: 2.5rem;
+	font-weight: 500;
+	letter-spacing: -0.01em;
+}
+
+@utility type-h1 {
+	font-family: var(--font-display);
+	font-size: 1.5625rem;
+	line-height: 2rem;
+	font-weight: 500;
+	letter-spacing: -0.01em;
+}
+
+@utility type-h2 {
+	font-family: var(--font-display);
+	font-size: 1.1875rem;
+	line-height: 1.625rem;
+	font-weight: 500;
+	letter-spacing: -0.01em;
+}
+
+@utility type-panel-title {
+	font-family: var(--font-display);
+	font-size: 0.9375rem;
+	line-height: 1.375rem;
+	font-weight: 500;
+	letter-spacing: -0.005em;
+}
+
+@utility type-body {
+	font-family: var(--font-sans);
+	font-size: 0.9375rem;
+	line-height: 1.375rem;
+	font-weight: 400;
+	letter-spacing: 0;
+}
+
+@utility type-small {
+	font-family: var(--font-sans);
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	font-weight: 400;
+	letter-spacing: 0;
+}
+
+@utility type-caption {
+	font-family: var(--font-sans);
+	font-size: 0.78125rem;
+	line-height: 1rem;
+	font-weight: 400;
+	letter-spacing: 0;
+	color: var(--color-text-muted);
+}
+
+/* Machine text: hashes, paths, IDs, counts. Always tabular. */
+@utility type-mono {
+	font-family: var(--font-mono);
+	font-size: 0.84375rem;
+	line-height: 1.25rem;
+	font-variant-numeric: tabular-nums;
+}
+
+@utility type-mono-small {
+	font-family: var(--font-mono);
+	font-size: 0.78125rem;
+	line-height: 1rem;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Scrolls, but shows no scrollbar. For the sidebar. */
+@utility no-scrollbar {
+	scrollbar-width: none;
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+/* A real, quiet scrollbar: visible enough to say there is more. For the
+   canvas, where a long list must never look complete when it is not. */
+@utility app-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-border-strong) transparent;
+	scroll-padding-top: var(--topbar-height);
+}
+
+/* Inside a clipped container (the canvas, a card with overflow hidden) an
+   outset ring is cut off at the edge. This draws it inside instead. */
+@utility focus-inset {
+	&:focus-visible {
+		outline-offset: -2px;
+	}
+}
+
+/* Page entrance: answers the navigation, then stops. */
+/* A fade and a 4px rise. It ends at `none`, not translateY(0): with the
+   fill held, a lingering transform would make the page's wrapper the
+   containing block for anything fixed inside it. Reduced motion cuts it to
+   0.01ms, so the content simply appears. */
+@keyframes avelFadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@utility animate-page-in {
+	animation: avelFadeIn var(--duration-micro) var(--ease-avel) both;
+}
+
+/* A slow 6px float, for the chat composer (operator request). Reduced motion
+   stops it, like every animation. */
+@keyframes avelFloat {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
+@utility animate-float {
+	animation: avelFloat 4s ease-in-out infinite;
+}
+
+/* The loops at rest: the period in the mark, and the composer's float. */
+@keyframes avelPeriod {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.85;
+	}
+}
+
+@utility animate-period {
+	animation: avelPeriod 3s var(--ease-avel) infinite;
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-focus-ring);
+	outline-offset: 2px;
+}
+
+/* Text fields show focus by their own border, not the ring (operator
+   request): clicking into a field is already obvious from the caret. The
+   field primitives step their border up to border-strong on focus. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+	outline: none;
+}
+
+/* Menu rows, listbox options and palette items show the keyboard's position
+   with their highlight fill. The ring on top of it doubled the indicator. */
+[role="menuitem"]:focus-visible,
+[role="menuitemcheckbox"]:focus-visible,
+[role="menuitemradio"]:focus-visible,
+[role="option"]:focus-visible,
+[cmdk-item]:focus-visible {
+	outline: none;
+}

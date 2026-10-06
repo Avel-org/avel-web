@@ -1,0 +1,53 @@
+{
+	"name": "avel-web",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@10.34.6",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"dev": "vite dev --port 3000",
+		"build": "vite build",
+		"routes": "tsr generate",
+		"check-tokens": "node scripts/check-tokens.mjs",
+		"typecheck": "tsr generate && tsc --noEmit",
+		"lint": "biome check . && node scripts/check-raw-colors.mjs",
+		"test": "tsr generate && vitest run",
+		"check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm check-tokens"
+	},
+	"dependencies": {
+		"@fontsource-variable/ibm-plex-sans": "^5.3.0",
+		"@fontsource/ibm-plex-mono": "^5.3.0",
+		"@tanstack/react-query": "^5.104.1",
+		"@tanstack/react-router": "1.170.32",
+		"@tanstack/react-start": "1.168.49",
+		"@ts-rest/core": "^3.52.1",
+		"avel-server": "link:../../avel-server/avel-server",
+		"class-variance-authority": "^0.7.1",
+		"clsx": "^2.1.1",
+		"cmdk": "^1.1.1",
+		"lucide-react": "^1.52.0",
+		"nitro": "3.0.260610-beta",
+		"radix-ui": "^1.6.7",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"sonner": "^2.0.8",
+		"tailwind-merge": "^3.7.0",
+		"zod": "^3.25.76"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.5",
+		"@tailwindcss/vite": "^4.1.18",
+		"@tanstack/router-cli": "^1.132.0",
+		"@types/node": "^24.13.3",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"@vitejs/plugin-react": "^6.0.1",
+		"tailwindcss": "^4.1.18",
+		"tw-animate-css": "^1.4.0",
+		"typescript": "^6.0.2",
+		"vite": "^8.0.0",
+		"vitest": "^4.1.11"
+	}
+}

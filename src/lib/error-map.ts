@@ -1,0 +1,354 @@
+import type { PreconditionReason } from "avel-server/contract";
+import type { ApiError, ApiFailure, ContractErrorCode } from "@/lib/api/errors";
+
+/**
+ * Error copy is written for the operator deciding what to do next
+ * (BUILDING-AVEL-WEB.md, AVEL-DESIGN.md section 8): what happened, whether
+ * anything was written, and what to do. `retry` is true only when trying
+ * again could change the result, so Try again never appears for a failure
+ * that would repeat.
+ */
+export type ErrorCopy = {
+	what: string;
+	written: string;
+	next: string;
+	retry: boolean;
+};
+
+/** A value that differs between a read (GET) and a write. */
+export type ByMethod<T> = { read: T; write: T };
+
+/**
+ * One code's copy. Most codes mean the same whatever the request was. A few,
+ * where the server failed partway, can only say what was written once the
+ * method is known: a read wrote nothing, a write may have.
+ */
+export type CodeCopy = {
+	what: string;
+	written: string | ByMethod<string>;
+	next: string | ByMethod<string>;
+	retry: boolean | ByMethod<boolean>;
+};
+
+/** One entry per code. A missing code or an unknown key fails the build. */
+export type ErrorCopyTable<TCode extends string> = {
+	readonly [K in TCode]: CodeCopy;
+};
+
+const NOTHING_WRITTEN = "Nothing was written.";
+const UNKNOWN_IF_SAVED = "AVEL cannot tell whether this change was saved.";
+
+/**
+ * Copy for every code in avel-server's contract (src/contract/shared/errors.ts),
+ * keyed on its union: a code the server adds stops this compiling until it
+ * has copy here. Each entry's meaning is read from the source named beside
+ * it. Copy never quotes the server's message; that is for logs and support.
+ */
+export const CONTRACT_ERROR_COPY: ErrorCopyTable<ContractErrorCode> = {
+	// errors.ts: generic. The server sends it when a request does not match
+	// the contract, or its JSON body does not parse (src/middleware/errors.ts).
+	VALIDATION_FAILED: {
+		what: "avel-server rejected the request as invalid.",
+		written: NOTHING_WRITTEN,
+		next: "Check what you entered. If nothing looks wrong, report it with the request reference.",
+		retry: false,
+	},
+	// errors.ts: generic, sign-in. Thrown before the router (src/app.ts).
+	UNAUTHENTICATED: {
+		what: "You are not signed in, or your session has ended.",
+		written: NOTHING_WRITTEN,
+		next: "Sign in again, then repeat what you were doing.",
+		retry: false,
+	},
+	// errors.ts and src/middleware/auth.ts: a live session whose GitHub id is
+	// no longer on the operator allowlist. The sign-in gate takes over on it.
+	NOT_OPERATOR: {
+		what: "This account no longer has access to this Command Center.",
+		written: NOTHING_WRITTEN,
+		next: "Sign out. An admin can restore access by adding the account back.",
+		retry: false,
+	},
+	// errors.ts: generic, for a per-resource denial (and the sign-in origin
+	// guard). Not the operator check: that is NOT_OPERATOR.
+	FORBIDDEN: {
+		what: "Your account is not allowed to do this.",
+		written: NOTHING_WRITTEN,
+		next: "Ask an admin for access if you need it.",
+		retry: false,
+	},
+	// errors.ts: generic. Also the answer for a route the server does not have.
+	NOT_FOUND: {
+		what: "This could not be found. It may have been removed, or the link is wrong.",
+		written: NOTHING_WRITTEN,
+		next: "Go back and open it again from its list.",
+		retry: false,
+	},
+	// errors.ts: generic. No doc defines which conflicts raise it, so the copy
+	// says only what a 409 conflict means.
+	CONFLICT: {
+		what: "This conflicts with the current state on the server.",
+		written: NOTHING_WRITTEN,
+		next: "Reload to see the latest state, then make your change again.",
+		retry: false,
+	},
+	// errors.ts: generic. Anything unexpected; the server reports it with the
+	// request id and sends no detail (src/middleware/errors.ts).
+	INTERNAL: {
+		what: "avel-server hit an unexpected error.",
+		written: { read: NOTHING_WRITTEN, write: UNKNOWN_IF_SAVED },
+		next: {
+			read: "Try again. If it repeats, report it with the request reference.",
+			write:
+				"Check whether the change was saved before you repeat it, and report it with the request reference.",
+		},
+		retry: { read: true, write: false },
+	},
+	// DATA-CONTRACTS-V2.md, export.create (409): the idempotency key was
+	// already used, so this is the same request arriving twice.
+	IDEMPOTENCY_REPLAY: {
+		what: "This export was already requested.",
+		written: "The first request was recorded. This one wrote nothing new.",
+		next: "Open the existing export instead of starting another.",
+		retry: false,
+	},
+	// DATA-CONTRACTS-V2.md, export.create (422); BLAST-RADIUS.md's pre-flight
+	// lists the preconditions.
+	PRECONDITION_FAILED: {
+		what: "Something this action requires is not in place yet.",
+		written: NOTHING_WRITTEN,
+		next: "Check the preconditions on the pre-flight screen, complete what is missing, then try again.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md, error cases: 404 from GitHub.
+	REPO_NOT_FOUND: {
+		what: "GitHub has no repository at this address. It may be missing or renamed.",
+		written: NOTHING_WRITTEN,
+		next: "Check the repository URL, or export as a zip instead.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: 403 from GitHub, or the token lacks scope.
+	REPO_NO_ACCESS: {
+		what: "The connection used for this does not have access to the repository.",
+		written: NOTHING_WRITTEN,
+		next: "Check the connection's scope in Settings, under Connections, and grant what it needs.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: the Connection is no longer active.
+	CONNECTION_REVOKED: {
+		what: "The connection for this repository is no longer active.",
+		written: NOTHING_WRITTEN,
+		next: "Reconnect the account in Settings, under Connections, then try again.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: a push to the default branch where the repository's
+	// policy forbids it. Blocked by policy, not by an error.
+	POLICY_FORBIDS_TARGET: {
+		what: "This repository's policy does not allow pushing to its default branch.",
+		written: NOTHING_WRITTEN,
+		next: "Deliver as a pull request instead.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: the named ref does not exist.
+	BRANCH_NOT_FOUND: {
+		what: "The branch named for this delivery does not exist.",
+		written: NOTHING_WRITTEN,
+		next: "Check the branch name. A pull request can compare against the base branch instead.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: the repository has no commits. The doc calls this "not
+	// an error"; the server still sends it as one (reported upstream).
+	EMPTY_REPOSITORY: {
+		what: "The repository has no commits yet, so everything in this delivery would be new.",
+		written: NOTHING_WRITTEN,
+		next: "Preview again to deliver everything as new files.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: the tree is truncated even when scoped to the paths.
+	TREE_TOO_LARGE: {
+		what: "The repository is too large to compare safely.",
+		written: NOTHING_WRITTEN,
+		next: "Export as a zip instead.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: a violation is present. Not overridable.
+	BLAST_RADIUS_VIOLATION: {
+		what: "This delivery would write where it is not permitted to.",
+		written: NOTHING_WRITTEN,
+		next: "Review the violations listed. They cannot be overridden.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: the base commit moved since the preview.
+	PREVIEW_STALE: {
+		what: "The repository changed after this preview was made.",
+		written: NOTHING_WRITTEN,
+		next: "Preview again to see what the delivery would change now.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: a push without a preview. A backend guard the
+	// interface should never reach.
+	PREVIEW_REQUIRED: {
+		what: "A direct push needs a preview first.",
+		written: NOTHING_WRITTEN,
+		next: "Run the pre-flight preview, then deliver from it.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: the real render's hash differs from the preview's. An
+	// architectural failure, not a user error.
+	DETERMINISM_VIOLATION: {
+		what: "The delivery did not match its preview: the same inputs produced different files. This is a failure in AVEL, not in your work.",
+		written: "Nothing was delivered.",
+		next: "Report it with the request reference.",
+		retry: false,
+	},
+	// BLAST-RADIUS.md: a 5xx, rate limit or timeout from GitHub. Retryable.
+	EXTERNAL_GITHUB: {
+		what: "GitHub did not answer in time, or is limiting requests.",
+		written: {
+			read: NOTHING_WRITTEN,
+			write: "AVEL cannot tell how far GitHub got before it stopped answering.",
+		},
+		next: {
+			read: "Try again in a moment. If GitHub is limiting requests, wait for the limit to reset.",
+			write:
+				"Check the repository on GitHub, then try again once GitHub is answering.",
+		},
+		retry: true,
+	},
+	// errors.ts only (no doc yet): GitHub refused the request, and unlike
+	// EXTERNAL_GITHUB, retrying the same request will not help.
+	GITHUB_REJECTED: {
+		what: "GitHub refused the request.",
+		written: "GitHub did not apply it.",
+		next: "Check the repository's settings and permissions on GitHub. Trying again unchanged will not help.",
+		retry: false,
+	},
+};
+
+/**
+ * PRECONDITION_FAILED's copy per reason (contract PRECONDITION_REASONS), each
+ * read from the route that raises it. Keyed on the contract's union, so a
+ * reason the server adds fails this build until it has copy. These replace
+ * the generic entry, whose pre-flight wording fits none of them.
+ */
+export const PRECONDITION_COPY = {
+	// avel-server src/routes/clients.ts: closing a client whose engagements
+	// are still active.
+	client_has_active_engagements: {
+		what: "This client still has active engagements.",
+		written: "Nothing was changed.",
+		next: "Close its active engagements first, then close the client.",
+		retry: false,
+	},
+	// src/routes/engagements.ts: a new engagement for a client that no longer
+	// exists.
+	client_not_found: {
+		what: "This client no longer exists.",
+		written: NOTHING_WRITTEN,
+		next: "Reload the client list and choose an existing client.",
+		retry: false,
+	},
+	// src/routes/engagements.ts: a new engagement for a closed client. A
+	// client can be reopened: its status accepts active again.
+	client_closed: {
+		what: "This client is closed, so it cannot take a new engagement.",
+		written: NOTHING_WRITTEN,
+		next: "Reopen the client if it should take new work, or choose an active client.",
+		retry: false,
+	},
+} as const satisfies Record<PreconditionReason, CodeCopy>;
+
+/** Copy for an error from avel-server's contract. */
+export function describeError(error: ApiError): ErrorCopy {
+	const { failure } = error;
+	// Narrowing on the code types its details (the contract's union).
+	if (failure.kind === "contract" && failure.code === "PRECONDITION_FAILED") {
+		return resolve(
+			PRECONDITION_COPY[failure.details.reason],
+			failure.method === "GET",
+		);
+	}
+	return describeWith(CONTRACT_ERROR_COPY)(error);
+}
+
+/**
+ * Builds the describer over any code table. Exported so the mechanism can be
+ * tested with a contract that has codes, while the real one has none.
+ */
+export function describeWith<TCode extends string>(
+	table: ErrorCopyTable<TCode>,
+): (error: ApiError<TCode>) => ErrorCopy {
+	return ({ failure }) => describeFailure(failure, table);
+}
+
+function describeFailure<TCode extends string>(
+	failure: ApiFailure<TCode>,
+	table: ErrorCopyTable<TCode>,
+): ErrorCopy {
+	// A read changes nothing on the server, so its failure can say so. For a
+	// write, the client cannot know whether the change landed before the
+	// connection dropped, and the copy says that instead of guessing.
+	const isRead = failure.method === "GET";
+	switch (failure.kind) {
+		case "contract": {
+			// The code, as the table's key. For a generic vocabulary TypeScript
+			// cannot see `code` through the union of envelope bodies; every
+			// variant has one.
+			const code = (failure as unknown as { code: TCode }).code;
+			return resolve(table[code], isRead);
+		}
+		case "unreachable":
+			return {
+				what: "avel-server did not answer.",
+				written: isRead
+					? "Nothing was written."
+					: "AVEL cannot tell whether this change was saved.",
+				next: isRead
+					? "Check that avel-server is running, then try again."
+					: "Check whether the change was saved before you try again.",
+				retry: isRead,
+			};
+		case "unexpected-status":
+			return {
+				what: `avel-server answered ${failure.status}, which its contract does not define for this request.`,
+				written: isRead
+					? "Nothing was written."
+					: "AVEL cannot tell whether this change was saved.",
+				next:
+					failure.status >= 500
+						? "This is a server failure. Try again, and report it if it repeats."
+						: "avel-server and this app disagree about the contract. Update the pinned contract or the server.",
+				retry: isRead && failure.status >= 500,
+			};
+		case "invalid-response":
+			return {
+				what: "avel-server's answer did not match its contract.",
+				written: isRead
+					? "Nothing was written."
+					: "avel-server answered, so the change may have been saved.",
+				next: "avel-server and this app disagree about the contract. Update the pinned contract or the server.",
+				retry: false,
+			};
+		default:
+			return unhandled(failure);
+	}
+}
+
+/** A code's copy for one request: read or write, where it differs. */
+function resolve(entry: CodeCopy, isRead: boolean): ErrorCopy {
+	const pick = <T>(value: T | ByMethod<T>): T =>
+		typeof value === "object" && value !== null && "read" in value
+			? isRead
+				? value.read
+				: value.write
+			: (value as T);
+	return {
+		what: entry.what,
+		written: pick(entry.written),
+		next: pick(entry.next),
+		retry: pick(entry.retry),
+	};
+}
+
+function unhandled(failure: never): never {
+	throw new Error(`No copy for API failure ${JSON.stringify(failure)}`);
+}
