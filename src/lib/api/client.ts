@@ -8,7 +8,11 @@ import {
 	UnknownStatusError,
 	validateResponse,
 } from "@ts-rest/core";
-import { contract, type ErrorEnvelope } from "avel-server/contract";
+import {
+	contract,
+	type ErrorEnvelope,
+	errorEnvelope,
+} from "avel-server/contract";
 import { ApiError } from "./errors";
 
 /**
@@ -56,6 +60,9 @@ export function createApiClient(
 	});
 }
 
+/** Statuses a gateway in front of avel-server answers when it gets no answer. */
+const GATEWAY_STATUSES = new Set([502, 503, 504]);
+
 /** The header avel-server sets on every /api response. */
 const REQUEST_ID_HEADER = "x-request-id";
 
@@ -76,6 +83,17 @@ function validating(api: ApiFetcher): ApiFetcher {
 			path: args.route.path,
 			requestId: response.headers.get(REQUEST_ID_HEADER) ?? undefined,
 		};
+		// A gateway's 502, 503 or 504 with no error envelope came from whatever
+		// stands in front of avel-server (the dev proxy, a load balancer), not
+		// from avel-server: it did not answer. That is unreachable and worth
+		// retrying, not a contract mismatch. avel-server's own 502 carries the
+		// envelope and stays a contract error.
+		if (
+			GATEWAY_STATUSES.has(response.status) &&
+			!errorEnvelope.safeParse(response.body).success
+		) {
+			throw new ApiError({ ...where, kind: "unreachable" });
+		}
 		if (!(response.status in args.route.responses)) {
 			throw new ApiError({
 				...where,

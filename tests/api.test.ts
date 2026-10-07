@@ -10,6 +10,7 @@ import {
 	queryKeys,
 	resolveBaseUrl,
 } from "@/lib/api";
+import { describeError } from "@/lib/error-map";
 
 const NOW = "2026-10-05T12:00:00.000Z";
 // `preview` is false everywhere but a local dev-preview run.
@@ -299,16 +300,80 @@ describe("every answer becomes data or an ApiError the error map can read", () =
 	});
 
 	it("a status the contract does not declare is unexpected-status", async () => {
+		// 418, not a gateway status: a bare 503 is the gateway case below.
 		expect(
 			await failure(
-				health(answering(503, "down", { type: "text", requestId: "req-5" })),
+				health(answering(418, "teapot", { type: "text", requestId: "req-5" })),
 			),
 		).toEqual({
 			...where,
 			kind: "unexpected-status",
-			status: 503,
+			status: 418,
 			requestId: "req-5",
 		});
+	});
+
+	for (const status of [502, 503, 504]) {
+		it(`a gateway's bare ${status} is unreachable, so a read offers Try again`, async () => {
+			// What the dev proxy sends while avel-server restarts: JSON, but not
+			// the error envelope.
+			const proxy = { message: "avel-server is not reachable" };
+			const failed = await failure(health(answering(status, proxy)));
+			expect(failed).toEqual({ ...where, kind: "unreachable" });
+			const copy = describeError(new ApiError(failed));
+			expect(copy.retry).toBe(true);
+			expect(copy.what).toBe("avel-server did not answer.");
+			// And a text body, as a load balancer's error page would be.
+			expect(
+				(
+					await failure(
+						health(answering(status, "Bad Gateway", { type: "text" })),
+					)
+				).kind,
+			).toBe("unreachable");
+		});
+	}
+
+	it("keeps a gateway answer's request id when it has one", async () => {
+		expect(
+			await failure(
+				health(answering(503, "down", { type: "text", requestId: "req-3" })),
+			),
+		).toEqual({ ...where, kind: "unreachable", requestId: "req-3" });
+	});
+
+	it("avel-server's own 502, with the envelope, stays a contract error", async () => {
+		const failed = await failure(
+			health(answering(502, envelope("EXTERNAL_GITHUB"))),
+		);
+		expect(failed.kind).toBe("contract");
+		expect(failed).toMatchObject({ status: 502, code: "EXTERNAL_GITHUB" });
+	});
+
+	it("an enveloped 503, which the contract does not declare, stays unexpected-status", async () => {
+		expect(
+			(await failure(health(answering(503, envelope("INTERNAL"))))).kind,
+		).toBe("unexpected-status");
+	});
+
+	it("a write the gateway dropped is unreachable but not retried for you", async () => {
+		const copy = describeError(
+			new ApiError({
+				method: "POST",
+				path: "/api/clients",
+				kind: "unreachable",
+			}),
+		);
+		expect(copy.retry).toBe(false);
+		expect(copy.written).toBe(
+			"AVEL cannot tell whether this change was saved.",
+		);
+	});
+
+	it("an off-contract 200 is still invalid-response, never unreachable", async () => {
+		expect(
+			(await failure(health(answering(200, { unexpected: true })))).kind,
+		).toBe("invalid-response");
 	});
 
 	it("an undeclared success status is not trusted as success", async () => {
