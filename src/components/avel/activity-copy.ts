@@ -39,6 +39,8 @@ export const ACTION_COPY = {
 	"roster.preset_applied": "Preset applied",
 	"mission.skill_attached": "Skill attached to mission",
 	"mission.skill_detached": "Skill detached from mission",
+	"intake.repo_read": "Repository read for intake",
+	"connection.created": "Connection added",
 } as const satisfies Record<ActivityAction, string>;
 
 /** The name of each entity type, singular, as a filter option and a row's "which". */

@@ -348,6 +348,46 @@ export const PRECONDITION_COPY = {
 		next: "Reload the skills and choose an existing one.",
 		retry: false,
 	},
+	// src/routes/intakes.ts read-repo (module 2), checked after the intake's
+	// own state and the repo URL's form: the connection that would read it.
+	connection_not_found: {
+		what: "That connection doesn't exist for this engagement.",
+		written: NOTHING_WRITTEN,
+		next: "Choose a connection that belongs to this engagement, or add one.",
+		retry: false,
+	},
+	connection_expired: {
+		what: "This connection has expired.",
+		written: NOTHING_WRITTEN,
+		next: "Rotate its credential in Connections, then read the repository again.",
+		retry: false,
+	},
+	connection_scope_mismatch: {
+		what: "This connection doesn't cover that repository.",
+		written: NOTHING_WRITTEN,
+		next: "Use a connection scoped to the repository's owner or to the repository itself.",
+		retry: false,
+	},
+	connection_credential_missing: {
+		what: "The credential this connection names isn't set on avel-server.",
+		written: NOTHING_WRITTEN,
+		next: "Set the environment variable the connection names on avel-server, then try again.",
+		retry: false,
+	},
+	// Approve, after the repository read: the brief must name the repository
+	// that was read, and its conventions must agree with themselves.
+	intake_repo_mismatch: {
+		what: "This intake's repository hasn't been read, or a different one was named.",
+		written: NOTHING_WRITTEN,
+		next: "Read the repository, and approve with the same repository URL.",
+		retry: false,
+	},
+	intake_conventions_low_confidence: {
+		what: "The repository's conventions disagree with themselves, so none can be relied on.",
+		written: NOTHING_WRITTEN,
+		next: "Settle each convention listed, in the repository or by acknowledging it, then approve again.",
+		retry: false,
+	},
 	skill_not_attachable: {
 		what: "This skill can't be attached to a mission.",
 		written: NOTHING_WRITTEN,
