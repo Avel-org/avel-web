@@ -26,6 +26,19 @@ export const ACTION_COPY = {
 	"intake.proposed": "Intake proposed",
 	"intake.approved": "Intake approved",
 	"intake.rejected": "Intake rejected",
+	"skill_source.created": "Skill source added",
+	"skill_source.updated": "Skill source updated",
+	"skill_source.deleted": "Skill source deleted",
+	"skill.created": "Skill created",
+	"skill.updated": "Skill updated",
+	"skill.approved": "Skill approved",
+	"skill.retired": "Skill retired",
+	"roster.entry_added": "Agent added to roster",
+	"roster.entry_updated": "Roster entry updated",
+	"roster.entry_removed": "Agent removed from roster",
+	"roster.preset_applied": "Preset applied",
+	"mission.skill_attached": "Skill attached to mission",
+	"mission.skill_detached": "Skill detached from mission",
 } as const satisfies Record<ActivityAction, string>;
 
 /** The name of each entity type, singular, as a filter option and a row's "which". */
@@ -37,6 +50,9 @@ export const ENTITY_LABEL = {
 	mission: "Mission",
 	export: "Export",
 	intake: "Intake",
+	skill_source: "Skill source",
+	skill: "Skill",
+	roster_entry: "Roster entry",
 } as const satisfies Record<ActivityEntityType, string>;
 
 /**

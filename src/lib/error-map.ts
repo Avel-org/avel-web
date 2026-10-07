@@ -286,6 +286,74 @@ export const PRECONDITION_COPY = {
 		next: "Wait for the repository read to derive the cut, then approve again.",
 		retry: false,
 	},
+	// src/routes/skills.ts (module 4): creating a skill, or moving it, names a
+	// source that is missing or deleted.
+	skill_source_not_found: {
+		what: "That skill source no longer exists.",
+		written: NOTHING_WRITTEN,
+		next: "Reload the sources and choose an existing one.",
+		retry: false,
+	},
+	// src/routes/skill-sources.ts: deleting a source live skills still come from.
+	skill_source_in_use: {
+		what: "Skills still come from this source.",
+		written: NOTHING_WRITTEN,
+		next: "Retire or move its skills first, then delete the source.",
+		retry: false,
+	},
+	// src/routes/skills.ts: grants or io shape sent that do not fit the skill's
+	// stored type (only capabilities carry them).
+	skill_capability_mismatch: {
+		what: "Grants and io shape belong only to capability skills.",
+		written: NOTHING_WRITTEN,
+		next: "Change the skill's type, or remove the grants and io shape.",
+		retry: false,
+	},
+	// The reasons below arrive with module 4's roster writes (step 6), copy
+	// written against avel-server's announced firing rules. A missing mission
+	// answers 404, not mission_not_editable; duplicates answer 409.
+	mission_not_editable: {
+		what: "This mission can no longer be changed.",
+		written: NOTHING_WRITTEN,
+		next: "Only a draft mission's roster and skills can change.",
+		retry: false,
+	},
+	agent_template_not_found: {
+		what: "That agent template no longer exists.",
+		written: NOTHING_WRITTEN,
+		next: "Reload the catalog and choose an existing agent.",
+		retry: false,
+	},
+	template_not_rosterable: {
+		what: "Firm agents like Canon, Trace and Uno work between missions, so they can't join a mission's roster.",
+		written: NOTHING_WRITTEN,
+		next: "Choose an agent with mission roles instead.",
+		retry: false,
+	},
+	preset_not_found: {
+		what: "That preset no longer exists.",
+		written: NOTHING_WRITTEN,
+		next: "Reload the presets and choose an existing one.",
+		retry: false,
+	},
+	roster_not_empty: {
+		what: "This mission's roster already has agents.",
+		written: NOTHING_WRITTEN,
+		next: "Apply the preset again choosing to replace the roster, or remove its agents first.",
+		retry: false,
+	},
+	skill_not_found: {
+		what: "That skill no longer exists.",
+		written: NOTHING_WRITTEN,
+		next: "Reload the skills and choose an existing one.",
+		retry: false,
+	},
+	skill_not_attachable: {
+		what: "This skill can't be attached to a mission.",
+		written: NOTHING_WRITTEN,
+		next: "Only approved stack and domain skills attach to a mission. Role skills come with the agent.",
+		retry: false,
+	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;
 
 /** Copy for an error from avel-server's contract. */
