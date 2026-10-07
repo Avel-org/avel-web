@@ -1,6 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { activityActorKind, activityEntityType } from "avel-server/contract";
-import { useState } from "react";
 import { z } from "zod";
 import { ActivityFilterBar } from "@/components/avel/activity-filters";
 import { ActivityLog } from "@/components/avel/activity-log";
@@ -9,6 +8,7 @@ import {
 	activityCountLabel,
 	useActivity,
 } from "@/lib/api/activity";
+import { useNow } from "@/lib/use-now";
 import { Page, pageHead } from "../shell/page";
 
 /**
@@ -40,7 +40,7 @@ function ActivityPage() {
 		actorKind: search.actorKind,
 	};
 	const activity = useActivity(filters);
-	const [now] = useState(() => Date.now());
+	const now = useNow();
 	const filtered =
 		filters.entityType !== undefined || filters.actorKind !== undefined;
 	const total = activity.data?.pages[0]?.meta.total;

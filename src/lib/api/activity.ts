@@ -29,20 +29,31 @@ export type ActivityFilters = {
  * time. A new filter set is a new key, so its list starts with no cursor;
  * meta.total counts the rows the filters keep.
  */
+/** Only the filters that are set: the same object feeds the key and the request. */
+function setFilters(filters: ActivityFilters): ActivityFilters {
+	return {
+		...(filters.entityType === undefined
+			? {}
+			: { entityType: filters.entityType }),
+		...(filters.actorKind === undefined
+			? {}
+			: { actorKind: filters.actorKind }),
+	};
+}
+
 export function activityQuery(api: ApiClient, filters: ActivityFilters) {
+	// The key and the request read one cleaned filter set, so a filter can
+	// never reach the server without also changing the cache entry, which
+	// would let one filter set's cursor continue another's list.
+	const set = setFilters(filters);
 	return infiniteQueryOptions({
-		queryKey: queryKeys.activity.list(ACTIVITY_PAGE_SIZE, filters),
+		queryKey: queryKeys.activity.list(ACTIVITY_PAGE_SIZE, set),
 		queryFn: ({ pageParam }) =>
 			callPage(contract.activity.list, () =>
 				api.activity.list({
 					query: {
 						limit: ACTIVITY_PAGE_SIZE,
-						...(filters.entityType === undefined
-							? {}
-							: { entityType: filters.entityType }),
-						...(filters.actorKind === undefined
-							? {}
-							: { actorKind: filters.actorKind }),
+						...set,
 						...(pageParam ? { cursor: pageParam } : {}),
 					},
 				}),

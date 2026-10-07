@@ -142,8 +142,7 @@ export function useCreateClient() {
 	return useMutation({
 		mutationFn: (body: CreateClientBody) =>
 			call(contract.clients.create, () => api.clients.create({ body })),
-		onSuccess: () =>
-			queryClient.invalidateQueries({ queryKey: queryKeys.clients.all() }),
+		onSuccess: () => invalidateClients(queryClient),
 	});
 }
 
@@ -156,8 +155,7 @@ export function useUpdateClient() {
 			call(contract.clients.update, () =>
 				api.clients.update({ params: { id }, body: patch }),
 			),
-		onSuccess: () =>
-			queryClient.invalidateQueries({ queryKey: queryKeys.clients.all() }),
+		onSuccess: () => invalidateClients(queryClient),
 	});
 }
 
@@ -188,10 +186,23 @@ export function useCloseEngagement() {
 	});
 }
 
+/**
+ * Every client write adds a row to the activity log, so the log refreshes
+ * with the lists: otherwise /activity serves a cached page without it.
+ */
+function invalidateClients(queryClient: ReturnType<typeof useQueryClient>) {
+	return Promise.all([
+		queryClient.invalidateQueries({ queryKey: queryKeys.clients.all() }),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
+}
+
+/** Engagement writes change both lists and add an activity row. */
 function invalidateBoth(queryClient: ReturnType<typeof useQueryClient>) {
 	return Promise.all([
 		queryClient.invalidateQueries({ queryKey: queryKeys.clients.all() }),
 		queryClient.invalidateQueries({ queryKey: queryKeys.engagements.all() }),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 	]);
 }
 

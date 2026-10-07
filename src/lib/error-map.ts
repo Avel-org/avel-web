@@ -275,7 +275,7 @@ export const PRECONDITION_COPY = {
 	intake_check_failed: {
 		what: "This intake did not pass its check.",
 		written: NOTHING_WRITTEN,
-		next: "Fix each issue listed, then propose it again.",
+		next: "Fix each issue listed, then try again.",
 		retry: false,
 	},
 	// src/routes/intake.ts: approval while the repository's cut has not been

@@ -60,7 +60,7 @@ export function ActivityLog({
 						data-testid="activity-empty"
 						icon={History}
 						title="Nothing has happened yet"
-						description="Every change to clients, engagements, connections, missions and exports is recorded here, in order, and never edited."
+						description="Every change AVEL makes is recorded here, in order, and never edited. The entity filter above lists every kind it records."
 					/>
 				)
 			}

@@ -25,6 +25,7 @@ import { MissionTree } from "@/components/avel/mission-tree";
 import { GoingQuiet, InFlight } from "@/components/avel/mission-watch";
 import { Button } from "@/components/ui/button";
 import { useStoredState } from "@/lib/stored";
+import { useNow } from "@/lib/use-now";
 import { Page, pageHead } from "../shell/page";
 
 export const Route = createFileRoute("/missions")({
@@ -48,16 +49,6 @@ function useIsDesktop(): boolean {
 		return () => query.removeEventListener("change", update);
 	}, []);
 	return desktop;
-}
-
-/** The time relative times are measured from, moved on each minute. */
-function useNow(): number {
-	const [now, setNow] = useState(() => Date.now());
-	useEffect(() => {
-		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-		return () => window.clearInterval(timer);
-	}, []);
-	return now;
 }
 
 /**
