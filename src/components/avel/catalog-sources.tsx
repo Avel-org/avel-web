@@ -56,7 +56,12 @@ const COLUMNS: DataColumn<SkillSource>[] = [
 		id: "kind",
 		header: "Kind",
 		width: "8rem",
-		cell: (row) => <Badge variant="tag">{KIND_LABEL[row.kind]}</Badge>,
+		// A word, not machine text: an outline badge, not a mono tag.
+		cell: (row) => (
+			<Badge variant="outline" data-testid="catalog-source-kind">
+				{KIND_LABEL[row.kind]}
+			</Badge>
+		),
 	},
 	{
 		id: "url",
@@ -74,9 +79,15 @@ const COLUMNS: DataColumn<SkillSource>[] = [
 		id: "license",
 		header: "License",
 		width: "8rem",
-		mono: true,
+		// Mono on the value only, so "None" stays prose.
 		cell: (row) =>
-			row.license ?? <span className="text-text-subtle">None</span>,
+			row.license ? (
+				<span data-testid="catalog-source-license" className="type-mono-small">
+					{row.license}
+				</span>
+			) : (
+				<span className="text-text-subtle">None</span>
+			),
 	},
 	{
 		id: "skills",

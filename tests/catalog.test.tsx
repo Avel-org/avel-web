@@ -617,3 +617,151 @@ describe("roles", () => {
 		expect(roles).toEqual(ordered);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Layout, from the visual pass: what SSR can see of each fix.
+
+/** Every class on the first element with this test id. */
+const classes = (html: string, testid: string): string[] =>
+	(tagOf(html, testid).match(/class="([^"]*)"/)?.[1] ?? "").split(/\s+/);
+
+describe("list and detail split at lg, not md", () => {
+	for (const [page, path, selection, back] of [
+		["agents", "/catalog/agents", "?agent=atlas", "/catalog/agents"],
+		["skills", "/catalog/skills", "?skill=database-read", "/catalog/skills"],
+	] as const) {
+		it(`${page}: the list is the page below lg until something is chosen`, async () => {
+			const html = await renderPage(path);
+			const list = classes(html, `catalog-${page}-list-pane`);
+			const detail = classes(html, `catalog-${page}-detail-pane`);
+			expect(list).not.toContain("max-lg:hidden");
+			expect(detail).toContain("max-lg:hidden");
+			expect(detail).toContain("lg:border-l");
+			// No two-pane split survives at md.
+			expect([...list, ...detail].some((c) => c.startsWith("md:"))).toBe(false);
+			expect(html).not.toContain(`data-testid="catalog-${page}-back"`);
+		});
+
+		it(`${page}: a choice replaces the list below lg, with a way back`, async () => {
+			const html = await renderPage(`${path}${selection}`);
+			expect(classes(html, `catalog-${page}-list-pane`)).toContain(
+				"max-lg:hidden",
+			);
+			expect(classes(html, `catalog-${page}-detail-pane`)).not.toContain(
+				"max-lg:hidden",
+			);
+			const backLink = tagOf(html, `catalog-${page}-back`);
+			expect(backLink).toContain(`href="${back}"`);
+			expect(classes(html, `catalog-${page}-back`)).toContain("lg:hidden");
+		});
+	}
+});
+
+describe("tables fit their pane", () => {
+	it("wraps the family table's Read, Act and Propose cells", async () => {
+		const table = element(
+			await renderPage("/catalog/agents?agent=atlas"),
+			"catalog-families-table",
+		);
+		for (const row of SAMPLE_FAMILY_TABLE) {
+			const tr = element(table, `catalog-families-table-row-${row.family}`);
+			const cells = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(
+				(m) => m[1] ?? "",
+			);
+			// Family, then Read, Act and Propose: each prose cell wraps.
+			expect(cells).toHaveLength(4);
+			for (const cell of cells.slice(1)) {
+				expect(cell).toMatch(/^<span class="whitespace-normal">/);
+			}
+		}
+	});
+
+	it("puts the engagement under the territory and lets headers wrap", async () => {
+		const html = await renderPage("/catalog/agents?agent=atlas");
+		const client = element(html, "catalog-outcome-table-client");
+		expect(client).not.toContain('data-column="engagement"');
+		const atlas = sampleAgent("atlas");
+		const rows = atlas
+			? sampleHistory(atlas).outcomes.filter((r) => r.origin === "client")
+			: [];
+		expect(rows.length).toBeGreaterThan(0);
+		for (const row of rows) {
+			const tr = element(client, `catalog-outcome-table-client-row-${row.id}`);
+			expect(tr).toMatch(
+				new RegExp(
+					`data-testid="catalog-outcome-engagement"[^>]*>${row.engagement}<`,
+				),
+			);
+		}
+		for (const column of ["territory", "tokens", "cost", "gate"]) {
+			expect(client).toMatch(
+				new RegExp(
+					`data-column="${column}"[^>]*><span class="whitespace-normal">`,
+				),
+			);
+		}
+	});
+});
+
+describe("small fixes", () => {
+	it("dates each version, without the time", async () => {
+		const versions = element(
+			await renderPage("/catalog/agents?agent=leonora"),
+			"catalog-agent-versions",
+		);
+		const dates = [...versions.matchAll(/>(\d{4}-\d{2}-\d{2}[^<]*)</g)].map(
+			(m) => m[1],
+		);
+		expect(dates.length).toBeGreaterThan(0);
+		for (const date of dates) expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+	});
+
+	it("clamps a long skill name to two lines instead of cutting it", async () => {
+		const html = await renderPage("/catalog/skills");
+		const name = classes(html, "catalog-skill-row-name");
+		expect(name).toContain("line-clamp-2");
+		expect(name).not.toContain("truncate");
+	});
+
+	it("titles an agent's role line with every role", async () => {
+		const html = await renderPage("/catalog/agents");
+		const ordered = [...(SAMPLE_AGENTS[0]?.roles ?? [])].sort(
+			(a, b) => ROLES.indexOf(a) - ROLES.indexOf(b),
+		);
+		expect(ordered.length).toBeGreaterThan(1);
+		expect(tagOf(html, "catalog-agent-row-roles")).toContain(
+			`title="${ordered.join(", ")}"`,
+		);
+	});
+
+	it("shows a source's kind as a word and keeps None out of mono", async () => {
+		const html = await renderPage("/catalog/sources");
+		expect(tagOf(html, "catalog-source-kind")).toContain(
+			'data-variant="outline"',
+		);
+		const table = element(html, "catalog-sources-table");
+		const internal = SAMPLE_SOURCES.find((s) => s.license === null);
+		const licensed = SAMPLE_SOURCES.find((s) => s.license !== null);
+		expect(internal && licensed).toBeTruthy();
+		const none = element(table, `catalog-sources-table-row-${internal?.id}`);
+		expect(none).not.toMatch(/type-mono[^"]*"[^>]*>(<span[^>]*>)?None</);
+		expect(none).toMatch(/<span class="text-text-subtle">None<\/span>/);
+		const value = element(table, `catalog-sources-table-row-${licensed?.id}`);
+		expect(value).toMatch(
+			new RegExp(
+				`data-testid="catalog-source-license" class="type-mono-small">${licensed?.license}<`,
+			),
+		);
+	});
+
+	it("makes the short hash unselectable, so a hand copy takes the full value", async () => {
+		const hash = element(
+			await renderPage("/catalog/agents?agent=atlas"),
+			"catalog-agent-identity-hash",
+		);
+		expect(hash).toMatch(
+			/<span aria-hidden="true" class="select-none">[0-9a-f]{12}</,
+		);
+		expect(hash).toMatch(/<span class="sr-only">[0-9a-f]{64}</);
+	});
+});

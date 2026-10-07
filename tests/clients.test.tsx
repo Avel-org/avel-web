@@ -436,8 +436,8 @@ describe("the chosen client", () => {
 describe("on a phone", () => {
 	it("shows the list alone until a client is chosen", async () => {
 		const html = await renderSeeded(THREE);
-		expect(tagOf(html, "clients-list-pane")).not.toMatch(/\bmax-md:hidden\b/);
-		expect(tagOf(html, "clients-detail-pane")).toMatch(/\bmax-md:hidden\b/);
+		expect(tagOf(html, "clients-list-pane")).not.toMatch(/\bmax-lg:hidden\b/);
+		expect(tagOf(html, "clients-detail-pane")).toMatch(/\bmax-lg:hidden\b/);
 	});
 
 	it("replaces the list with the chosen client, with a way back", async () => {
@@ -445,10 +445,10 @@ describe("on a phone", () => {
 			path: `/clients?client=${ONE.id}`,
 			detail: ONE,
 		});
-		expect(tagOf(html, "clients-list-pane")).toMatch(/\bmax-md:hidden\b/);
-		expect(tagOf(html, "clients-detail-pane")).not.toMatch(/\bmax-md:hidden\b/);
+		expect(tagOf(html, "clients-list-pane")).toMatch(/\bmax-lg:hidden\b/);
+		expect(tagOf(html, "clients-detail-pane")).not.toMatch(/\bmax-lg:hidden\b/);
 		const back = html.slice(html.indexOf('data-testid="client-detail"'));
-		expect(tagOf(back, "client-back")).toMatch(/\bmd:hidden\b/);
+		expect(tagOf(back, "client-back")).toMatch(/\blg:hidden\b/);
 	});
 });
 

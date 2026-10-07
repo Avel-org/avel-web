@@ -16,6 +16,7 @@ import {
 } from "./catalog-placeholders";
 import {
 	AgentLink,
+	CatalogBack,
 	CatalogField,
 	CatalogListSkeleton,
 	type CatalogQuery,
@@ -99,8 +100,9 @@ export function CatalogSkills({
 			<div
 				data-testid="catalog-skills-list-pane"
 				className={cn(
-					"flex w-full flex-col gap-3 md:w-80 md:shrink-0",
-					skill && "max-md:hidden",
+					"flex w-full flex-col gap-3 lg:w-80 lg:shrink-0",
+					// Below lg a selection replaces the list: two panes need the width.
+					skill && "max-lg:hidden",
 				)}
 			>
 				<SkillList selected={skill?.slug} query={query} />
@@ -108,12 +110,19 @@ export function CatalogSkills({
 			<div
 				data-testid="catalog-skills-detail-pane"
 				className={cn(
-					"flex min-w-0 flex-1 flex-col md:border-l md:border-border md:pl-6",
-					!skill && "max-md:hidden",
+					"flex min-w-0 flex-1 flex-col gap-4 lg:border-l lg:border-border lg:pl-6",
+					!skill && "max-lg:hidden",
 				)}
 			>
 				{skill ? (
-					<SkillDetail key={skill.slug} skill={skill} />
+					<>
+						<CatalogBack
+							to="/catalog/skills"
+							label="Back to skills"
+							data-testid="catalog-skills-back"
+						/>
+						<SkillDetail key={skill.slug} skill={skill} />
+					</>
 				) : (
 					<EmptyState
 						data-testid="catalog-skills-choose"
@@ -220,7 +229,10 @@ function SkillRow({
 			)}
 		>
 			<span className="flex items-center gap-2">
-				<span className="type-small min-w-0 flex-1 truncate font-medium text-foreground">
+				<span
+					data-testid="catalog-skill-row-name"
+					className="type-small line-clamp-2 min-w-0 flex-1 font-medium text-foreground"
+				>
 					{skill.name}
 				</span>
 				<SkillStatusPill status={skill.status} />

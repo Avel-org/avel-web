@@ -8,7 +8,7 @@ import {
 	WAVES,
 	type Wave,
 } from "avel-server/contract";
-import { Copy } from "lucide-react";
+import { ArrowLeft, Copy } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,10 @@ export function SampleHash({
 				data-full={value}
 				className="type-mono-small text-text-muted"
 			>
-				<span aria-hidden="true">{value.slice(0, 12)}</span>
+				{/* Not selectable, so a hand copy takes only the full value. */}
+				<span aria-hidden="true" className="select-none">
+					{value.slice(0, 12)}
+				</span>
 				<span className="sr-only">{value}</span>
 			</code>
 			<Button
@@ -119,6 +122,42 @@ export function SkillStatusPill({
 	const { tone, label } = SKILL_STATUS[status];
 	return (
 		<StatusPill size="sm" tone={tone} label={label} data-testid={testId} />
+	);
+}
+
+/**
+ * Text that wraps inside a DataTable cell or header, which the Table
+ * primitive sets nowrap. For prose columns, so a table fits its pane.
+ */
+export function Wrap({ children }: { children: ReactNode }) {
+	return <span className="whitespace-normal">{children}</span>;
+}
+
+/**
+ * Back to a catalog list, for widths where a selection replaces the list
+ * (below lg). The outline back button the mission and client pages use.
+ */
+export function CatalogBack({
+	to,
+	label,
+	"data-testid": testId,
+}: {
+	to: "/catalog/agents" | "/catalog/skills";
+	label: string;
+	"data-testid": string;
+}) {
+	return (
+		<Button
+			variant="outline"
+			size="sm"
+			className="self-start lg:hidden"
+			asChild
+		>
+			<Link to={to} data-testid={testId}>
+				<ArrowLeft aria-hidden="true" />
+				{label}
+			</Link>
+		</Button>
 	);
 }
 

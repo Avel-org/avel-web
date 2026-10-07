@@ -154,9 +154,10 @@ function ClientsPage() {
 					<div
 						data-testid="clients-list-pane"
 						className={cn(
-							"flex min-h-0 w-full flex-col md:w-80 md:shrink-0",
-							// Below md a selection replaces the list.
-							selected && "max-md:hidden",
+							"flex min-h-0 w-full flex-col lg:w-80 lg:shrink-0",
+							// Below lg a selection replaces the list: at md the two panes
+							// left the detail too narrow to read.
+							selected && "max-lg:hidden",
 						)}
 					>
 						<ClientListPane
@@ -170,8 +171,8 @@ function ClientsPage() {
 					<div
 						data-testid="clients-detail-pane"
 						className={cn(
-							"flex min-w-0 flex-1 flex-col md:border-l md:border-border md:pl-6",
-							!selected && "max-md:hidden",
+							"flex min-w-0 flex-1 flex-col lg:border-l lg:border-border lg:pl-6",
+							!selected && "max-lg:hidden",
 						)}
 					>
 						{selected ? (

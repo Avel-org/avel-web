@@ -122,8 +122,8 @@ export function ClientDetailBody({
 			data-testid="client-detail"
 			className="flex flex-col gap-6"
 		>
-			{/* Below md the detail is the page; this is the way back to the list. */}
-			<BackToClients className="md:hidden" />
+			{/* Below lg the detail is the page; this is the way back to the list. */}
+			<BackToClients className="lg:hidden" />
 
 			<header className="flex items-start gap-3">
 				<div className="flex min-w-0 flex-1 flex-col gap-1.5">

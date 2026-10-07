@@ -19,6 +19,7 @@ import {
 	skillsOfAgent,
 } from "./catalog-placeholders";
 import {
+	CatalogBack,
 	CatalogField,
 	CatalogListSkeleton,
 	type CatalogQuery,
@@ -31,6 +32,7 @@ import {
 	SkillLink,
 	SkillStatusPill,
 	sampleQuery,
+	Wrap,
 } from "./catalog-sample";
 import { type DataColumn, DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
@@ -60,8 +62,9 @@ export function CatalogAgents({
 			<div
 				data-testid="catalog-agents-list-pane"
 				className={cn(
-					"flex w-full flex-col gap-3 md:w-72 md:shrink-0",
-					agent && "max-md:hidden",
+					"flex w-full flex-col gap-3 lg:w-72 lg:shrink-0",
+					// Below lg a selection replaces the list: two panes need the width.
+					agent && "max-lg:hidden",
 				)}
 			>
 				<AgentList selected={agent?.slug} query={query} />
@@ -76,12 +79,19 @@ export function CatalogAgents({
 			<div
 				data-testid="catalog-agents-detail-pane"
 				className={cn(
-					"flex min-w-0 flex-1 flex-col md:border-l md:border-border md:pl-6",
-					!agent && "max-md:hidden",
+					"flex min-w-0 flex-1 flex-col gap-4 lg:border-l lg:border-border lg:pl-6",
+					!agent && "max-lg:hidden",
 				)}
 			>
 				{agent ? (
-					<AgentDetail key={agent.slug} agent={agent} />
+					<>
+						<CatalogBack
+							to="/catalog/agents"
+							label="Back to agent templates"
+							data-testid="catalog-agents-back"
+						/>
+						<AgentDetail key={agent.slug} agent={agent} />
+					</>
 				) : (
 					<EmptyState
 						data-testid="catalog-agents-choose"
@@ -147,7 +157,11 @@ function AgentList({
 											</span>
 											<Badge variant="tag">{agent.kind}</Badge>
 										</span>
-										<span className="type-mono-small truncate text-text-muted">
+										<span
+											data-testid="catalog-agent-row-roles"
+											title={inCatalogOrder(agent.roles).join(", ")}
+											className="type-mono-small truncate text-text-muted"
+										>
 											{inCatalogOrder(agent.roles).join(", ")}
 										</span>
 									</Link>
@@ -297,7 +311,7 @@ function Versions({ history }: Pick<Detail, "history">) {
 								{version.change}
 							</span>
 							<span className="type-mono-small text-text-subtle">
-								{version.createdAt}
+								{version.createdAt.slice(0, 10)}
 							</span>
 							{i === 0 ? (
 								<Badge
@@ -404,9 +418,13 @@ function Families({ agent }: { agent: AgentTemplate }) {
 				</span>
 			),
 		},
-		{ id: "read", header: "Read", cell: (row) => row.read },
-		{ id: "act", header: "Act", cell: (row) => row.act },
-		{ id: "propose", header: "Propose", cell: (row) => row.propose },
+		{ id: "read", header: "Read", cell: (row) => <Wrap>{row.read}</Wrap> },
+		{ id: "act", header: "Act", cell: (row) => <Wrap>{row.act}</Wrap> },
+		{
+			id: "propose",
+			header: "Propose",
+			cell: (row) => <Wrap>{row.propose}</Wrap>,
+		},
 	];
 	return (
 		<SectionPanel
@@ -502,9 +520,21 @@ const percent = (value: number) => `${Math.round(value * 100)}%`;
 const OUTCOME_COLUMNS: DataColumn<SampleOutcome>[] = [
 	{
 		id: "territory",
-		header: "Territory",
-		cell: (row) =>
-			row.territory ?? <span className="text-text-subtle">Whole project</span>,
+		header: <Wrap>Territory and engagement</Wrap>,
+		// The engagement rides under the territory, so the numbers keep their room.
+		cell: (row) => (
+			<span className="flex flex-col">
+				{row.territory ?? (
+					<span className="text-text-subtle">Whole project</span>
+				)}
+				<span
+					data-testid="catalog-outcome-engagement"
+					className="type-caption text-text-subtle"
+				>
+					{row.engagement}
+				</span>
+			</span>
+		),
 	},
 	{
 		id: "template",
@@ -512,7 +542,6 @@ const OUTCOME_COLUMNS: DataColumn<SampleOutcome>[] = [
 		mono: true,
 		cell: (row) => row.missionTemplate,
 	},
-	{ id: "engagement", header: "Engagement", cell: (row) => row.engagement },
 	{
 		id: "runs",
 		header: "Runs",
@@ -522,21 +551,21 @@ const OUTCOME_COLUMNS: DataColumn<SampleOutcome>[] = [
 	},
 	{
 		id: "tokens",
-		header: "Tokens per run",
+		header: <Wrap>Tokens per run</Wrap>,
 		align: "end",
 		mono: true,
 		cell: (row) => row.tokensPerRun.toLocaleString("en-US"),
 	},
 	{
 		id: "cost",
-		header: "Cost per run",
+		header: <Wrap>Cost per run</Wrap>,
 		align: "end",
 		mono: true,
 		cell: (row) => usd(row.costPerRunUsd),
 	},
 	{
 		id: "gate",
-		header: "First-pass gate rate",
+		header: <Wrap>First-pass gate rate</Wrap>,
 		align: "end",
 		mono: true,
 		cell: (row) => percent(row.firstPassGateRate),
