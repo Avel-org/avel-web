@@ -1,6 +1,6 @@
 /**
- * The sidebar: twelve links in three groups, as specified in
- * design/AVEL-DESIGN.md (section 6, ruling 3). Catalog and Settings are
+ * The sidebar: thirteen links in three groups, as specified in
+ * design/AVEL-DESIGN.md (section 6, ruling 3; ruling 33 adds Drive). Catalog and Settings are
  * parents that group links without being pages themselves; no /catalog or
  * /settings route exists. tests/nav.test.ts fails if any link here has no
  * route, or any route is missing from here.
@@ -12,6 +12,7 @@ import {
 	BotMessageSquare,
 	Building2,
 	FolderGit2,
+	HardDrive,
 	Layers,
 	Library,
 	ListChecks,
@@ -108,6 +109,13 @@ export const NAV: NavGroup[] = [
 				to: "/playbooks",
 				icon: ListChecks,
 				purpose: "The phases and gates each kind of mission follows.",
+			},
+			{
+				label: "Drive",
+				to: "/drive",
+				icon: HardDrive,
+				purpose:
+					"The agency's documents. Agents read a file only when a brief lists it.",
 			},
 		],
 	},

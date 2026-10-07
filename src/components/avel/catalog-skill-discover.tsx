@@ -1,0 +1,164 @@
+import type { SkillSource } from "avel-server/contract";
+import { Search } from "lucide-react";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+	CATALOG_MISSING,
+	SAMPLE_REGISTRY,
+	SAMPLE_SOURCES,
+	type SampleRegistryEntry,
+} from "./catalog-placeholders";
+import { SampleHash, SampleRegion } from "./catalog-sample";
+import { SKILL_WRITE_REASON } from "./catalog-skill-inspector";
+
+/*
+ * Discover: what the vendor and community sources offer, not yet imported.
+ * Importing never installs a skill ready to use: it creates a draft, which
+ * an operator reviews, pins by hash and approves. Rows rank by source, then
+ * name, and show the hash; there is no install count to rank by.
+ */
+
+/** Entries whose name, path or description holds the text, ignoring case. */
+export function filterRegistry(
+	entries: readonly SampleRegistryEntry[],
+	q: string,
+): SampleRegistryEntry[] {
+	const needle = q.trim().toLowerCase();
+	return entries.filter(
+		(entry) =>
+			needle === "" ||
+			entry.name.toLowerCase().includes(needle) ||
+			entry.path.toLowerCase().includes(needle) ||
+			entry.description.toLowerCase().includes(needle),
+	);
+}
+
+export function SkillDiscover({
+	sources: allSources = SAMPLE_SOURCES,
+	entries: allEntries = SAMPLE_REGISTRY,
+}: {
+	/** Every source; only vendor and community ones are offered here. */
+	sources?: readonly SkillSource[];
+	entries?: readonly SampleRegistryEntry[];
+}) {
+	const [q, setQ] = useState("");
+	// AVEL's own skills are already in the library: Discover never offers them,
+	// even if an internal source's entry reaches this list.
+	const sources = allSources.filter((source) => source.kind !== "internal");
+	const entries = filterRegistry(allEntries, q);
+	return (
+		<section
+			aria-labelledby="discover-title"
+			data-testid="skill-discover"
+			className="flex flex-col gap-4 pb-6"
+		>
+			<header className="flex flex-col gap-1">
+				<h2 id="discover-title" className="type-h2 text-foreground">
+					Discover
+				</h2>
+				<p className="type-body text-text-muted">
+					Skills the vendor and community sources offer. Importing one makes a
+					draft for review; nothing is attached until it is approved.
+				</p>
+			</header>
+			<div className="relative">
+				<Search
+					aria-hidden="true"
+					className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-subtle"
+				/>
+				<Input
+					type="search"
+					aria-label="Search the sources"
+					placeholder="Search the sources"
+					data-testid="skill-discover-search"
+					value={q}
+					onChange={(event) => setQ(event.target.value)}
+					className="pl-9"
+				/>
+			</div>
+			<SampleRegion
+				missing={CATALOG_MISSING.registry}
+				title="Discover"
+				what="Each vendor and community source's skills, ranked by source, with their hashes."
+				data-testid="skill-discover-sample"
+			>
+				{entries.length === 0 ? (
+					<p
+						data-testid="skill-discover-none"
+						className="px-3 py-2 type-small text-text-subtle"
+					>
+						Nothing in the sources matches.
+					</p>
+				) : (
+					<div className="flex flex-col gap-4">
+						{sources.map((source) => {
+							const rows = entries
+								.filter((entry) => entry.sourceId === source.id)
+								.sort((a, b) => a.name.localeCompare(b.name));
+							if (rows.length === 0) return null;
+							return (
+								<section
+									key={source.id}
+									aria-label={source.name}
+									data-testid={`skill-discover-source-${source.kind}`}
+									className="flex flex-col gap-1"
+								>
+									<h3 className="flex items-center gap-2 px-1 type-caption text-text-subtle">
+										<span className="font-medium text-text-muted">
+											{source.name}
+										</span>
+										<Badge variant="outline">{source.kind}</Badge>
+									</h3>
+									<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-sm border border-border bg-app-band">
+										{rows.map((entry) => (
+											<RegistryEntryRow key={entry.id} entry={entry} />
+										))}
+									</ul>
+								</section>
+							);
+						})}
+					</div>
+				)}
+			</SampleRegion>
+		</section>
+	);
+}
+
+/** One skill a source offers: name, where it lives, its hash, and Import. */
+function RegistryEntryRow({ entry }: { entry: SampleRegistryEntry }) {
+	return (
+		<li
+			data-testid={`skill-discover-entry-${entry.name}`}
+			className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2"
+		>
+			<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="type-small font-medium text-foreground">
+					{entry.name}
+				</span>
+				<span className="type-mono-small truncate text-text-subtle">
+					{entry.path}
+				</span>
+				<span className="type-caption text-text-muted">
+					{entry.description}
+				</span>
+			</div>
+			<SampleHash
+				value={entry.contentSha256}
+				label={`the hash of ${entry.name}`}
+				data-testid={`skill-discover-hash-${entry.name}`}
+			/>
+			{/* Real control, disabled until the source routes exist. Sits in the
+			    sample row because the row is the thing it would import. */}
+			<Button
+				size="sm"
+				variant="outline"
+				data-testid={`skill-discover-import-${entry.name}`}
+				disabledReason={SKILL_WRITE_REASON.import}
+			>
+				Import as draft
+			</Button>
+		</li>
+	);
+}

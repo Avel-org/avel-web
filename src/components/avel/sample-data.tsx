@@ -10,7 +10,20 @@ import {
  * names its routes in its own placeholder module (mission-placeholders.ts,
  * catalog-placeholders.ts), so `missing` is a plain string here.
  */
-export function SampleData({ missing }: { missing: string }) {
+export function SampleData({
+	missing,
+	reason,
+}: {
+	missing: string;
+	/**
+	 * Why the region is a sample, when it is not that avel-server lacks the
+	 * route: say the route exists and this page is not wired to it yet.
+	 */
+	reason?: string;
+}) {
+	// Without a reason, the words are exactly the mission page's, unchanged.
+	const words = reason ?? `Placeholder until avel-server has ${missing}.`;
+	const spoken = reason ?? `placeholder until avel-server has ${missing}`;
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
@@ -23,12 +36,10 @@ export function SampleData({ missing }: { missing: string }) {
 					className="inline-flex shrink-0 cursor-default items-center self-start rounded-full border border-dashed border-border-strong px-2 py-0.5 type-caption text-text-muted"
 				>
 					Sample data
-					<span className="sr-only">
-						{`, placeholder until avel-server has ${missing}`}
-					</span>
+					<span className="sr-only">{`, ${spoken}`}</span>
 				</button>
 			</TooltipTrigger>
-			<TooltipContent>{`Placeholder until avel-server has ${missing}.`}</TooltipContent>
+			<TooltipContent>{words}</TooltipContent>
 		</Tooltip>
 	);
 }

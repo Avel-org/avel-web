@@ -222,6 +222,14 @@ function PrimitivesPage() {
 					<Switch id="s1" defaultChecked />
 					<label htmlFor="s1">Switch</label>
 				</div>
+				<div className="flex items-center gap-2 text-sm">
+					<Switch
+						id="s2"
+						checked
+						disabledReason="Attaching a skill needs the operator's skill routes."
+					/>
+					<label htmlFor="s2">Switch, disabled with a reason</label>
+				</div>
 				<RadioGroup defaultValue="warn" className="flex gap-4 text-sm">
 					<div className="flex items-center gap-2">
 						<RadioGroupItem value="mandatory" id="r1" />

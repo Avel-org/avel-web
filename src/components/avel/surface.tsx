@@ -5,9 +5,10 @@ import {
 	Copy,
 	type LucideIcon,
 } from "lucide-react";
-import { type ComponentType, type ReactNode, useState } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type { ApiError } from "@/lib/api/errors";
+import { useCopy } from "@/lib/clipboard";
 import { describeError } from "@/lib/error-map";
 import { EmptyState } from "./empty-state";
 
@@ -216,15 +217,8 @@ export function ErrorState({
  * worked; the clipboard can be unavailable, and that is said too.
  */
 function RequestReference({ id }: { id: string }) {
-	const [status, setStatus] = useState<"" | "Copied" | "Copy failed">("");
-	const copy = async () => {
-		try {
-			await navigator.clipboard.writeText(id);
-			setStatus("Copied");
-		} catch {
-			setStatus("Copy failed");
-		}
-	};
+	const { status, copy: copyId } = useCopy();
+	const copy = () => copyId(id);
 	return (
 		<div
 			data-testid="surface-error-reference"

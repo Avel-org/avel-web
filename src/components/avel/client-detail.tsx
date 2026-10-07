@@ -11,8 +11,10 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ApiError } from "@/lib/api";
 import { relativeTime, statusTone, useClient } from "@/lib/api/clients";
+import { ClientFilesDrive, ClientNotesDrive } from "./client-drive";
 import { EngagementList } from "./engagement-list";
 import { StatusPill } from "./status-pill";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
@@ -152,52 +154,90 @@ export function ClientDetailBody({
 				<ClientMenu client={client} actions={actions} />
 			</header>
 
-			<section aria-labelledby={engagementsId} className="flex flex-col gap-3">
-				<div className="flex items-center justify-between gap-2">
-					<h3 id={engagementsId} className="type-panel-title text-foreground">
-						Engagements
-					</h3>
-					<Button
-						variant="ghost"
-						size="sm"
-						aria-pressed={activeOnly}
-						data-testid="client-active-only"
-						onClick={() => onActiveOnlyChange(!activeOnly)}
-						className="aria-pressed:bg-state-selected"
+			<Tabs defaultValue="overview" data-testid="client-tabs">
+				<TabsList aria-label="Client sections">
+					<TabsTrigger value="overview" data-testid="client-tab-overview">
+						Overview
+					</TabsTrigger>
+					<TabsTrigger value="notes" data-testid="client-tab-notes">
+						Notes
+					</TabsTrigger>
+					<TabsTrigger value="files" data-testid="client-tab-files">
+						Files
+					</TabsTrigger>
+				</TabsList>
+				<TabsContent
+					value="overview"
+					forceMount
+					className="flex flex-col gap-4 data-[state=inactive]:hidden"
+				>
+					<section
+						aria-labelledby={engagementsId}
+						className="flex flex-col gap-3"
 					>
-						Active only
-					</Button>
-				</div>
-				<EngagementList
-					client={client}
-					activeOnly={activeOnly}
-					onShowAll={() => onActiveOnlyChange(false)}
-					onNewEngagement={() => actions.onNewEngagement(client)}
-					onCloseEngagement={(e) => actions.onCloseEngagement(client, e)}
-				/>
-			</section>
-
-			<section aria-labelledby={notesId} className="flex flex-col gap-2">
-				<h3 id={notesId} className="type-panel-title text-foreground">
-					Notes
-				</h3>
-				{client.notesMd ? (
-					// Plain text with its line breaks; markdown is not rendered yet.
-					<p
-						data-testid="client-detail-notes"
-						className="type-body whitespace-pre-line text-text-muted"
-					>
-						{client.notesMd}
-					</p>
-				) : (
-					<p
-						data-testid="client-detail-notes"
-						className="type-small text-text-subtle"
-					>
-						None set.
-					</p>
-				)}
-			</section>
+						<div className="flex items-center justify-between gap-2">
+							<h3
+								id={engagementsId}
+								className="type-panel-title text-foreground"
+							>
+								Engagements
+							</h3>
+							<Button
+								variant="ghost"
+								size="sm"
+								aria-pressed={activeOnly}
+								data-testid="client-active-only"
+								onClick={() => onActiveOnlyChange(!activeOnly)}
+								className="aria-pressed:bg-state-selected"
+							>
+								Active only
+							</Button>
+						</div>
+						<EngagementList
+							client={client}
+							activeOnly={activeOnly}
+							onShowAll={() => onActiveOnlyChange(false)}
+							onNewEngagement={() => actions.onNewEngagement(client)}
+							onCloseEngagement={(e) => actions.onCloseEngagement(client, e)}
+						/>
+					</section>
+				</TabsContent>
+				<TabsContent
+					value="notes"
+					forceMount
+					className="flex flex-col gap-4 data-[state=inactive]:hidden"
+				>
+					<section aria-labelledby={notesId} className="flex flex-col gap-2">
+						<h3 id={notesId} className="type-panel-title text-foreground">
+							Notes
+						</h3>
+						{client.notesMd ? (
+							// Plain text with its line breaks; markdown is not rendered yet.
+							<p
+								data-testid="client-detail-notes"
+								className="type-body whitespace-pre-line text-text-muted"
+							>
+								{client.notesMd}
+							</p>
+						) : (
+							<p
+								data-testid="client-detail-notes"
+								className="type-small text-text-subtle"
+							>
+								None set.
+							</p>
+						)}
+					</section>
+					<ClientNotesDrive clientId={client.id} />
+				</TabsContent>
+				<TabsContent
+					value="files"
+					forceMount
+					className="flex flex-col gap-4 data-[state=inactive]:hidden"
+				>
+					<ClientFilesDrive clientId={client.id} />
+				</TabsContent>
+			</Tabs>
 
 			<p
 				data-testid="client-detail-updated"

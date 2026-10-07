@@ -97,10 +97,10 @@ describe("the sidebar and the route tree agree", () => {
 		}
 	});
 
-	it("has twelve links in three groups, as AVEL-DESIGN.md specifies", () => {
+	it("has thirteen links in three groups, as AVEL-DESIGN.md specifies (ruling 33)", () => {
 		expect(NAV.map((g) => g.label)).toEqual(["Work", "Library", "System"]);
-		expect(ALL_LINKS).toHaveLength(12);
-		expect(new Set(ALL_LINKS.map((l) => l.to)).size).toBe(12);
+		expect(ALL_LINKS).toHaveLength(13);
+		expect(new Set(ALL_LINKS.map((l) => l.to)).size).toBe(13);
 	});
 });
 
@@ -118,13 +118,18 @@ describe("the sidebar's nesting (ruling 13)", () => {
 			["Work", ["Canon", "Missions", "Clients"]],
 			[
 				"Library",
-				["Catalog (Agent templates, Skills, Sources)", "Presets", "Playbooks"],
+				[
+					"Catalog (Agent templates, Skills, Sources)",
+					"Presets",
+					"Playbooks",
+					"Drive",
+				],
 			],
 			["System", ["Activity", "Settings (Repositories, Connections, Account)"]],
 		]);
 	});
 
-	it("keeps the twelve leaf links in sidebar order, parents excluded", () => {
+	it("keeps the thirteen leaf links in sidebar order, parents excluded", () => {
 		expect(ALL_LINKS.map((l) => l.label)).toEqual([
 			"Canon",
 			"Missions",
@@ -134,6 +139,7 @@ describe("the sidebar's nesting (ruling 13)", () => {
 			"Sources",
 			"Presets",
 			"Playbooks",
+			"Drive",
 			"Activity",
 			"Repositories",
 			"Connections",

@@ -1,20 +1,17 @@
 import {
 	agentTemplateSchema,
-	ROLES,
-	skillListItem,
+	skillSchema,
 	skillSourceSchema,
 } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CatalogAgents } from "@/components/avel/catalog-agents";
 import {
 	agentsOfSkill,
 	attachability,
 	CATALOG_MISSING,
 	enforcementBadge,
 	SAMPLE_AGENTS,
-	SAMPLE_FAMILY_TABLE,
 	SAMPLE_SKILLS,
 	SAMPLE_SOURCES,
 	sampleAgent,
@@ -24,7 +21,6 @@ import {
 	sampleUuid,
 	skillsOfAgent,
 } from "@/components/avel/catalog-placeholders";
-import { CatalogSkills } from "@/components/avel/catalog-skills";
 import { CatalogSources } from "@/components/avel/catalog-sources";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError } from "@/lib/api";
@@ -237,7 +233,7 @@ describe("catalog samples", () => {
 			expect(agentTemplateSchema.parse(agent)).toEqual(agent);
 		}
 		for (const skill of SAMPLE_SKILLS) {
-			expect(skillListItem.parse(skill)).toEqual(skill);
+			expect(skillSchema.parse(skill)).toEqual(skill);
 		}
 		for (const source of SAMPLE_SOURCES) {
 			expect(skillSourceSchema.parse(source)).toEqual(source);
@@ -252,250 +248,6 @@ describe("catalog samples", () => {
 			(row) => row.id,
 		);
 		expect(new Set(ids).size).toBe(ids.length);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// /catalog/agents.
-
-describe("/catalog/agents", () => {
-	it("renders the same samples on every visit", async () => {
-		const first = await renderPage("/catalog/agents?agent=atlas");
-		const second = await renderPage("/catalog/agents?agent=atlas");
-		expect(second).toBe(first);
-	});
-
-	it("labels every sample region, and nothing real", async () => {
-		const html = await renderPage("/catalog/agents?agent=atlas");
-		expectLabelled(
-			html,
-			["catalog-agents-read-only", "catalog-agents-detail-pane"],
-			[
-				"catalog-agent-row-atlas",
-				"catalog-agent-identity-hash",
-				"catalog-agent-version",
-				"catalog-agent-role-skills",
-				"catalog-families-table",
-				"catalog-discipline-table",
-				"catalog-outcome-table-client",
-				"catalog-agent-reconstructed-run",
-			],
-		);
-		const missing = new Set(regions(html).map((r) => r.missing));
-		expect(missing).toEqual(
-			new Set([
-				CATALOG_MISSING.templates,
-				CATALOG_MISSING.versions,
-				CATALOG_MISSING.skills,
-				CATALOG_MISSING.families,
-				CATALOG_MISSING.measures,
-			]),
-		);
-	});
-
-	it("asks for a choice when nothing, or an unknown slug, is selected", async () => {
-		for (const path of ["/catalog/agents", "/catalog/agents?agent=nobody"]) {
-			const html = await renderPage(path);
-			expect(html, path).toContain('data-testid="catalog-agents-choose"');
-			expect(html, path).not.toContain('data-testid="catalog-agent-detail"');
-		}
-	});
-
-	it("has no identity editor: no field, no write control", async () => {
-		const detail = element(
-			await renderPage("/catalog/agents?agent=atlas"),
-			"catalog-agent-detail",
-		);
-		expect(detail).not.toMatch(/<(textarea|input|form)\b/);
-		expect(detail).toMatch(
-			/<pre[^>]*data-testid="catalog-agent-identity-text"/,
-		);
-	});
-
-	it("lists every version with its full hash on demand", async () => {
-		const html = await renderPage("/catalog/agents?agent=atlas");
-		const atlas = sampleAgent("atlas");
-		const history = atlas ? sampleHistory(atlas) : undefined;
-		const versions = element(html, "catalog-agent-versions");
-		for (const version of history?.versions ?? []) {
-			expect(versions).toContain(`data-full="${version.sha256}"`);
-		}
-		expect(versions.match(/data-testid="catalog-agent-version"/g)?.length).toBe(
-			atlas?.version,
-		);
-	});
-
-	it("shows the family table, marking only this agent's families", async () => {
-		const html = await renderPage("/catalog/agents?agent=atlas");
-		const table = element(html, "catalog-families-table");
-		expect(
-			table.match(/data-testid="catalog-families-table-row-/g)?.length,
-		).toBe(SAMPLE_FAMILY_TABLE.length);
-		expect(table).toContain('data-testid="catalog-family-covered-Build"');
-		expect(table.match(/catalog-family-covered-/g)).toHaveLength(1);
-	});
-
-	it("keeps discipline and outcome apart, and client and internal apart", async () => {
-		const html = await renderPage("/catalog/agents?agent=atlas");
-		const discipline = element(html, "catalog-agent-discipline");
-		const outcome = element(html, "catalog-agent-outcome");
-		expect(discipline).not.toContain("catalog-outcome-table");
-		expect(outcome).not.toContain("catalog-discipline-table");
-
-		const client = element(html, "catalog-outcome-table-client");
-		const internal = element(html, "catalog-outcome-table-internal");
-		expect(client).toMatch(/-row-atlas:client:/);
-		expect(client).not.toMatch(/-row-atlas:internal:/);
-		expect(internal).toMatch(/-row-atlas:internal:/);
-		expect(internal).not.toMatch(/-row-atlas:client:/);
-	});
-
-	it("labels reconstructed runs and keeps them out of the measures", async () => {
-		const atlas = await renderPage("/catalog/agents?agent=atlas");
-		const runs = element(atlas, "catalog-agent-reconstructed");
-		expect(runs).toContain('data-testid="catalog-reconstructed-pill"');
-		expect(runs).toContain(">Reconstructed<");
-		expect(element(atlas, "catalog-agent-discipline")).not.toContain(
-			"mission-002",
-		);
-		expect(element(atlas, "catalog-agent-outcome")).not.toContain(
-			"mission-002",
-		);
-
-		const nemi = await renderPage("/catalog/agents?agent=nemi");
-		expect(nemi).not.toContain('data-testid="catalog-agent-reconstructed"');
-	});
-
-	it("links each skill it carries to the skill page", async () => {
-		const html = await renderPage("/catalog/agents?agent=iyo");
-		const iyo = sampleAgent("iyo");
-		const { role, dispatch } = iyo
-			? skillsOfAgent(iyo)
-			: { role: [], dispatch: [] };
-		expect(role.length).toBeGreaterThan(0);
-		expect(dispatch.length).toBeGreaterThan(0);
-		for (const skill of role) {
-			expect(element(html, "catalog-agent-role-skills")).toContain(
-				`href="/catalog/skills?skill=${skill.slug}"`,
-			);
-		}
-		for (const skill of dispatch) {
-			expect(element(html, "catalog-agent-dispatch-skills")).toContain(
-				`href="/catalog/skills?skill=${skill.slug}"`,
-			);
-		}
-	});
-});
-
-// ---------------------------------------------------------------------------
-// /catalog/skills.
-
-describe("/catalog/skills", () => {
-	it("renders the same samples on every visit", async () => {
-		const first = await renderPage("/catalog/skills?skill=database-read");
-		expect(await renderPage("/catalog/skills?skill=database-read")).toBe(first);
-	});
-
-	it("labels every sample region, and leaves the write controls real", async () => {
-		const html = await renderPage("/catalog/skills?skill=database-read");
-		expectLabelled(
-			html,
-			["catalog-skills-new", "catalog-skill-approve", "catalog-skill-retire"],
-			[
-				"catalog-skill-row-database-read",
-				"catalog-skill-status",
-				"catalog-skill-enforcement",
-				"catalog-skill-hash",
-				"catalog-skill-description-length",
-				"catalog-skill-grants-sample",
-				"catalog-agent-link-iyo",
-			],
-		);
-	});
-
-	it("disables every operator write, with its reason", async () => {
-		const html = await renderPage("/catalog/skills?skill=database-read");
-		expectDisabledWithReason(html, "catalog-skills-new", "Writing skills");
-		expectDisabledWithReason(
-			html,
-			"catalog-skill-approve",
-			"Approving a skill",
-		);
-		expectDisabledWithReason(html, "catalog-skill-retire", "Retiring a skill");
-	});
-
-	it("shows layer, type, status, recommended roles and granted tools", async () => {
-		const html = await renderPage("/catalog/skills?skill=database-read");
-		const skill = sampleSkill("database-read");
-		const detail = element(html, "catalog-skill-detail");
-		expect(detail).toContain(">stack<");
-		expect(detail).toContain(">capability<");
-		expect(element(html, "catalog-skill-status")).toContain(">Draft<");
-		for (const role of skill?.recommendedFor ?? []) {
-			expect(element(html, "catalog-skill-description")).toContain(`>${role}<`);
-		}
-		for (const grant of skill?.grants ?? []) {
-			expect(element(html, "catalog-skill-grants")).toContain(`>${grant}<`);
-		}
-	});
-
-	it("shows no granted tools on a knowledge skill", async () => {
-		const html = await renderPage(
-			"/catalog/skills?skill=property-testing-fast-check",
-		);
-		expect(html).not.toContain('data-testid="catalog-skill-grants"');
-		expect(element(html, "catalog-skill-enforcement")).toContain(
-			"Advice, nothing to enforce",
-		);
-	});
-
-	it("shows the description's length", async () => {
-		const html = await renderPage("/catalog/skills?skill=database-read");
-		const length = sampleSkill("database-read")?.description.length;
-		expect(tagOf(html, "catalog-skill-description-length")).toContain(
-			`data-length="${length}"`,
-		);
-		expect(element(html, "catalog-skill-description-length")).toContain(
-			`>${length} characters<`,
-		);
-	});
-
-	it("says an imported draft can't be attached", async () => {
-		const html = await renderPage("/catalog/skills?skill=database-read");
-		expect(tagOf(html, "catalog-skill-attach")).toContain(
-			'data-attachable="false"',
-		);
-		expect(element(html, "catalog-skill-attach")).toContain(
-			"An imported draft can&#x27;t be attached",
-		);
-	});
-
-	it("never badges a capability as enforced while no room runs", async () => {
-		for (const skill of SAMPLE_SKILLS.filter((s) => s.type === "capability")) {
-			const html = await renderPage(`/catalog/skills?skill=${skill.slug}`);
-			const badge = element(html, "catalog-skill-enforcement");
-			expect(badge, skill.slug).toContain("Not enforced: no room is running");
-			expect(tagOf(html, "catalog-skill-enforcement")).not.toContain(
-				'data-tone="pass"',
-			);
-		}
-	});
-
-	it("links each agent that carries it to the agent page", async () => {
-		const html = await renderPage("/catalog/skills?skill=database-read");
-		const skill = sampleSkill("database-read");
-		const carriers = skill ? agentsOfSkill(skill) : [];
-		expect(carriers.map((a) => a.slug).sort()).toEqual(["brennan", "iyo"]);
-		const list = element(html, "catalog-skill-agents");
-		for (const agent of carriers) {
-			expect(list).toContain(`href="/catalog/agents?agent=${agent.slug}"`);
-		}
-	});
-
-	it("asks for a choice when nothing is selected, and still offers New skill", async () => {
-		const html = await renderPage("/catalog/skills");
-		expect(html).toContain('data-testid="catalog-skills-choose"');
-		expectLabelled(html, ["catalog-skills-new"], ["catalog-skills-list"]);
 	});
 });
 
@@ -549,8 +301,6 @@ const failed = {
 
 describe("every catalog list has its four states", () => {
 	const lists = [
-		["agents", (q: never) => <CatalogAgents selected={undefined} query={q} />],
-		["skills", (q: never) => <CatalogSkills selected={undefined} query={q} />],
 		["sources", (q: never) => <CatalogSources query={q} />],
 	] as const;
 
@@ -583,14 +333,7 @@ describe("every catalog list has its four states", () => {
 		});
 	}
 
-	it("offers the disabled write control in the empty Skills and Sources", () => {
-		const skills = shell(
-			<CatalogSkills
-				selected={undefined}
-				query={{ status: "success", data: [] }}
-			/>,
-		);
-		expect(tagOf(skills, "catalog-skills-empty-new")).toMatch(/\sdisabled=""/);
+	it("offers the disabled write control in the empty Sources", () => {
 		const sources = shell(
 			<CatalogSources query={{ status: "success", data: [] }} />,
 		);
@@ -600,140 +343,10 @@ describe("every catalog list has its four states", () => {
 	});
 });
 
-describe("roles", () => {
-	it("are listed in the contract's catalog order", async () => {
-		const html = await renderPage("/catalog/agents?agent=atlas");
-		const roles = [
-			...element(html, "catalog-agent-roles").matchAll(
-				/data-testid="catalog-role"[^>]*>([^<]+)</g,
-			),
-		].map((m) => m[1]);
-		const ordered = [...roles].sort(
-			(a, b) =>
-				ROLES.indexOf(a as (typeof ROLES)[number]) -
-				ROLES.indexOf(b as (typeof ROLES)[number]),
-		);
-		expect(roles.length).toBeGreaterThan(1);
-		expect(roles).toEqual(ordered);
-	});
-});
-
 // ---------------------------------------------------------------------------
 // Layout, from the visual pass: what SSR can see of each fix.
 
-/** Every class on the first element with this test id. */
-const classes = (html: string, testid: string): string[] =>
-	(tagOf(html, testid).match(/class="([^"]*)"/)?.[1] ?? "").split(/\s+/);
-
-describe("list and detail split at lg, not md", () => {
-	for (const [page, path, selection, back] of [
-		["agents", "/catalog/agents", "?agent=atlas", "/catalog/agents"],
-		["skills", "/catalog/skills", "?skill=database-read", "/catalog/skills"],
-	] as const) {
-		it(`${page}: the list is the page below lg until something is chosen`, async () => {
-			const html = await renderPage(path);
-			const list = classes(html, `catalog-${page}-list-pane`);
-			const detail = classes(html, `catalog-${page}-detail-pane`);
-			expect(list).not.toContain("max-lg:hidden");
-			expect(detail).toContain("max-lg:hidden");
-			expect(detail).toContain("lg:border-l");
-			// No two-pane split survives at md.
-			expect([...list, ...detail].some((c) => c.startsWith("md:"))).toBe(false);
-			expect(html).not.toContain(`data-testid="catalog-${page}-back"`);
-		});
-
-		it(`${page}: a choice replaces the list below lg, with a way back`, async () => {
-			const html = await renderPage(`${path}${selection}`);
-			expect(classes(html, `catalog-${page}-list-pane`)).toContain(
-				"max-lg:hidden",
-			);
-			expect(classes(html, `catalog-${page}-detail-pane`)).not.toContain(
-				"max-lg:hidden",
-			);
-			const backLink = tagOf(html, `catalog-${page}-back`);
-			expect(backLink).toContain(`href="${back}"`);
-			expect(classes(html, `catalog-${page}-back`)).toContain("lg:hidden");
-		});
-	}
-});
-
-describe("tables fit their pane", () => {
-	it("wraps the family table's Read, Act and Propose cells", async () => {
-		const table = element(
-			await renderPage("/catalog/agents?agent=atlas"),
-			"catalog-families-table",
-		);
-		for (const row of SAMPLE_FAMILY_TABLE) {
-			const tr = element(table, `catalog-families-table-row-${row.family}`);
-			const cells = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(
-				(m) => m[1] ?? "",
-			);
-			// Family, then Read, Act and Propose: each prose cell wraps.
-			expect(cells).toHaveLength(4);
-			for (const cell of cells.slice(1)) {
-				expect(cell).toMatch(/^<span class="whitespace-normal">/);
-			}
-		}
-	});
-
-	it("puts the engagement under the territory and lets headers wrap", async () => {
-		const html = await renderPage("/catalog/agents?agent=atlas");
-		const client = element(html, "catalog-outcome-table-client");
-		expect(client).not.toContain('data-column="engagement"');
-		const atlas = sampleAgent("atlas");
-		const rows = atlas
-			? sampleHistory(atlas).outcomes.filter((r) => r.origin === "client")
-			: [];
-		expect(rows.length).toBeGreaterThan(0);
-		for (const row of rows) {
-			const tr = element(client, `catalog-outcome-table-client-row-${row.id}`);
-			expect(tr).toMatch(
-				new RegExp(
-					`data-testid="catalog-outcome-engagement"[^>]*>${row.engagement}<`,
-				),
-			);
-		}
-		for (const column of ["territory", "tokens", "cost", "gate"]) {
-			expect(client).toMatch(
-				new RegExp(
-					`data-column="${column}"[^>]*><span class="whitespace-normal">`,
-				),
-			);
-		}
-	});
-});
-
 describe("small fixes", () => {
-	it("dates each version, without the time", async () => {
-		const versions = element(
-			await renderPage("/catalog/agents?agent=leonora"),
-			"catalog-agent-versions",
-		);
-		const dates = [...versions.matchAll(/>(\d{4}-\d{2}-\d{2}[^<]*)</g)].map(
-			(m) => m[1],
-		);
-		expect(dates.length).toBeGreaterThan(0);
-		for (const date of dates) expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-	});
-
-	it("clamps a long skill name to two lines instead of cutting it", async () => {
-		const html = await renderPage("/catalog/skills");
-		const name = classes(html, "catalog-skill-row-name");
-		expect(name).toContain("line-clamp-2");
-		expect(name).not.toContain("truncate");
-	});
-
-	it("titles an agent's role line with every role", async () => {
-		const html = await renderPage("/catalog/agents");
-		const ordered = [...(SAMPLE_AGENTS[0]?.roles ?? [])].sort(
-			(a, b) => ROLES.indexOf(a) - ROLES.indexOf(b),
-		);
-		expect(ordered.length).toBeGreaterThan(1);
-		expect(tagOf(html, "catalog-agent-row-roles")).toContain(
-			`title="${ordered.join(", ")}"`,
-		);
-	});
-
 	it("shows a source's kind as a word and keeps None out of mono", async () => {
 		const html = await renderPage("/catalog/sources");
 		expect(tagOf(html, "catalog-source-kind")).toContain(
@@ -752,16 +365,5 @@ describe("small fixes", () => {
 				`data-testid="catalog-source-license" class="type-mono-small">${licensed?.license}<`,
 			),
 		);
-	});
-
-	it("makes the short hash unselectable, so a hand copy takes the full value", async () => {
-		const hash = element(
-			await renderPage("/catalog/agents?agent=atlas"),
-			"catalog-agent-identity-hash",
-		);
-		expect(hash).toMatch(
-			/<span aria-hidden="true" class="select-none">[0-9a-f]{12}</,
-		);
-		expect(hash).toMatch(/<span class="sr-only">[0-9a-f]{64}</);
 	});
 });

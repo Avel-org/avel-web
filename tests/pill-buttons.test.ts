@@ -90,6 +90,31 @@ const EXCEPTIONS: { file: string; marker: string; why: string }[] = [
 		marker: "-row-",
 		why: "a list row",
 	},
+	{
+		file: "components/avel/catalog-agent-inspector.tsx",
+		marker: "catalog-agent-edge-row-",
+		why: "an edge row in the agent panel (ruling 34)",
+	},
+	{
+		file: "components/avel/drive-files.tsx",
+		marker: "drive-card-",
+		why: "a file card in the grid (ruling 33)",
+	},
+	{
+		file: "components/avel/drive-files.tsx",
+		marker: "drive-recent-",
+		why: "a recent-file card (ruling 33)",
+	},
+	{
+		file: "components/avel/drive-rail.tsx",
+		marker: "drive-folder-",
+		why: "a folder row in the rail, like a sidebar link",
+	},
+	{
+		file: "components/avel/drive-rail.tsx",
+		marker: "onChange(target(i))",
+		why: "a breadcrumb step: text, like the shell's breadcrumbs",
+	},
 ];
 
 const sources = files(SRC).map((path) => ({

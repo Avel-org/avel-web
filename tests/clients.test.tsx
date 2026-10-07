@@ -7,6 +7,10 @@ import {
 import type { Client, Engagement } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import {
+	sampleFilesForClient,
+	sampleNotesForClient,
+} from "@/components/avel/drive-placeholders";
 import { ApiError, ApiOverrideProvider } from "@/lib/api";
 import {
 	CLIENTS_PAGE_SIZE,
@@ -460,5 +464,80 @@ describe("the selection in the URL", () => {
 		});
 		expect(html).toContain('data-testid="client-detail"');
 		expect(clientsSearch.parse({ client: ONE.id }).client).toBe(ONE.id);
+	});
+});
+
+describe("the chosen client's tabs (ruling 33)", () => {
+	const opened = () =>
+		renderSeeded(THREE, {
+			path: `/clients?client=${ONE.id}`,
+			detail: ONE,
+		});
+
+	it("opens on Overview, with Notes and Files beside it", async () => {
+		const html = await opened();
+		expect(tagOf(html, "client-tab-overview")).toContain('data-state="active"');
+		expect(tagOf(html, "client-tab-notes")).toContain('data-state="inactive"');
+		expect(tagOf(html, "client-tab-files")).toContain('data-state="inactive"');
+	});
+
+	it("keeps every panel in the page and hides the inactive ones", async () => {
+		const html = await opened();
+		const panels = [...html.matchAll(/<div[^>]*role="tabpanel"[^>]*>/g)].map(
+			(m) => m[0],
+		);
+		expect(panels).toHaveLength(3);
+		const active = panels.filter((p) => p.includes('data-state="active"'));
+		expect(active).toHaveLength(1);
+		for (const p of panels.filter((p) => p.includes('data-state="inactive"'))) {
+			expect(p).toMatch(/data-\[state=inactive\]:hidden/);
+		}
+	});
+
+	it("puts the client's own notes first on Notes, then the Drive's notes behind the pill", async () => {
+		const html = await opened();
+		const own = html.indexOf('data-testid="client-detail-notes"');
+		const drive = html.indexOf('data-testid="client-notes-drive"');
+		expect(own).toBeGreaterThan(-1);
+		expect(drive).toBeGreaterThan(own);
+		expect(html.slice(drive, drive + 600)).toContain("Sample data");
+	});
+
+	it("shows the Drive's notes as cards: title, author and date, then the opening lines", async () => {
+		const html = await opened();
+		const notes = sampleNotesForClient(ONE.id);
+		const cards = html.match(/data-testid="drive-note"/g) ?? [];
+		expect(cards).toHaveLength(notes.length);
+		for (const note of notes) {
+			expect(html).toMatch(
+				new RegExp(`data-testid="drive-note-title"[^>]*>${note.title}<`),
+			);
+			expect(html).toContain(`By ${note.uploadedBy}`);
+		}
+	});
+
+	it("lists the client's files behind the pill, engagement files tagged, controls real", async () => {
+		const html = await opened();
+		const { files, engagements } = sampleFilesForClient(ONE.id);
+		const region = html.indexOf('data-testid="client-files-drive"');
+		expect(region).toBeGreaterThan(-1);
+		expect(html.slice(region, region + 600)).toContain("Sample data");
+		const rows = html.match(/data-testid="client-file-list-row-/g) ?? [];
+		expect(rows).toHaveLength(files.length);
+		// No note is a file here: notes have their own tab.
+		expect(files.some((f) => f.mime === "text/markdown")).toBe(false);
+		const engaged = files.find((f) => f.scope === "engagement");
+		expect(engaged).toBeDefined();
+		const row = html.slice(
+			html.indexOf(`data-testid="client-file-list-row-${engaged?.id}"`),
+		);
+		expect(row.slice(0, row.indexOf("</tr>"))).toContain(
+			`>${engagements[0]?.name}<`,
+		);
+		// The toolbar and the drop zone are real controls, outside the region.
+		expect(html.indexOf('data-testid="client-files-toolbar"')).toBeLessThan(
+			region,
+		);
+		expect(tagOf(html, "client-files-drop-upload")).toMatch(/\sdisabled=""/);
 	});
 });

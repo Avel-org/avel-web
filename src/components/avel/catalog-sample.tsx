@@ -8,14 +8,15 @@ import {
 	WAVES,
 	type Wave,
 } from "avel-server/contract";
-import { ArrowLeft, Copy } from "lucide-react";
+import { ArrowLeft, Check, Copy } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiError } from "@/lib/api/errors";
+import { useCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
-import type { CatalogMissing } from "./catalog-placeholders";
+import { catalogPillReason } from "./catalog-placeholders";
 import { SampleData } from "./sample-data";
 import { StatusPill, type StatusTone } from "./status-pill";
 import type { SurfaceQuery } from "./surface";
@@ -40,7 +41,11 @@ export function SampleRegion({
 	className,
 	"data-testid": testId,
 }: {
-	missing: CatalogMissing;
+	/**
+	 * The route the region waits for, as its page's placeholder module names
+	 * it (CATALOG_MISSING, AGENT_MISSING). Tests check each page's own set.
+	 */
+	missing: string;
 	title: string;
 	what: string;
 	children: ReactNode;
@@ -58,7 +63,7 @@ export function SampleRegion({
 				className,
 			)}
 		>
-			<SampleData missing={missing} />
+			<SampleData missing={missing} reason={catalogPillReason(missing)} />
 			{children}
 		</section>
 	);
@@ -79,6 +84,7 @@ export function SampleHash({
 	label: string;
 	"data-testid": string;
 }) {
+	const { status, copy } = useCopy();
 	return (
 		<span data-testid={testId} className="inline-flex items-center gap-1">
 			<code
@@ -97,10 +103,22 @@ export function SampleHash({
 				size="icon-xs"
 				aria-label={`Copy ${label}`}
 				data-testid={`${testId}-copy`}
-				onClick={() => navigator.clipboard?.writeText(value)}
+				onClick={() => copy(value)}
 			>
-				<Copy aria-hidden="true" />
+				{status === "Copied" ? (
+					<Check aria-hidden="true" />
+				) : (
+					<Copy aria-hidden="true" />
+				)}
 			</Button>
+			{/* Says whether the copy worked: the clipboard can refuse. */}
+			<span
+				aria-live="polite"
+				data-testid={`${testId}-copy-status`}
+				className="sr-only"
+			>
+				{status}
+			</span>
 		</span>
 	);
 }

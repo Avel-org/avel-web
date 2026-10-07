@@ -1,10 +1,11 @@
 /**
  * Sample data for the catalog pages, /catalog/agents, /catalog/skills and
- * /catalog/sources (AVEL-DESIGN.md rulings 29 and 32). avel-server publishes
- * the module 4 shapes, but no handler answers yet, so every value here is
- * invented. Templates, skills and sources are typed by the contract; each is
- * replaced by real data, and deleted, when its route is mounted. Nothing here
- * is sent anywhere, and nothing here is ever written into a real field.
+ * /catalog/sources (AVEL-DESIGN.md rulings 29 and 32). avel-server serves the
+ * catalog reads, but these pages are not wired to them yet (the seed has no
+ * skills or sources to show), so every value here is invented. Templates,
+ * skills and sources are typed by the contract; each is replaced by real
+ * data, and deleted, when its page is wired. Nothing here is sent anywhere,
+ * and nothing here is ever written into a real field.
  *
  * Version history, per-agent measures and the per-family table have no
  * contract shape yet, so their types are local. The family table follows
@@ -17,6 +18,7 @@
 import type {
 	AgentTemplate,
 	Role,
+	Skill,
 	SkillListItem,
 	SkillSource,
 } from "avel-server/contract";
@@ -32,11 +34,34 @@ export const CATALOG_MISSING = {
 	measures: "per-agent measures",
 	families: "the per-family table route",
 	skills: "GET /api/skills",
+	/** One skill with its text: SKILL.md and AVEL's additions. */
+	skill: "GET /api/skills/by-slug/:slug",
 	sources: "GET /api/skill-sources",
+	/** What a source offers to import. No doc names a route for it yet. */
+	registry: "a source's skill index",
 } as const;
 
 export type CatalogMissing =
 	(typeof CATALOG_MISSING)[keyof typeof CATALOG_MISSING];
+
+/**
+ * The routes avel-server already serves (the catalog reads, d4deabb), which
+ * these pages are not wired to yet. Their pills say so, rather than claim
+ * the server lacks them. The rest of CATALOG_MISSING has no route at all.
+ */
+const SERVED: ReadonlySet<string> = new Set([
+	CATALOG_MISSING.templates,
+	CATALOG_MISSING.skills,
+	CATALOG_MISSING.skill,
+	CATALOG_MISSING.sources,
+]);
+
+/** The pill's words for a catalog region: undefined keeps SampleData's own. */
+export function catalogPillReason(missing: string): string | undefined {
+	return SERVED.has(missing)
+		? `Sample data. avel-server serves ${missing}; this page is wired to it in a later step.`
+		: undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Determinism.
@@ -253,6 +278,10 @@ type SkillSeed = Pick<
 	) & {
 		/** The key of its source in SOURCE_SEEDS. */
 		sourceId: string;
+		/** The full skill, loaded only when the task needs it. */
+		contentMd: string;
+		/** AVEL's additions to an imported skill, kept apart from the original. */
+		avelEnhancementMd?: string;
 	};
 
 const SKILL_SEEDS: readonly SkillSeed[] = [
@@ -268,6 +297,8 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["property-tests"],
 		sourceId: "src-avel",
 		status: "approved",
+		contentMd:
+			"# Property testing with fast-check\n\n1. State the invariant from the spec in one sentence.\n2. Write it as `fc.assert(fc.property(...))` before any example test.\n3. Shrink a failure to its smallest case, then add that case as an example.",
 	},
 	{
 		slug: "agreeing-wrong-tests",
@@ -281,6 +312,8 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["spec-judgment"],
 		sourceId: "src-avel",
 		status: "approved",
+		contentMd:
+			"# Code and tests that agree and are both wrong\n\n- Read the brief before the code.\n- For each assertion, find the sentence in the brief it checks.\n- An assertion with no sentence behind it is a finding.",
 	},
 	{
 		slug: "criterion-tags",
@@ -294,6 +327,8 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["backend-tests", "frontend-tests", "property-tests"],
 		sourceId: "src-avel",
 		status: "approved",
+		contentMd:
+			"# Tagging every test with its acceptance criterion\n\n- Name the criterion in the test title: `AC-3: rejects a past date`.\n- One criterion per test.\n- spec-check lists every criterion with no tagged test.",
 	},
 	{
 		slug: "middleware-not-enough",
@@ -307,6 +342,8 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["security-review"],
 		sourceId: "src-avel",
 		status: "approved",
+		contentMd:
+			"# Where admin routes are really protected\n\n- Middleware can be skipped by a route that is not matched.\n- Open each admin handler and find the caller check inside it.\n- A handler with no check is a finding, whatever the middleware does.",
 	},
 	{
 		slug: "nextjs-route-handlers",
@@ -320,6 +357,10 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["api-surface", "interface"],
 		sourceId: "src-vendor-pack",
 		status: "approved",
+		contentMd:
+			"# Next.js route groups and route handlers\n\n- Group routes with `(folder)`; the folder never reaches the URL.\n- A route handler is `route.ts` exporting `GET`, `POST` and so on.\n- Never put a page and a route handler in the same segment.",
+		avelEnhancementMd:
+			"## AVEL's additions\n\n- Every handler parses its body with the contract's schema before using it.",
 	},
 	{
 		slug: "drizzle-migrations",
@@ -333,6 +374,8 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["schema"],
 		sourceId: "src-avel",
 		status: "approved",
+		contentMd:
+			"# Drizzle schemas and generated migrations\n\n1. Change the schema in `src/db/schema`.\n2. Run `drizzle-kit generate`.\n3. Commit the schema and the generated SQL together; never edit the SQL.",
 	},
 	{
 		slug: "better-auth-allow-list",
@@ -346,6 +389,10 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["auth", "security-review"],
 		sourceId: "src-community-index",
 		status: "draft",
+		contentMd:
+			"# Better Auth with an allow-list\n\n- Read the allow-list in the sign-in callback.\n- Refuse before a session is created, not after.\n- Log the refused email's domain, never the address.",
+		avelEnhancementMd:
+			"## AVEL's additions\n\n- The allow-list lives in an environment variable, one GitHub login per line.",
 	},
 	{
 		slug: "luxon-daylight-saving",
@@ -359,6 +406,8 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["domain", "property-tests"],
 		sourceId: "src-avel",
 		status: "approved",
+		contentMd:
+			"# Luxon and daylight saving\n\n- Build slots in the venue's zone with `DateTime.fromObject({...}, { zone })`.\n- Skip a slot whose local time does not exist.\n- Offer a repeated hour once.",
 	},
 	{
 		slug: "booking-vocabulary",
@@ -372,6 +421,8 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["domain", "intake"],
 		sourceId: "src-avel",
 		status: "approved",
+		contentMd:
+			"# Booking vocabulary\n\n- A service is timed (30 minutes) or day-based (a night's stay).\n- A slot is a start time a timed service can begin at.\n- A booking holds one slot for one service.",
 	},
 	{
 		slug: "headless-browser",
@@ -385,6 +436,10 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["frontend-tests"],
 		sourceId: "src-vendor-pack",
 		status: "approved",
+		contentMd:
+			"# Headless browser\n\n- Start the browser once per test file.\n- Drive the page by role and label, never by CSS class.\n- Return a verdict and a screenshot path, not the page's markup.",
+		avelEnhancementMd:
+			"## AVEL's additions\n\n- Screenshots are written under the room's scratch directory only.",
 	},
 	{
 		slug: "database-read",
@@ -398,6 +453,10 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["backend-tests", "spec-judgment"],
 		sourceId: "src-community-index",
 		status: "draft",
+		contentMd:
+			"# Read access to the database\n\n- Connect with the read-only role the room provides.\n- Select only the columns the check needs.\n- Return counts and row ids, never whole rows.",
+		avelEnhancementMd:
+			"## AVEL's additions\n\n- The connection string comes from the room; never ask for one.",
 	},
 	{
 		slug: "package-registry",
@@ -410,11 +469,17 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		recommendedFor: ["domain", "interface"],
 		sourceId: "src-avel",
 		status: "retired",
+		contentMd:
+			"# The package registry\n\n- Install only what the lockfile names.\n- Never add a dependency without a blocker explaining why.",
 	},
 ];
 
-export const SAMPLE_SKILLS: readonly SkillListItem[] = SKILL_SEEDS.map(
-	({ sourceId, ...seed }) => {
+/**
+ * Each skill as get returns it: the list item plus its text. A list shows
+ * only the SkillListItem fields; the inspector shows the rest.
+ */
+export const SAMPLE_SKILLS: readonly Skill[] = SKILL_SEEDS.map(
+	({ sourceId, avelEnhancementMd, ...seed }): Skill => {
 		const key = `skill:${seed.slug}`;
 		const next = sequence(key);
 		const source = SOURCE_SEEDS.find((s) => s.key === sourceId);
@@ -434,11 +499,12 @@ export const SAMPLE_SKILLS: readonly SkillListItem[] = SKILL_SEEDS.map(
 			version: between(next, 1, 4),
 			createdAt: isoDay(month, 1),
 			updatedAt: isoDay(month, 9),
-		};
+			avelEnhancementMd: avelEnhancementMd ?? null,
+		} as Skill;
 	},
 );
 
-export function sampleSkill(slug: string): SkillListItem | undefined {
+export function sampleSkill(slug: string): Skill | undefined {
 	return SAMPLE_SKILLS.find((skill) => skill.slug === slug);
 }
 
@@ -454,6 +520,80 @@ export const SAMPLE_SOURCES: readonly SkillSource[] = SOURCE_SEEDS.map(
 		updatedAt: isoDay(6, 1),
 	}),
 );
+
+/**
+ * Imported drafts: what a source sent that no one has reviewed. The Skills
+ * banner counts these, and each is approved before it can be attached.
+ */
+export function skillsNeedingReview(skills: readonly SkillListItem[]) {
+	return skills.filter(
+		(skill) => skill.status === "draft" && skill.source.kind !== "internal",
+	);
+}
+
+/** One skill a vendor or community source offers, not yet imported. */
+export type SampleRegistryEntry = {
+	id: string;
+	name: string;
+	/** Where it lives in its source, such as a repository path. */
+	path: string;
+	description: string;
+	sourceId: string;
+	contentSha256: string;
+};
+
+type RegistrySeed = Omit<
+	SampleRegistryEntry,
+	"id" | "sourceId" | "contentSha256"
+> & {
+	source: string;
+};
+
+const REGISTRY_SEEDS: readonly RegistrySeed[] = [
+	{
+		name: "tanstack-query-keys",
+		path: "vendor/skills/tanstack-query-keys",
+		description:
+			"Use when adding a query: one key factory, never an inline key.",
+		source: "src-vendor-pack",
+	},
+	{
+		name: "tailwind-tokens-only",
+		path: "vendor/skills/tailwind-tokens-only",
+		description: "Use when styling: tokens and utilities, no raw colours.",
+		source: "src-vendor-pack",
+	},
+	{
+		name: "playwright-by-role",
+		path: "vendor/skills/playwright-by-role",
+		description:
+			"Use when writing a browser test: find elements by role and label.",
+		source: "src-vendor-pack",
+	},
+	{
+		name: "zod-at-the-edge",
+		path: "skills-index/zod-at-the-edge",
+		description:
+			"Use when data crosses a boundary: parse it with a schema first.",
+		source: "src-community-index",
+	},
+	{
+		name: "conventional-commits",
+		path: "skills-index/conventional-commits",
+		description:
+			"Use when writing a commit message: type(scope), imperative, under 72.",
+		source: "src-community-index",
+	},
+];
+
+/** What each source offers, ranked by source then name: there is no install count. */
+export const SAMPLE_REGISTRY: readonly SampleRegistryEntry[] =
+	REGISTRY_SEEDS.map(({ source, ...seed }) => ({
+		...seed,
+		id: sampleUuid(`registry:${seed.path}`),
+		sourceId: sourceIdOf(source),
+		contentSha256: sampleSha256(`registry:${seed.path}`),
+	}));
 
 /** Imported means it came from outside AVEL: a vendor or community source. */
 export function isImported(skill: SkillListItem): boolean {

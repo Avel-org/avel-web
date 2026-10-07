@@ -236,4 +236,4 @@ function DisabledReason({
 	);
 }
 
-export { Button, buttonVariants };
+export { Button, buttonVariants, DisabledReason };

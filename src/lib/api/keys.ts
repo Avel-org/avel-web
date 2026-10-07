@@ -39,6 +39,41 @@ export const queryKeys = {
 				},
 			] as const,
 	},
+	catalog: {
+		/** Everything under contract.agentTemplates, skills and skillSources. */
+		all: () => ["catalog"] as const,
+		/**
+		 * contract.agentTemplates.list, paged by cursor. `role` keeps templates
+		 * holding any of those roles (a skill's "carried by"); it is in the key
+		 * only when set, sorted, so the same set is always the same entry.
+		 */
+		agentTemplates: (limit: number, role?: readonly string[]) =>
+			[
+				"catalog",
+				"agentTemplates",
+				"list",
+				role === undefined ? { limit } : { limit, role: [...role].sort() },
+			] as const,
+		/** contract.agentTemplates.getBySlug: the live template with this slug. */
+		agentTemplate: (slug: string) =>
+			["catalog", "agentTemplates", "bySlug", slug] as const,
+		/**
+		 * contract.skills.list, paged by cursor. `role` keeps skills recommended
+		 * for any of those roles (an agent's skills), as for agentTemplates.
+		 */
+		skills: (limit: number, role?: readonly string[]) =>
+			[
+				"catalog",
+				"skills",
+				"list",
+				role === undefined ? { limit } : { limit, role: [...role].sort() },
+			] as const,
+		/** contract.skills.getBySlug: the live skill with this slug. */
+		skill: (slug: string) => ["catalog", "skills", "bySlug", slug] as const,
+		/** contract.skillSources.list, paged by cursor. */
+		skillSources: (limit: number) =>
+			["catalog", "skillSources", "list", { limit }] as const,
+	},
 	clients: {
 		/** Everything under contract.clients. */
 		all: () => ["clients"] as const,

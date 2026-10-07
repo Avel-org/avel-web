@@ -1,15 +1,24 @@
 import { Switch as SwitchPrimitive } from "radix-ui";
-import type * as React from "react";
+import * as React from "react";
 import { cn } from "@/lib/utils";
+import { DisabledReason } from "./button";
 
 function Switch({
 	className,
 	size = "default",
+	disabledReason,
+	disabled,
 	...props
 }: React.ComponentProps<typeof SwitchPrimitive.Root> & {
 	size?: "sm" | "default";
+	/**
+	 * Disables the switch and says why, in a tooltip on a focusable wrapper,
+	 * exactly as Button's disabledReason does (AVEL-DESIGN.md ruling 11).
+	 */
+	disabledReason?: string;
 }) {
-	return (
+	const reasonId = React.useId();
+	const switchElement = (
 		<SwitchPrimitive.Root
 			data-slot="switch"
 			data-size={size}
@@ -18,6 +27,10 @@ function Switch({
 				className,
 			)}
 			{...props}
+			disabled={disabled === true || disabledReason !== undefined}
+			aria-describedby={
+				disabledReason === undefined ? props["aria-describedby"] : reasonId
+			}
 		>
 			<SwitchPrimitive.Thumb
 				data-slot="switch-thumb"
@@ -26,6 +39,14 @@ function Switch({
 				)}
 			/>
 		</SwitchPrimitive.Root>
+	);
+
+	if (disabledReason === undefined) return switchElement;
+
+	return (
+		<DisabledReason reason={disabledReason} reasonId={reasonId}>
+			{switchElement}
+		</DisabledReason>
 	);
 }
 

@@ -23,7 +23,8 @@ import { ErrorState, Surface } from "./surface";
  */
 
 export const SOURCE_WRITE_REASON =
-	"Adding a source needs skillSource routes, which avel-server doesn't have yet";
+	// avel-server has the route (4f7c3a0); this page is not wired to it yet.
+	"Adding a source isn't wired into this page yet";
 
 export function AddSourceButton({
 	"data-testid": testId = "catalog-sources-add",
