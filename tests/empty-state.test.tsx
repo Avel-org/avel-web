@@ -92,7 +92,6 @@ describe("EmptyState", () => {
 
 /** Every stub route, with exactly the procedures a doc names for it. */
 const STUBS: [string, string, string[]][] = [
-	["/activity", "activity-log", []],
 	["/presets", "preset-list", ["preset.list"]],
 	["/playbooks", "playbook-list", []],
 	["/settings/repositories", "repo-policies", []],

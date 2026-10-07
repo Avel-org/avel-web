@@ -255,6 +255,37 @@ export const PRECONDITION_COPY = {
 		next: "Reopen the client if it should take new work, or choose an active client.",
 		retry: false,
 	},
+	// src/routes/intake.ts (module 1): a new intake for an engagement that no
+	// longer exists.
+	engagement_not_found: {
+		what: "This engagement no longer exists.",
+		written: NOTHING_WRITTEN,
+		next: "Reload the client and choose an existing engagement.",
+		retry: false,
+	},
+	// src/routes/intake.ts: a new intake for an engagement that is not active.
+	engagement_closed: {
+		what: "This engagement is closed, so it cannot take a new intake.",
+		written: NOTHING_WRITTEN,
+		next: "Choose an active engagement, or start a new one for this work.",
+		retry: false,
+	},
+	// src/routes/intake.ts: the mechanical check failed at propose or approve.
+	// details.issues lists what failed; the intake screen shows each one.
+	intake_check_failed: {
+		what: "This intake did not pass its check.",
+		written: NOTHING_WRITTEN,
+		next: "Fix each issue listed, then propose it again.",
+		retry: false,
+	},
+	// src/routes/intake.ts: approval while the repository's cut has not been
+	// derived. Every approval gets this until repo read (module 2) exists.
+	intake_cut_not_derived: {
+		what: "This intake can't be approved yet: the repository hasn't been read.",
+		written: NOTHING_WRITTEN,
+		next: "Wait for the repository read to derive the cut, then approve again.",
+		retry: false,
+	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;
 
 /** Copy for an error from avel-server's contract. */

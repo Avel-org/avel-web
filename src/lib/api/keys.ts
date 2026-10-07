@@ -9,6 +9,36 @@
  */
 export const queryKeys = {
 	health: () => ["health"] as const,
+	activity: {
+		/** Everything under contract.activity. */
+		all: () => ["activity"] as const,
+		/**
+		 * contract.activity.list, paged by cursor. Each filter set is its own
+		 * entry: the cursor is not bound to the filters, so a page fetched under
+		 * one set must never continue a list under another. A filter is in the
+		 * key only when it is set.
+		 */
+		list: (
+			limit: number,
+			filters: {
+				entityType?: string;
+				actorKind?: string;
+			},
+		) =>
+			[
+				"activity",
+				"list",
+				{
+					limit,
+					...(filters.entityType === undefined
+						? {}
+						: { entityType: filters.entityType }),
+					...(filters.actorKind === undefined
+						? {}
+						: { actorKind: filters.actorKind }),
+				},
+			] as const,
+	},
 	clients: {
 		/** Everything under contract.clients. */
 		all: () => ["clients"] as const,
