@@ -41,8 +41,8 @@ export const PURGED_REASON =
 
 /**
  * Each kind's words, icon and tone. No file-kind colour tokens exist, and the
- * gate and diff colours carry meanings of their own, so kinds sit on one
- * steel ramp of the existing text-muted token; the icon tells them apart.
+ * gate and diff colours carry meanings of their own, so the kinds share one
+ * neutral tile (notes take the accent) and the icon tells them apart.
  * Proposed: --color-kind-document, -spreadsheet, -image, -archive, -note.
  * This table is the one place a tone is chosen, so the swap is one line each.
  */
@@ -52,39 +52,34 @@ export const KIND = {
 		plural: "Documents",
 		icon: FileText,
 		tile: "bg-text-muted/15 text-foreground",
-		bar: "bg-text-muted",
 	},
 	spreadsheet: {
 		label: "Spreadsheet",
 		plural: "Spreadsheets",
 		icon: FileSpreadsheet,
 		tile: "bg-text-muted/15 text-foreground",
-		bar: "bg-text-muted/75",
 	},
 	image: {
 		label: "Image",
 		plural: "Images",
 		icon: FileImage,
 		tile: "bg-text-muted/15 text-foreground",
-		bar: "bg-text-muted/55",
 	},
 	archive: {
 		label: "Archive",
 		plural: "Archives",
 		icon: FileArchive,
 		tile: "bg-text-muted/15 text-foreground",
-		bar: "bg-text-muted/35",
 	},
 	note: {
 		label: "Note",
 		plural: "Notes",
 		icon: NotebookText,
 		tile: "bg-accent-soft text-accent-text",
-		bar: "bg-accent",
 	},
 } as const satisfies Record<
 	FileKind,
-	{ label: string; plural: string; icon: LucideIcon; tile: string; bar: string }
+	{ label: string; plural: string; icon: LucideIcon; tile: string }
 >;
 
 /** A file's kind as an icon on a rounded tile. */

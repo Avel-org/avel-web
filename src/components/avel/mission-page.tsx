@@ -4,7 +4,7 @@ import type {
 	MissionDetail,
 	needsYouReason,
 } from "avel-server/contract";
-import { ArrowLeft, Copy } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Copy } from "lucide-react";
 import type { ReactNode } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import {
 	quietDays,
 	quietText,
 } from "./mission-watch";
+import { PlanLink } from "./plan-page";
 import { SampleData } from "./sample-data";
 import { SectionPanel } from "./section-panel";
 import {
@@ -279,6 +280,20 @@ function MissionContent({
 					<SectionPanel
 						title="Playbook"
 						data-testid="mission-section-playbook-page"
+						actions={
+							// Always: the mission's playbook page also shows its template
+							// and says so when no playbook matches.
+							<Button asChild variant="ghost" size="sm">
+								<Link
+									to="/missions/$id/playbook"
+									params={{ id: mission.id }}
+									data-testid="mission-playbook-open"
+								>
+									Open
+									<ArrowUpRight aria-hidden="true" />
+								</Link>
+							</Button>
+						}
 					>
 						{mission.playbook ? (
 							<dl className="flex flex-col gap-2">
@@ -296,7 +311,11 @@ function MissionContent({
 						)}
 					</SectionPanel>
 					<Spend mission={mission} />
-					<SectionPanel title="Brief" data-testid="mission-section-brief-page">
+					<SectionPanel
+						title="Brief"
+						data-testid="mission-section-brief-page"
+						actions={<PlanLink missionId={mission.id} />}
+					>
 						<Brief brief={mission.brief} />
 					</SectionPanel>
 				</div>

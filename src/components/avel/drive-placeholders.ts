@@ -16,7 +16,6 @@
 export const DRIVE_MISSING = {
 	files: "GET /api/files",
 	folders: "the Drive's scopes (GET /api/files)",
-	storage: "the Drive's storage usage",
 	access: "the Drive's read rules for agents",
 	history: "a file's history",
 	notes: "GET /api/files (notes)",
@@ -358,7 +357,7 @@ export function scopePath(file: SampleFile): string {
 }
 
 // ---------------------------------------------------------------------------
-// Kinds and storage.
+// Kinds.
 
 export type FileKind =
 	| "document"
@@ -382,28 +381,6 @@ export function kindOf(mime: string): FileKind {
 	if (mime === ZIP) return "archive";
 	if (mime.includes("spreadsheet") || mime === CSV) return "spreadsheet";
 	return "document";
-}
-
-/** The Drive's sample cap: 2 GB. */
-export const STORAGE_CAP = 2_000_000_000;
-
-/** Bytes still held, by kind; a tombstone holds none. */
-export function storageOf(files: readonly SampleFile[]): {
-	used: number;
-	byKind: Record<FileKind, { count: number; bytes: number }>;
-} {
-	const byKind = Object.fromEntries(
-		FILE_KINDS.map((k) => [k, { count: 0, bytes: 0 }]),
-	) as Record<FileKind, { count: number; bytes: number }>;
-	let used = 0;
-	for (const file of files) {
-		if (file.purgedAt !== null) continue;
-		const slot = byKind[kindOf(file.mime)];
-		slot.count += 1;
-		slot.bytes += file.bytes;
-		used += file.bytes;
-	}
-	return { used, byKind };
 }
 
 /** "9.4 KB", "6.8 MB", "1.2 GB". */

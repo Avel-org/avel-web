@@ -209,6 +209,28 @@ describe("the page from the contract", () => {
 		expect(tagOf(html, "mission-activity-full-log")).toMatch(/disabled/);
 	});
 
+	it("shows a brief in the contract's shape by requirement, as the side panel does", async () => {
+		const html = await render(
+			`/missions/${ID}`,
+			withMission(
+				detail({
+					brief: {
+						summary: "A booking flow.",
+						requirements: [{ id: "R1", text: "Patients book a slot." }],
+						acceptanceCriteria: [
+							{ id: "AC1", requirementId: "R1", text: "A free slot books." },
+						],
+					},
+				}),
+			),
+		);
+		const brief = element(html, "mission-section-brief-page");
+		expect(brief).toContain('data-shape="plan"');
+		expect(element(brief, "mission-brief-requirement-R1")).toContain(
+			"A free slot books.",
+		);
+	});
+
 	it("counts the team from the roster, and the ceiling from the mission", async () => {
 		const html = await render(`/missions/${ID}`, withMission(detail()));
 		expect(

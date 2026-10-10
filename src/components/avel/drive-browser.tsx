@@ -19,7 +19,6 @@ import {
 	type SampleFile,
 } from "./drive-placeholders";
 import { FolderCrumbs, FolderRail, FolderSelect } from "./drive-rail";
-import { StorageStrip } from "./drive-summary";
 import { type DriveControls, DriveToolbar } from "./drive-toolbar";
 import { EmptyState } from "./empty-state";
 import {
@@ -202,15 +201,6 @@ function DriveLoaded({
 			</div>
 
 			<div className="flex min-w-0 flex-1 flex-col gap-4">
-				<SampleRegion
-					missing={DRIVE_MISSING.storage}
-					title="Storage"
-					what="Bytes held against the Drive's cap, and how they split by kind."
-					data-testid="drive-storage-region"
-				>
-					<StorageStrip files={files} />
-				</SampleRegion>
-
 				<div className="flex flex-col gap-3">
 					<div className="lg:hidden">
 						<FolderSelect current={state.folder} onChange={goTo} />

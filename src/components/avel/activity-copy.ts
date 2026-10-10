@@ -41,6 +41,9 @@ export const ACTION_COPY = {
 	"mission.skill_detached": "Skill detached from mission",
 	"intake.repo_read": "Repository read for intake",
 	"connection.created": "Connection added",
+	"preset.created": "Preset created",
+	"preset.updated": "Preset updated",
+	"mission.plan_updated": "Mission plan updated",
 } as const satisfies Record<ActivityAction, string>;
 
 /** The name of each entity type, singular, as a filter option and a row's "which". */
@@ -55,6 +58,7 @@ export const ENTITY_LABEL = {
 	skill_source: "Skill source",
 	skill: "Skill",
 	roster_entry: "Roster entry",
+	roster_preset: "Preset",
 } as const satisfies Record<ActivityEntityType, string>;
 
 /**

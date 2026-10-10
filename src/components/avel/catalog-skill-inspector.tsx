@@ -6,6 +6,7 @@ import {
 	agentsOfSkill,
 	attachability,
 	CATALOG_MISSING,
+	carryingRoles,
 	enforcementBadge,
 	SAMPLE_FAMILY_TABLE,
 	SAMPLE_ROLE_FAMILY,
@@ -40,7 +41,9 @@ export const SKILL_WRITE_REASON = {
 	retire: "Retiring a skill isn't wired into this page yet",
 	create: "Saving a new skill isn't wired into this page yet",
 	// These have no route in avel-server at all.
-	attach: "avel-server has no route for attaching a skill to a role yet",
+	// role_skills is written by module 5; its route does not exist yet.
+	attach:
+		"Attaching a skill to a role uses PUT /api/skills/:id/roles/:role, arriving with module 5",
 	import: "avel-server has no route for importing from a source yet",
 } as const;
 
@@ -302,37 +305,60 @@ function Attach({ skill }: { skill: Skill }) {
 			</SectionPanel>
 		);
 	}
+	// A role skill's attachments are role_skills (module 5), never its
+	// recommendedFor, which is the dispatch filter for stack and domain skills.
+	const attached = carryingRoles(skill);
 	return (
 		<SectionPanel
 			title="Attaches to"
-			description="A role skill is part of the identity of every agent covering the role."
+			description="Every agent covering a role turned on here carries the skill in its identity, so the skill is part of that agent's version hash."
 			data-testid="skill-attach-panel"
 		>
-			<SampleRegion
-				missing={CATALOG_MISSING.skills}
-				title="Attaches to"
-				what="One toggle per role, grouped by family, on where the skill is attached."
-				data-testid="skill-attach-sample"
-			>
-				<div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3">
-					{SAMPLE_FAMILY_TABLE.map(({ family }) => (
-						<RoleToggleCard
-							key={family}
-							family={family}
-							roles={rolesOf(family)}
-							on={skill.recommendedFor}
-						/>
-					))}
-				</div>
-			</SampleRegion>
+			<div className="flex flex-col gap-3">
+				{/* Said once, readable without hovering; each switch still has it
+				    in its tooltip and aria-describedby. */}
+				<p
+					data-testid="skill-attach-reason"
+					className="rounded-sm border border-border bg-app-band px-3 py-2 type-small text-text-muted"
+				>
+					{`Read-only for now. ${SKILL_WRITE_REASON.attach}.`}
+				</p>
+				<SampleRegion
+					missing={CATALOG_MISSING.roleAttachments}
+					title="Attaches to"
+					what="One switch per role, grouped by family, on where the skill is attached."
+					data-testid="skill-attach-sample"
+				>
+					<div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
+						{SAMPLE_FAMILY_TABLE.map(({ family }) => (
+							<RoleToggleCard
+								key={family}
+								family={family}
+								roles={rolesOf(family)}
+								on={attached}
+							/>
+						))}
+					</div>
+				</SampleRegion>
+			</div>
 		</SectionPanel>
 	);
+}
+
+/** "2 of 5 attached": a family's count, for its card header. */
+export function attachedCount(
+	roles: readonly Role[],
+	on: readonly Role[],
+): string {
+	return `${roles.filter((role) => on.includes(role)).length} of ${roles.length} attached`;
 }
 
 /**
  * One family's roles, each with a switch showing whether the skill is
  * attached to it. Every switch is disabled with its reason until the write
- * routes exist.
+ * routes exist. Firm roles are marked: firm agents work between missions and
+ * never sit on a mission roster, but they can still carry a role skill, so
+ * it is a label, not a block.
  */
 export function RoleToggleCard({
 	family,
@@ -343,13 +369,32 @@ export function RoleToggleCard({
 	roles: readonly Role[];
 	on: readonly Role[];
 }) {
+	const firm = family === "Firm";
 	return (
 		<section
 			aria-label={family}
 			data-testid={`skill-family-${family}`}
-			className="surface-steel flex flex-col gap-1 rounded-sm border border-border bg-app-band p-3"
+			data-firm={firm || undefined}
+			className="surface-steel flex flex-col gap-2 rounded-sm border border-border bg-app-band p-3"
 		>
-			<h3 className="type-caption font-medium text-text-muted">{family}</h3>
+			<header className="flex items-baseline justify-between gap-2 border-b border-border pb-1.5">
+				<h3 className="type-small font-medium text-foreground">{family}</h3>
+				<span
+					data-testid={`skill-family-${family}-count`}
+					className="type-caption text-text-subtle tabular-nums"
+				>
+					{attachedCount(roles, on)}
+				</span>
+			</header>
+			{firm ? (
+				<p
+					data-testid="skill-family-Firm-note"
+					className="type-caption text-text-subtle"
+				>
+					Firm roles work between missions, never on a mission roster. A firm
+					agent still carries the role skills attached here.
+				</p>
+			) : null}
 			<ul className="flex flex-col gap-1">
 				{roles.map((role) => {
 					const id = `skill-role-${role}`;
@@ -362,6 +407,15 @@ export function RoleToggleCard({
 							>
 								{role}
 							</label>
+							{firm ? (
+								<Badge
+									variant="outline"
+									data-testid={`${id}-firm`}
+									className="type-caption"
+								>
+									firm
+								</Badge>
+							) : null}
 							{/* A disabled switch is dimmed, so "on" barely shows: say it. */}
 							{attached ? (
 								<span
@@ -388,22 +442,36 @@ export function RoleToggleCard({
 }
 
 function CarriedBy({ skill }: { skill: Skill }) {
+	// Through the roles that carry it: a role skill's attachments, or a stack
+	// or domain skill's recommendedFor.
+	const roles = carryingRoles(skill);
 	const agents = agentsOfSkill(skill);
 	return (
 		<SectionPanel
 			title="Carried by"
-			description="Agents whose roles include one this skill is for."
+			description={
+				skill.layer === "role"
+					? "Agents covering a role this skill is attached to."
+					: "Agents covering a role this skill is recommended for."
+			}
 			data-testid="skill-carried-by"
 		>
 			<SampleRegion
-				missing={CATALOG_MISSING.templates}
+				// A role skill's carriers wait on module 5's attachments.
+				missing={
+					skill.layer === "role"
+						? CATALOG_MISSING.roleAttachments
+						: CATALOG_MISSING.templates
+				}
 				title="Carried by"
 				what="The agent templates that carry this skill through their roles."
 				data-testid="skill-carried-by-sample"
 			>
 				{agents.length === 0 ? (
 					<p className="type-small text-text-subtle">
-						No agent covers a role this skill is for.
+						{skill.layer === "role"
+							? "No agent covers a role this skill is attached to."
+							: "No agent covers a role this skill is recommended for."}
 					</p>
 				) : (
 					<ul
@@ -416,8 +484,7 @@ function CarriedBy({ skill }: { skill: Skill }) {
 								<span className="type-mono-small text-text-subtle">
 									{ROLES.filter(
 										(role) =>
-											agent.roles.includes(role) &&
-											skill.recommendedFor.includes(role),
+											agent.roles.includes(role) && roles.includes(role),
 									).join(", ")}
 								</span>
 							</li>

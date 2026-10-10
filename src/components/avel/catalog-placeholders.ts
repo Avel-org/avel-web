@@ -39,6 +39,8 @@ export const CATALOG_MISSING = {
 	sources: "GET /api/skill-sources",
 	/** What a source offers to import. No doc names a route for it yet. */
 	registry: "a source's skill index",
+	/** Which roles a role skill is attached to (role_skills, module 5). */
+	roleAttachments: "GET /api/skills/:id/roles (module 5)",
 } as const;
 
 export type CatalogMissing =
@@ -940,16 +942,45 @@ const shares = (a: readonly Role[], b: readonly Role[]) =>
 	a.some((role) => b.includes(role));
 
 /**
+ * The roles each role-layer skill is attached to: the role_skills join
+ * table, which module 5 writes and no route reads yet (SKILLS.md, Three
+ * layers). This is not recommendedFor. recommendedFor is the dispatch filter
+ * for stack and domain skills; for a role skill the two can differ, and here
+ * they do, on purpose, so nothing can quietly read one as the other.
+ */
+export const SAMPLE_ROLE_ATTACHMENTS: Readonly<
+	Record<string, readonly Role[]>
+> = {
+	"property-testing-fast-check": ["property-tests", "backend-tests"],
+	"agreeing-wrong-tests": ["spec-judgment", "security-review"],
+	"criterion-tags": ["backend-tests", "frontend-tests"],
+	"middleware-not-enough": ["security-review"],
+};
+
+/**
+ * The roles that carry a skill. A role skill is carried by the roles it is
+ * attached to (role_skills); a stack or domain skill reaches the agents whose
+ * roles it is recommended for, at dispatch.
+ */
+export function carryingRoles(
+	skill: Pick<SkillListItem, "slug" | "layer" | "recommendedFor">,
+): readonly Role[] {
+	return skill.layer === "role"
+		? (SAMPLE_ROLE_ATTACHMENTS[skill.slug] ?? [])
+		: skill.recommendedFor;
+}
+
+/**
  * The skills an agent carries, through its roles. Role skills are part of
- * its identity; stack and domain skills arrive at dispatch, to agents whose
- * roles a skill is recommended for.
+ * its identity, through the roles they are attached to; stack and domain
+ * skills arrive at dispatch, to agents whose roles they are recommended for.
  */
 export function skillsOfAgent(agent: AgentTemplate): {
 	role: SkillListItem[];
 	dispatch: SkillListItem[];
 } {
 	const carried = SAMPLE_SKILLS.filter((skill) =>
-		shares(skill.recommendedFor, agent.roles),
+		shares(carryingRoles(skill), agent.roles),
 	);
 	return {
 		role: carried.filter((skill) => skill.layer === "role"),
@@ -957,9 +988,9 @@ export function skillsOfAgent(agent: AgentTemplate): {
 	};
 }
 
-/** The agents that carry a skill: those covering a role it is for. */
+/** The agents that carry a skill: those covering a role that carries it. */
 export function agentsOfSkill(skill: SkillListItem): AgentTemplate[] {
 	return SAMPLE_AGENTS.filter((agent) =>
-		shares(agent.roles, skill.recommendedFor),
+		shares(agent.roles, carryingRoles(skill)),
 	);
 }

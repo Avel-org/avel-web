@@ -92,8 +92,6 @@ describe("EmptyState", () => {
 
 /** Every stub route, with exactly the procedures a doc names for it. */
 const STUBS: [string, string, string[]][] = [
-	["/presets", "preset-list", ["preset.list"]],
-	["/playbooks", "playbook-list", []],
 	["/settings/repositories", "repo-policies", []],
 	["/settings/connections", "connection-list", []],
 	["/settings/account", "account-settings", []],
@@ -126,7 +124,7 @@ describe("every route with no data states it, centred in the page", () => {
 	}
 
 	it("lets the body grow so the empty state can centre in it", async () => {
-		const body = tagOf(await renderPage("/presets"), "page-body");
+		const body = tagOf(await renderPage("/settings/account"), "page-body");
 		for (const cls of ["flex-1", "flex", "flex-col"]) {
 			expect(body).toMatch(new RegExp(`(?:"|\\s)${cls}(?:"|\\s)`));
 		}

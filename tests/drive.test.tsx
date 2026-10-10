@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
 	DriveBrowser,
+	type DriveState,
 	kindCounts,
 	recentFiles,
 	visibleFiles,
@@ -38,7 +39,6 @@ import {
 	samplePreview,
 	scopePath,
 	sizeLabel,
-	storageOf,
 } from "@/components/avel/drive-placeholders";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError } from "@/lib/api";
@@ -141,6 +141,28 @@ function expectDisabledWithReason(
 const tip = (node: ReactNode) =>
 	renderToString(<TooltipProvider>{node}</TooltipProvider>);
 
+/**
+ * The Drive as the route renders it, without the app shell: DriveBrowser over
+ * the samples with this state. Cached per state, so tests that read the same
+ * view share one render. The route's own wiring is tested once, below.
+ */
+const browsed = new Map<string, string>();
+function browse(state: Partial<DriveState> = {}): string {
+	const key = JSON.stringify(state);
+	let html = browsed.get(key);
+	if (html === undefined) {
+		html = tip(
+			<DriveBrowser
+				query={{ status: "success", data: SAMPLE_FILES }}
+				state={{ sort: "newest", view: "list", ...state }}
+				onChange={() => {}}
+			/>,
+		);
+		browsed.set(key, html);
+	}
+	return html;
+}
+
 const held = (f: SampleFile) => f.purgedAt === null;
 const acme = SAMPLE_CLIENTS[0];
 const booking = acme?.engagements[0];
@@ -225,16 +247,6 @@ describe("Drive samples", () => {
 			expect(kindOf(n.mime)).toBe("note");
 		expect(sampleFilesForClient("client-x").files).not.toEqual(
 			sampleFilesForClient("client-y").files,
-		);
-	});
-
-	it("count only bytes still held: a tombstone holds none", () => {
-		const { used, byKind } = storageOf(SAMPLE_FILES);
-		expect(used).toBe(
-			SAMPLE_FILES.filter(held).reduce((n, f) => n + f.bytes, 0),
-		);
-		expect(FILE_KINDS.reduce((n, k) => n + byKind[k].count, 0)).toBe(
-			SAMPLE_FILES.filter(held).length,
 		);
 	});
 
@@ -377,14 +389,11 @@ describe("/drive", () => {
 	});
 
 	it("labels every sample region and leaves the controls real", async () => {
-		const html = await renderPage("/drive");
+		// The real page, so the top bar's Upload is in it; a small folder keeps it quick.
+		const html = await renderPage(`/drive?folder=engagement:${booking.id}`);
 		expectLabelled(html, ["drive-upload", "drive-toolbar", "drive-drop"]);
 		expect(new Set(regions(html).map((r) => r.missing))).toEqual(
-			new Set([
-				DRIVE_MISSING.folders,
-				DRIVE_MISSING.storage,
-				DRIVE_MISSING.files,
-			]),
+			new Set([DRIVE_MISSING.folders, DRIVE_MISSING.files]),
 		);
 		expectDisabledWithReason(html, "drive-upload", DRIVE_WRITE_REASON);
 		expectDisabledWithReason(html, "drive-drop-upload", DRIVE_WRITE_REASON);
@@ -392,7 +401,7 @@ describe("/drive", () => {
 	});
 
 	it("rails every folder with its count: General, then each client and its engagements", async () => {
-		const html = await renderPage(`/drive?folder=client:${acme.id}`);
+		const html = browse({ folder: `client:${acme.id}` });
 		const rail = element(html, "drive-rail");
 		for (const [value, folder] of [
 			["all", folderOf(undefined)],
@@ -413,7 +422,7 @@ describe("/drive", () => {
 	});
 
 	it("crumbs the folder path, and lists only that folder's files", async () => {
-		const html = await renderPage(`/drive?folder=engagement:${booking.id}`);
+		const html = browse({ folder: `engagement:${booking.id}` });
 		expect(text(element(html, "drive-crumbs"))).toBe(
 			`Drive/Clients/${acme.name}/${booking.name}`,
 		);
@@ -426,25 +435,17 @@ describe("/drive", () => {
 		expect(rows.sort()).toEqual(expected.map((f) => f.id).sort());
 	});
 
-	it("meters storage used of the cap, split by kind with a legend", async () => {
-		const html = await renderPage("/drive");
-		const { used, byKind } = storageOf(SAMPLE_FILES);
-		expect(text(element(html, "drive-storage-used"))).toBe(sizeLabel(used));
-		expect(tagOf(html, "drive-storage-meter")).toMatch(
-			new RegExp(`value="${used}"`),
-		);
-		for (const kind of FILE_KINDS) {
-			const legend = text(element(html, `drive-kind-${kind}`));
-			expect(legend).toContain(String(byKind[kind].count));
-			expect(legend).toContain(sizeLabel(byKind[kind].bytes));
-		}
-		expect(element(html, "drive-kind-bar").match(/data-kind="/g)?.length).toBe(
-			FILE_KINDS.filter((k) => byKind[k].bytes > 0).length,
-		);
+	it("shows no storage meter: the Drive has a per-upload cap, not a quota", async () => {
+		// A Drive-wide quota, if one is ever decided, comes from avel-server
+		// with a real number. Until then no used-of-cap figure is shown.
+		const html = browse();
+		expect(html).not.toMatch(/<meter\b|role="meter"|role="progressbar"/);
+		expect(html).not.toMatch(/data-testid="drive-storage/);
+		expect(text(html)).not.toMatch(/\bof \d+(\.\d+)? [KMGT]B\b/);
 	});
 
 	it("puts search, kind chips with counts, sort and the view toggle in the toolbar", async () => {
-		const html = await renderPage("/drive");
+		const html = browse();
 		expect(tagOf(html, "drive-toolbar-search")).toMatch(
 			/^<input[^>]*type="search"/,
 		);
@@ -462,7 +463,7 @@ describe("/drive", () => {
 	});
 
 	it("lays Recent out as two or four columns by its own width, never three", async () => {
-		const html = await renderPage("/drive");
+		const html = browse();
 		const grid =
 			tagOf(html, "drive-recent")
 				.match(/class="([^"]*)"/)?.[1]
@@ -477,7 +478,7 @@ describe("/drive", () => {
 	});
 
 	it("shows the four most recent files as cards, and hides them while searching", async () => {
-		const html = await renderPage("/drive");
+		const html = browse();
 		const recent = recentFiles(SAMPLE_FILES, folderOf(undefined));
 		const cards = [
 			...element(html, "drive-recent").matchAll(
@@ -485,13 +486,11 @@ describe("/drive", () => {
 			),
 		].map((m) => m[1]);
 		expect(cards).toEqual(recent.map((f) => f.id));
-		expect(await renderPage("/drive?q=brand")).not.toContain(
-			'data-testid="drive-recent"',
-		);
+		expect(browse({ q: "brand" })).not.toContain('data-testid="drive-recent"');
 	});
 
 	it("lists each file: tile, name over its scope, uploader, size, date, short hash", async () => {
-		const html = await renderPage("/drive");
+		const html = browse();
 		const row = element(html, `drive-file-list-row-${pdf.id}`);
 		expect(row).toContain('data-testid="drive-file-tile"');
 		expect(text(row)).toContain(pdf.name);
@@ -505,7 +504,7 @@ describe("/drive", () => {
 	});
 
 	it("marks a tombstone row: struck through, Bytes destroyed, no size", async () => {
-		const html = await renderPage("/drive");
+		const html = browse();
 		const row = element(html, `drive-file-list-row-${tomb.id}`);
 		expect(tagOf(row, "drive-file-name")).toMatch(/\bline-through\b/);
 		expect(row).toContain('data-testid="drive-file-purged"');
@@ -516,7 +515,7 @@ describe("/drive", () => {
 	});
 
 	it("shows cards in the grid view, with a placeholder thumbnail for images", async () => {
-		const html = await renderPage("/drive?view=grid");
+		const html = browse({ view: "grid" });
 		expect(html).not.toContain('data-testid="drive-file-list"');
 		const grid = element(html, "drive-file-grid");
 		expect(grid.match(/data-testid="drive-card-/g)).toHaveLength(
@@ -535,13 +534,15 @@ describe("/drive", () => {
 	});
 
 	it("says nothing matches, with a way to clear, when the search finds nothing", async () => {
-		const html = await renderPage("/drive?q=zzzzzz");
+		const html = browse({ q: "zzzzzz" });
 		expect(html).toContain('data-testid="drive-no-match"');
 		expect(html).toContain('data-testid="drive-clear"');
 	});
 
 	it("opens the panel beside the list at 2xl for a known file only", async () => {
-		const html = await renderPage(`/drive?file=${pdf.id}`);
+		// A five-file folder keeps the render small; the selection is the Drive's, not the folder's.
+		const small = `engagement:${booking.id}`;
+		const html = browse({ folder: small, file: pdf.id });
 		const classes =
 			tagOf(html, "drive-panel-aside")
 				.match(/class="([^"]*)"/)?.[1]
@@ -551,12 +552,35 @@ describe("/drive", () => {
 		expect(element(html, "drive-panel-aside")).toContain(
 			`data-file="${pdf.id}"`,
 		);
-		expect(await renderPage("/drive?file=nope")).not.toContain("drive-panel");
+		expect(browse({ folder: small, file: "nope" })).not.toContain(
+			"drive-panel",
+		);
+	});
+
+	it("reads its view, folder and file from the URL", async () => {
+		const html = await renderPage(
+			`/drive?folder=engagement:${booking.id}&view=grid&file=${pdf.id}`,
+		);
+		expect(tagOf(html, "drive-toolbar-view-grid")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(html).toContain('data-testid="drive-file-grid"');
+		expect(text(element(html, "drive-crumbs"))).toBe(
+			`Drive/Clients/${acme.name}/${booking.name}`,
+		);
+		expect(element(html, "drive-panel-aside")).toContain(
+			`data-file="${pdf.id}"`,
+		);
 	});
 
 	it("puts no middle dot anywhere on the page (ruling 4)", async () => {
+		// Every row, and the panel with a file open.
+		expect(element(browse(), "drive")).not.toContain("·");
 		expect(
-			element(await renderPage(`/drive?file=${pdf.id}`), "drive"),
+			element(
+				browse({ folder: `engagement:${booking.id}`, file: pdf.id }),
+				"drive",
+			),
 		).not.toContain("·");
 	});
 });

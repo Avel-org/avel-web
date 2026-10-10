@@ -1,12 +1,19 @@
-import { ROLES, skillSchema } from "avel-server/contract";
+import {
+	createMemoryHistory,
+	createRouter,
+	RouterContextProvider,
+} from "@tanstack/react-router";
+import { ROLES, type Skill, skillSchema } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
 	agentsOfSkill,
 	CATALOG_MISSING,
+	carryingRoles,
 	catalogPillReason,
 	SAMPLE_FAMILY_TABLE,
 	SAMPLE_REGISTRY,
+	SAMPLE_ROLE_ATTACHMENTS,
 	SAMPLE_ROLE_FAMILY,
 	SAMPLE_SKILLS,
 	SAMPLE_SOURCES,
@@ -18,8 +25,10 @@ import {
 	SkillDiscover,
 } from "@/components/avel/catalog-skill-discover";
 import {
+	attachedCount,
 	HASH_COVERS,
 	SKILL_WRITE_REASON,
+	SkillInspector,
 	skillMarkdown,
 	sourceLine,
 } from "@/components/avel/catalog-skill-inspector";
@@ -30,6 +39,7 @@ import {
 } from "@/components/avel/catalog-skill-sidebar";
 import { selectedSkill } from "@/components/avel/catalog-skills";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { routeTree } from "../src/routeTree.gen";
 import { renderPage, tagOf } from "./render-page";
 
 /*
@@ -159,7 +169,54 @@ const classes = (html: string, testid: string): string[] =>
 /** Ruling 4: no middle dots in meta strings, anywhere on the page body. */
 const MIDDLE_DOT = "·";
 
-const page = (search = "") => renderPage(`/catalog/skills${search}`);
+/**
+ * A page, rendered once per path and shared across tests. Rendering is
+ * deterministic and no test changes the markup, so a second render of the
+ * same path only costs time (about 350ms each, more under suite load). The
+ * determinism test renders fresh, with renderPage, on purpose.
+ */
+const rendered = new Map<string, Promise<string>>();
+const page = (search = ""): Promise<string> => {
+	const path = `/catalog/skills${search}`;
+	let html = rendered.get(path);
+	if (!html) {
+		html = renderPage(path);
+		rendered.set(path, html);
+	}
+	return html;
+};
+
+/** One router for every inspector rendered alone; its links need one. */
+const router = createRouter({
+	routeTree,
+	history: createMemoryHistory({ initialEntries: ["/catalog/skills"] }),
+});
+
+/**
+ * One skill's inspector alone: the same component the page renders, so it
+ * reads its attachments the way the page does, without the app shell around
+ * it (a tenth of a full page's cost).
+ */
+const inspector = (skill: Skill) =>
+	renderToString(
+		<RouterContextProvider router={router}>
+			<TooltipProvider>
+				<SkillInspector skill={skill} />
+			</TooltipProvider>
+		</RouterContextProvider>,
+	);
+
+/** Every role switch's state in a page, read from the attach panel once. */
+function switchStates(html: string): Map<string, string> {
+	const panel = element(html, "skill-attach-panel");
+	const states = new Map<string, string>();
+	for (const [tag] of panel.matchAll(/<button[^>]*>/g)) {
+		const role = tag.match(/data-testid="skill-role-([a-z-]+)"/)?.[1];
+		const state = tag.match(/data-state="([a-z]+)"/)?.[1];
+		if (role && state) states.set(role, state);
+	}
+	return states;
+}
 
 const ROLE_SKILL = "property-testing-fast-check";
 const IMPORTED_CAPABILITY = "database-read";
@@ -288,9 +345,10 @@ describe("/catalog/skills, a skill", () => {
 		// Only the regions are compared: the rest of the page holds ids and
 		// timing that are not the samples' to keep stable.
 		const take = async () =>
-			regions(await page(`?skill=${IMPORTED_CAPABILITY}`)).map((r) =>
-				r.html.replace(/_r_[0-9a-z]+_/g, "_id_"),
-			);
+			// Fresh renders, not the shared cache: this test is about two visits.
+			regions(
+				await renderPage(`/catalog/skills?skill=${IMPORTED_CAPABILITY}`),
+			).map((r) => r.html.replace(/_r_[0-9a-z]+_/g, "_id_"));
 		const first = await take();
 		expect(first.length).toBeGreaterThan(0);
 		expect(await take()).toEqual(first);
@@ -427,7 +485,8 @@ describe("attaching", () => {
 			for (const role of roles) {
 				expect(card, role).toContain(`data-testid="skill-role-${role}"`);
 				const sw = tagOf(card, `skill-role-${role}`);
-				const on = skill?.recommendedFor.includes(role) ?? false;
+				// Attachment (role_skills), never recommendedFor.
+				const on = skill ? carryingRoles(skill).includes(role) : false;
 				expect(sw, role).toContain(
 					`data-state="${on ? "checked" : "unchecked"}"`,
 				);
@@ -655,9 +714,11 @@ describe("review fixes", () => {
 				/isn't wired into this page yet$/,
 			);
 		}
-		for (const key of ["attach", "import"] as const) {
-			expect(SKILL_WRITE_REASON[key]).toMatch(/^avel-server has no route/);
-		}
+		expect(SKILL_WRITE_REASON.import).toMatch(/^avel-server has no route/);
+		// Attaching a role skill names its module-5 route.
+		expect(SKILL_WRITE_REASON.attach).toBe(
+			"Attaching a skill to a role uses PUT /api/skills/:id/roles/:role, arriving with module 5",
+		);
 		for (const reason of Object.values(SKILL_WRITE_REASON)) {
 			expect(reason).not.toMatch(/module 4/);
 		}
@@ -675,6 +736,167 @@ describe("review fixes", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Attaches to: a role skill's attachments are role_skills (module 5), not
+// recommendedFor, which only filters stack and domain skills at dispatch.
+
+describe("role attachment", () => {
+	const roleSkills = SAMPLE_SKILLS.filter((s) => s.layer === "role");
+
+	it("gives every role skill its own attachments, and no other skill any", () => {
+		for (const skill of SAMPLE_SKILLS) {
+			expect(skill.slug in SAMPLE_ROLE_ATTACHMENTS, skill.slug).toBe(
+				skill.layer === "role",
+			);
+		}
+		// The samples differ from recommendedFor on purpose, so a mix-up shows.
+		expect(
+			roleSkills.some(
+				(s) =>
+					[...carryingRoles(s)].sort().join() !==
+					[...s.recommendedFor].sort().join(),
+			),
+		).toBe(true);
+	});
+
+	it("sets each switch from the attachment, even where recommendedFor disagrees", () => {
+		// The two role skills whose attachment and recommendedFor disagree, each
+		// rendered once (the inspector alone), every role's switch checked.
+		const cases = [
+			// Recommended for property-tests, but not attached to it.
+			{ slug: "criterion-tags", off: "property-tests" },
+			// Attached to backend-tests, though not recommended for it.
+			{ slug: ROLE_SKILL, on: "backend-tests" },
+		] as const;
+		const roles = ROLES.filter((r) => SAMPLE_ROLE_FAMILY[r] !== "Platform");
+		for (const c of cases) {
+			const skill = sampleSkill(c.slug);
+			expect(skill, c.slug).toBeDefined();
+			if (!skill) continue;
+			const states = switchStates(inspector(skill));
+			const attached = carryingRoles(skill);
+			// Every role has a switch, and each one follows the attachment.
+			expect([...states.keys()].sort(), c.slug).toEqual([...roles].sort());
+			for (const role of roles) {
+				expect(states.get(role), `${c.slug} ${role}`).toBe(
+					attached.includes(role) ? "checked" : "unchecked",
+				);
+			}
+			// The disagreement itself, by name.
+			if ("off" in c) {
+				expect(skill.recommendedFor).toContain(c.off);
+				expect(states.get(c.off)).toBe("unchecked");
+			}
+			if ("on" in c) {
+				expect(skill.recommendedFor).not.toContain(c.on);
+				expect(states.get(c.on)).toBe("checked");
+			}
+		}
+	});
+
+	it("lists as carriers the agents covering an attached role", async () => {
+		const skill = sampleSkill("agreeing-wrong-tests");
+		expect(skill).toBeDefined();
+		if (!skill) return;
+		const carriers = agentsOfSkill(skill)
+			.map((a) => a.slug)
+			.sort();
+		// By recommendedFor alone it would be Brennan only; attachment adds Zane.
+		expect(carriers).toEqual(["brennan", "zane"]);
+		const html = await page("?skill=agreeing-wrong-tests");
+		const carried = element(html, "skill-carried-by");
+		for (const slug of carriers) {
+			expect(carried).toContain(`href="/catalog/agents?agent=${slug}"`);
+		}
+		expect(tagOf(html, "skill-carried-by-sample")).toContain(
+			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
+		);
+	});
+
+	it("labels the switches as waiting on module 5's attachment read", async () => {
+		const html = await page(`?skill=${ROLE_SKILL}`);
+		expect(tagOf(html, "skill-attach-sample")).toContain(
+			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
+		);
+		expect(CATALOG_MISSING.roleAttachments).toBe(
+			"GET /api/skills/:id/roles (module 5)",
+		);
+	});
+
+	it("leaves the stack branch as it was: recommendedFor, given at dispatch", async () => {
+		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
+		const skill = sampleSkill(IMPORTED_CAPABILITY);
+		expect(skill && carryingRoles(skill)).toEqual(skill?.recommendedFor);
+		expect(tagOf(html, "skill-attach-sample")).toContain(
+			`data-sample-region="${CATALOG_MISSING.skills}"`,
+		);
+		expect(html).not.toContain('data-testid="skill-attach-reason"');
+		expect(tagOf(html, "skill-carried-by-sample")).toContain(
+			`data-sample-region="${CATALOG_MISSING.templates}"`,
+		);
+	});
+});
+
+describe("Attaches to, polished", () => {
+	it("explains what turning a role on does", async () => {
+		const panel = element(
+			await page(`?skill=${ROLE_SKILL}`),
+			"skill-attach-panel",
+		);
+		expect(panel).toContain(
+			"Every agent covering a role turned on here carries the skill in its identity",
+		);
+	});
+
+	it("counts the attached roles in each family's header", async () => {
+		const html = await page(`?skill=${ROLE_SKILL}`);
+		const skill = sampleSkill(ROLE_SKILL);
+		const on = skill ? carryingRoles(skill) : [];
+		for (const { family } of SAMPLE_FAMILY_TABLE) {
+			const roles = ROLES.filter((r) => SAMPLE_ROLE_FAMILY[r] === family);
+			const n = roles.filter((r) => on.includes(r)).length;
+			expect(element(html, `skill-family-${family}-count`)).toContain(
+				`>${n} of ${roles.length} attached<`,
+			);
+		}
+		expect(attachedCount(["schema", "contract"], ["schema"])).toBe(
+			"1 of 2 attached",
+		);
+	});
+
+	it("marks the Firm roles, and only them, without blocking them", async () => {
+		const html = await page(`?skill=${ROLE_SKILL}`);
+		const firm = ROLES.filter((r) => SAMPLE_ROLE_FAMILY[r] === "Firm");
+		expect(firm).toEqual(["intake", "strategy", "research", "client-ops"]);
+		for (const role of firm) {
+			expect(html).toContain(`data-testid="skill-role-${role}-firm"`);
+		}
+		expect(html.match(/data-testid="skill-role-[a-z-]+-firm"/g)).toHaveLength(
+			firm.length,
+		);
+		expect(tagOf(html, "skill-family-Firm")).toContain('data-firm="true"');
+		expect(element(html, "skill-family-Firm-note")).toContain(
+			"never on a mission roster",
+		);
+	});
+
+	it("shows the disabled reason once, without hovering, outside the samples", async () => {
+		const html = await page(`?skill=${ROLE_SKILL}`);
+		const reason = element(html, "skill-attach-reason");
+		expect(reason).toContain(
+			`Read-only for now. ${SKILL_WRITE_REASON.attach}.`,
+		);
+		expect(html.match(/data-testid="skill-attach-reason"/g)).toHaveLength(1);
+		expect(inside(regions(html), indexOf(html, "skill-attach-reason"))).toBe(
+			false,
+		);
+		// Each switch still carries it in its tooltip and aria-describedby.
+		expect(tagOf(html, "skill-role-domain")).toMatch(
+			/aria-describedby="[^"]+"/,
+		);
+	});
+});
+
+// ---------------------------------------------------------------------------
 // From the Skills browser check.
 
 describe("visual-pass fixes", () => {
@@ -684,8 +906,9 @@ describe("visual-pass fixes", () => {
 		const attached = [
 			...html.matchAll(/data-testid="skill-role-([a-z-]+)-attached"/g),
 		].map((m) => m[1]);
-		expect(attached.sort()).toEqual([...(skill?.recommendedFor ?? [])].sort());
-		for (const role of skill?.recommendedFor ?? []) {
+		const on = skill ? [...carryingRoles(skill)] : [];
+		expect(attached.sort()).toEqual(on.sort());
+		for (const role of on) {
 			expect(element(html, `skill-role-${role}-attached`)).toContain(
 				">attached<",
 			);

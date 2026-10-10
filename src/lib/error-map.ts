@@ -315,7 +315,7 @@ export const PRECONDITION_COPY = {
 	mission_not_editable: {
 		what: "This mission can no longer be changed.",
 		written: NOTHING_WRITTEN,
-		next: "Only a draft mission's roster and skills can change.",
+		next: "Only a draft mission's roster, skills and plan can change.",
 		retry: false,
 	},
 	agent_template_not_found: {
@@ -392,6 +392,15 @@ export const PRECONDITION_COPY = {
 		what: "This skill can't be attached to a mission.",
 		written: NOTHING_WRITTEN,
 		next: "Only approved stack and domain skills attach to a mission. Role skills come with the agent.",
+		retry: false,
+	},
+	// src/routes/mission-plan.ts (module 3): the plan edits, or drops, part of
+	// the brief approved at intake. details.issues lists each change. A plan
+	// may only add requirements, criteria and modules.
+	plan_changes_approved_brief: {
+		what: "This plan changes the brief that was approved at intake.",
+		written: NOTHING_WRITTEN,
+		next: "Keep the approved summary, requirements and criteria as they are. Add new ones instead, then save again.",
 		retry: false,
 	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;

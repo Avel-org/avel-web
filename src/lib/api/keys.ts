@@ -103,4 +103,53 @@ export const queryKeys = {
 					: { clientId, limit, status },
 			] as const,
 	},
+	presets: {
+		/** Everything under contract.presets. */
+		all: () => ["presets"] as const,
+		/**
+		 * contract.presets.list, paged by cursor. Each search and cut is its own
+		 * entry; a filter is in the key only when it is set.
+		 */
+		list: (limit: number, filters: { q?: string; cut?: string }) =>
+			[
+				"presets",
+				"list",
+				{
+					limit,
+					...(filters.q === undefined ? {} : { q: filters.q }),
+					...(filters.cut === undefined ? {} : { cut: filters.cut }),
+				},
+			] as const,
+		/** contract.presets.get: one preset, under presets so every change refreshes it. */
+		detail: (id: string) => ["presets", "detail", id] as const,
+	},
+	playbooks: {
+		/** Everything under contract.playbooks. */
+		all: () => ["playbooks"] as const,
+		/** contract.playbooks.list, paged by cursor. */
+		list: (limit: number) => ["playbooks", "list", { limit }] as const,
+		/** contract.playbooks.getForType: the live playbook for one mission type. */
+		byType: (missionType: string) =>
+			["playbooks", "byType", missionType] as const,
+	},
+	missionPlans: {
+		/**
+		 * contract.missionPlans.get: one mission's plan. Under "missions", so
+		 * invalidating every mission query refreshes it too.
+		 */
+		detail: (missionId: string) => ["missions", "plan", missionId] as const,
+	},
+	roster: {
+		/**
+		 * contract.roster.list: one mission's live roster, unpaginated. Under
+		 * "missions", as the plan is.
+		 */
+		list: (missionId: string) => ["missions", "roster", missionId] as const,
+		/**
+		 * contract.agentTemplates.get: a template by id, deleted ones included,
+		 * for the paths a roster entry inherits. Under "catalog", with the
+		 * other template reads.
+		 */
+		template: (id: string) => ["catalog", "agentTemplates", "byId", id] as const,
+	},
 } as const;

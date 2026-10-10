@@ -944,6 +944,26 @@ describe("the details panel", () => {
 		expect(brief).toMatch(/type-mono-small[^"]*">4</);
 	});
 
+	it("shows a brief in the contract's shape by requirement, as the full page does", async () => {
+		const html = await render(`/missions?mission=${ACTIVE.id}`, (client) => {
+			seeded(client);
+			client.setQueryData(missionKeys.detail(ACTIVE.id).slice(), {
+				...DETAIL,
+				brief: {
+					summary: "A booking flow.",
+					requirements: [{ id: "R1", text: "Patients book a slot." }],
+					acceptanceCriteria: [
+						{ id: "AC1", requirementId: "R1", text: "A free slot books." },
+					],
+				},
+			});
+		});
+		const brief = region(html, "mission-section-brief");
+		expect(brief).toContain('data-shape="plan"');
+		expect(brief).toContain('data-testid="mission-brief-requirement-R1"');
+		expect(brief).toContain("A free slot books.");
+	});
+
 	it("names each actor, or says System or Agent", async () => {
 		const activity = region(
 			await render(`/missions?mission=${ACTIVE.id}`, withDetail),
