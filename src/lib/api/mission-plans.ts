@@ -7,8 +7,10 @@ import {
 import {
 	type Brief,
 	type BriefInput,
+	briefSchema,
 	contract,
 	type MissionPlan,
+	type MissionStatus,
 	updateMissionPlanBody,
 } from "avel-server/contract";
 import type { z } from "zod";
@@ -274,4 +276,192 @@ export function planShapeProblems(
 		problems.set(target, [SHAPE_COPY[kind] ?? issue.message]);
 	}
 	return problems;
+}
+
+// ---------------------------------------------------------------------------
+// Readiness.
+
+/**
+ * One requirement's state in the readiness bar. Solid: in exactly one
+ * module, with no issue on it. Hatched: placed, but carrying an issue.
+ * Empty: in no module. No score: the bar shows where things are, not a grade.
+ */
+export type SegmentState = "solid" | "hatched" | "empty";
+
+export type ReadinessSegment = {
+	/** Its position in the saved brief: ids may repeat until the check passes. */
+	index: number;
+	id: string;
+	text: string;
+	state: SegmentState;
+	/** The modules that list it, in brief order. */
+	modules: string[];
+	/** The check's messages that touch it, as the server wrote them. */
+	issues: string[];
+};
+
+export type Readiness = {
+	segments: ReadinessSegment[];
+	modules: Array<{
+		id: string;
+		name: string;
+		requirementIds: string[];
+		/** Issues on the module itself, by path. */
+		issues: string[];
+	}>;
+	/** Issues that touch no requirement: the plan-wide row. */
+	planWide: string[];
+};
+
+/**
+ * The plan's readiness, from the saved plan and its check. Every issue is
+ * resolved by its path against the saved brief, never by its message: on
+ * requirements[i] it is requirement i's; on acceptanceCriteria[j] it is the
+ * cited requirement's; on modules[k] it is every requirement module k
+ * lists. An issue that reaches no requirement is plan-wide. Null when the
+ * stored brief predates the shape: there are no requirements to show.
+ */
+export function readinessOf(plan: MissionPlan): Readiness | null {
+	const brief = plan.brief;
+	if (brief === null) return null;
+	const { requirements, acceptanceCriteria, modules } = brief;
+	const issuesAt = requirements.map(() => [] as string[]);
+	const moduleIssues = modules.map(() => [] as string[]);
+	const planWide: string[] = [];
+	// Every position holding this id: a repeated id is each of them.
+	const positionsOf = (id: string) =>
+		requirements.flatMap((r, i) => (r.id === id ? [i] : []));
+
+	for (const { path, message } of plan.check.issues) {
+		const at = path[0] === "brief" ? path.slice(1) : path;
+		const [head, index] = at;
+		let touched: number[] = [];
+		if (head === "requirements" && typeof index === "number") {
+			touched = index < requirements.length ? [index] : [];
+		} else if (head === "acceptanceCriteria" && typeof index === "number") {
+			const cited = acceptanceCriteria[index]?.requirementId;
+			touched = cited === undefined ? [] : positionsOf(cited);
+		} else if (head === "modules" && typeof index === "number") {
+			const listed = modules[index];
+			touched = listed
+				? [...new Set(listed.requirementIds)].flatMap(positionsOf)
+				: [];
+			// Placed once: on the module and its requirements when it reaches
+			// any, otherwise in the plan-wide row, never both.
+			if (touched.length > 0) moduleIssues[index]?.push(message);
+		}
+		if (touched.length === 0) planWide.push(message);
+		for (const i of new Set(touched)) issuesAt[i]?.push(message);
+	}
+
+	const segments = requirements.map((r, i): ReadinessSegment => {
+		const placed = modules
+			.filter((m) => m.requirementIds.includes(r.id))
+			.map((m) => m.id);
+		const issues = issuesAt[i] ?? [];
+		const state: SegmentState =
+			placed.length === 0
+				? "empty"
+				: placed.length === 1 && issues.length === 0
+					? "solid"
+					: "hatched";
+		return { index: i, id: r.id, text: r.text, state, modules: placed, issues };
+	});
+
+	return {
+		segments,
+		modules: modules.map((m, k) => ({
+			id: m.id,
+			name: m.name,
+			requirementIds: m.requirementIds,
+			issues: moduleIssues[k] ?? [],
+		})),
+		planWide,
+	};
+}
+
+/**
+ * React keys from values that should be unique but may repeat (R1, then
+ * R1#2), as mission-details.tsx keys a brief: uniqueness is the plan
+ * check's rule, and the editor shows a draft as it is.
+ */
+export function occurrenceKeys<T>(
+	items: readonly T[],
+	idOf: (item: T) => string,
+): string[] {
+	const seen = new Map<string, number>();
+	return items.map((item) => {
+		const id = idOf(item);
+		const n = (seen.get(id) ?? 0) + 1;
+		seen.set(id, n);
+		return n === 1 ? id : `${id}#${n}`;
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Starting a plan over a brief that predates the shape.
+
+/**
+ * Whether "Start a plan" is offered: the stored brief does not parse, the
+ * mission is a draft, and no intake approved a brief (one that did would
+ * have parsed, and the plan may only add to it).
+ */
+export function canStartPlan(
+	plan: MissionPlan,
+	status: MissionStatus,
+): boolean {
+	return (
+		plan.brief === null && plan.approvedBrief === null && status === "draft"
+	);
+}
+
+export type StartPlan = {
+	/** The PUT body. With `needsSummary`, its summary is empty until the operator writes one. */
+	body: MissionPlanBody;
+	/** The old brief's keys the new plan keeps: "summary", or none. */
+	carried: string[];
+	/** Every other key the old brief has, which the save replaces. */
+	dropped: string[];
+	/** The old brief has no summary the contract accepts, so one must be written. */
+	needsSummary: boolean;
+};
+
+/**
+ * A fresh plan over the stored brief: its summary kept when the contract
+ * accepts it as one, every list empty, no template. Nothing else carries
+ * over, and every key that does not is named, so the confirmation can show
+ * exactly what the save replaces.
+ */
+export function startPlanBody(rawBrief: unknown): StartPlan {
+	const record =
+		rawBrief !== null &&
+		typeof rawBrief === "object" &&
+		!Array.isArray(rawBrief)
+			? (rawBrief as Record<string, unknown>)
+			: {};
+	const summary = briefSchema.shape.summary.safeParse(record.summary);
+	const keys = Object.keys(record);
+	return {
+		body: {
+			brief: {
+				summary: summary.success ? summary.data : "",
+				requirements: [],
+				acceptanceCriteria: [],
+				modules: [],
+			},
+			templateRef: null,
+			templateVersion: null,
+		},
+		carried: summary.success ? ["summary"] : [],
+		dropped: keys.filter((key) => !(summary.success && key === "summary")),
+		needsSummary: !summary.success,
+	};
+}
+
+/**
+ * The editor's element id for an issue target, and so the plan page's hash:
+ * "requirement:R2" is plan-requirement-R2, "modules" is plan-modules.
+ */
+export function planAnchor(target: IssueTarget): string {
+	return `plan-${target.replace(":", "-")}`;
 }

@@ -1,7 +1,13 @@
-import { ROLES, type Role, type Skill } from "avel-server/contract";
+import {
+	type AgentTemplate,
+	ROLES,
+	type Role,
+	type Skill,
+} from "avel-server/contract";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { loadedRows, useAgentTemplates } from "@/lib/api/catalog";
 import {
 	agentsOfSkill,
 	attachability,
@@ -11,11 +17,11 @@ import {
 	SAMPLE_FAMILY_TABLE,
 	SAMPLE_ROLE_FAMILY,
 	SAMPLE_ROOMS_ENFORCING,
-	SAMPLE_SOURCES,
 } from "./catalog-placeholders";
 import {
 	AgentLink,
 	CatalogField,
+	CatalogListSkeleton,
 	RoleTag,
 	SampleHash,
 	SampleRegion,
@@ -24,19 +30,22 @@ import {
 import { type CodeTone, CodeView } from "./code-view";
 import { SectionPanel } from "./section-panel";
 import { StatusPill } from "./status-pill";
+import { ErrorState, Surface } from "./surface";
 
 /*
  * One skill, inspected: what it is, its technical facts, where it attaches,
- * who carries it, and its SKILL.md. Every value is a sample until the skill
- * routes are wired (AVEL-DESIGN.md ruling 32). The write controls are real
- * and disabled, each with its reason: only an operator writes a skill, and
- * the routes for it do not exist yet.
+ * who carries it, and its SKILL.md. The skill is live (GET
+ * /api/skills/by-slug/:slug), and so are the agents that carry a stack or
+ * domain skill (GET /api/agent-templates, through recommendedFor). A role
+ * skill's attachments, and the carriers derived from them, are labelled
+ * samples until module 5's read exists (AVEL-DESIGN.md ruling 32). The write
+ * controls are real and disabled, each with its reason: only an operator
+ * writes a skill, and the forms for it do not exist yet.
  */
 
 /** Why each operator write is disabled today. Real, not a sample. */
 export const SKILL_WRITE_REASON = {
-	// avel-server has these routes (4f7c3a0); this page shows samples and is
-	// not wired to them yet.
+	// avel-server has these routes (4f7c3a0); their forms are not built yet.
 	approve: "Approving a skill isn't wired into this page yet",
 	retire: "Retiring a skill isn't wired into this page yet",
 	create: "Saving a new skill isn't wired into this page yet",
@@ -51,14 +60,14 @@ export const SKILL_WRITE_REASON = {
 export const HASH_COVERS =
 	"Covers the description, content, AVEL's additions, grants, io shape, type and layer. Any change to them changes the hash.";
 
-/** "From Framework vendor pack, example.com/vendor/skills", or "Yours". */
-export function sourceLine(skill: Skill): string {
+/**
+ * "From Framework vendor pack", or "Yours". The skill carries its source's
+ * name and kind (the list needs no per-row source query); its address is on
+ * the Sources page.
+ */
+export function sourceLine(skill: Pick<Skill, "source">): string {
 	if (skill.source.kind === "internal") return "Yours";
-	const url = SAMPLE_SOURCES.find(
-		(source) => source.id === skill.source.id,
-	)?.url;
-	const where = url ? `, ${url.replace(/^https?:\/\//, "")}` : "";
-	return `From ${skill.source.name}${where}`;
+	return `From ${skill.source.name}`;
 }
 
 /**
@@ -112,12 +121,9 @@ function Header({ skill }: { skill: Skill }) {
 			data-testid="skill-header"
 			className="flex flex-col-reverse gap-3 lg:flex-row lg:items-start lg:gap-4"
 		>
-			<SampleRegion
-				missing={CATALOG_MISSING.skills}
-				title="Skill"
-				what="The skill's name, where it came from, and when an agent should use it."
-				data-testid="skill-header-sample"
-				className="min-w-0 flex-1"
+			<div
+				data-testid="skill-header-facts"
+				className="flex min-w-0 flex-1 flex-col gap-2"
 			>
 				<h2 id="skill-title" className="type-h2 text-foreground">
 					{skill.name}
@@ -129,7 +135,7 @@ function Header({ skill }: { skill: Skill }) {
 					{sourceLine(skill)}
 				</p>
 				<p className="type-body text-text-muted">{skill.description}</p>
-			</SampleRegion>
+			</div>
 			{/* Operator-only writes. Real controls, disabled until the routes exist. */}
 			<div
 				data-testid="skill-actions"
@@ -161,12 +167,7 @@ function Facts({ skill }: { skill: Skill }) {
 	const attach = attachability(skill);
 	return (
 		<SectionPanel title="Facts" data-testid="skill-facts">
-			<SampleRegion
-				missing={CATALOG_MISSING.skills}
-				title="Facts"
-				what="Layer, type, status, version, hash, review, description length, enforcement and, for a capability, its grants and io shape."
-				data-testid="skill-facts-sample"
-			>
+			<div className="flex flex-col gap-3">
 				<dl className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-x-6 gap-y-3">
 					<CatalogField label="Layer">
 						<span className="type-mono-small">{skill.layer}</span>
@@ -261,7 +262,7 @@ function Facts({ skill }: { skill: Skill }) {
 						</CatalogField>
 					</div>
 				) : null}
-			</SampleRegion>
+			</div>
 		</SectionPanel>
 	);
 }
@@ -280,11 +281,9 @@ function Attach({ skill }: { skill: Skill }) {
 	if (skill.layer !== "role") {
 		return (
 			<SectionPanel title="Attaches to" data-testid="skill-attach-panel">
-				<SampleRegion
-					missing={CATALOG_MISSING.skills}
-					title="Attaches to"
-					what="The roles a stack or domain skill is given to at dispatch."
-					data-testid="skill-attach-sample"
+				<div
+					data-testid="skill-attach-dispatch"
+					className="flex flex-col gap-2"
 				>
 					<p
 						data-testid="skill-dispatch"
@@ -301,7 +300,7 @@ function Attach({ skill }: { skill: Skill }) {
 							),
 						)}
 					</ul>
-				</SampleRegion>
+				</div>
 			</SectionPanel>
 		);
 	}
@@ -441,11 +440,14 @@ export function RoleToggleCard({
 	);
 }
 
+/**
+ * The agents that carry the skill, out of the live templates. A stack or
+ * domain skill's carriers are live: the templates covering a role it is
+ * recommended for. A role skill's carriers follow its attachments, which are
+ * a sample until module 5's read exists, so they sit behind that pill.
+ */
 function CarriedBy({ skill }: { skill: Skill }) {
-	// Through the roles that carry it: a role skill's attachments, or a stack
-	// or domain skill's recommendedFor.
-	const roles = carryingRoles(skill);
-	const agents = agentsOfSkill(skill);
+	const templates = useAgentTemplates();
 	return (
 		<SectionPanel
 			title="Carried by"
@@ -456,43 +458,77 @@ function CarriedBy({ skill }: { skill: Skill }) {
 			}
 			data-testid="skill-carried-by"
 		>
-			<SampleRegion
-				// A role skill's carriers wait on module 5's attachments.
-				missing={
-					skill.layer === "role"
-						? CATALOG_MISSING.roleAttachments
-						: CATALOG_MISSING.templates
+			<Surface
+				data-testid="skill-carried-by-surface"
+				query={templates}
+				// No templates at all is still an answer: nobody carries it.
+				isEmpty={() => false}
+				loading={
+					<CatalogListSkeleton data-testid="skill-carried-by-skeleton" />
 				}
-				title="Carried by"
-				what="The agent templates that carry this skill through their roles."
-				data-testid="skill-carried-by-sample"
+				empty={null}
+				error={ErrorState}
 			>
-				{agents.length === 0 ? (
-					<p className="type-small text-text-subtle">
-						{skill.layer === "role"
-							? "No agent covers a role this skill is attached to."
-							: "No agent covers a role this skill is recommended for."}
-					</p>
-				) : (
-					<ul
-						aria-label="Agents carrying this skill"
-						className="flex flex-col gap-1.5"
-					>
-						{agents.map((agent) => (
-							<li key={agent.id} className="flex flex-wrap items-center gap-2">
-								<AgentLink agent={agent} />
-								<span className="type-mono-small text-text-subtle">
-									{ROLES.filter(
-										(role) =>
-											agent.roles.includes(role) && roles.includes(role),
-									).join(", ")}
-								</span>
-							</li>
-						))}
-					</ul>
-				)}
-			</SampleRegion>
+				{(data) =>
+					skill.layer === "role" ? (
+						<SampleRegion
+							missing={CATALOG_MISSING.roleAttachments}
+							title="Carried by"
+							what="The agent templates that carry this skill through the roles it is attached to."
+							data-testid="skill-carried-by-sample"
+						>
+							<Carriers skill={skill} agents={loadedRows(data)} />
+						</SampleRegion>
+					) : (
+						<Carriers skill={skill} agents={loadedRows(data)} />
+					)
+				}
+			</Surface>
 		</SectionPanel>
+	);
+}
+
+/** Each carrier as a link, with the roles it shares with the skill. */
+function Carriers({
+	skill,
+	agents: all,
+}: {
+	skill: Skill;
+	agents: readonly AgentTemplate[];
+}) {
+	// Through the roles that carry it: a role skill's attachments, or a stack
+	// or domain skill's recommendedFor.
+	const roles = carryingRoles(skill);
+	const agents = agentsOfSkill(skill, all);
+	if (agents.length === 0) {
+		return (
+			<p
+				data-testid="skill-carried-by-none"
+				className="type-small text-text-subtle"
+			>
+				{skill.layer === "role"
+					? "No agent covers a role this skill is attached to."
+					: "No agent covers a role this skill is recommended for."}
+			</p>
+		);
+	}
+	return (
+		<ul
+			aria-label="Agents carrying this skill"
+			data-testid="skill-carried-by-list"
+			className="flex flex-col gap-1.5"
+		>
+			{agents.map((agent) => (
+				<li key={agent.id} className="flex flex-wrap items-center gap-2">
+					<AgentLink agent={agent} />
+					<span className="type-mono-small text-text-subtle">
+						{ROLES.filter(
+							(role) => agent.roles.includes(role) && roles.includes(role),
+						).join(", ")}
+					</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 
@@ -502,12 +538,7 @@ function Markdown({ skill }: { skill: Skill }) {
 	const fenceEnd = text.split("\n").indexOf("---", 1);
 	return (
 		<SectionPanel title="SKILL.md" data-testid="skill-markdown">
-			<SampleRegion
-				missing={CATALOG_MISSING.skill}
-				title="SKILL.md"
-				what="The skill as an agent reads it, then AVEL's additions, kept apart."
-				data-testid="skill-markdown-sample"
-			>
+			<div className="flex flex-col gap-3">
 				<CodeView
 					text={text}
 					label={`${skill.slug} SKILL.md`}
@@ -528,7 +559,7 @@ function Markdown({ skill }: { skill: Skill }) {
 						/>
 					</div>
 				) : null}
-			</SampleRegion>
+			</div>
 		</SectionPanel>
 	);
 }

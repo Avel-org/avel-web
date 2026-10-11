@@ -3,7 +3,7 @@ import type { AgentTemplate } from "avel-server/contract";
 import { Bot, Network, Rows3 } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { ApiError } from "@/lib/api/errors";
+import { loadedRows, type useAgentTemplates } from "@/lib/api/catalog";
 import { AgentGraph } from "./catalog-agent-graph";
 import { AgentPanelSheet } from "./catalog-agent-inspector";
 import { AGENT_MISSING } from "./catalog-agent-placeholders";
@@ -16,75 +16,79 @@ import {
 	PAGE_SIZE,
 	sortAgents,
 } from "./catalog-agent-table";
-import { CATALOG_MISSING, SAMPLE_AGENTS } from "./catalog-placeholders";
 import {
+	CatalogListFooter,
 	CatalogListSkeleton,
-	type CatalogQuery,
 	SampleRegion,
-	sampleQuery,
 } from "./catalog-sample";
 import type { SortState } from "./data-table";
 import { EmptyState } from "./empty-state";
-import { ErrorState, type ErrorStateProps, Surface } from "./surface";
+import { ErrorState, Surface } from "./surface";
 
 /*
  * Agent templates, /catalog/agents (ROUTES.md), as a spec console: a dense
  * table of templates, or the artifact graph between them, each at the full
- * content width, and a slide-over panel for the one selected (?agent=slug). Read-only throughout: an identity is generated from roles, so
- * nothing here edits one. Until module 4's routes land, every value is a
- * labelled sample (AVEL-DESIGN.md ruling 32).
+ * content width, and a slide-over panel for the one selected (?agent=slug).
+ * The templates are live (GET /api/agent-templates; the panel reads the
+ * selected one by slug). Read-only throughout: an identity is generated
+ * from roles, so nothing here edits one. The graph's edges, and the table's
+ * territory, side, hash and estimate columns, are still labelled samples
+ * (AVEL-DESIGN.md rulings 32 and 34): no route serves them yet.
  */
 
 export type AgentView = "table" | "graph";
 
-const REGION = {
-	table: {
-		missing: CATALOG_MISSING.templates,
-		title: "Agent templates",
-		what: "Every agent template, one row each: territory, side, roles, waves, version and hash, and token estimate.",
-	},
-	graph: {
-		missing: AGENT_MISSING.edges,
-		title: "Artifact graph",
-		what: "Agents in wave columns, with an arrow from each producer to each consumer, labelled with the artifact and its hash.",
-	},
-} as const;
-
-/** The view's sample region, around whatever state the list is in. */
-function ViewRegion({
-	view,
-	children,
-}: {
-	view: AgentView;
-	children: ReactNode;
-}) {
+/**
+ * The graph's region: its nodes are the live templates, but every edge is
+ * derived from a client copy of ROLES.md, so the whole drawing is a sample.
+ * The table has no region: its rows are live, and each sample column says
+ * so in its own header.
+ */
+function GraphRegion({ children }: { children: ReactNode }) {
 	return (
 		<SampleRegion
-			{...REGION[view]}
-			data-testid={`catalog-agents-${view}-region`}
+			missing={AGENT_MISSING.edges}
+			title="Artifact graph"
+			what="Agents in wave columns, with an arrow from each producer to each consumer, labelled with the artifact and its hash."
+			data-testid="catalog-agents-graph-region"
 		>
 			{children}
 		</SampleRegion>
 	);
 }
 
+/** The view's frame around whatever state the list is in. */
+function ViewFrame({
+	view,
+	children,
+}: {
+	view: AgentView;
+	children: ReactNode;
+}) {
+	return view === "graph" ? (
+		<GraphRegion>{children}</GraphRegion>
+	) : (
+		<div
+			data-testid="catalog-agents-table-frame"
+			className="flex min-w-0 flex-col gap-2"
+		>
+			{children}
+		</div>
+	);
+}
+
 export function CatalogAgents({
 	selected,
-	query = sampleQuery(SAMPLE_AGENTS),
+	query,
 	initialView = "table",
 }: {
 	selected: string | undefined;
-	query?: CatalogQuery<AgentTemplate>;
+	/** The live list, owned by the route. */
+	query: ReturnType<typeof useAgentTemplates>;
 	initialView?: AgentView;
 }) {
 	const [view, setView] = useState<AgentView>(initialView);
 	const [centreOn, setCentreOn] = useState<string | undefined>();
-
-	const failed = ({ error, retry, retrying }: ErrorStateProps<ApiError>) => (
-		<ViewRegion view={view}>
-			<ErrorState error={error} retry={retry} retrying={retrying} />
-		</ViewRegion>
-	);
 
 	return (
 		<div
@@ -101,13 +105,14 @@ export function CatalogAgents({
 			<Surface
 				data-testid="catalog-agents-surface"
 				query={query}
+				isEmpty={(data) => loadedRows(data).length === 0}
 				loading={
-					<ViewRegion view={view}>
+					<ViewFrame view={view}>
 						<CatalogListSkeleton data-testid="catalog-agents-skeleton" />
-					</ViewRegion>
+					</ViewFrame>
 				}
 				empty={
-					<ViewRegion view={view}>
+					<ViewFrame view={view}>
 						<EmptyState
 							data-testid="catalog-agents-empty"
 							compact
@@ -115,13 +120,17 @@ export function CatalogAgents({
 							title="No agent templates yet"
 							description="A template is an agent as data: the roles it covers, its generated identity and its default waves. Each one is listed here."
 						/>
-					</ViewRegion>
+					</ViewFrame>
 				}
-				error={failed}
+				error={ErrorState}
 			>
-				{(agents) => (
+				{(data) => (
 					<AgentConsole
-						agents={agents}
+						agents={loadedRows(data)}
+						total={data.pages[0]?.meta.total}
+						hasMore={query.hasNextPage}
+						loadingMore={query.isFetchingNextPage}
+						onLoadMore={() => query.fetchNextPage()}
 						view={view}
 						centreOn={centreOn}
 						selected={selected}
@@ -150,12 +159,21 @@ export function CatalogAgents({
  */
 function AgentConsole({
 	agents,
+	total,
+	hasMore,
+	loadingMore,
+	onLoadMore,
 	view,
 	centreOn,
 	selected,
 	onViewInGraph,
 }: {
 	agents: readonly AgentTemplate[];
+	/** meta.total from the first page, when the server counted. */
+	total: number | undefined;
+	hasMore: boolean;
+	loadingMore: boolean;
+	onLoadMore: () => void;
 	view: AgentView;
 	centreOn: string | undefined;
 	selected: string | undefined;
@@ -174,17 +192,16 @@ function AgentConsole({
 	const matching = sortAgents(filterAgents(agents, filters), sort);
 	const pages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
 	const shown = matching.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-	const open = agents.find((agent) => agent.slug === selected);
-	// The last agent shown stays in the sheet while it slides out, so closing
+	// The last slug stays in the sheet while it slides out, so closing
 	// animates instead of emptying first.
-	const last = useRef<AgentTemplate | undefined>(undefined);
-	if (open) last.current = open;
-	const inSheet = open ?? last.current;
+	const last = useRef<string | undefined>(undefined);
+	if (selected !== undefined) last.current = selected;
+	const inSheet = selected ?? last.current;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="flex min-w-0 flex-1 flex-col gap-3">
-				<ViewRegion view={view}>
+				<ViewFrame view={view}>
 					<AgentFilterRow
 						agents={agents}
 						filters={filters}
@@ -225,16 +242,24 @@ function AgentConsole({
 							onOpen={select}
 						/>
 					)}
-				</ViewRegion>
+				</ViewFrame>
+				<CatalogListFooter
+					loaded={agents.length}
+					total={total}
+					hasMore={hasMore}
+					loadingMore={loadingMore}
+					onLoadMore={onLoadMore}
+					data-testid="catalog-agents-list-footer"
+				/>
 			</div>
-			{inSheet ? (
+			{inSheet !== undefined ? (
 				<AgentPanelSheet
-					agent={inSheet}
+					slug={inSheet}
 					agents={agents}
 					onOpen={select}
 					onViewInGraph={onViewInGraph}
 					onClose={() => select(undefined)}
-					open={open !== undefined}
+					open={selected !== undefined}
 				/>
 			) : null}
 		</div>

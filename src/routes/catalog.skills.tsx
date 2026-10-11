@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { CatalogSkills, SkillsActions } from "@/components/avel/catalog-skills";
+import { catalogCountLabel, catalogTotal, useSkills } from "@/lib/api/catalog";
 import { Page, pageHead } from "../shell/page";
 
 /**
@@ -29,12 +30,24 @@ export const Route = createFileRoute("/catalog/skills")({
 	component: CatalogSkillsPage,
 });
 
+/** The route owns the list; the top bar counts from meta.total, never the rows loaded. */
 function CatalogSkillsPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/catalog/skills" });
+	const skills = useSkills();
+	const total = catalogTotal(skills.data);
 	return (
-		<Page to="/catalog/skills" actions={<SkillsActions view={search.view} />}>
+		<Page
+			to="/catalog/skills"
+			subtitle={
+				total === undefined
+					? undefined
+					: catalogCountLabel(total, "skill", "skills")
+			}
+			actions={<SkillsActions view={search.view} />}
+		>
 			<CatalogSkills
+				query={skills}
 				selected={search.skill}
 				view={search.view}
 				q={search.q}

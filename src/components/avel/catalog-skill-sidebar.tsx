@@ -3,8 +3,7 @@ import type { SkillListItem } from "avel-server/contract";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { CATALOG_MISSING, skillsNeedingReview } from "./catalog-placeholders";
-import { SampleRegion } from "./catalog-sample";
+import { skillsNeedingReview } from "./catalog-placeholders";
 import { StatusGlyph } from "./status-pill";
 
 /*
@@ -100,54 +99,47 @@ export function SkillSidebar({
 					className="pl-9"
 				/>
 			</div>
-			<SampleRegion
-				missing={CATALOG_MISSING.skills}
-				title="Skills"
-				what="Every skill, grouped by its source, with what needs review."
-				data-testid="skill-sidebar-sample"
-			>
-				{review > 0 ? (
-					<ReviewBanner count={review} active={draftsOnly} q={q} />
-				) : null}
-				{groups.length === 0 ? (
-					<p
-						data-testid="skill-sidebar-none"
-						className="px-3 py-2 type-small text-text-subtle"
-					>
-						No skill matches.
-					</p>
-				) : (
-					<div className="flex flex-col gap-3">
-						{groups.map((group) => (
-							<section
-								key={group.id}
-								aria-label={group.label}
-								data-testid={`skill-group-${group.id}`}
-								className="flex flex-col gap-0.5"
-							>
-								<h2 className="flex items-baseline gap-1.5 px-3 pb-0.5 type-caption text-text-subtle">
-									<span className="font-medium text-text-muted">
-										{group.label}
-									</span>
-									<span className="tabular-nums">{group.skills.length}</span>
-								</h2>
-								<ul aria-label={group.label} className="flex flex-col gap-0.5">
-									{group.skills.map((skill) => (
-										<li key={skill.id}>
-											<SkillRegistryRow
-												skill={skill}
-												selected={skill.slug === selected}
-												q={q}
-												draftsOnly={draftsOnly}
-											/>
-										</li>
-									))}
-								</ul>
-							</section>
-						))}
-					</div>
-				)}
-			</SampleRegion>
+			{review > 0 ? (
+				<ReviewBanner count={review} active={draftsOnly} q={q} />
+			) : null}
+			{groups.length === 0 ? (
+				<p
+					data-testid="skill-sidebar-none"
+					className="px-3 py-2 type-small text-text-subtle"
+				>
+					No skill matches.
+				</p>
+			) : (
+				<div data-testid="skill-sidebar-groups" className="flex flex-col gap-3">
+					{groups.map((group) => (
+						<section
+							key={group.id}
+							aria-label={group.label}
+							data-testid={`skill-group-${group.id}`}
+							className="flex flex-col gap-0.5"
+						>
+							<h2 className="flex items-baseline gap-1.5 px-3 pb-0.5 type-caption text-text-subtle">
+								<span className="font-medium text-text-muted">
+									{group.label}
+								</span>
+								<span className="tabular-nums">{group.skills.length}</span>
+							</h2>
+							<ul aria-label={group.label} className="flex flex-col gap-0.5">
+								{group.skills.map((skill) => (
+									<li key={skill.id}>
+										<SkillRegistryRow
+											skill={skill}
+											selected={skill.slug === selected}
+											q={q}
+											draftsOnly={draftsOnly}
+										/>
+									</li>
+								))}
+							</ul>
+						</section>
+					))}
+				</div>
+			)}
 		</section>
 	);
 }

@@ -55,7 +55,7 @@ export function NewSkillForm() {
 			</header>
 			<form
 				data-testid="skill-new-form"
-				className="surface-steel flex flex-col gap-4 rounded-md border border-border bg-card p-4"
+				className="plate flex flex-col gap-4 rounded-md border p-4"
 				onSubmit={(event) => event.preventDefault()}
 			>
 				<Field label="Name" testid="skill-new-name">

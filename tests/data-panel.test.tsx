@@ -15,15 +15,9 @@ const classesOf = (html: string, testid: string) =>
 	(tagOf(html, testid).match(/class="([^"]*)"/)?.[1] ?? "").split(" ");
 
 describe("DataPanel", () => {
-	it("is a card: bg-card, rounded-md, a hairline, clipped without a scroll container", () => {
+	it("is a machined plate (ruling 37), rounded-md, clipped without a scroll container", () => {
 		const root = classesOf(render(), "p");
-		for (const cls of [
-			"bg-card",
-			"rounded-md",
-			"border",
-			"border-border",
-			"overflow-clip",
-		]) {
+		for (const cls of ["plate", "rounded-md", "border", "overflow-clip"]) {
 			expect(root).toContain(cls);
 		}
 		// overflow-hidden would trap a DataTable's sticky header inside the panel.

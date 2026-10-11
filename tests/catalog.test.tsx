@@ -1,30 +1,64 @@
-import {
-	agentTemplateSchema,
-	skillSchema,
-	skillSourceSchema,
-} from "avel-server/contract";
+import { ROLES } from "avel-server/contract";
 import type { ReactNode } from "react";
-import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { InlineModals } from "@/components/avel/action-modal";
 import {
 	agentsOfSkill,
 	attachability,
 	CATALOG_MISSING,
+	carryingRoles,
 	enforcementBadge,
-	SAMPLE_AGENTS,
-	SAMPLE_SKILLS,
-	SAMPLE_SOURCES,
-	sampleAgent,
+	SAMPLE_ROLE_ATTACHMENTS,
+	SAMPLE_ROLE_FAMILY,
 	sampleHistory,
+	sampleRegistry,
+	sampleRoleAttachments,
 	sampleSha256,
-	sampleSkill,
 	sampleUuid,
 	skillsOfAgent,
 } from "@/components/avel/catalog-placeholders";
-import { CatalogSources } from "@/components/avel/catalog-sources";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { ApiError } from "@/lib/api";
+import {
+	filterSkills,
+	SourceSkills,
+} from "@/components/avel/catalog-source-detail";
+import { SourceForm } from "@/components/avel/catalog-source-form";
+import {
+	RemoveSourceConfirm,
+	removeHeldReason,
+	skillsFromLine,
+} from "@/components/avel/catalog-source-remove";
+import { layerShares } from "@/components/avel/catalog-source-shelf";
+import {
+	CATALOG_PAGE_SIZE,
+	changedSourceFields,
+	sourceBodyOf,
+	sourceDraftOf,
+	sourceProblems,
+} from "@/lib/api/catalog";
+import { queryKeys } from "@/lib/api/keys";
+import { PRECONDITION_COPY } from "@/lib/error-map";
+import {
+	AGENTS,
+	CONNECTIONS,
+	inProviders,
+	internalError,
+	renderSeeded,
+	type Seed,
+	SKILLS,
+	SOURCES,
+	seededClient,
+	source,
+} from "./catalog-fixtures";
+import { contractError } from "./clients-fixtures";
 import { renderPage, tagOf } from "./render-page";
+
+/*
+ * The catalog's shared rules and /catalog/sources. The sources are live
+ * (GET /api/skill-sources), so the page is rendered through the real router
+ * with a seeded QueryClient, in each of its four states. What is still a
+ * sample (catalog-placeholders.ts) keys off live records and is tested as
+ * pure functions of them.
+ */
 
 // ---------------------------------------------------------------------------
 // Markup helpers. The node environment has no DOM; tests read the markup.
@@ -49,142 +83,67 @@ function element(html: string, testid: string): string {
 	return elementAt(html, html.lastIndexOf("<", at));
 }
 
-type Region = { missing: string; start: number; end: number; html: string };
-
-/** Every sample region on the page, with where it sits. */
-function regions(html: string): Region[] {
-	return [...html.matchAll(/<[a-z0-9]+[^>]*data-sample-region="([^"]+)"/g)].map(
-		(m) => {
-			const start = m.index ?? 0;
-			const body = elementAt(html, start);
-			return {
-				missing: m[1] ?? "",
-				start,
-				end: start + body.length,
-				html: body,
-			};
-		},
-	);
-}
-
-/** Where each "Sample data" pill sits, and the route it names. */
-function pills(html: string): { at: number; missing: string }[] {
-	return [
-		...html.matchAll(
-			/<button[^>]*data-testid="sample-data"[^>]*data-missing="([^"]+)"/g,
-		),
-	].map((m) => ({ at: m.index ?? 0, missing: m[1] ?? "" }));
-}
-
-const inside = (rs: Region[], at: number) =>
-	rs.some((r) => at > r.start && at < r.end);
-
-/** The index of an element by test id. */
-const at = (html: string, testid: string) =>
-	html.indexOf(`data-testid="${testid}"`);
-
-const ROUTES = new Set<string>(Object.values(CATALOG_MISSING));
-
-/**
- * The labelling contract, for one rendered page: every region carries exactly
- * one pill naming its own route, every pill sits in a region, and each real
- * element named here sits outside every region.
- */
-function expectLabelled(html: string, real: string[], sampled: string[]) {
-	const rs = regions(html);
-	expect(rs.length).toBeGreaterThan(0);
-	for (const region of rs) {
-		expect(ROUTES.has(region.missing), region.missing).toBe(true);
-		const own = pills(region.html);
-		expect(own, `pills in ${region.missing}`).toHaveLength(1);
-		expect(own[0]?.missing).toBe(region.missing);
-		// The pill comes first, before any sample value.
-		const body = region.html.slice(region.html.indexOf(">") + 1);
-		expect(body.match(/data-testid="([^"]+)"/)?.[1]).toBe("sample-data");
-	}
-	const all = pills(html);
-	expect(all).toHaveLength(rs.length);
-	for (const pill of all) expect(inside(rs, pill.at)).toBe(true);
-	for (const testid of real) {
-		// Exactly once: a second copy inside a region would hide behind the first.
-		expect(
-			html.split(`data-testid="${testid}"`).length - 1,
-			`${testid} appears once`,
-		).toBe(1);
-		expect(inside(rs, at(html, testid)), `${testid} is real`).toBe(false);
-	}
-	for (const testid of sampled) {
-		expect(at(html, testid), testid).toBeGreaterThan(-1);
-		expect(inside(rs, at(html, testid)), `${testid} is a sample`).toBe(true);
-	}
-}
-
-/** A real write control: disabled, with its reason linked for screen readers. */
-function expectDisabledWithReason(
-	html: string,
-	testid: string,
-	reason: string,
-) {
-	const tag = tagOf(html, testid);
-	expect(tag).toMatch(/\sdisabled=""/);
-	const describedBy = tag.match(/aria-describedby="([^"]+)"/)?.[1];
-	expect(describedBy, testid).toBeDefined();
-	expect(html).toMatch(new RegExp(`id="${describedBy}"[^>]*>${reason}`));
-}
+const SOURCES_PATH = "/api/skill-sources";
 
 // ---------------------------------------------------------------------------
-// The sample data.
+// The samples that remain: pure functions of live records.
 
 describe("catalog samples", () => {
-	it("are deterministic: the same id always gives the same value", () => {
+	it("name no route avel-server serves: the lists are live", () => {
+		const values = Object.values(CATALOG_MISSING);
+		expect(values).toHaveLength(5);
+		for (const missing of values) {
+			expect(missing).not.toMatch(
+				/^GET \/api\/(agent-templates|skills|skill-sources)(\/by-slug)?$/,
+			);
+			expect(missing).not.toMatch(/^GET \/api\/skills\/by-slug/);
+		}
+		// Only module 5's attachment read is named as a route at all.
+		expect(values.filter((m) => m.startsWith("GET "))).toEqual([
+			CATALOG_MISSING.roleAttachments,
+		]);
+	});
+
+	it("are deterministic: the same key always gives the same value", () => {
 		expect(sampleSha256("x")).toBe(sampleSha256("x"));
 		expect(sampleSha256("x")).not.toBe(sampleSha256("y"));
 		expect(sampleSha256("x")).toMatch(/^[0-9a-f]{64}$/);
+		expect(sampleUuid("a")).toMatch(
+			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/,
+		);
 	});
 
-	it("give every hash its own value, in SHA-256's shape", () => {
-		const hashes = [
-			...SAMPLE_AGENTS.flatMap((a) =>
-				sampleHistory(a).versions.map((v) => v.sha256),
-			),
-			...SAMPLE_SKILLS.map((s) => s.contentSha256),
-		];
+	it("give every version its own hash, in SHA-256's shape, keyed by the live slug", () => {
+		const hashes = AGENTS.flatMap((a) =>
+			sampleHistory(a).versions.map((v) => v.sha256),
+		);
 		for (const hash of hashes) expect(hash).toMatch(/^[0-9a-f]{64}$/);
 		expect(new Set(hashes).size).toBe(hashes.length);
+		for (const a of AGENTS) {
+			expect(sampleHistory(a)).toEqual(sampleHistory({ ...a }));
+		}
 	});
 
-	it("number versions newest first, down to 1, under the token cap", () => {
-		for (const agent of SAMPLE_AGENTS) {
-			const history = sampleHistory(agent);
-			const numbers = history.versions.map((v) => v.version);
-			expect(numbers).toEqual(
-				Array.from({ length: agent.version }, (_, i) => agent.version - i),
+	it("number versions newest first, down to 1, from the live version, under the token cap", () => {
+		for (const a of AGENTS) {
+			const history = sampleHistory(a);
+			expect(history.versions.map((v) => v.version)).toEqual(
+				Array.from({ length: a.version }, (_, i) => a.version - i),
 			);
 			expect(history.identityTokens).toBeLessThanOrEqual(800);
-		}
-	});
-
-	it("follow the capability rule: grants and io shape exactly on capabilities", () => {
-		for (const skill of SAMPLE_SKILLS) {
-			const capability = skill.type === "capability";
-			expect(skill.grants !== null, skill.slug).toBe(capability);
-			expect(skill.ioShape !== null, skill.slug).toBe(capability);
-		}
-	});
-
-	it("record a reviewer exactly on reviewed skills", () => {
-		for (const skill of SAMPLE_SKILLS) {
-			const reviewed = skill.status !== "draft";
-			expect(skill.reviewedBy !== null, skill.slug).toBe(reviewed);
-			expect(skill.reviewedAt !== null, skill.slug).toBe(reviewed);
+			// A horizontal agent works the whole project; a feature agent has a territory.
+			for (const row of history.outcomes) {
+				if (a.kind === "horizontal") expect(row.territory).toBeNull();
+				else expect(row.territory).not.toBeNull();
+			}
 		}
 	});
 
 	it("never let a draft or retired skill be attached", () => {
-		for (const skill of SAMPLE_SKILLS) {
-			expect(attachability(skill).attachable).toBe(skill.status === "approved");
+		for (const s of SKILLS) {
+			expect(attachability(s).attachable).toBe(s.status === "approved");
 		}
-		const imported = sampleSkill("database-read");
+		const imported = SKILLS.find((s) => s.slug === "database-read");
 		expect(imported?.status).toBe("draft");
 		expect(imported && attachability(imported)).toEqual({
 			attachable: false,
@@ -202,168 +161,390 @@ describe("catalog samples", () => {
 		expect(enforcementBadge("knowledge", true).enforced).toBe(false);
 	});
 
-	it("cross-link both ways: an agent carries a skill when the skill names it", () => {
-		for (const skill of SAMPLE_SKILLS) {
-			for (const agent of SAMPLE_AGENTS) {
-				const { role, dispatch } = skillsOfAgent(agent);
-				const carries = [...role, ...dispatch].includes(skill);
-				expect(agentsOfSkill(skill).includes(agent)).toBe(carries);
+	it("cross-link both ways over the live lists: an agent carries a skill when the skill names it", () => {
+		for (const s of SKILLS) {
+			for (const a of AGENTS) {
+				const { role, dispatch } = skillsOfAgent(a, SKILLS);
+				const carries = [...role, ...dispatch].includes(s);
+				expect(agentsOfSkill(s, AGENTS).includes(a)).toBe(carries);
 			}
 		}
-		const atlas = sampleAgent("atlas");
+		const atlas = AGENTS.find((a) => a.slug === "atlas");
 		expect(atlas).toBeDefined();
 		if (!atlas) return;
-		const { role, dispatch } = skillsOfAgent(atlas);
+		const { role, dispatch } = skillsOfAgent(atlas, SKILLS);
 		expect(role.every((s) => s.layer === "role")).toBe(true);
 		expect(dispatch.every((s) => s.layer !== "role")).toBe(true);
+		// Nothing carries anything when there is nothing to carry.
+		for (const s of SKILLS) expect(agentsOfSkill(s, [])).toEqual([]);
+		expect(skillsOfAgent(atlas, [])).toEqual({ role: [], dispatch: [] });
 	});
 
-	it("count every skill under exactly one source", () => {
-		const total = SAMPLE_SOURCES.reduce((n, s) => n + s.skillCount, 0);
-		expect(total).toBe(SAMPLE_SKILLS.length);
-		for (const skill of SAMPLE_SKILLS) {
-			const source = SAMPLE_SOURCES.find((s) => s.id === skill.source.id);
-			expect(source?.name, skill.slug).toBe(skill.source.name);
-			expect(source?.kind, skill.slug).toBe(skill.source.kind);
+	it("attach a role skill by its slug: the named set, or a fixed pick for a new slug", () => {
+		for (const [slug, roles] of Object.entries(SAMPLE_ROLE_ATTACHMENTS)) {
+			expect(sampleRoleAttachments(slug)).toBe(roles);
 		}
-	});
-
-	it("parse through the contract's own schemas", () => {
-		for (const agent of SAMPLE_AGENTS) {
-			expect(agentTemplateSchema.parse(agent)).toEqual(agent);
-		}
-		for (const skill of SAMPLE_SKILLS) {
-			expect(skillSchema.parse(skill)).toEqual(skill);
-		}
-		for (const source of SAMPLE_SOURCES) {
-			expect(skillSourceSchema.parse(source)).toEqual(source);
-		}
-		expect(sampleUuid("a")).toMatch(
-			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/,
+		const picked = sampleRoleAttachments("a-skill-the-seed-never-named");
+		expect(picked.length).toBeGreaterThanOrEqual(1);
+		expect(picked.length).toBeLessThanOrEqual(2);
+		expect(picked).toEqual(
+			sampleRoleAttachments("a-skill-the-seed-never-named"),
 		);
+		for (const role of picked) {
+			expect(ROLES).toContain(role);
+			// Platform roles are code: nothing attaches to them.
+			expect(SAMPLE_ROLE_FAMILY[role]).not.toBe("Platform");
+		}
+		expect(sampleRoleAttachments("another-slug")).not.toEqual(picked);
+		// A stack or domain skill's carriers are live: its recommendedFor.
+		const stack = SKILLS.find((s) => s.layer === "stack");
+		expect(stack && carryingRoles(stack)).toBe(stack?.recommendedFor);
 	});
 
-	it("give every sample its own id", () => {
-		const ids = [...SAMPLE_AGENTS, ...SAMPLE_SKILLS, ...SAMPLE_SOURCES].map(
-			(row) => row.id,
-		);
-		expect(new Set(ids).size).toBe(ids.length);
+	it("index only vendor and community sources, two or three hashed entries each, keyed by id", () => {
+		const entries = sampleRegistry(SOURCES);
+		const internal = source("internal");
+		expect(entries.some((e) => e.sourceId === internal.id)).toBe(false);
+		for (const s of SOURCES.filter((s) => s.kind !== "internal")) {
+			const own = entries.filter((e) => e.sourceId === s.id);
+			expect(own.length, s.name).toBeGreaterThanOrEqual(2);
+			expect(own.length, s.name).toBeLessThanOrEqual(3);
+			for (const e of own) {
+				expect(e.contentSha256).toMatch(/^[0-9a-f]{64}$/);
+				expect(e.path.startsWith(`${s.kind}/skills/`)).toBe(true);
+			}
+		}
+		expect(new Set(entries.map((e) => e.id)).size).toBe(entries.length);
+		expect(sampleRegistry(SOURCES)).toEqual(entries);
+		expect(sampleRegistry([internal])).toEqual([]);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// /catalog/sources.
+// /catalog/sources: the shelf first, the table second, and the source writes.
+
+/** What the shelf reads beside the list: kind counts and each tile's layer counts. */
+function shelfClient(
+	sources: Seed["sources"],
+	layers: Record<string, [number, number, number]> = {},
+) {
+	const client = seededClient({ sources });
+	for (const kind of ["internal", "vendor", "community"] as const) {
+		client.setQueryData(
+			queryKeys.catalog.skillSourceCount(kind),
+			SOURCES.filter((s) => s.kind === kind).length,
+		);
+	}
+	for (const [id, [role, stack, domain]] of Object.entries(layers)) {
+		client.setQueryData(queryKeys.catalog.sourceLayerCount(id, "role"), role);
+		client.setQueryData(queryKeys.catalog.sourceLayerCount(id, "stack"), stack);
+		client.setQueryData(
+			queryKeys.catalog.sourceLayerCount(id, "domain"),
+			domain,
+		);
+	}
+	return client;
+}
 
 describe("/catalog/sources", () => {
-	it("labels the sample table, and leaves Add source real and disabled", async () => {
+	it("loads the shelf: a skeleton, no sample pill, no not-built state", async () => {
 		const html = await renderPage("/catalog/sources");
-		expectLabelled(html, ["catalog-sources-add"], ["catalog-sources-table"]);
-		expect(regions(html).map((r) => r.missing)).toEqual([
-			CATALOG_MISSING.sources,
-		]);
-		expectDisabledWithReason(html, "catalog-sources-add", "Adding a source");
+		expect(tagOf(html, "catalog-sources-surface")).toContain(
+			'data-state="loading"',
+		);
+		expect(html).toContain('data-testid="catalog-sources-skeleton"');
+		expect(tagOf(html, "catalog-sources-view-shelf")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(html).not.toContain('data-state="not-built"');
+		expect(html).not.toContain('data-testid="sample-data"');
+		expect(html).toContain('data-testid="topbar-definition"');
 	});
 
-	it("lists every source with its kind and skill count", async () => {
-		const table = element(
-			await renderPage("/catalog/sources"),
-			"catalog-sources-table",
+	it("puts every live source on a tile: kind, name, skill count and address", async () => {
+		const html = await renderSeeded("/catalog/sources", shelfClient(SOURCES));
+		expect(tagOf(html, "catalog-sources-surface")).toContain(
+			'data-state="success"',
 		);
-		for (const source of SAMPLE_SOURCES) {
-			const row = element(table, `catalog-sources-table-row-${source.id}`);
-			expect(row).toContain(source.name);
-			expect(row).toContain(`>${source.skillCount}<`);
+		expect(tagOf(html, "source-tiles")).toMatch(/\bstagger-in\b/);
+		for (const s of SOURCES) {
+			const tile = element(html, `source-tile-${s.id}`);
+			expect(tagOf(tile, `source-tile-${s.id}`)).toMatch(
+				/\bplate-interactive\b/,
+			);
+			expect(tile).toContain(s.name);
+			expect(element(tile, `source-skill-count-${s.id}`)).toContain(
+				`>${s.skillCount}<`,
+			);
+			if (s.url) {
+				expect(tagOf(tile, `source-url-${s.id}`)).toContain(`href="${s.url}"`);
+			}
 		}
 	});
-});
 
-// ---------------------------------------------------------------------------
-// The states a list shows once its route is wired. Rendered with a query in
-// each state, outside the router: no row, and so no link, is rendered.
-
-const shell = (node: ReactNode) =>
-	renderToString(<TooltipProvider>{node}</TooltipProvider>);
-
-const failed = {
-	status: "error" as const,
-	error: new ApiError({
-		method: "GET",
-		path: "/api/skills",
-		kind: "contract",
-		status: 500,
-		code: "INTERNAL",
-		message: "m",
-		requestId: "req_catalog",
-	} as ConstructorParameters<typeof ApiError>[0]),
-	refetch: () => undefined,
-	isFetching: false,
-};
-
-describe("every catalog list has its four states", () => {
-	const lists = [
-		["sources", (q: never) => <CatalogSources query={q} />],
-	] as const;
-
-	for (const [name, list] of lists) {
-		it(`${name}: loading, empty, error, each inside its sample region`, () => {
-			const loading = shell(list({ status: "pending" } as never));
-			expect(tagOf(loading, `catalog-${name}-surface`)).toContain(
-				'data-state="loading"',
+	it("counts each kind tab from the server's total", async () => {
+		const html = await renderSeeded("/catalog/sources", shelfClient(SOURCES));
+		for (const kind of ["internal", "vendor", "community"] as const) {
+			const count = SOURCES.filter((s) => s.kind === kind).length;
+			expect(element(html, `source-kind-${kind}-count`)).toContain(
+				`>${count}<`,
 			);
-			expect(loading).toContain(`data-testid="catalog-${name}-skeleton"`);
+		}
+		expect(tagOf(html, "source-kind-all")).toContain('aria-pressed="true"');
+	});
 
-			const empty = shell(list({ status: "success", data: [] } as never));
-			expect(tagOf(empty, `catalog-${name}-surface`)).toContain(
-				'data-state="empty"',
-			);
-			expect(empty).toContain(`data-testid="catalog-${name}-empty"`);
-			// As on every empty state: build status stays out of the sentence.
-			expect(
-				empty.match(/data-testid="empty-state-description"[^>]*>([^<]+)</)?.[1],
-			).not.toMatch(/contract|avel-server|not built|yet\b|route/i);
-
-			const error = shell(list(failed as never));
-			expect(tagOf(error, `catalog-${name}-surface`)).toContain(
-				'data-state="error"',
-			);
-
-			for (const html of [loading, empty, error]) {
-				expect(pills(html).length).toBe(regions(html).length);
-			}
-		});
-	}
-
-	it("offers the disabled write control in the empty Sources", () => {
-		const sources = shell(
-			<CatalogSources query={{ status: "success", data: [] }} />,
+	it("draws a tile's layer bar from its three counts, waiting until all are in", async () => {
+		const s = source("vendor");
+		const html = await renderSeeded(
+			"/catalog/sources",
+			shelfClient(SOURCES, { [s.id]: [1, 2, 0] }),
 		);
-		expect(tagOf(sources, "catalog-sources-empty-add")).toMatch(
+		const bar = element(html, `source-layers-${s.id}`);
+		expect(bar).toMatch(/data-layer="role" data-count="1"/);
+		expect(bar).toMatch(/data-layer="stack" data-count="2"/);
+		expect(bar).not.toContain('data-layer="domain"');
+		// Each segment grows in, only where motion is allowed.
+		expect(
+			bar.match(/data-layer="[a-z]+"[^>]*class="[^"]*motion-safe:grow-x/g),
+		).toHaveLength(2);
+		// Another tile has no counts yet: a skeleton, never a guessed bar.
+		const other = source("internal");
+		expect(html).toContain(`data-testid="source-layers-loading-${other.id}"`);
+	});
+
+	it("counts from meta.total in the top bar, never from the rows loaded", async () => {
+		const html = await renderSeeded(
+			"/catalog/sources",
+			shelfClient({ rows: SOURCES, total: 12, nextCursor: "c2" }),
+		);
+		expect(element(html, "topbar-subtitle")).toContain(">12 sources<");
+		expect(element(html, "catalog-sources-list-footer-showing")).toContain(
+			`>Showing ${SOURCES.length} of 12<`,
+		);
+		const one = await renderSeeded(
+			"/catalog/sources",
+			shelfClient([source("internal")]),
+		);
+		expect(element(one, "topbar-subtitle")).toContain(">1 source<");
+	});
+
+	it("says when there are none, with Add source live", async () => {
+		const html = await renderSeeded("/catalog/sources", shelfClient([]));
+		expect(tagOf(html, "catalog-sources-surface")).toContain(
+			'data-state="empty"',
+		);
+		expect(
+			html.match(/data-testid="empty-state-description"[^>]*>([^<]+)</)?.[1],
+		).not.toMatch(/contract|avel-server|not built|yet\b|route/i);
+		expect(tagOf(html, "catalog-sources-empty-add")).not.toMatch(
 			/\sdisabled=""/,
 		);
+		expect(tagOf(html, "catalog-sources-add")).not.toMatch(/\sdisabled=""/);
 	});
-});
 
-// ---------------------------------------------------------------------------
-// Layout, from the visual pass: what SSR can see of each fix.
+	it("shows the error state when the list fails, and keeps Add source live", async () => {
+		const html = await renderSeeded(
+			"/catalog/sources",
+			seededClient({ sources: internalError(SOURCES_PATH) }),
+		);
+		expect(tagOf(html, "catalog-sources-surface")).toContain(
+			'data-state="error"',
+		);
+		expect(html).toContain('data-testid="surface-error"');
+		expect(tagOf(html, "catalog-sources-add")).not.toMatch(/\sdisabled=""/);
+	});
 
-describe("small fixes", () => {
-	it("shows a source's kind as a word and keeps None out of mono", async () => {
-		const html = await renderPage("/catalog/sources");
+	it("keeps the table as the second view: kind as a word, None kept out of mono", async () => {
+		const html = await renderSeeded(
+			"/catalog/sources?view=table",
+			seededClient({ sources: SOURCES }),
+		);
+		expect(tagOf(html, "catalog-sources-view-table")).toContain(
+			'aria-pressed="true"',
+		);
 		expect(tagOf(html, "catalog-source-kind")).toContain(
 			'data-variant="outline"',
 		);
 		const table = element(html, "catalog-sources-table");
-		const internal = SAMPLE_SOURCES.find((s) => s.license === null);
-		const licensed = SAMPLE_SOURCES.find((s) => s.license !== null);
-		expect(internal && licensed).toBeTruthy();
-		const none = element(table, `catalog-sources-table-row-${internal?.id}`);
-		expect(none).not.toMatch(/type-mono[^"]*"[^>]*>(<span[^>]*>)?None</);
+		const internal = source("internal");
+		const none = element(table, `catalog-sources-table-row-${internal.id}`);
 		expect(none).toMatch(/<span class="text-text-subtle">None<\/span>/);
-		const value = element(table, `catalog-sources-table-row-${licensed?.id}`);
-		expect(value).toMatch(
-			new RegExp(
-				`data-testid="catalog-source-license" class="type-mono-small">${licensed?.license}<`,
-			),
+	});
+
+	it("keeps the dev seed's shape: the fixtures are what the server would send", () => {
+		expect(CONNECTIONS).toHaveLength(5);
+		expect(AGENTS.length).toBeGreaterThanOrEqual(5);
+	});
+});
+
+describe("a source's layer bar", () => {
+	it("waits for every count, and says nothing when there are no skills", () => {
+		expect(layerShares({ role: 1, stack: undefined, domain: 0 })).toBeNull();
+		expect(layerShares({ role: 1, stack: null, domain: 0 })).toBeNull();
+		expect(layerShares({ role: 0, stack: 0, domain: 0 })).toEqual([]);
+		const shares = layerShares({ role: 1, stack: 3, domain: 0 }) ?? [];
+		expect(shares.map((s) => [s.layer, s.share])).toEqual([
+			["role", 0.25],
+			["stack", 0.75],
+		]);
+	});
+});
+
+describe("adding and editing a source", () => {
+	const s = source("vendor");
+	const render = (node: ReactNode) =>
+		inProviders(
+			<InlineModals>{node}</InlineModals>,
+			seededClient({}),
+			"/catalog/sources",
 		);
+
+	it("adds through a Form modal with a live submit", () => {
+		const html = render(
+			<SourceForm pending={false} error={null} onSubmit={() => {}} />,
+		);
+		expect(tagOf(html, "source-form")).toContain('data-size="form"');
+		expect(html).toMatch(/data-testid="source-form-submit"[^>]*>Add source/);
+		expect(tagOf(html, "source-form-submit")).not.toMatch(/\sdisabled=""/);
+	});
+
+	it("edits prefilled, holding Save until something changed", () => {
+		const html = render(
+			<SourceForm
+				source={s}
+				pending={false}
+				error={null}
+				onSubmit={() => {}}
+			/>,
+		);
+		expect(tagOf(html, "source-form-name")).toContain(`value="${s.name}"`);
+		expect(tagOf(html, "source-form-submit")).toMatch(/\sdisabled=""/);
+	});
+
+	it("sends only what changed, an emptied field as null", () => {
+		const draft = sourceDraftOf(s);
+		expect(changedSourceFields(s, draft)).toBeNull();
+		expect(changedSourceFields(s, { ...draft, name: "Renamed" })).toEqual({
+			name: "Renamed",
+		});
+		expect(changedSourceFields(s, { ...draft, url: "  " })).toEqual(
+			s.url === null ? null : { url: null },
+		);
+		expect(sourceBodyOf({ ...draft, license: "" }).license).toBeNull();
+	});
+
+	it("shows a refusal on kind beside the kind radios", () => {
+		const html = render(
+			<SourceForm
+				pending={false}
+				error={contractError(400, "VALIDATION_FAILED", {
+					body: [{ path: ["kind"], message: "Invalid enum value" }],
+				})}
+				onSubmit={() => {}}
+			/>,
+		);
+		expect(html).toMatch(
+			/data-testid="source-form-kind-error"[^>]*>Choose internal, vendor or community\.</,
+		);
+		expect(html).not.toContain("Invalid enum value");
+	});
+
+	it("refuses what the contract refuses, with the field's copy", () => {
+		const draft = sourceDraftOf();
+		expect(sourceProblems({ ...draft, name: "", url: "not a url" })).toEqual({
+			name: "Give it a name of 1 to 200 characters.",
+			url: "Give a full web address, such as https://example.com, or leave it empty.",
+		});
+		expect(
+			sourceProblems({ ...draft, name: "Ok", url: "https://x.dev" }),
+		).toEqual({});
+	});
+});
+
+describe("removing a source", () => {
+	const render = (node: ReactNode) =>
+		inProviders(
+			<InlineModals>{node}</InlineModals>,
+			seededClient({}),
+			"/catalog/sources",
+		);
+	const withSkills = { ...source("vendor"), skillCount: 3 };
+	const empty = { ...source("vendor"), skillCount: 0 };
+
+	it("is held while skills come from it, with the server's own reason", () => {
+		const copy = PRECONDITION_COPY.skill_source_in_use;
+		expect(removeHeldReason(withSkills)).toBe(`${copy.what} ${copy.next}`);
+		expect(removeHeldReason(empty)).toBeNull();
+		const html = render(
+			<RemoveSourceConfirm
+				source={withSkills}
+				pending={false}
+				error={null}
+				onRemove={() => {}}
+			/>,
+		);
+		expect(tagOf(html, "source-remove-submit")).toMatch(/\sdisabled=""/);
+		expect(element(html, "source-remove-skills")).toContain(
+			">3 skills come from this source.<",
+		);
+	});
+
+	it("is a destructive Confirm named for the source when nothing comes from it", () => {
+		const html = render(
+			<RemoveSourceConfirm
+				source={empty}
+				pending={false}
+				error={null}
+				onRemove={() => {}}
+			/>,
+		);
+		expect(tagOf(html, "source-remove")).toContain('data-size="confirm"');
+		expect(html).toContain(`>Remove ${empty.name}<`);
+		expect(tagOf(html, "source-remove-submit")).toContain(
+			'data-variant="destructive"',
+		);
+		expect(tagOf(html, "source-remove-submit")).not.toMatch(/\sdisabled=""/);
+		expect(skillsFromLine(1)).toBe("1 skill comes from this source.");
+	});
+});
+
+describe("a source's skills", () => {
+	const s = source("vendor");
+	const own = SKILLS.filter((k) => k.source.id === s.id);
+
+	it("filters by layer and status", () => {
+		// Across every fixture skill, so more than one layer and status is present.
+		const layers = new Set(SKILLS.map((k) => k.layer));
+		expect(layers.size).toBeGreaterThan(1);
+		const roles = filterSkills(SKILLS, "role", undefined);
+		expect(roles.length).toBeGreaterThan(0);
+		expect(roles.length).toBeLessThan(SKILLS.length);
+		expect(roles.every((k) => k.layer === "role")).toBe(true);
+		const approved = filterSkills(SKILLS, undefined, "approved");
+		expect(approved.every((k) => k.status === "approved")).toBe(true);
+		expect(filterSkills(SKILLS, undefined, undefined)).toHaveLength(
+			SKILLS.length,
+		);
+	});
+
+	it("links each skill chip to it in Skills", () => {
+		const client = seededClient({});
+		client.setQueryData(
+			queryKeys.catalog.sourceSkills(s.id, CATALOG_PAGE_SIZE),
+			{
+				pages: [{ data: own, meta: { nextCursor: null, total: own.length } }],
+				pageParams: [undefined],
+			},
+		);
+		const html = inProviders(
+			<SourceSkills source={s} />,
+			client,
+			"/catalog/sources",
+		);
+		for (const k of own) {
+			expect(tagOf(html, `source-skill-${k.slug}`)).toContain(
+				`href="/catalog/skills?skill=${k.slug}"`,
+			);
+		}
 	});
 });

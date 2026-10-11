@@ -403,6 +403,22 @@ export const PRECONDITION_COPY = {
 		next: "Keep the approved summary, requirements and criteria as they are. Add new ones instead, then save again.",
 		retry: false,
 	},
+	// src/routes/playbooks.ts (module 3): the default preset has no agent in
+	// the earliest wave the playbook declares, or the playbook declares none.
+	preset_misses_first_wave: {
+		what: "The default preset has no agent in this playbook's first wave.",
+		written: NOTHING_WRITTEN,
+		next: "Turn on a wave the preset staffs, or choose a preset with an agent in the first wave, then publish again.",
+		retry: false,
+	},
+	// src/routes/playbooks.ts: a live mission of this type is active or
+	// halted, and its playbook cannot change under it.
+	playbook_in_use: {
+		what: "A mission of this type is active or halted, so its playbook can't change now.",
+		written: NOTHING_WRITTEN,
+		next: "Finish or archive that mission first, then publish again.",
+		retry: false,
+	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;
 
 /** Copy for an error from avel-server's contract. */

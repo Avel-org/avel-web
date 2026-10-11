@@ -1,8 +1,9 @@
 import { updateMissionPlanBody } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
-import { planReadOnlyReason } from "@/components/avel/plan-region";
+import { landedMount, planReadOnlyReason } from "@/components/avel/plan-region";
 import {
 	approvedChangeIssues,
+	canStartPlan,
 	issuesByTarget,
 	issueTarget,
 	locksOf,
@@ -12,6 +13,7 @@ import {
 	planDraftOf,
 	planShapeProblems,
 	planValidationIssues,
+	startPlanBody,
 } from "@/lib/api/mission-plans";
 import { PRECONDITION_COPY } from "@/lib/error-map";
 import { contractError } from "./clients-fixtures";
@@ -179,5 +181,79 @@ describe("when the plan cannot change", () => {
 			reason: "mission_not_editable",
 		});
 		expect(planReadOnlyReason("draft", error)).toBe(reason);
+	});
+});
+
+describe("starting a plan over a brief that predates the shape", () => {
+	it("is offered only on a draft with no parsed brief and no approved one", () => {
+		const old = plan({ brief: null, approvedBrief: null });
+		expect(canStartPlan(old, "draft")).toBe(true);
+		expect(canStartPlan(old, "active")).toBe(false);
+		expect(canStartPlan(plan({ approvedBrief: null }), "draft")).toBe(false);
+		expect(
+			canStartPlan(
+				plan({ brief: null, approvedBrief: approvedBrief() }),
+				"draft",
+			),
+		).toBe(false);
+	});
+
+	it("keeps a usable summary and starts every list empty, with no template", () => {
+		const start = startPlanBody({ summary: "Notifications." });
+		expect(start).toEqual({
+			body: {
+				brief: {
+					summary: "Notifications.",
+					requirements: [],
+					acceptanceCriteria: [],
+					modules: [],
+				},
+				templateRef: null,
+				templateVersion: null,
+			},
+			carried: ["summary"],
+			dropped: [],
+			needsSummary: false,
+		});
+		expect(updateMissionPlanBody.safeParse(start.body).success).toBe(true);
+	});
+
+	it("names every other key the save replaces, in the stored order", () => {
+		const start = startPlanBody({
+			goals: ["a"],
+			summary: "  Keep me  ",
+			notes: "n",
+		});
+		expect(start.body.brief.summary).toBe("Keep me");
+		expect(start.carried).toEqual(["summary"]);
+		expect(start.dropped).toEqual(["goals", "notes"]);
+	});
+
+	it("asks for a summary when the old one is not one the contract accepts", () => {
+		for (const summary of ["", "   ", 5, "x".repeat(5_001)]) {
+			const start = startPlanBody({ summary, title: "t" });
+			expect(start.needsSummary).toBe(true);
+			expect(start.carried).toEqual([]);
+			expect(start.dropped).toEqual(["summary", "title"]);
+			// Unsendable until the operator writes one.
+			expect(updateMissionPlanBody.safeParse(start.body).success).toBe(false);
+		}
+	});
+
+	it("treats anything that is not a record as having nothing to carry", () => {
+		// A non-empty array has keys ("0"): it must not be read as a record.
+		for (const raw of [null, undefined, [], ["x"], "text", {}]) {
+			const start = startPlanBody(raw);
+			expect(start.needsSummary).toBe(true);
+			expect(start.dropped).toEqual([]);
+		}
+	});
+});
+
+describe("the landed highlight after Start", () => {
+	it("shows on the first mount after Start only, never after a later save", () => {
+		expect(landedMount(null, 100)).toBe(false);
+		expect(landedMount(100, 100)).toBe(true);
+		expect(landedMount(100, 250)).toBe(false);
 	});
 });

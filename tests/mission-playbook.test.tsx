@@ -377,7 +377,7 @@ describe("/missions/$id/playbook", () => {
 
 	it("shows the resolved playbook for the mission's type", async () => {
 		const html = await render(PAGE, ...everything());
-		expect(element(html, "playbook-detail-header")).toContain(">Full build<");
+		expect(tagOf(html, "playbook-prop-name")).toContain('value="Full build"');
 		expect(tagOf(html, "mission-playbook-open-type")).toContain(
 			'href="/playbooks/full-build"',
 		);
@@ -391,7 +391,7 @@ describe("/missions/$id/playbook", () => {
 		);
 		expect(html).toContain('data-testid="mission-playbook-none"');
 		expect(html).toContain('data-testid="coherence-no-playbook"');
-		expect(html).not.toContain('data-testid="playbook-detail"');
+		expect(html).not.toContain('data-testid="playbook-builder"');
 	});
 
 	it("shows the template as ref@sha, seven characters, with the full sha on hover", async () => {

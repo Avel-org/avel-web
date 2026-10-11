@@ -1,49 +1,21 @@
-import type { SkillSource, SkillSourceKind } from "avel-server/contract";
+import type { SkillSource } from "avel-server/contract";
 import { BookOpen, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CATALOG_MISSING, SAMPLE_SOURCES } from "./catalog-placeholders";
-import {
-	CatalogListSkeleton,
-	type CatalogQuery,
-	SampleRegion,
-	sampleQuery,
-} from "./catalog-sample";
+import { loadedRows, type useSkillSources } from "@/lib/api/catalog";
+import { CatalogListFooter, CatalogListSkeleton } from "./catalog-sample";
+import { SOURCE_KIND_LABEL } from "./catalog-source-form";
 import { type DataColumn, DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, Surface } from "./surface";
 
 /*
- * Skill sources, /catalog/sources: the open catalog every skill is traced
- * back to (SKILLS.md, DATA-CONTRACTS-V2.md SkillSource). avel-server has no
- * skillSource procedures yet, so the rows are labelled samples from
- * catalog-placeholders.ts (AVEL-DESIGN.md ruling 32). Adding a source is
- * operator-only and disabled until the routes exist.
+ * Skill sources' Table view, /catalog/sources?view=table: the same live list
+ * as the shelf (GET /api/skill-sources), as rows for reading and comparing.
+ * The shelf is the page's first view; adding, editing and removing live
+ * there and in the top bar.
  */
-
-export const SOURCE_WRITE_REASON =
-	// avel-server has the route (4f7c3a0); this page is not wired to it yet.
-	"Adding a source isn't wired into this page yet";
-
-export function AddSourceButton({
-	"data-testid": testId = "catalog-sources-add",
-}: {
-	"data-testid"?: string;
-}) {
-	return (
-		<Button size="sm" data-testid={testId} disabledReason={SOURCE_WRITE_REASON}>
-			<Plus aria-hidden="true" />
-			Add source
-		</Button>
-	);
-}
-
-const KIND_LABEL: Record<SkillSourceKind, string> = {
-	internal: "Internal",
-	vendor: "Vendor",
-	community: "Community",
-};
 
 const COLUMNS: DataColumn<SkillSource>[] = [
 	{
@@ -60,7 +32,7 @@ const COLUMNS: DataColumn<SkillSource>[] = [
 		// A word, not machine text: an outline badge, not a mono tag.
 		cell: (row) => (
 			<Badge variant="outline" data-testid="catalog-source-kind">
-				{KIND_LABEL[row.kind]}
+				{SOURCE_KIND_LABEL[row.kind]}
 			</Badge>
 		),
 	},
@@ -100,10 +72,13 @@ const COLUMNS: DataColumn<SkillSource>[] = [
 	},
 ];
 
-export function CatalogSources({
-	query = sampleQuery(SAMPLE_SOURCES),
+export function SourcesTable({
+	query,
+	onAdd,
 }: {
-	query?: CatalogQuery<SkillSource>;
+	/** The live list, owned by the route. */
+	query: ReturnType<typeof useSkillSources>;
+	onAdd: () => void;
 }) {
 	return (
 		<div data-testid="catalog-sources" className="flex flex-col gap-4 pb-6">
@@ -112,44 +87,55 @@ export function CatalogSources({
 				description="Imported skills start as drafts and are reviewed before they can be attached."
 				data-testid="catalog-sources-panel"
 			>
-				<SampleRegion
-					missing={CATALOG_MISSING.sources}
-					title="Sources"
-					what="Every source in the catalog, its kind, address and license, and how many skills come from it."
-					data-testid="catalog-sources-sample"
+				<Surface
+					data-testid="catalog-sources-surface"
+					query={query}
+					isEmpty={(data) => loadedRows(data).length === 0}
+					loading={
+						<CatalogListSkeleton data-testid="catalog-sources-skeleton" />
+					}
+					empty={
+						<EmptyState
+							data-testid="catalog-sources-empty"
+							compact
+							icon={BookOpen}
+							title="No sources yet"
+							description="Every skill traces back to a source: AVEL itself, a vendor or a community index. Add one before importing skills from it."
+							action={
+								<Button
+									size="sm"
+									data-testid="catalog-sources-empty-add"
+									onClick={onAdd}
+								>
+									<Plus aria-hidden="true" />
+									Add source
+								</Button>
+							}
+						/>
+					}
+					error={ErrorState}
 				>
-					<Surface
-						data-testid="catalog-sources-surface"
-						query={query}
-						loading={
-							<CatalogListSkeleton data-testid="catalog-sources-skeleton" />
-						}
-						empty={
-							<EmptyState
-								data-testid="catalog-sources-empty"
-								compact
-								icon={BookOpen}
-								title="No sources yet"
-								description="Every skill traces back to a source: AVEL itself, a vendor or a community index. Add one before importing skills from it."
-								action={
-									<AddSourceButton data-testid="catalog-sources-empty-add" />
-								}
-							/>
-						}
-						error={ErrorState}
-					>
-						{(sources) => (
+					{(data) => (
+						<div className="flex flex-col gap-2">
 							<DataTable
 								label="Skill sources"
 								data-testid="catalog-sources-table"
 								columns={COLUMNS}
-								rows={[...sources]}
+								rows={loadedRows(data)}
 								getRowId={(row) => row.id}
 								stickyHeader={false}
 							/>
-						)}
-					</Surface>
-				</SampleRegion>
+							<CatalogListFooter
+								loaded={loadedRows(data).length}
+								total={data.pages[0]?.meta.total}
+								hasMore={query.hasNextPage}
+								loadingMore={query.isFetchingNextPage}
+								onLoadMore={() => query.fetchNextPage()}
+								data-testid="catalog-sources-list-footer"
+							/>
+						</div>
+					)}
+				</Surface>
 			</SectionPanel>
 		</div>
 	);

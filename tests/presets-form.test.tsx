@@ -8,7 +8,8 @@ import { createPresetBody, type Preset } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { PresetForm } from "@/components/avel/preset-form";
+import { InlineModals } from "@/components/avel/action-modal";
+import { PresetForm, presetChanges } from "@/components/avel/preset-form";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiProvider } from "@/lib/api";
 import { CATALOG_PAGE_SIZE } from "@/lib/api/catalog";
@@ -19,10 +20,11 @@ import {
 	changedPresetFields,
 	createBodyOf,
 	isRosterable,
+	keyOf,
 	nextVersion,
 	type PresetDraft,
 	presetDraftOf,
-	presetFieldErrors,
+	presetIssueCopy,
 	presetProblems,
 	presetQuery,
 	presetsQuery,
@@ -51,7 +53,9 @@ function render(node: ReactNode) {
 	return renderToString(
 		<ApiProvider client={fakeApi().client}>
 			<QueryClientProvider client={qc}>
-				<TooltipProvider>{node}</TooltipProvider>
+				<TooltipProvider>
+					<InlineModals>{node}</InlineModals>
+				</TooltipProvider>
 			</QueryClientProvider>
 		</ApiProvider>,
 	);
@@ -230,14 +234,15 @@ describe("what the form refuses, by the contract's own rules", () => {
 		).toEqual({});
 	});
 
-	it("maps the server's field errors onto the same keys", () => {
-		const error = contractError("VALIDATION_FAILED", 400, {
-			body: [{ path: ["agents", 0, "waves"], message: "too small" }],
-		});
-		expect(presetFieldErrors(error)).toEqual({
-			"agents.0.waves": "Choose at least one wave.",
-		});
-		expect(presetFieldErrors(contractError("CONFLICT", 409))).toEqual({});
+	it("places the server's field issues on the same keys, with this form's copy", () => {
+		expect(keyOf(["agents", 0, "waves"])).toBe("agents.0.waves");
+		expect(keyOf(["unknown"])).toBeNull();
+		expect(presetIssueCopy({ path: ["agents", 0, "waves"] })).toBe(
+			"Choose at least one wave.",
+		);
+		expect(presetIssueCopy({ path: ["unknown"] })).toBe(
+			"A value here isn't accepted.",
+		);
 	});
 });
 
@@ -291,8 +296,9 @@ describe("the preset form", () => {
 			<PresetForm pending={false} error={null} onSubmit={noop} />,
 		);
 		expect(tagOf(html, "preset-form-submit")).not.toMatch(/\sdisabled=""/);
+		expect(tagOf(html, "preset-form")).toContain('data-size="form"');
 		expect(html).toMatch(/data-testid="preset-form-submit"[^>]*>Add preset</);
-		expect(html).not.toContain('data-testid="preset-form-version"');
+		expect(html).not.toMatch(/Save as v/);
 		expect(html).toContain('data-testid="preset-form-no-agents"');
 	});
 
@@ -305,8 +311,10 @@ describe("the preset form", () => {
 				onSubmit={noop}
 			/>,
 		);
-		expect(html).toMatch(/data-testid="preset-form-version"[^>]*>v4 → v5</);
-		expect(html).toContain(">Save as v5<");
+		expect(html).toMatch(/data-testid="preset-form-submit"[^>]*>Save as v5</);
+		expect(html).toContain(
+			"v4. Missions that already applied it keep their copy.",
+		);
 	});
 
 	it("disables an unchanged edit's save with its reason", () => {
@@ -381,7 +389,43 @@ describe("the preset form", () => {
 				onSubmit={noop}
 			/>,
 		);
-		expect(html).toContain('data-testid="form-error"');
+		expect(html).toContain('data-testid="action-modal-refusal"');
 		expect(html).not.toContain("Check the fields marked above.");
+	});
+});
+
+describe("what saving a preset changes", () => {
+	const names = { status: "pending" } as const;
+
+	it("names the version a changed edit makes, and nothing for an unchanged one", () => {
+		const saved = preset(1, { version: 4 });
+		expect(presetChanges(saved, presetDraftOf(saved), names)).toEqual([]);
+		const renamed = { ...presetDraftOf(saved), name: "Renamed" };
+		const changes = presetChanges(saved, renamed, names);
+		expect(changes.map((c) => [c.label, c.kind])).toEqual([
+			["Name", "change"],
+			["Version", "change"],
+		]);
+		expect(changes[1]).toMatchObject({ from: "v4", to: "v5" });
+	});
+
+	it("lists an added and a removed agent by name, in mono", () => {
+		const saved = preset(1);
+		const swapped = {
+			...presetDraftOf(saved),
+			agents: [agent({ agentTemplateId: TEMPLATE(2), waves: ["C"] })],
+		};
+		const kinds = presetChanges(saved, swapped, names)
+			.filter((c) => c.label.startsWith("Agent"))
+			.map((c) => c.kind);
+		expect(kinds).toEqual(["add", "remove"]);
+	});
+
+	it("shows no version for a new preset", () => {
+		const changes = presetChanges(undefined, draft(), names);
+		expect(changes.some((c) => c.label === "Version")).toBe(false);
+		expect(changes.some((c) => c.label === "Name" && c.kind === "add")).toBe(
+			true,
+		);
 	});
 });

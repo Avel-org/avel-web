@@ -81,7 +81,7 @@ function BackToPresets({ className }: { className?: string }) {
 }
 
 /** The preset itself: header, description, and the squad it saves. */
-export function PresetDetailBody({
+function PresetDetailBody({
 	preset,
 	onEdit,
 }: {
@@ -164,7 +164,7 @@ export function PresetDetailBody({
 	);
 }
 
-type Names =
+export type Names =
 	| { status: "pending" }
 	| { status: "error" }
 	| {
@@ -172,12 +172,22 @@ type Names =
 			byId: ReadonlyMap<string, Pick<AgentTemplate, "name" | "slug">>;
 	  };
 
+/** The whole template catalog, every page, or where reading it stands. */
+export type AllTemplates =
+	| { status: "pending" }
+	| { status: "error" }
+	| {
+			status: "success";
+			byId: ReadonlyMap<string, AgentTemplate>;
+			list: AgentTemplate[];
+	  };
+
 /**
- * A PresetAgent carries only its template's id, so the names come from the
- * catalog's template list. Every page is fetched, so a template past the
- * first page is never mistaken for an unknown one.
+ * Every template in the catalog. Every page is fetched, and the result is
+ * pending until the last one is in, so a template past the first page is
+ * never mistaken for an unknown one or left out of a check.
  */
-function useTemplateNames(): Names {
+export function useAllTemplates(): AllTemplates {
 	const templates = useAgentTemplates();
 	const { hasNextPage, isFetchingNextPage, fetchNextPage } = templates;
 	useEffect(() => {
@@ -185,23 +195,26 @@ function useTemplateNames(): Names {
 	}, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
 	const data = templates.data;
-	const byId = useMemo(
-		() =>
-			new Map(
-				(data ? loadedRows(data) : []).map((t) => [
-					t.id,
-					{ name: t.name, slug: t.slug },
-				]),
-			),
-		[data],
-	);
+	const list = useMemo(() => (data ? loadedRows(data) : []), [data]);
+	const byId = useMemo(() => new Map(list.map((t) => [t.id, t])), [list]);
 	if (templates.status === "error") return { status: "error" };
 	if (templates.status === "pending" || hasNextPage)
 		return { status: "pending" };
-	return { status: "success", byId };
+	return { status: "success", byId, list };
 }
 
-export function PresetAgentsTable({ agents }: { agents: PresetAgent[] }) {
+/**
+ * A PresetAgent carries only its template's id, so the names come from the
+ * whole catalog (useAllTemplates).
+ */
+export function useTemplateNames(): Names {
+	const all = useAllTemplates();
+	return all.status === "success"
+		? { status: "success", byId: all.byId }
+		: { status: all.status };
+}
+
+function PresetAgentsTable({ agents }: { agents: PresetAgent[] }) {
 	const names = useTemplateNames();
 	return (
 		<div className="flex flex-col gap-2">
@@ -322,7 +335,7 @@ function Muted({ children }: { children: string }) {
 	return <span className="text-text-subtle">{children}</span>;
 }
 
-export function PresetDetailSkeleton() {
+function PresetDetailSkeleton() {
 	return (
 		<div data-testid="preset-detail-skeleton" className="flex flex-col gap-6">
 			<div className="flex flex-col gap-2">

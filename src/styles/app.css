@@ -65,6 +65,17 @@
 	--color-inset-shadow: rgb(0 0 0 / 0.35);
 	--color-engrave: rgb(255 255 255 / 0.06);
 
+	/* The machined plate (ruling 37): a panel is a slab, not an outline. Its
+	   body sits one step above the canvas; its edge is a stronger line; a
+	   bright rim runs inside the top edge where the chamfer catches light; a
+	   shade runs inside the bottom edge; and a dark ledge falls under it. */
+	--color-app-plate: #181c21;
+	--color-border-plate: rgb(200 215 230 / 0.22);
+	--color-plate-rim: rgb(255 255 255 / 0.13);
+	--color-plate-shade: rgb(0 0 0 / 0.3);
+	--color-plate-ledge: rgb(0 0 0 / 0.55);
+	--color-plate-sheen: rgb(255 255 255 / 0.05);
+
 	/* One chromatic colour; nothing else is cyan or blue. */
 	--color-accent-text: #47afdb;
 	--color-accent-soft: rgb(0 146 202 / 0.12);
@@ -198,6 +209,13 @@
 	--color-inset-shadow: rgb(20 28 38 / 0.08);
 	--color-engrave: rgb(20 28 38 / 0.12);
 
+	--color-app-plate: #e9ecf0;
+	--color-border-plate: rgb(30 40 52 / 0.24);
+	--color-plate-rim: rgb(255 255 255 / 0.9);
+	--color-plate-shade: rgb(20 28 38 / 0.06);
+	--color-plate-ledge: rgb(20 28 38 / 0.16);
+	--color-plate-sheen: rgb(255 255 255 / 0.4);
+
 	--color-accent-text: #005b82;
 	--color-accent-soft: rgb(0 146 202 / 0.1);
 
@@ -317,6 +335,69 @@
 	:where(.light) & {
 		text-shadow: 0 1px 0 var(--color-engrave);
 	}
+}
+
+/*
+ * The machined plate (ruling 37). `plate` is the resting panel: edge, rim,
+ * shade, ledge, sheen and e1 in one declaration, so the five lines never
+ * drift apart. `plate-float` is the same slab lifted to e3 for sheets,
+ * dialogs and modals. `plate-interactive` raises a plate on hover and on
+ * selection (a card you can open). Each paints the full box-shadow itself,
+ * so put it after any shadow-e* class, or drop that class.
+ */
+@utility plate {
+	border-color: var(--color-border-plate);
+	background-color: var(--color-app-plate);
+	background-image: linear-gradient(
+		to bottom,
+		var(--color-plate-sheen),
+		transparent 40%
+	);
+	--avel-edge:
+		inset 0 1px 0 var(--color-plate-rim),
+		inset 0 -1px 0 var(--color-plate-shade);
+	--avel-elevation: 0 1px 0 var(--color-plate-ledge), var(--shadow-e1);
+	box-shadow:
+		var(--avel-edge), var(--avel-inset, 0 0 transparent), var(--avel-elevation);
+}
+
+@utility plate-float {
+	border-color: var(--color-border-plate);
+	background-image: linear-gradient(
+		to bottom,
+		var(--color-plate-sheen),
+		transparent 40%
+	);
+	--avel-edge:
+		inset 0 1px 0 var(--color-plate-rim),
+		inset 0 -1px 0 var(--color-plate-shade);
+	--avel-elevation: 0 1px 0 var(--color-plate-ledge), var(--shadow-e3);
+	box-shadow:
+		var(--avel-edge), var(--avel-inset, 0 0 transparent), var(--avel-elevation);
+}
+
+@utility plate-interactive {
+	transition:
+		transform var(--duration-micro) var(--ease-avel),
+		box-shadow var(--duration-micro) var(--ease-avel),
+		border-color var(--duration-micro) var(--ease-avel);
+	&:hover,
+	&[data-selected="true"],
+	&[aria-pressed="true"] {
+		transform: translateY(-1px);
+		border-color: var(--color-border-strong);
+		--avel-elevation: 0 1px 0 var(--color-plate-ledge), var(--shadow-e2);
+		box-shadow:
+			var(--avel-edge), var(--avel-inset, 0 0 transparent),
+			var(--avel-elevation);
+	}
+}
+
+/* A machined groove under a plate's header: the edge line, then the rim
+   catching light on the body below it. */
+@utility groove-b {
+	border-bottom: 1px solid var(--color-border-plate);
+	box-shadow: 0 1px 0 var(--color-plate-rim);
 }
 
 /* Tailwind v4 defaults a bare `border` to currentColor, which draws every
@@ -512,6 +593,30 @@ body {
 	animation: avelFadeIn var(--duration-micro) var(--ease-avel) both;
 }
 
+/* Panels settle onto the page one after another (ruling 37): each direct
+   child rises 4px over one enter duration, 30ms apart, capped at the sixth
+   so a long page never waits. Reduced motion collapses it to an appearance. */
+@utility stagger-in {
+	& > * {
+		animation: avelFadeIn var(--duration-enter) var(--ease-avel) both;
+	}
+	& > *:nth-child(2) {
+		animation-delay: 30ms;
+	}
+	& > *:nth-child(3) {
+		animation-delay: 60ms;
+	}
+	& > *:nth-child(4) {
+		animation-delay: 90ms;
+	}
+	& > *:nth-child(5) {
+		animation-delay: 120ms;
+	}
+	& > *:nth-child(n + 6) {
+		animation-delay: 150ms;
+	}
+}
+
 /* A slow 6px float, for the chat composer (operator request). Reduced motion
    stops it, like every animation. */
 @keyframes avelFloat {
@@ -541,6 +646,102 @@ body {
 
 @utility animate-period {
 	animation: avelPeriod 3s var(--ease-avel) infinite;
+}
+
+/* Builder motion (ruling 37). A live connector draws on over one enter
+   duration; nodes land 30ms apart, capped at the sixth; a version badge
+   ticks up when a draft goes dirty; the dirty banner slides down from under
+   the top bar. Reduced motion collapses each to an appearance. */
+@keyframes avelDrawOn {
+	from {
+		stroke-dashoffset: var(--draw-length, 64px);
+	}
+	to {
+		stroke-dashoffset: 0;
+	}
+}
+
+@utility animate-draw-on {
+	stroke-dasharray: var(--draw-length, 64px);
+	animation: avelDrawOn var(--duration-enter) var(--ease-avel) both;
+}
+
+@utility animate-node-in {
+	animation: avelFadeIn var(--duration-state) var(--ease-avel) both;
+	animation-delay: calc(min(var(--i, 0), 6) * 30ms);
+}
+
+@keyframes avelTickUp {
+	from {
+		transform: translateY(60%);
+		opacity: 0;
+	}
+	to {
+		transform: none;
+		opacity: 1;
+	}
+}
+
+@utility animate-tick-up {
+	animation: avelTickUp var(--duration-state) var(--ease-avel) both;
+}
+
+@keyframes avelSlideDown {
+	from {
+		transform: translateY(-8px);
+		opacity: 0;
+	}
+	to {
+		transform: none;
+		opacity: 1;
+	}
+}
+
+@utility animate-slide-down {
+	animation: avelSlideDown var(--duration-state) var(--ease-avel) both;
+}
+
+/* A measured bar fills in from its left edge over one enter duration
+   (ruling 37): a layer bar, a coverage strip. Scale, not width, so layout
+   never moves. Reduced motion collapses it to an appearance. */
+@keyframes avelGrowX {
+	from {
+		transform: scaleX(0);
+	}
+	to {
+		transform: none;
+	}
+}
+
+@utility grow-x {
+	transform-origin: left;
+	animation: avelGrowX var(--duration-enter) var(--ease-avel) both;
+}
+
+/* A saved or applied row (ruling 35): it holds the selected fill for one
+   enter duration, then settles. A state change, not a signature moment. With
+   motion off the toast still says what happened. */
+@keyframes avelLanded {
+	from {
+		background-color: var(--color-state-selected);
+	}
+	to {
+		background-color: transparent;
+	}
+}
+
+@utility landed {
+	animation: avelLanded var(--duration-enter) var(--ease-avel) both;
+}
+
+/* PlanReadiness's hatched segment (ruling 35): placed, with an issue against
+   it. Built from the gate warn tokens, which .light redefines. */
+@utility bg-hatch-warn {
+	background-image: repeating-linear-gradient(
+		135deg,
+		var(--color-gate-warn) 0 2px,
+		var(--color-gate-warn-soft) 2px 5px
+	);
 }
 
 :focus-visible {

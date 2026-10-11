@@ -44,6 +44,8 @@ export const ACTION_COPY = {
 	"preset.created": "Preset created",
 	"preset.updated": "Preset updated",
 	"mission.plan_updated": "Mission plan updated",
+	"playbook.created": "Playbook created",
+	"playbook.updated": "Playbook published",
 } as const satisfies Record<ActivityAction, string>;
 
 /** The name of each entity type, singular, as a filter option and a row's "which". */
@@ -59,6 +61,7 @@ export const ENTITY_LABEL = {
 	skill: "Skill",
 	roster_entry: "Roster entry",
 	roster_preset: "Preset",
+	playbook: "Playbook",
 } as const satisfies Record<ActivityEntityType, string>;
 
 /**

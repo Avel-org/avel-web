@@ -1,6 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Surface } from "@/components/avel/surface";
-import { linkFor } from "../shell/nav";
+import {
+	ConnectionList,
+	NewConnectionButton,
+} from "@/components/avel/connection-list";
+import {
+	connectionCountLabel,
+	connectionsTotal,
+	useConnections,
+} from "@/lib/api/connections";
 import { Page, pageHead } from "../shell/page";
 
 export const Route = createFileRoute("/settings/connections")({
@@ -9,19 +16,17 @@ export const Route = createFileRoute("/settings/connections")({
 	component: SettingsConnectionsPage,
 });
 
+/** The route owns the list; the top bar counts from meta.total, never the rows loaded. */
 function SettingsConnectionsPage() {
+	const connections = useConnections();
+	const total = connectionsTotal(connections.data);
 	return (
-		<Page to="/settings/connections">
-			<Surface
-				data-testid="connection-list"
-				notBuilt={{
-					icon: linkFor("/settings/connections").icon,
-					title: "Connected accounts",
-					what: "See each connected account's scope and status, and rotate or revoke its access. Tokens are never displayed, only where each one is stored.",
-					// ROUTES.md names the connection group but no procedure.
-					needs: [],
-				}}
-			/>
+		<Page
+			to="/settings/connections"
+			subtitle={total === undefined ? undefined : connectionCountLabel(total)}
+			actions={<NewConnectionButton />}
+		>
+			<ConnectionList query={connections} />
 		</Page>
 	);
 }

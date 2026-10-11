@@ -1,27 +1,21 @@
 import type { Client } from "avel-server/contract";
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiError } from "@/lib/api";
 import {
 	type CreateEngagementBody,
 	dateInputToIso,
-	fieldErrors,
 	useCreateEngagement,
 } from "@/lib/api/clients";
-import { Field, FormError } from "./client-form";
+import { ActionModal, type IssuePath, ModalField } from "./action-modal";
+import { clientIssueCopy } from "./client-form";
+import { useOpenGeneration } from "./use-open-generation";
+import { fieldChanges, WhatChanges } from "./what-changes";
 
-/** A new engagement for one client, in a sheet. */
-export function EngagementFormSheet({
+/** A new engagement for one client, in a Form modal (ruling 35). */
+export function EngagementFormModal({
 	open,
 	onOpenChange,
 	client,
@@ -34,54 +28,55 @@ export function EngagementFormSheet({
 	today: string;
 }) {
 	const create = useCreateEngagement();
+	const generation = useOpenGeneration(open);
+	if (!client) return null;
 	return (
-		<Sheet
+		<EngagementForm
+			key={`${client.id}:${generation}`}
 			open={open}
 			onOpenChange={(next) => {
 				if (!next) create.reset();
 				onOpenChange(next);
 			}}
-		>
-			<SheetContent side="right" data-testid="engagement-form-sheet">
-				<SheetHeader>
-					<SheetTitle>New engagement</SheetTitle>
-					<SheetDescription>
-						{client
-							? `For ${client.name}. An engagement groups the missions, connections and knowledge for one body of work.`
-							: ""}
-					</SheetDescription>
-				</SheetHeader>
-				{client ? (
-					<EngagementForm
-						key={client.id}
-						clientId={client.id}
-						today={today}
-						pending={create.isPending}
-						error={create.error}
-						onSubmit={(body) =>
-							create.mutate(body, {
-								onSuccess: (saved) => {
-									toast.success(`Started ${saved.name}.`);
-									onOpenChange(false);
-								},
-							})
-						}
-					/>
-				) : null}
-			</SheetContent>
-		</Sheet>
+			clientId={client.id}
+			clientName={client.name}
+			today={today}
+			pending={create.isPending}
+			error={create.error}
+			onSubmit={(body) =>
+				create.mutate(body, {
+					onSuccess: (saved) => {
+						toast.success(`Started ${saved.name}.`);
+						onOpenChange(false);
+					},
+				})
+			}
+		/>
 	);
 }
 
-/** The form itself; presentational, so it tests directly. */
+const ENGAGEMENT_FIELDS = ["name", "scopeMd", "startedAt"] as const;
+
+const engagementFieldOf = (path: IssuePath): string | null =>
+	(ENGAGEMENT_FIELDS as readonly unknown[]).includes(path[0])
+		? (path[0] as string)
+		: null;
+
+/** The form in its modal; it holds the draft and reports a submit. */
 export function EngagementForm({
+	open = true,
+	onOpenChange = () => {},
 	clientId,
+	clientName,
 	today,
 	pending,
 	error,
 	onSubmit,
 }: {
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 	clientId: string;
+	clientName?: string;
 	today: string;
 	pending: boolean;
 	error: ApiError | null;
@@ -91,14 +86,17 @@ export function EngagementForm({
 	const [scope, setScope] = useState("");
 	const [started, setStarted] = useState(today);
 	const [nameMissing, setNameMissing] = useState(false);
-	const serverErrors = fieldErrors(error);
-	const errors: Record<string, string> = {
-		...serverErrors,
-		...(nameMissing ? { name: "Give it a name of 1 to 200 characters." } : {}),
-	};
+	const changes = fieldChanges(
+		undefined,
+		{ name: name.trim(), scope: scope.trim(), started },
+		[
+			{ key: "name", label: "Name" },
+			{ key: "scope", label: "Scope" },
+			{ key: "started", label: "Started", mono: true },
+		],
+	);
 
-	const submit = (event: FormEvent) => {
-		event.preventDefault();
+	const submit = () => {
 		if (name.trim() === "") {
 			setNameMissing(true);
 			return;
@@ -112,13 +110,38 @@ export function EngagementForm({
 	};
 
 	return (
-		<form
-			data-testid="engagement-form"
-			noValidate
+		<ActionModal
+			open={open}
+			onOpenChange={onOpenChange}
+			size="form"
+			title="Start engagement"
+			description={
+				clientName
+					? `For ${clientName}. An engagement groups the missions, connections and knowledge for one body of work.`
+					: "An engagement groups the missions, connections and knowledge for one body of work."
+			}
+			// The start date defaults to today; only what was typed counts.
+			dirty={name.trim() !== "" || scope.trim() !== "" || started !== today}
+			submitLabel="Start engagement"
+			pendingLabel="Starting"
 			onSubmit={submit}
-			className="flex flex-1 flex-col gap-4 px-4 pb-4"
+			pending={pending}
+			error={error}
+			fieldOf={engagementFieldOf}
+			describeIssue={clientIssueCopy(error)}
+			changes={
+				<WhatChanges changes={changes} data-testid="engagement-form-changes" />
+			}
+			data-testid="engagement-form"
 		>
-			<Field label="Name" error={errors.name} testid="engagement-form-name">
+			<ModalField
+				name="name"
+				label="Name"
+				error={
+					nameMissing ? "Give it a name of 1 to 200 characters." : undefined
+				}
+				testid="engagement-form-name"
+			>
 				{(props) => (
 					<Input
 						{...props}
@@ -131,11 +154,11 @@ export function EngagementForm({
 						}}
 					/>
 				)}
-			</Field>
-			<Field
+			</ModalField>
+			<ModalField
+				name="scopeMd"
 				label="Scope"
 				hint="Optional"
-				error={errors.scopeMd}
 				testid="engagement-form-scope"
 			>
 				{(props) => (
@@ -147,10 +170,10 @@ export function EngagementForm({
 						onChange={(e) => setScope(e.target.value)}
 					/>
 				)}
-			</Field>
-			<Field
+			</ModalField>
+			<ModalField
+				name="startedAt"
 				label="Started"
-				error={errors.startedAt}
 				testid="engagement-form-started"
 			>
 				{(props) => (
@@ -161,20 +184,7 @@ export function EngagementForm({
 						onChange={(e) => setStarted(e.target.value)}
 					/>
 				)}
-			</Field>
-			<FormError
-				error={error}
-				hasFieldErrors={Object.keys(serverErrors).length > 0}
-			/>
-			<div className="mt-auto flex justify-end gap-2">
-				<Button
-					type="submit"
-					data-testid="engagement-form-submit"
-					disabled={pending}
-				>
-					{pending ? "Starting" : "Start engagement"}
-				</Button>
-			</div>
-		</form>
+			</ModalField>
+		</ActionModal>
 	);
 }

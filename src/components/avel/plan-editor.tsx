@@ -1,9 +1,10 @@
 import type { Brief, MissionPlan } from "avel-server/contract";
 import { Lock, Plus, Trash2 } from "lucide-react";
-import { type ReactNode, useId, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiError } from "@/lib/api";
 import {
@@ -16,7 +17,9 @@ import {
 	locksOf,
 	type MissionPlanBody,
 	nextId,
+	occurrenceKeys,
 	type PlanDraft,
+	planAnchor,
 	planBodyOf,
 	planDraftOf,
 	planShapeProblems,
@@ -24,29 +27,27 @@ import {
 } from "@/lib/api/mission-plans";
 import { cn } from "@/lib/utils";
 import { Field, FormError } from "./client-form";
+import { CodeView } from "./code-view";
 import { groupBrief, type RequirementGroup } from "./mission-details";
+
+/**
+ * The plan anchor a Resolve link landed on, taken out of the URL so it is
+ * used once: the editor remounts after every save, and focus must not jump
+ * back to it then. Null when the hash is not a plan anchor.
+ */
+export function consumePlanHash(
+	location: Pick<Location, "hash" | "pathname" | "search">,
+	history: Pick<History, "replaceState">,
+): string | null {
+	const id = location.hash.slice(1);
+	if (!id.startsWith("plan-")) return null;
+	history.replaceState(null, "", `${location.pathname}${location.search}`);
+	return id;
+}
 
 /** Why an approved item cannot be edited, shown beside its lock. */
 export const APPROVED_LOCK_REASON =
 	"Approved at intake. It cannot change or be removed; add a new one instead.";
-
-/**
- * React keys from values that should be unique but may repeat (R1, then
- * R1#2), as mission-details.tsx keys a brief: uniqueness is the plan
- * check's rule, and the editor shows a draft as it is.
- */
-function occurrenceKeys<T>(
-	items: readonly T[],
-	idOf: (item: T) => string,
-): string[] {
-	const seen = new Map<string, number>();
-	return items.map((item) => {
-		const id = idOf(item);
-		const n = (seen.get(id) ?? 0) + 1;
-		seen.set(id, n);
-		return n === 1 ? id : `${id}#${n}`;
-	});
-}
 
 /**
  * The plan editor: summary, requirements with their criteria, modules with
@@ -61,6 +62,8 @@ function occurrenceKeys<T>(
 export function PlanEditor({
 	plan,
 	readOnlyReason,
+	onStartPlan,
+	landed = false,
 	pending,
 	error,
 	onSave,
@@ -72,6 +75,10 @@ export function PlanEditor({
 	pending: boolean;
 	error: ApiError | null;
 	onSave: (body: MissionPlanBody) => void;
+	/** Offered on a brief that predates the shape, when a plan may be started. */
+	onStartPlan?: () => void;
+	/** The plan was just started: highlight it, and put focus on Add requirement. */
+	landed?: boolean;
 }) {
 	const initial = planDraftOf(plan);
 	const [draft, setDraft] = useState<PlanDraft | null>(initial);
@@ -83,12 +90,37 @@ export function PlanEditor({
 		[plan.approvedBrief],
 	);
 
+	// A Resolve link lands on /plan#<anchor>: bring that item into view and
+	// put focus on the first thing in it that can be edited.
+	useEffect(() => {
+		const id = consumePlanHash(window.location, window.history);
+		if (id === null) return;
+		const item = document.getElementById(id);
+		if (!item) return;
+		item.scrollIntoView({ block: "center" });
+		const control = item.querySelector<HTMLElement>(
+			"textarea, input, button:not([disabled])",
+		);
+		control?.focus();
+	}, []);
+
 	if (draft === null || initial === null) {
 		return (
-			<p data-testid="plan-no-brief" className="type-small text-text-muted">
-				This mission's stored brief predates the brief's current shape, so it
-				cannot be edited here.
-			</p>
+			<div className="flex flex-col gap-6">
+				<div className="flex flex-col items-start gap-3">
+					<p data-testid="plan-no-brief" className="type-small text-text-muted">
+						This mission's stored brief predates the brief's current shape, so
+						it cannot be edited here.
+					</p>
+					{onStartPlan ? (
+						<Button data-testid="plan-start" onClick={onStartPlan}>
+							Start a plan
+						</Button>
+					) : null}
+				</div>
+				{/* The check still says what the stored brief lacks. */}
+				<PlanCheck plan={plan} />
+			</div>
 		);
 	}
 
@@ -138,7 +170,7 @@ export function PlanEditor({
 					if (!unchanged && !pending) save();
 				}
 			}}
-			className="flex flex-col gap-6 pb-4"
+			className={cn("flex flex-col gap-6 pb-4", landed && "landed")}
 		>
 			{readOnly ? (
 				<p
@@ -152,38 +184,94 @@ export function PlanEditor({
 
 			<PlanCheck plan={plan} />
 
-			<SummaryField
-				value={draft.brief.summary}
-				locked={locks.summary}
-				readOnly={readOnly}
-				errors={at("summary")}
-				checks={checkAt.get("summary") ?? []}
-				onChange={(summary) => setBrief((b) => ({ ...b, summary }))}
-			/>
+			<Tabs
+				defaultValue="fields"
+				data-testid="plan-inspector"
+				className="flex flex-col gap-4"
+			>
+				<TabsList aria-label="Plan views">
+					<TabsTrigger value="fields" data-testid="plan-inspector-fields">
+						Fields
+					</TabsTrigger>
+					<TabsTrigger value="json" data-testid="plan-inspector-json">
+						JSON
+					</TabsTrigger>
+					<TabsTrigger value="request" data-testid="plan-inspector-request">
+						Request
+					</TabsTrigger>
+				</TabsList>
+				<TabsContent
+					value="fields"
+					forceMount
+					className="flex flex-col gap-6 data-[state=inactive]:hidden"
+				>
+					<SummaryField
+						value={draft.brief.summary}
+						locked={locks.summary}
+						readOnly={readOnly}
+						errors={at("summary")}
+						checks={checkAt.get("summary") ?? []}
+						onChange={(summary) => setBrief((b) => ({ ...b, summary }))}
+					/>
 
-			<Requirements
-				brief={draft.brief}
-				locks={locks}
-				readOnly={readOnly}
-				errorsAt={at}
-				checkAt={checkAt}
-				onChange={setBrief}
-			/>
+					<Requirements
+						focusAdd={landed}
+						brief={draft.brief}
+						locks={locks}
+						readOnly={readOnly}
+						errorsAt={at}
+						checkAt={checkAt}
+						onChange={setBrief}
+					/>
 
-			<Modules
-				brief={draft.brief}
-				readOnly={readOnly}
-				errorsAt={at}
-				checkAt={checkAt}
-				onChange={setBrief}
-			/>
+					<Modules
+						brief={draft.brief}
+						readOnly={readOnly}
+						errorsAt={at}
+						checkAt={checkAt}
+						onChange={setBrief}
+					/>
 
-			<TemplateFields
-				draft={draft}
-				readOnly={readOnly}
-				errorsAt={at}
-				onChange={(change) => setDraft((d) => (d ? { ...d, ...change } : d))}
-			/>
+					<TemplateFields
+						draft={draft}
+						readOnly={readOnly}
+						errorsAt={at}
+						onChange={(change) =>
+							setDraft((d) => (d ? { ...d, ...change } : d))
+						}
+					/>
+				</TabsContent>
+				<TabsContent
+					value="json"
+					forceMount
+					className="data-[state=inactive]:hidden"
+				>
+					<CodeView
+						data-testid="plan-json"
+						label="The plan as the contract serves it"
+						text={JSON.stringify(plan, null, 2)}
+					/>
+				</TabsContent>
+				<TabsContent
+					value="request"
+					forceMount
+					className="flex flex-col gap-2 data-[state=inactive]:hidden"
+				>
+					<p className="type-mono-small text-text-subtle">
+						{`PUT /api/missions/${plan.missionId}/plan`}
+					</p>
+					<p className="type-caption text-text-subtle">
+						{unchanged
+							? "The whole plan, as a save would send it. Nothing has changed yet."
+							: "The whole plan, as a save will send it: PUT replaces the stored plan."}
+					</p>
+					<CodeView
+						data-testid="plan-request"
+						label="The request body a save will send"
+						text={JSON.stringify(planBodyOf(draft), null, 2)}
+					/>
+				</TabsContent>
+			</Tabs>
 
 			<FormError error={error} hasFieldErrors={refused.length > 0} />
 			{refused.length > 0 ? (
@@ -346,7 +434,11 @@ function SummaryField({
 }) {
 	if (locked || readOnly) {
 		return (
-			<section data-testid="plan-summary" className="flex flex-col gap-1.5">
+			<section
+				id={planAnchor("summary")}
+				data-testid="plan-summary"
+				className="flex flex-col gap-1.5"
+			>
 				<h3 className="type-small flex items-center gap-2 font-medium text-foreground">
 					Summary
 					{locked ? <Locked testid="plan-summary-locked" /> : null}
@@ -357,7 +449,11 @@ function SummaryField({
 		);
 	}
 	return (
-		<div data-testid="plan-summary" className="flex flex-col gap-1.5">
+		<div
+			id={planAnchor("summary")}
+			data-testid="plan-summary"
+			className="flex flex-col gap-1.5"
+		>
 			<Field label="Summary" error={errors[0]} testid="plan-summary-input">
 				{(props) => (
 					<Textarea
@@ -393,9 +489,12 @@ function Requirements({
 	errorsAt,
 	checkAt,
 	onChange,
+	focusAdd = false,
 }: {
 	brief: BriefDraft;
 	locks: ApprovedLocks;
+	/** A plan just started: Add requirement is where work begins. */
+	focusAdd?: boolean;
 	readOnly: boolean;
 	errorsAt: ErrorsAt;
 	checkAt: Map<IssueTarget, string[]>;
@@ -475,7 +574,11 @@ function Requirements({
 		}));
 
 	return (
-		<section data-testid="plan-requirements" className="flex flex-col gap-3">
+		<section
+			id={planAnchor("requirements")}
+			data-testid="plan-requirements"
+			className="flex flex-col gap-3"
+		>
 			<ListHeader
 				title="Requirements"
 				notes={
@@ -495,8 +598,9 @@ function Requirements({
 					return (
 						<li
 							key={requirementKeys[ri]}
+							id={planAnchor(`requirement:${r.id}`)}
 							data-testid={`plan-requirement-${r.id}`}
-							className="flex flex-col gap-2 rounded-md border border-border p-3"
+							className="plate flex flex-col gap-2 rounded-md border p-3"
 						>
 							<div className="flex items-center gap-2">
 								<span className="type-mono-small text-foreground">{r.id}</span>
@@ -540,6 +644,7 @@ function Requirements({
 									return (
 										<li
 											key={`${ac.id}#${index}`}
+											id={planAnchor(`criterion:${ac.id}`)}
 											data-testid={`plan-criterion-${ac.id}`}
 											className="flex flex-col gap-1"
 										>
@@ -604,6 +709,7 @@ function Requirements({
 							return (
 								<li
 									key={`${ac.id}#${index}`}
+									id={planAnchor(`criterion:${ac.id}`)}
 									data-testid={`plan-criterion-${ac.id}`}
 									className="type-small flex items-center gap-2 text-text-muted"
 								>
@@ -628,6 +734,7 @@ function Requirements({
 					variant="outline"
 					size="sm"
 					data-testid="plan-add-requirement"
+					autoFocus={focusAdd}
 					onClick={addRequirement}
 					className="self-start"
 				>
@@ -690,7 +797,11 @@ function Modules({
 		}));
 
 	return (
-		<section data-testid="plan-modules" className="flex flex-col gap-3">
+		<section
+			id={planAnchor("modules")}
+			data-testid="plan-modules"
+			className="flex flex-col gap-3"
+		>
 			<ListHeader
 				title="Modules"
 				notes={
@@ -713,8 +824,9 @@ function Modules({
 					return (
 						<li
 							key={moduleKeys[mi]}
+							id={planAnchor(`module:${m.id}`)}
 							data-testid={`plan-module-${m.id}`}
-							className="flex flex-col gap-2 rounded-md border border-border p-3"
+							className="plate flex flex-col gap-2 rounded-md border p-3"
 						>
 							<div className="flex items-center gap-2">
 								<span className="type-mono-small text-foreground">{m.id}</span>
@@ -825,41 +937,45 @@ function TemplateFields({
 				Both or neither: the template's name and the full commit it was built
 				from.
 			</p>
-			<Field
-				label="Template"
-				hint="Optional"
-				error={errorsAt("templateRef")[0]}
-				testid="plan-template-ref"
-			>
-				{(props) => (
-					<Input
-						{...props}
-						readOnly={readOnly}
-						maxLength={100}
-						placeholder="template-booking"
-						className="type-mono-small"
-						value={draft.templateRef}
-						onChange={(e) => onChange({ templateRef: e.target.value })}
-					/>
-				)}
-			</Field>
-			<Field
-				label="Commit"
-				hint="40 hex characters"
-				error={errorsAt("templateVersion")[0]}
-				testid="plan-template-version"
-			>
-				{(props) => (
-					<Input
-						{...props}
-						readOnly={readOnly}
-						maxLength={40}
-						className="type-mono-small"
-						value={draft.templateVersion}
-						onChange={(e) => onChange({ templateVersion: e.target.value })}
-					/>
-				)}
-			</Field>
+			<div id={planAnchor("templateRef")}>
+				<Field
+					label="Template"
+					hint="Optional"
+					error={errorsAt("templateRef")[0]}
+					testid="plan-template-ref"
+				>
+					{(props) => (
+						<Input
+							{...props}
+							readOnly={readOnly}
+							maxLength={100}
+							placeholder="template-booking"
+							className="type-mono-small"
+							value={draft.templateRef}
+							onChange={(e) => onChange({ templateRef: e.target.value })}
+						/>
+					)}
+				</Field>
+			</div>
+			<div id={planAnchor("templateVersion")}>
+				<Field
+					label="Commit"
+					hint="40 hex characters"
+					error={errorsAt("templateVersion")[0]}
+					testid="plan-template-version"
+				>
+					{(props) => (
+						<Input
+							{...props}
+							readOnly={readOnly}
+							maxLength={40}
+							className="type-mono-small"
+							value={draft.templateVersion}
+							onChange={(e) => onChange({ templateVersion: e.target.value })}
+						/>
+					)}
+				</Field>
+			</div>
 		</fieldset>
 	);
 }

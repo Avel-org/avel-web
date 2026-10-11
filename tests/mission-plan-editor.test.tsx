@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
 	APPROVED_LOCK_REASON,
+	consumePlanHash,
 	PlanEditor,
 } from "@/components/avel/plan-editor";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -184,5 +185,61 @@ describe("a plan that cannot change", () => {
 		const html = render(plan({ brief: null }));
 		expect(html).toContain('data-testid="plan-no-brief"');
 		expect(html).not.toContain('data-testid="plan-editor"');
+		// What the stored brief lacks still shows, as the server said it.
+		expect(html).toMatch(
+			/data-testid="plan-check-issue"[^>]*>.*R2 is in no module</,
+		);
+	});
+});
+
+describe("the plan's Fields, JSON and Request", () => {
+	it("shows the stored record and the exact PUT body a save sends", () => {
+		const html = render(plan());
+		for (const tab of ["fields", "json", "request"]) {
+			expect(html).toContain(`data-testid="plan-inspector-${tab}"`);
+		}
+		expect(html).toContain(`PUT /api/missions/${plan().missionId}/plan`);
+		const request = html.slice(html.indexOf('data-testid="plan-request"'));
+		// The whole plan, the template pair included: PUT replaces it.
+		expect(request).toContain("&quot;templateRef&quot;: null");
+		expect(request).toContain("&quot;requirements&quot;");
+		expect(html).toContain('data-testid="plan-json"');
+	});
+});
+
+describe("where Resolve lands", () => {
+	it("gives every target an element: items, lists and fields", () => {
+		const html = render(plan({ approvedBrief: null }));
+		for (const id of [
+			"plan-summary",
+			"plan-templateRef",
+			"plan-templateVersion",
+			"plan-requirements",
+			"plan-modules",
+			"plan-requirement-R1",
+			"plan-criterion-AC1",
+			"plan-module-M1",
+		]) {
+			expect(html).toMatch(new RegExp(`\\sid="${id}"`));
+		}
+	});
+
+	it("uses the hash once, so a later remount does not jump back", () => {
+		const replaced: string[] = [];
+		const history = {
+			replaceState: (_: unknown, __: string, url?: string | URL | null) =>
+				replaced.push(String(url)),
+		};
+		const location = {
+			hash: "#plan-requirement-R2",
+			pathname: "/missions/x/plan",
+			search: "?a=1",
+		};
+		expect(consumePlanHash(location, history)).toBe("plan-requirement-R2");
+		expect(replaced).toEqual(["/missions/x/plan?a=1"]);
+		expect(
+			consumePlanHash({ ...location, hash: "#other" }, history),
+		).toBeNull();
+		expect(replaced).toHaveLength(1);
 	});
 });

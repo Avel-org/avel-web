@@ -71,8 +71,35 @@ export const queryKeys = {
 		/** contract.skills.getBySlug: the live skill with this slug. */
 		skill: (slug: string) => ["catalog", "skills", "bySlug", slug] as const,
 		/** contract.skillSources.list, paged by cursor. */
-		skillSources: (limit: number) =>
-			["catalog", "skillSources", "list", { limit }] as const,
+		skillSources: (limit: number, kind?: string) =>
+			[
+				"catalog",
+				"skillSources",
+				"list",
+				// The kind is in the key only when set, so the full list keeps its key.
+				kind === undefined ? { limit } : { limit, kind },
+			] as const,
+		/**
+		 * contract.skillSources.list for one kind, one row: read for its
+		 * meta.total, the count on the shelf's kind tab.
+		 */
+		skillSourceCount: (kind: string) =>
+			["catalog", "skillSources", "count", kind] as const,
+		/**
+		 * contract.skills.list for one source and layer, one row: read for its
+		 * meta.total, a segment of the source's layer bar.
+		 */
+		sourceLayerCount: (sourceId: string, layer: string) =>
+			["catalog", "skills", "sourceLayerCount", sourceId, layer] as const,
+		/** contract.skills.list for one source, paged by cursor: its detail. */
+		sourceSkills: (sourceId: string, limit: number) =>
+			["catalog", "skills", "bySource", sourceId, { limit }] as const,
+	},
+	connections: {
+		/** Everything under contract.connections. */
+		all: () => ["connections"] as const,
+		/** contract.connections.list, paged by cursor. */
+		list: (limit: number) => ["connections", "list", { limit }] as const,
 	},
 	clients: {
 		/** Everything under contract.clients. */
@@ -122,15 +149,32 @@ export const queryKeys = {
 			] as const,
 		/** contract.presets.get: one preset, under presets so every change refreshes it. */
 		detail: (id: string) => ["presets", "detail", id] as const,
+		/**
+		 * contract.activity.list for one preset (roster_preset, by id). Under
+		 * "activity", so a preset write's activity refresh reaches it.
+		 */
+		activity: (id: string, limit: number) =>
+			["activity", "roster_preset", id, { limit }] as const,
+		/**
+		 * contract.presets.applications: where one preset was applied, paged by
+		 * cursor. Under presets, so a preset change refreshes it.
+		 */
+		presetApplications: (id: string, limit: number) =>
+			["presets", "applications", id, { limit }] as const,
 	},
 	playbooks: {
 		/** Everything under contract.playbooks. */
 		all: () => ["playbooks"] as const,
+		/** Every contract.playbooks.list entry, whatever its page size. */
+		lists: () => ["playbooks", "list"] as const,
 		/** contract.playbooks.list, paged by cursor. */
 		list: (limit: number) => ["playbooks", "list", { limit }] as const,
 		/** contract.playbooks.getForType: the live playbook for one mission type. */
 		byType: (missionType: string) =>
 			["playbooks", "byType", missionType] as const,
+		/** contract.playbooks.versions: every version written, newest first. */
+		versions: (missionType: string) =>
+			["playbooks", "versions", missionType] as const,
 	},
 	missionPlans: {
 		/**
@@ -150,6 +194,7 @@ export const queryKeys = {
 		 * for the paths a roster entry inherits. Under "catalog", with the
 		 * other template reads.
 		 */
-		template: (id: string) => ["catalog", "agentTemplates", "byId", id] as const,
+		template: (id: string) =>
+			["catalog", "agentTemplates", "byId", id] as const,
 	},
 } as const;

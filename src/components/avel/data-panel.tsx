@@ -68,13 +68,13 @@ export function DataPanel({
 			data-testid={testId}
 			data-state={open ? "open" : "closed"}
 			aria-labelledby={titleId}
-			className="surface-steel overflow-clip rounded-md border border-border bg-card"
+			className="plate overflow-clip rounded-md border"
 		>
 			<header
 				data-testid={`${testId}-header`}
 				className={cn(
-					"flex items-center gap-2 bg-app-band pr-2 transition-colors duration-(--duration-state) ease-avel",
-					open ? "border-b border-border" : "border-b border-transparent",
+					"flex items-center gap-2 bg-app-band pr-2 transition-[border-color,box-shadow] duration-(--duration-state) ease-avel",
+					open ? "groove-b" : "border-b border-transparent",
 				)}
 			>
 				<button

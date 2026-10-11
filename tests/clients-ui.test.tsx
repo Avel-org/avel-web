@@ -3,6 +3,7 @@ import type { Client, Engagement } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { InlineModals } from "@/components/avel/action-modal";
 import { ClientForm } from "@/components/avel/client-form";
 import { ClientStatusConfirm } from "@/components/avel/client-status-dialog";
 import { EngagementCloseConfirm } from "@/components/avel/engagement-close";
@@ -24,7 +25,8 @@ const escaped = (text: string) => text.replaceAll("'", "&#x27;");
  * Renders inside the real ApiProvider (with an API client that fails the test
  * on any request) and a QueryClient seeded with exactly the data a case needs.
  * The confirmations are rendered as their dialogs' contents, outside the
- * portal, which server rendering does not draw.
+ * portal, which server rendering does not draw; the form modals render in
+ * place through InlineModals.
  * Server rendering never fetches, so the seed is the whole world.
  */
 function render(node: ReactNode, seed: (qc: QueryClient) => void = () => {}) {
@@ -40,7 +42,9 @@ function render(node: ReactNode, seed: (qc: QueryClient) => void = () => {}) {
 				<TooltipProvider>
 					{/* Dialog parts need a Dialog's context. The root renders nothing
 					    itself, so it changes no other case's markup. */}
-					<Dialog open>{node}</Dialog>
+					<InlineModals>
+						<Dialog open>{node}</Dialog>
+					</InlineModals>
 				</TooltipProvider>
 			</QueryClientProvider>
 		</ApiProvider>,
@@ -203,14 +207,14 @@ describe("the client form", () => {
 		// The attribute, not the primitive's aria-invalid: class variant.
 		expect(tagOf(html, "client-form-contact")).not.toMatch(/saria-invalid="/);
 		expect(html).toMatch(
-			/data-testid="form-error"[^>]*>.*Check the fields marked above/s,
+			/data-testid="action-modal-refusal"[^>]*>.*Check the fields marked above/s,
 		);
 		expect(html).not.toContain("too short");
 	});
 
 	it("explains any other failure with the error map's copy", () => {
 		const html = form({ error: contractError(409, "CONFLICT") });
-		expect(tagOf(html, "form-error")).toContain('role="alert"');
+		expect(tagOf(html, "action-modal-refusal")).toContain('role="alert"');
 		expect(html).toContain(
 			"This conflicts with the current state on the server.",
 		);

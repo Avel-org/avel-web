@@ -250,11 +250,11 @@ describe("where the steel goes", () => {
 	it("machines panels, cards, popovers, menus and dialogs", () => {
 		has(
 			"components/avel/section-panel.tsx",
-			'className="surface-steel flex items-center justify-between',
+			'className="surface-steel groove-b flex items-center justify-between',
 		);
 		has(
 			"components/avel/data-panel.tsx",
-			'className="surface-steel overflow-clip rounded-md',
+			'className="plate overflow-clip rounded-md',
 		);
 		has(
 			"components/avel/surface.tsx",
@@ -269,15 +269,36 @@ describe("where the steel goes", () => {
 			"components/ui/select.tsx",
 			"surface-steel rounded-md border border-border-strong bg-popover",
 		);
-		has("components/ui/dialog.tsx", "surface-steel rounded-xl");
-		has(
-			"components/ui/sheet.tsx",
-			"surface-steel border-border-strong bg-popover",
-		);
+		has("components/ui/dialog.tsx", "plate-float rounded-xl");
+		has("components/ui/sheet.tsx", "plate-float bg-popover");
 		has(
 			"components/ui/command.tsx",
 			"surface-steel overflow-hidden rounded-lg bg-popover",
 		);
+	});
+
+	it("makes a panel a plate: edge, rim, shade, ledge and a body above the canvas (ruling 37)", () => {
+		const css = read("styles/app.css");
+		const plate = css.slice(
+			css.indexOf("@utility plate {"),
+			css.indexOf("@utility plate-float {"),
+		);
+		for (const part of [
+			"--color-border-plate",
+			"--color-app-plate",
+			"--color-plate-rim",
+			"--color-plate-shade",
+			"--color-plate-ledge",
+			"--color-plate-sheen",
+			"--shadow-e1",
+		]) {
+			expect(plate, part).toContain(part);
+		}
+		has(
+			"components/avel/section-panel.tsx",
+			'"plate overflow-hidden rounded-md border"',
+		);
+		has("components/avel/action-modal.tsx", "plate-float bg-popover");
 	});
 
 	it("brushes the top bar, and catches the light on its edge and the canvas's", () => {

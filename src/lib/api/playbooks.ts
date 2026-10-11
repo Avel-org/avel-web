@@ -1,18 +1,26 @@
 import {
 	infiniteQueryOptions,
+	type QueryClient,
 	queryOptions,
 	useInfiniteQuery,
+	useMutation,
 	useQuery,
+	useQueryClient,
 } from "@tanstack/react-query";
-import { contract, type Playbook } from "avel-server/contract";
+import {
+	type CreatePlaybookBody,
+	contract,
+	type Playbook,
+	type UpdatePlaybookBody,
+} from "avel-server/contract";
 import { type CatalogPage, loadedRows } from "./catalog";
 import { type ApiClient, call, callPage } from "./client";
 import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
 
 /*
- * The playbook reads (module 3): a paged list, and the live playbook for one
- * mission type. Read-only: playbook writes are not specced.
+ * The playbooks (module 3): a paged list, the live playbook for one mission
+ * type, every version it was written at, and the write that replaces it.
  */
 
 /** The contract's largest page: there is one playbook per mission type, so few. */
@@ -57,4 +65,100 @@ export function playbookQuery(api: ApiClient, missionType: string) {
 /** The live playbook for a mission type; a type with none answers NOT_FOUND. */
 export function usePlaybook(missionType: string) {
 	return useQuery(playbookQuery(useApiClient(), missionType));
+}
+
+export function playbookVersionsQuery(api: ApiClient, missionType: string) {
+	return queryOptions({
+		queryKey: queryKeys.playbooks.versions(missionType),
+		queryFn: () =>
+			call(contract.playbooks.versions, () =>
+				api.playbooks.versions({ params: { missionType } }),
+			),
+	});
+}
+
+/** Every version, newest first; just the current one when never rewritten. */
+export function usePlaybookVersions(missionType: string) {
+	return useQuery(playbookVersionsQuery(useApiClient(), missionType));
+}
+
+/**
+ * What a write does once the server accepts it. `onSaved` runs here, in the
+ * mutation's own onSuccess, never in a per-call one: writing the new version
+ * into the cache re-keys the builder, which unmounts the modal that called
+ * mutate(), and a per-call onSuccess dies with it. The mutation's survives.
+ */
+type Saved = { onSaved?: (saved: Playbook) => void };
+
+/**
+ * Replaces the live playbook (a full replace; version + 1). The answer is
+ * the new playbook, so it goes straight into the cache; the lists, the
+ * versions and the activity log refresh.
+ */
+export function updatePlaybookOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+	missionType: string,
+	{ onSaved }: Saved = {},
+) {
+	return {
+		mutationFn: (body: UpdatePlaybookBody) =>
+			call(contract.playbooks.update, () =>
+				api.playbooks.update({ params: { missionType }, body }),
+			),
+		onSuccess: (saved: Playbook) => {
+			onSaved?.(saved);
+			queryClient.setQueryData(queryKeys.playbooks.byType(missionType), saved);
+			return Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: queryKeys.playbooks.lists(),
+				}),
+				queryClient.invalidateQueries({
+					queryKey: queryKeys.playbooks.versions(missionType),
+				}),
+				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+			]);
+		},
+	};
+}
+
+export function useUpdatePlaybook(missionType: string, saved: Saved = {}) {
+	return useMutation(
+		updatePlaybookOptions(useApiClient(), useQueryClient(), missionType, saved),
+	);
+}
+
+/**
+ * Creates a playbook (version 1). A live one for the same mission type is
+ * 409 CONFLICT. The new playbook goes into its type's cache, so its builder
+ * opens on it without another read.
+ */
+export function createPlaybookOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+	{ onSaved }: Saved = {},
+) {
+	return {
+		mutationFn: (body: CreatePlaybookBody) =>
+			call(contract.playbooks.create, () => api.playbooks.create({ body })),
+		onSuccess: (saved: Playbook) => {
+			onSaved?.(saved);
+			queryClient.setQueryData(
+				queryKeys.playbooks.byType(saved.missionType),
+				saved,
+			);
+			return Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: queryKeys.playbooks.lists(),
+				}),
+				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+			]);
+		},
+	};
+}
+
+export function useCreatePlaybook(saved: Saved = {}) {
+	return useMutation(
+		createPlaybookOptions(useApiClient(), useQueryClient(), saved),
+	);
 }

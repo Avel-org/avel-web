@@ -2,17 +2,25 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { MoreHorizontalIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import {
+	ActionModal,
+	ModalField,
+	type ModalSize,
+} from "@/components/avel/action-modal";
 import { DataPanel } from "@/components/avel/data-panel";
 import {
 	type DataColumn,
 	DataTable,
 	type SortState,
 } from "@/components/avel/data-table";
+import { HoverCard } from "@/components/avel/hover-card";
+import { InlineExpand } from "@/components/avel/inline-expand";
 import {
 	type ExportStatus,
 	exportStatusTone,
 	StatusPill,
 } from "@/components/avel/status-pill";
+import { fieldChanges, WhatChanges } from "@/components/avel/what-changes";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -93,6 +101,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ApiError } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 
 /**
@@ -401,6 +410,14 @@ function PrimitivesPage() {
 			<Section title="Data">
 				<DataShowcase />
 			</Section>
+
+			<Section title="Action modal">
+				<ActionModalShowcase />
+			</Section>
+
+			<Section title="What changes, inline expand and hover card">
+				<Ruling35Showcase />
+			</Section>
 		</div>
 	);
 }
@@ -529,6 +546,188 @@ function DataShowcase() {
 			>
 				<p className="type-small p-3 text-text-muted">Hidden until opened.</p>
 			</DataPanel>
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Ruling 35's shared pieces. Fixture values only; this route 404s in
+// production.
+
+/** A refusal shaped as avel-server sends it: one issue on a field, one not. */
+const FIXTURE_REFUSAL = new ApiError({
+	method: "POST",
+	path: "/api/engagements",
+	kind: "contract",
+	status: 400,
+	code: "VALIDATION_FAILED",
+	message: "for logs only",
+	requestId: "req-dev",
+	details: {
+		body: [
+			{ path: ["name"], message: "Give it a name of 1 to 200 characters." },
+			{ path: [], message: "The body names no client." },
+		],
+	},
+});
+
+function ActionModalShowcase() {
+	const [open, setOpen] = useState<ModalSize | null>(null);
+	const [name, setName] = useState("Booking app");
+	const [refused, setRefused] = useState(false);
+	const [step, setStep] = useState(0);
+	const before = { name: "Booking app", repo: "" };
+	const after = { name, repo: "example/booking" };
+	const changes = fieldChanges(before, after, [
+		{ key: "name", label: "Name" },
+		{ key: "repo", label: "Repository", mono: true },
+	]);
+	const close = () => {
+		setOpen(null);
+		setName("Booking app");
+		setRefused(false);
+		setStep(0);
+	};
+	return (
+		<>
+			{(["confirm", "form", "stepper"] as const).map((size) => (
+				<Button
+					key={size}
+					variant="outline"
+					data-testid={`primitives-modal-${size}`}
+					onClick={() => setOpen(size)}
+				>
+					{`Open ${size}`}
+				</Button>
+			))}
+			<ActionModal
+				open={open === "confirm"}
+				onOpenChange={(next) => !next && close()}
+				size="confirm"
+				title="Close engagement"
+				description="Booking app stops taking missions. Its history stays."
+				dirty={false}
+				submitLabel="Close Booking app"
+				destructive
+				pending={false}
+				error={null}
+				onSubmit={() => {
+					toast.success("Closed Booking app.");
+					close();
+				}}
+				data-testid="primitives-action-confirm"
+			/>
+			<ActionModal
+				open={open === "form"}
+				onOpenChange={(next) => !next && close()}
+				size="form"
+				title="Edit engagement"
+				dirty={name !== before.name}
+				submitLabel="Save engagement"
+				pending={false}
+				error={refused ? FIXTURE_REFUSAL : null}
+				onSubmit={() => setRefused(true)}
+				changes={
+					<WhatChanges
+						changes={changes}
+						data-testid="primitives-what-changes"
+					/>
+				}
+				data-testid="primitives-action-form"
+			>
+				<ModalField name="name" label="Name" testid="primitives-form-name">
+					{(props) => (
+						<Input
+							{...props}
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+						/>
+					)}
+				</ModalField>
+				<p className="type-small text-text-muted">
+					Saving here always shows the fixture refusal: one issue on Name, one
+					with no field.
+				</p>
+			</ActionModal>
+			<ActionModal
+				open={open === "stepper"}
+				onOpenChange={(next) => !next && close()}
+				size="stepper"
+				title="Add client"
+				steps={["Client", "Engagement", "Repository"]}
+				step={step}
+				onBack={() => setStep(step - 1)}
+				dirty={step > 0}
+				submitLabel={step < 2 ? "Next" : "Add client"}
+				pending={false}
+				error={null}
+				onSubmit={() => (step < 2 ? setStep(step + 1) : close())}
+				data-testid="primitives-action-stepper"
+			>
+				<p className="type-body text-foreground">{`Step ${step + 1} of 3`}</p>
+			</ActionModal>
+		</>
+	);
+}
+
+const FIXTURE_GATES = [
+	"phase1-close",
+	"alignment",
+	"qa",
+	"security",
+	"rollback",
+	"acceptance",
+];
+
+function Ruling35Showcase() {
+	return (
+		<div className="flex w-full flex-col gap-4">
+			<WhatChanges
+				data-testid="primitives-what-changes-static"
+				changes={[
+					{ label: "Name", kind: "change", from: "Booking", to: "Booking app" },
+					{
+						label: "Repository",
+						kind: "add",
+						to: "example/booking",
+						mono: true,
+					},
+					{ label: "Notes", kind: "remove", from: "Kickoff on Monday" },
+				]}
+			/>
+			<WhatChanges data-testid="primitives-what-changes-empty" changes={[]} />
+			<InlineExpand
+				data-testid="primitives-inline-expand"
+				items={FIXTURE_GATES}
+				visible={3}
+				getKey={(gate) => gate}
+				noun="gates"
+				render={(gate) => <span className="type-mono-small">{gate}</span>}
+			/>
+			<p className="type-small text-text-muted">
+				Hover or tab to{" "}
+				<HoverCard
+					data-testid="primitives-hover-card"
+					trigger={
+						<a
+							href="#atlas"
+							className="text-accent-text underline-offset-4 hover:underline"
+						>
+							atlas
+						</a>
+					}
+				>
+					<p className="type-small font-medium text-foreground">Atlas</p>
+					<p className="type-mono-small text-text-muted">
+						schema, contract · wave A
+					</p>
+				</HoverCard>{" "}
+				for its preview.
+			</p>
+			<div className="flex gap-2">
+				<div className="landed h-8 w-24 rounded-sm border border-border" />
+				<div className="bg-hatch-warn h-8 w-24 rounded-sm" />
+			</div>
 		</div>
 	);
 }

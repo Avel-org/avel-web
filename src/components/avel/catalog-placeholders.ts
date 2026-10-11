@@ -1,42 +1,37 @@
 /**
  * Sample data for the catalog pages, /catalog/agents, /catalog/skills and
- * /catalog/sources (AVEL-DESIGN.md rulings 29 and 32). avel-server serves the
- * catalog reads, but these pages are not wired to them yet (the seed has no
- * skills or sources to show), so every value here is invented. Templates,
- * skills and sources are typed by the contract; each is replaced by real
- * data, and deleted, when its page is wired. Nothing here is sent anywhere,
- * and nothing here is ever written into a real field.
+ * /catalog/sources (AVEL-DESIGN.md rulings 29 and 32). The templates, skills
+ * and sources themselves are live: the pages read GET /api/agent-templates,
+ * GET /api/skills and GET /api/skill-sources (module 4). What remains here is
+ * what no route serves yet: version history, per-agent measures, the
+ * per-family table, a source's skill index and a role skill's attachments.
+ * Each is keyed off a live record (its slug or id), so a page shows the same
+ * samples on every visit; a page that reshuffled on reload would look like
+ * live data. Nothing here is sent anywhere, and nothing here is ever written
+ * into a real field. Each sample is deleted when its route lands.
  *
  * Version history, per-agent measures and the per-family table have no
  * contract shape yet, so their types are local. The family table follows
  * ROLES.md, but it is server-enforced policy: shown from a client copy it
  * would be a second copy that drifts, so it is a sample like the rest.
- *
- * Values derive from fixed keys, so a page shows the same samples on every
- * visit: a page that reshuffled on reload would look like live data.
  */
-import type {
-	AgentTemplate,
-	Role,
-	Skill,
-	SkillListItem,
-	SkillSource,
+import {
+	type AgentTemplate,
+	ROLES,
+	type Role,
+	type SkillListItem,
+	type SkillSource,
 } from "avel-server/contract";
 
 /**
  * The route each kind of sample stands in for, named in its pill. One list
- * for the three pages, so each sample names its route in one place. Routes
- * with no contract shape yet are described in words.
+ * for the three pages, so each sample names its route in one place. None of
+ * these has a route in avel-server; each is described in words.
  */
 export const CATALOG_MISSING = {
-	templates: "GET /api/agent-templates",
 	versions: "agent version history",
 	measures: "per-agent measures",
 	families: "the per-family table route",
-	skills: "GET /api/skills",
-	/** One skill with its text: SKILL.md and AVEL's additions. */
-	skill: "GET /api/skills/by-slug/:slug",
-	sources: "GET /api/skill-sources",
 	/** What a source offers to import. No doc names a route for it yet. */
 	registry: "a source's skill index",
 	/** Which roles a role skill is attached to (role_skills, module 5). */
@@ -45,25 +40,6 @@ export const CATALOG_MISSING = {
 
 export type CatalogMissing =
 	(typeof CATALOG_MISSING)[keyof typeof CATALOG_MISSING];
-
-/**
- * The routes avel-server already serves (the catalog reads, d4deabb), which
- * these pages are not wired to yet. Their pills say so, rather than claim
- * the server lacks them. The rest of CATALOG_MISSING has no route at all.
- */
-const SERVED: ReadonlySet<string> = new Set([
-	CATALOG_MISSING.templates,
-	CATALOG_MISSING.skills,
-	CATALOG_MISSING.skill,
-	CATALOG_MISSING.sources,
-]);
-
-/** The pill's words for a catalog region: undefined keeps SampleData's own. */
-export function catalogPillReason(missing: string): string | undefined {
-	return SERVED.has(missing)
-		? `Sample data. avel-server serves ${missing}; this page is wired to it in a later step.`
-		: undefined;
-}
 
 // ---------------------------------------------------------------------------
 // Determinism.
@@ -237,291 +213,7 @@ export function familiesOf(roles: readonly Role[]): SampleFamily[] {
 }
 
 // ---------------------------------------------------------------------------
-// Skill sources.
-
-type SourceSeed = Pick<SkillSource, "name" | "kind" | "url" | "license"> & {
-	key: string;
-};
-
-const SOURCE_SEEDS: readonly SourceSeed[] = [
-	{ key: "src-avel", name: "AVEL", kind: "internal", url: null, license: null },
-	{
-		key: "src-vendor-pack",
-		name: "Framework vendor pack",
-		kind: "vendor",
-		url: "https://example.com/vendor/skills",
-		license: "Apache-2.0",
-	},
-	{
-		key: "src-community-index",
-		name: "Community skills index",
-		kind: "community",
-		url: "https://example.org/skills-index",
-		license: "MIT",
-	},
-];
-
-const sourceIdOf = (key: string) => sampleUuid(`source:${key}`);
-
-// ---------------------------------------------------------------------------
-// Skills.
-
-type SkillSeed = Pick<
-	SkillListItem,
-	"slug" | "name" | "description" | "layer" | "recommendedFor" | "status"
-> &
-	(
-		| { type: "knowledge"; grants: null; ioShape: null }
-		| {
-				type: "capability";
-				grants: string[];
-				ioShape: { reads: "large" | "small"; returns: "large" | "small" };
-		  }
-	) & {
-		/** The key of its source in SOURCE_SEEDS. */
-		sourceId: string;
-		/** The full skill, loaded only when the task needs it. */
-		contentMd: string;
-		/** AVEL's additions to an imported skill, kept apart from the original. */
-		avelEnhancementMd?: string;
-	};
-
-const SKILL_SEEDS: readonly SkillSeed[] = [
-	{
-		slug: "property-testing-fast-check",
-		name: "Property testing with fast-check",
-		description:
-			"Use when a function has an invariant the spec states, such as a round trip or an ordering. Write the invariant as a fast-check property before any example.",
-		layer: "role",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["property-tests"],
-		sourceId: "src-avel",
-		status: "approved",
-		contentMd:
-			"# Property testing with fast-check\n\n1. State the invariant from the spec in one sentence.\n2. Write it as `fc.assert(fc.property(...))` before any example test.\n3. Shrink a failure to its smallest case, then add that case as an example.",
-	},
-	{
-		slug: "agreeing-wrong-tests",
-		name: "Code and tests that agree and are both wrong",
-		description:
-			"Use when judging an implementation whose tests pass. Read the brief first, then check each assertion against the brief rather than against the code.",
-		layer: "role",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["spec-judgment"],
-		sourceId: "src-avel",
-		status: "approved",
-		contentMd:
-			"# Code and tests that agree and are both wrong\n\n- Read the brief before the code.\n- For each assertion, find the sentence in the brief it checks.\n- An assertion with no sentence behind it is a finding.",
-	},
-	{
-		slug: "criterion-tags",
-		name: "Tagging every test with its acceptance criterion",
-		description:
-			"Use when writing any test. Tag it with the acceptance criterion it covers, so spec-check can find criteria with no test.",
-		layer: "role",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["backend-tests", "frontend-tests", "property-tests"],
-		sourceId: "src-avel",
-		status: "approved",
-		contentMd:
-			"# Tagging every test with its acceptance criterion\n\n- Name the criterion in the test title: `AC-3: rejects a past date`.\n- One criterion per test.\n- spec-check lists every criterion with no tagged test.",
-	},
-	{
-		slug: "middleware-not-enough",
-		name: "Where admin routes are really protected",
-		description:
-			"Use when reviewing authorization. Middleware alone does not protect an admin route; check that every handler checks the caller.",
-		layer: "role",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["security-review"],
-		sourceId: "src-avel",
-		status: "approved",
-		contentMd:
-			"# Where admin routes are really protected\n\n- Middleware can be skipped by a route that is not matched.\n- Open each admin handler and find the caller check inside it.\n- A handler with no check is a finding, whatever the middleware does.",
-	},
-	{
-		slug: "nextjs-route-handlers",
-		name: "Next.js route groups and route handlers",
-		description:
-			"Use when adding a page or an API route to a Next.js app router project.",
-		layer: "stack",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["api-surface", "interface"],
-		sourceId: "src-vendor-pack",
-		status: "approved",
-		contentMd:
-			"# Next.js route groups and route handlers\n\n- Group routes with `(folder)`; the folder never reaches the URL.\n- A route handler is `route.ts` exporting `GET`, `POST` and so on.\n- Never put a page and a route handler in the same segment.",
-		avelEnhancementMd:
-			"## AVEL's additions\n\n- Every handler parses its body with the contract's schema before using it.",
-	},
-	{
-		slug: "drizzle-migrations",
-		name: "Drizzle schemas and generated migrations",
-		description:
-			"Use when changing a table. Edit the Drizzle schema, generate the migration, and never hand-edit generated SQL.",
-		layer: "stack",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["schema"],
-		sourceId: "src-avel",
-		status: "approved",
-		contentMd:
-			"# Drizzle schemas and generated migrations\n\n1. Change the schema in `src/db/schema`.\n2. Run `drizzle-kit generate`.\n3. Commit the schema and the generated SQL together; never edit the SQL.",
-	},
-	{
-		slug: "better-auth-allow-list",
-		name: "Better Auth with an allow-list",
-		description:
-			"Use when sign-in must be limited to known accounts. Check the allow-list in the sign-in callback, not after the session exists.",
-		layer: "stack",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["auth", "security-review"],
-		sourceId: "src-community-index",
-		status: "draft",
-		contentMd:
-			"# Better Auth with an allow-list\n\n- Read the allow-list in the sign-in callback.\n- Refuse before a session is created, not after.\n- Log the refused email's domain, never the address.",
-		avelEnhancementMd:
-			"## AVEL's additions\n\n- The allow-list lives in an environment variable, one GitHub login per line.",
-	},
-	{
-		slug: "luxon-daylight-saving",
-		name: "Luxon and daylight saving",
-		description:
-			"Use when a feature schedules by local time. A skipped daylight-saving hour must never be offered, and a repeated one must be offered once.",
-		layer: "stack",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["domain", "property-tests"],
-		sourceId: "src-avel",
-		status: "approved",
-		contentMd:
-			"# Luxon and daylight saving\n\n- Build slots in the venue's zone with `DateTime.fromObject({...}, { zone })`.\n- Skip a slot whose local time does not exist.\n- Offer a repeated hour once.",
-	},
-	{
-		slug: "booking-vocabulary",
-		name: "Booking vocabulary",
-		description:
-			"Use when a brief or a screen talks about appointments, services or slots. Timed and day-based services follow different rules.",
-		layer: "domain",
-		type: "knowledge",
-		grants: null,
-		ioShape: null,
-		recommendedFor: ["domain", "intake"],
-		sourceId: "src-avel",
-		status: "approved",
-		contentMd:
-			"# Booking vocabulary\n\n- A service is timed (30 minutes) or day-based (a night's stay).\n- A slot is a start time a timed service can begin at.\n- A booking holds one slot for one service.",
-	},
-	{
-		slug: "headless-browser",
-		name: "Headless browser",
-		description:
-			"Use when a test must drive the built interface in a real browser.",
-		layer: "stack",
-		type: "capability",
-		grants: ["A headless browser"],
-		ioShape: { reads: "large", returns: "small" },
-		recommendedFor: ["frontend-tests"],
-		sourceId: "src-vendor-pack",
-		status: "approved",
-		contentMd:
-			"# Headless browser\n\n- Start the browser once per test file.\n- Drive the page by role and label, never by CSS class.\n- Return a verdict and a screenshot path, not the page's markup.",
-		avelEnhancementMd:
-			"## AVEL's additions\n\n- Screenshots are written under the room's scratch directory only.",
-	},
-	{
-		slug: "database-read",
-		name: "Read access to the database",
-		description:
-			"Use when a test or a judgment needs the rows a migration produced.",
-		layer: "stack",
-		type: "capability",
-		grants: ["Read access to the database"],
-		ioShape: { reads: "large", returns: "small" },
-		recommendedFor: ["backend-tests", "spec-judgment"],
-		sourceId: "src-community-index",
-		status: "draft",
-		contentMd:
-			"# Read access to the database\n\n- Connect with the read-only role the room provides.\n- Select only the columns the check needs.\n- Return counts and row ids, never whole rows.",
-		avelEnhancementMd:
-			"## AVEL's additions\n\n- The connection string comes from the room; never ask for one.",
-	},
-	{
-		slug: "package-registry",
-		name: "The package registry",
-		description: "Use when a build step must install a dependency.",
-		layer: "stack",
-		type: "capability",
-		grants: ["The package registry"],
-		ioShape: { reads: "small", returns: "small" },
-		recommendedFor: ["domain", "interface"],
-		sourceId: "src-avel",
-		status: "retired",
-		contentMd:
-			"# The package registry\n\n- Install only what the lockfile names.\n- Never add a dependency without a blocker explaining why.",
-	},
-];
-
-/**
- * Each skill as get returns it: the list item plus its text. A list shows
- * only the SkillListItem fields; the inspector shows the rest.
- */
-export const SAMPLE_SKILLS: readonly Skill[] = SKILL_SEEDS.map(
-	({ sourceId, avelEnhancementMd, ...seed }): Skill => {
-		const key = `skill:${seed.slug}`;
-		const next = sequence(key);
-		const source = SOURCE_SEEDS.find((s) => s.key === sourceId);
-		const reviewed = seed.status !== "draft";
-		const month = between(next, 7, 9);
-		return {
-			...seed,
-			id: sampleUuid(key),
-			source: {
-				id: sourceIdOf(sourceId),
-				name: source?.name ?? "",
-				kind: source?.kind ?? "internal",
-			},
-			contentSha256: sampleSha256(key),
-			reviewedBy: reviewed ? sampleUuid(`reviewer:${month}`) : null,
-			reviewedAt: reviewed ? isoDay(month, between(next, 10, 28)) : null,
-			version: between(next, 1, 4),
-			createdAt: isoDay(month, 1),
-			updatedAt: isoDay(month, 9),
-			avelEnhancementMd: avelEnhancementMd ?? null,
-		} as Skill;
-	},
-);
-
-export function sampleSkill(slug: string): Skill | undefined {
-	return SAMPLE_SKILLS.find((skill) => skill.slug === slug);
-}
-
-export const SAMPLE_SOURCES: readonly SkillSource[] = SOURCE_SEEDS.map(
-	({ key, ...seed }) => ({
-		...seed,
-		id: sourceIdOf(key),
-		// Counted from the samples, so the two pages agree.
-		skillCount: SAMPLE_SKILLS.filter(
-			(skill) => skill.source.id === sourceIdOf(key),
-		).length,
-		createdAt: isoDay(6, 1),
-		updatedAt: isoDay(6, 1),
-	}),
-);
+// Skills: rules on the live list.
 
 /**
  * Imported drafts: what a source sent that no one has reviewed. The Skills
@@ -532,70 +224,6 @@ export function skillsNeedingReview(skills: readonly SkillListItem[]) {
 		(skill) => skill.status === "draft" && skill.source.kind !== "internal",
 	);
 }
-
-/** One skill a vendor or community source offers, not yet imported. */
-export type SampleRegistryEntry = {
-	id: string;
-	name: string;
-	/** Where it lives in its source, such as a repository path. */
-	path: string;
-	description: string;
-	sourceId: string;
-	contentSha256: string;
-};
-
-type RegistrySeed = Omit<
-	SampleRegistryEntry,
-	"id" | "sourceId" | "contentSha256"
-> & {
-	source: string;
-};
-
-const REGISTRY_SEEDS: readonly RegistrySeed[] = [
-	{
-		name: "tanstack-query-keys",
-		path: "vendor/skills/tanstack-query-keys",
-		description:
-			"Use when adding a query: one key factory, never an inline key.",
-		source: "src-vendor-pack",
-	},
-	{
-		name: "tailwind-tokens-only",
-		path: "vendor/skills/tailwind-tokens-only",
-		description: "Use when styling: tokens and utilities, no raw colours.",
-		source: "src-vendor-pack",
-	},
-	{
-		name: "playwright-by-role",
-		path: "vendor/skills/playwright-by-role",
-		description:
-			"Use when writing a browser test: find elements by role and label.",
-		source: "src-vendor-pack",
-	},
-	{
-		name: "zod-at-the-edge",
-		path: "skills-index/zod-at-the-edge",
-		description:
-			"Use when data crosses a boundary: parse it with a schema first.",
-		source: "src-community-index",
-	},
-	{
-		name: "conventional-commits",
-		path: "skills-index/conventional-commits",
-		description:
-			"Use when writing a commit message: type(scope), imperative, under 72.",
-		source: "src-community-index",
-	},
-];
-
-/** What each source offers, ranked by source then name: there is no install count. */
-export const SAMPLE_REGISTRY: readonly SampleRegistryEntry[] =
-	REGISTRY_SEEDS.map(({ source, ...seed }) => ({
-		...seed,
-		id: sampleUuid(`registry:${seed.path}`),
-		sourceId: sourceIdOf(source),
-		contentSha256: sampleSha256(`registry:${seed.path}`),
-	}));
 
 /** Imported means it came from outside AVEL: a vendor or community source. */
 export function isImported(skill: SkillListItem): boolean {
@@ -645,149 +273,78 @@ export function enforcementBadge(
 }
 
 // ---------------------------------------------------------------------------
-// Agent templates.
+// A source's skill index (Discover). No route lists what a source offers, so
+// each vendor or community source shows a fixed set of entries, keyed off its
+// live id.
 
-type AgentSeed = Pick<
-	AgentTemplate,
-	"slug" | "name" | "kind" | "roles" | "waveDefaults" | "writablePaths"
-> & {
-	territories: (string | null)[];
-	reconstructed: boolean;
+/** One skill a vendor or community source offers, not yet imported. */
+export type SampleRegistryEntry = {
+	id: string;
+	name: string;
+	/** Where it lives in its source, such as a repository path. */
+	path: string;
+	description: string;
+	sourceId: string;
+	contentSha256: string;
 };
 
-const AGENT_SEEDS: readonly AgentSeed[] = [
+type RegistrySeed = Pick<SampleRegistryEntry, "name" | "description">;
+
+const REGISTRY_SEEDS: readonly RegistrySeed[] = [
 	{
-		slug: "atlas",
-		name: "Atlas",
-		kind: "feature",
-		// Out of catalog order on purpose: the page sorts by ROLES, not by the data.
-		roles: ["api-surface", "domain"],
-		waveDefaults: ["B"],
-		writablePaths: ["src/server/**", "!**/*.test.ts"],
-		territories: ["scheduling", "billing"],
-		reconstructed: true,
+		name: "tanstack-query-keys",
+		description:
+			"Use when adding a query: one key factory, never an inline key.",
 	},
 	{
-		slug: "leonora",
-		name: "Leonora",
-		kind: "horizontal",
-		roles: ["schema", "contract"],
-		waveDefaults: ["A"],
-		writablePaths: ["src/db/**", "src/contract/**", "!**/*.test.ts"],
-		territories: [null],
-		reconstructed: true,
+		name: "tailwind-tokens-only",
+		description: "Use when styling: tokens and utilities, no raw colours.",
 	},
 	{
-		slug: "leon",
-		name: "Leon",
-		kind: "feature",
-		roles: ["interface", "state"],
-		waveDefaults: ["B"],
-		writablePaths: ["src/app/**", "!**/*.test.ts"],
-		territories: ["booking", null],
-		reconstructed: false,
+		name: "playwright-by-role",
+		description:
+			"Use when writing a browser test: find elements by role and label.",
 	},
 	{
-		slug: "nemi",
-		name: "Nemi",
-		kind: "horizontal",
-		roles: ["frontend-tests"],
-		waveDefaults: ["C"],
-		writablePaths: ["tests/e2e/**", "**/*.test.tsx"],
-		territories: [null],
-		reconstructed: false,
+		name: "zod-at-the-edge",
+		description:
+			"Use when data crosses a boundary: parse it with a schema first.",
 	},
 	{
-		slug: "iyo",
-		name: "Iyo",
-		kind: "horizontal",
-		roles: ["backend-tests", "property-tests"],
-		waveDefaults: ["C"],
-		writablePaths: ["tests/**", "**/*.test.ts"],
-		territories: [null],
-		reconstructed: false,
-	},
-	{
-		slug: "brennan",
-		name: "Brennan",
-		kind: "horizontal",
-		roles: ["spec-judgment"],
-		waveDefaults: ["D"],
-		writablePaths: ["findings/spec-judgment/**"],
-		territories: [null],
-		reconstructed: true,
-	},
-	{
-		slug: "zane",
-		name: "Zane",
-		kind: "horizontal",
-		roles: ["security-review", "compliance-review"],
-		waveDefaults: ["D"],
-		writablePaths: [
-			"findings/security-review/**",
-			"findings/compliance-review/**",
-		],
-		territories: [null],
-		reconstructed: false,
-	},
-	{
-		slug: "canon",
-		name: "Canon",
-		kind: "horizontal",
-		roles: ["intake", "strategy"],
-		waveDefaults: ["A"],
-		writablePaths: [],
-		territories: [null],
-		reconstructed: false,
+		name: "conventional-commits",
+		description:
+			"Use when writing a commit message: type(scope), imperative, under 72.",
 	},
 ];
 
-function identityText(seed: AgentSeed): string {
-	return [
-		`# ${seed.name}`,
-		"",
-		`Generated from ${seed.roles.length === 1 ? "one role" : `${seed.roles.length} roles`}. Do not edit by hand.`,
-		"",
-		"## Roles",
-		...seed.roles.map(
-			(role) => `- ${role} (${SAMPLE_ROLE_FAMILY[role].toLowerCase()})`,
-		),
-		"",
-		"## Boundaries",
-		"- Write only inside the mount for these roles.",
-		"- Record the hash of every artifact you read.",
-		"- File a blocker rather than absorbing a provisioning gap.",
-	].join("\n");
-}
-
-/** How many versions each sample has: 1 to 4, fixed by its slug. */
-const versionCount = (slug: string) =>
-	between(sequence(`agent:${slug}:versions`), 1, 4);
-
-export const SAMPLE_AGENTS: readonly AgentTemplate[] = AGENT_SEEDS.map(
-	(seed) => {
-		const key = `agent:${seed.slug}`;
-		return {
-			id: sampleUuid(key),
-			slug: seed.slug,
-			name: seed.name,
-			kind: seed.kind,
-			roles: seed.roles,
-			// Shared identities: one template serves every engagement.
-			engagementId: null,
-			waveDefaults: seed.waveDefaults,
-			identityMd: identityText(seed),
-			depthMd: "",
-			writablePaths: seed.writablePaths,
-			version: versionCount(seed.slug),
-			createdAt: isoDay(6, 1),
-			updatedAt: isoDay(10, 1),
-		};
-	},
-);
-
-export function sampleAgent(slug: string): AgentTemplate | undefined {
-	return SAMPLE_AGENTS.find((agent) => agent.slug === slug);
+/**
+ * What each vendor and community source offers, two or three entries each,
+ * fixed by the source's id. An internal source offers nothing: AVEL's own
+ * skills are already in the library.
+ */
+export function sampleRegistry(
+	sources: readonly SkillSource[],
+): SampleRegistryEntry[] {
+	return sources
+		.filter((source) => source.kind !== "internal")
+		.flatMap((source) => {
+			const next = sequence(`registry:${source.id}`);
+			const first = between(next, 0, REGISTRY_SEEDS.length - 1);
+			const count = between(next, 2, 3);
+			return Array.from({ length: count }, (_, i) => {
+				const seed = REGISTRY_SEEDS[(first + i) % REGISTRY_SEEDS.length];
+				const path = `${source.kind}/skills/${seed?.name ?? ""}`;
+				const key = `registry:${source.id}:${path}`;
+				return {
+					id: sampleUuid(key),
+					name: seed?.name ?? "",
+					path,
+					description: seed?.description ?? "",
+					sourceId: source.id,
+					contentSha256: sampleSha256(key),
+				};
+			});
+		});
 }
 
 // ---------------------------------------------------------------------------
@@ -852,6 +409,28 @@ const ENGAGEMENTS = {
 	internal: ["AVEL itself"],
 } as const;
 
+/** The territories a roster could place a feature agent in. */
+const TERRITORIES = ["scheduling", "billing", "booking", "catalog"] as const;
+
+/**
+ * A template has no territories of its own: a territory is where a roster
+ * places a feature agent. Until the roster serves them, a feature agent gets
+ * one or two, fixed by its slug; a horizontal agent works the whole project
+ * and gets none. `null` is the whole project, as the outcome rows spell it.
+ */
+function sampleTerritories(
+	agent: Pick<AgentTemplate, "slug" | "kind">,
+): (string | null)[] {
+	if (agent.kind !== "feature") return [null];
+	const next = sequence(`agent:${agent.slug}:territories`);
+	const first = between(next, 0, TERRITORIES.length - 1);
+	const count = between(next, 1, 2);
+	return Array.from(
+		{ length: count },
+		(_, i) => TERRITORIES[(first + i) % TERRITORIES.length] ?? null,
+	);
+}
+
 function versionsOf(agent: AgentTemplate): SampleVersion[] {
 	const next = sequence(`agent:${agent.slug}:history`);
 	return Array.from({ length: agent.version }, (_, i) => {
@@ -860,7 +439,7 @@ function versionsOf(agent: AgentTemplate): SampleVersion[] {
 		return {
 			version,
 			sha256: sampleSha256(`agent:${agent.slug}:v${version}`),
-			createdAt: isoDay(10 - i, between(next, 1, 28)),
+			createdAt: isoDay(Math.max(1, 10 - i), between(next, 1, 28)),
 			change:
 				version === 1
 					? "First generation"
@@ -884,11 +463,11 @@ function disciplineOf(slug: string): SampleDiscipline[] {
 	});
 }
 
-function outcomesOf(seed: AgentSeed): SampleOutcome[] {
+function outcomesOf(agent: Pick<AgentTemplate, "slug" | "kind">) {
 	const rows: SampleOutcome[] = [];
 	for (const origin of ["client", "internal"] as const) {
-		for (const territory of seed.territories) {
-			const id = `${seed.slug}:${origin}:${territory ?? "whole"}`;
+		for (const territory of sampleTerritories(agent)) {
+			const id = `${agent.slug}:${origin}:${territory ?? "whole"}`;
 			const next = sequence(`agent:${id}`);
 			const tokensPerRun = between(next, 18, 140) * 1000;
 			rows.push({
@@ -915,14 +494,15 @@ function outcomesOf(seed: AgentSeed): SampleOutcome[] {
 
 /** One template's sample history and measures, fixed by its slug. */
 export function sampleHistory(agent: AgentTemplate): SampleAgentHistory {
-	const seed = AGENT_SEEDS.find((s) => s.slug === agent.slug);
 	const next = sequence(`agent:${agent.slug}:tokens`);
+	// About half the templates have a run whose version was backfilled.
+	const reconstructed = next() < 0.5;
 	return {
 		versions: versionsOf(agent),
 		identityTokens: between(next, 240, 760),
 		discipline: disciplineOf(agent.slug),
-		outcomes: seed ? outcomesOf(seed) : [],
-		reconstructed: seed?.reconstructed
+		outcomes: outcomesOf(agent),
+		reconstructed: reconstructed
 			? [
 					{
 						id: `${agent.slug}:mission-002`,
@@ -946,7 +526,8 @@ const shares = (a: readonly Role[], b: readonly Role[]) =>
  * table, which module 5 writes and no route reads yet (SKILLS.md, Three
  * layers). This is not recommendedFor. recommendedFor is the dispatch filter
  * for stack and domain skills; for a role skill the two can differ, and here
- * they do, on purpose, so nothing can quietly read one as the other.
+ * they do, on purpose, so nothing can quietly read one as the other. A role
+ * skill not named here gets attachments fixed by its slug (sampleRoleAttachments).
  */
 export const SAMPLE_ROLE_ATTACHMENTS: Readonly<
 	Record<string, readonly Role[]>
@@ -957,29 +538,53 @@ export const SAMPLE_ROLE_ATTACHMENTS: Readonly<
 	"middleware-not-enough": ["security-review"],
 };
 
+/** The roles an agent can hold: everything but Platform, whose roles are code. */
+const ATTACHABLE_ROLES: readonly Role[] = ROLES.filter(
+	(role) => SAMPLE_ROLE_FAMILY[role] !== "Platform",
+);
+
+/**
+ * A role skill's sample attachments: the fixed set when its slug is named,
+ * otherwise one or two roles fixed by the slug, so a live skill shows the
+ * same switches on every visit.
+ */
+export function sampleRoleAttachments(slug: string): readonly Role[] {
+	const named = SAMPLE_ROLE_ATTACHMENTS[slug];
+	if (named) return named;
+	const next = sequence(`attachments:${slug}`);
+	const first = between(next, 0, ATTACHABLE_ROLES.length - 1);
+	const count = between(next, 1, 2);
+	return Array.from(
+		{ length: count },
+		(_, i) => ATTACHABLE_ROLES[(first + i) % ATTACHABLE_ROLES.length],
+	).filter((role): role is Role => role !== undefined);
+}
+
 /**
  * The roles that carry a skill. A role skill is carried by the roles it is
- * attached to (role_skills); a stack or domain skill reaches the agents whose
- * roles it is recommended for, at dispatch.
+ * attached to (role_skills, a sample until module 5's read exists); a stack
+ * or domain skill reaches the agents whose roles it is recommended for, at
+ * dispatch, which is live.
  */
 export function carryingRoles(
 	skill: Pick<SkillListItem, "slug" | "layer" | "recommendedFor">,
 ): readonly Role[] {
 	return skill.layer === "role"
-		? (SAMPLE_ROLE_ATTACHMENTS[skill.slug] ?? [])
+		? sampleRoleAttachments(skill.slug)
 		: skill.recommendedFor;
 }
 
 /**
- * The skills an agent carries, through its roles. Role skills are part of
- * its identity, through the roles they are attached to; stack and domain
- * skills arrive at dispatch, to agents whose roles they are recommended for.
+ * The skills an agent carries, through its roles, out of the live list. Role
+ * skills are part of its identity, through the roles they are attached to;
+ * stack and domain skills arrive at dispatch, to agents whose roles they are
+ * recommended for.
  */
-export function skillsOfAgent(agent: AgentTemplate): {
-	role: SkillListItem[];
-	dispatch: SkillListItem[];
-} {
-	const carried = SAMPLE_SKILLS.filter((skill) =>
+export function skillsOfAgent<T extends SkillListItem>(
+	agent: Pick<AgentTemplate, "roles">,
+	skills: readonly T[],
+): { role: T[]; dispatch: T[] } {
+	const carried = skills.filter((skill) =>
 		shares(carryingRoles(skill), agent.roles),
 	);
 	return {
@@ -988,9 +593,10 @@ export function skillsOfAgent(agent: AgentTemplate): {
 	};
 }
 
-/** The agents that carry a skill: those covering a role that carries it. */
-export function agentsOfSkill(skill: SkillListItem): AgentTemplate[] {
-	return SAMPLE_AGENTS.filter((agent) =>
-		shares(agent.roles, carryingRoles(skill)),
-	);
+/** The agents, out of the live list, that carry a skill: those covering a role that carries it. */
+export function agentsOfSkill<T extends Pick<AgentTemplate, "roles">>(
+	skill: Pick<SkillListItem, "slug" | "layer" | "recommendedFor">,
+	agents: readonly T[],
+): T[] {
+	return agents.filter((agent) => shares(agent.roles, carryingRoles(skill)));
 }

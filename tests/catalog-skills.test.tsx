@@ -1,29 +1,17 @@
-import {
-	createMemoryHistory,
-	createRouter,
-	RouterContextProvider,
-} from "@tanstack/react-router";
 import { ROLES, type Skill, skillSchema } from "avel-server/contract";
-import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
 	agentsOfSkill,
 	CATALOG_MISSING,
 	carryingRoles,
-	catalogPillReason,
 	SAMPLE_FAMILY_TABLE,
-	SAMPLE_REGISTRY,
 	SAMPLE_ROLE_ATTACHMENTS,
 	SAMPLE_ROLE_FAMILY,
-	SAMPLE_SKILLS,
-	SAMPLE_SOURCES,
-	sampleSkill,
+	sampleRegistry,
+	sampleRoleAttachments,
 	skillsNeedingReview,
 } from "@/components/avel/catalog-placeholders";
-import {
-	filterRegistry,
-	SkillDiscover,
-} from "@/components/avel/catalog-skill-discover";
+import { filterRegistry } from "@/components/avel/catalog-skill-discover";
 import {
 	attachedCount,
 	HASH_COVERS,
@@ -37,16 +25,29 @@ import {
 	groupBySource,
 	reviewBannerText,
 } from "@/components/avel/catalog-skill-sidebar";
-import { selectedSkill } from "@/components/avel/catalog-skills";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { routeTree } from "../src/routeTree.gen";
+import {
+	AGENTS,
+	catalogSeed,
+	inProviders,
+	internalError,
+	notFoundError,
+	renderSeeded,
+	SKILLS,
+	SOURCES,
+	seededClient,
+	skill,
+	source,
+} from "./catalog-fixtures";
 import { renderPage, tagOf } from "./render-page";
 
 /*
  * /catalog/skills as a registry (the Skill Center brief): a sidebar grouped
  * by source with a review banner, and one skill's inspector, Discover, or a
- * new skill. Everything shown is a labelled sample (AVEL-DESIGN.md ruling 32);
- * every write is a real control, disabled with its reason.
+ * new skill. The skills, the selected skill, the templates that carry it and
+ * the sources are live, rendered through the real router with a seeded
+ * QueryClient. A role skill's attachments and a source's index are labelled
+ * samples (AVEL-DESIGN.md ruling 32); every write is a real control,
+ * disabled with its reason.
  */
 
 // ---------------------------------------------------------------------------
@@ -114,7 +115,6 @@ const ROUTES = new Set<string>(Object.values(CATALOG_MISSING));
  */
 function expectLabelled(html: string, real: string[], sampled: string[]) {
 	const rs = regions(html);
-	expect(rs.length).toBeGreaterThan(0);
 	for (const region of rs) {
 		expect(ROUTES.has(region.missing), region.missing).toBe(true);
 		const own = pills(region.html);
@@ -169,42 +169,31 @@ const classes = (html: string, testid: string): string[] =>
 /** Ruling 4: no middle dots in meta strings, anywhere on the page body. */
 const MIDDLE_DOT = "·";
 
+const SKILLS_PATH = "/api/skills";
+
 /**
- * A page, rendered once per path and shared across tests. Rendering is
- * deterministic and no test changes the markup, so a second render of the
- * same path only costs time (about 350ms each, more under suite load). The
- * determinism test renders fresh, with renderPage, on purpose.
+ * A page with everything seeded, rendered once per path and shared across
+ * tests. Rendering is deterministic and no test changes the markup, so a
+ * second render of the same path only costs time. The determinism test
+ * renders fresh on purpose.
  */
 const rendered = new Map<string, Promise<string>>();
 const page = (search = ""): Promise<string> => {
 	const path = `/catalog/skills${search}`;
 	let html = rendered.get(path);
 	if (!html) {
-		html = renderPage(path);
+		html = renderSeeded(path, seededClient(catalogSeed()));
 		rendered.set(path, html);
 	}
 	return html;
 };
 
-/** One router for every inspector rendered alone; its links need one. */
-const router = createRouter({
-	routeTree,
-	history: createMemoryHistory({ initialEntries: ["/catalog/skills"] }),
-});
-
 /**
- * One skill's inspector alone: the same component the page renders, so it
- * reads its attachments the way the page does, without the app shell around
- * it (a tenth of a full page's cost).
+ * One skill's inspector alone: the same component the page renders, with the
+ * templates it reads seeded, without the app shell around it.
  */
-const inspector = (skill: Skill) =>
-	renderToString(
-		<RouterContextProvider router={router}>
-			<TooltipProvider>
-				<SkillInspector skill={skill} />
-			</TooltipProvider>
-		</RouterContextProvider>,
-	);
+const inspector = (s: Skill) =>
+	inProviders(<SkillInspector skill={s} />, seededClient({ agents: AGENTS }));
 
 /** Every role switch's state in a page, read from the attach panel once. */
 function switchStates(html: string): Map<string, string> {
@@ -223,68 +212,42 @@ const IMPORTED_CAPABILITY = "database-read";
 const WITH_ADDITIONS = "nextjs-route-handlers";
 
 // ---------------------------------------------------------------------------
-// The samples.
+// The fixtures and the rules on them.
 
-describe("skill samples", () => {
+describe("skill fixtures and rules", () => {
 	it("parse as the contract's full Skill, text included", () => {
-		for (const skill of SAMPLE_SKILLS) {
-			expect(skillSchema.parse(skill)).toEqual(skill);
-			expect(skill.contentMd.length, skill.slug).toBeGreaterThan(0);
-		}
-	});
-
-	it("keep AVEL's additions only on imported skills", () => {
-		for (const skill of SAMPLE_SKILLS) {
-			if (skill.avelEnhancementMd !== null) {
-				expect(skill.source.kind, skill.slug).not.toBe("internal");
-			}
-		}
-		expect(sampleSkill(WITH_ADDITIONS)?.avelEnhancementMd).not.toBeNull();
-	});
-
-	it("offer registry entries only from vendor and community sources, each hashed", () => {
-		const outside = new Set(
-			SAMPLE_SOURCES.filter((s) => s.kind !== "internal").map((s) => s.id),
-		);
-		for (const entry of SAMPLE_REGISTRY) {
-			expect(outside.has(entry.sourceId), entry.name).toBe(true);
-			expect(entry.contentSha256).toMatch(/^[0-9a-f]{64}$/);
+		for (const s of SKILLS) {
+			expect(skillSchema.parse(s)).toEqual(s);
+			expect(s.contentMd.length, s.slug).toBeGreaterThan(0);
 		}
 	});
 
 	it("count only imported drafts as needing review", () => {
-		const review = skillsNeedingReview(SAMPLE_SKILLS);
+		const review = skillsNeedingReview(SKILLS);
 		expect(review.length).toBeGreaterThan(0);
-		for (const skill of review) {
-			expect(skill.status).toBe("draft");
-			expect(skill.source.kind).not.toBe("internal");
+		for (const s of review) {
+			expect(s.status).toBe("draft");
+			expect(s.source.kind).not.toBe("internal");
 		}
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Pure rules.
-
 describe("sidebar rules", () => {
 	it("puts Yours first, then each other source by name, leaving out empty groups", () => {
-		const groups = groupBySource(SAMPLE_SKILLS);
+		const groups = groupBySource(SKILLS);
 		expect(groups[0]?.label).toBe("Yours");
 		const rest = groups.slice(1).map((g) => g.label);
 		expect(rest).toEqual([...rest].sort((a, b) => a.localeCompare(b)));
-		expect(groups.reduce((n, g) => n + g.skills.length, 0)).toBe(
-			SAMPLE_SKILLS.length,
-		);
+		expect(groups.reduce((n, g) => n + g.skills.length, 0)).toBe(SKILLS.length);
 		expect(groupBySource([])).toEqual([]);
 	});
 
 	it("filters by name, slug or description, ignoring case, and by drafts", () => {
-		expect(
-			filterSkills(SAMPLE_SKILLS, "DRIZZLE", false).map((s) => s.slug),
-		).toEqual(["drizzle-migrations"]);
-		expect(filterSkills(SAMPLE_SKILLS, "  ", false)).toHaveLength(
-			SAMPLE_SKILLS.length,
-		);
-		const drafts = filterSkills(SAMPLE_SKILLS, undefined, true);
+		expect(filterSkills(SKILLS, "NEXT.JS", false).map((s) => s.slug)).toEqual([
+			WITH_ADDITIONS,
+		]);
+		expect(filterSkills(SKILLS, "  ", false)).toHaveLength(SKILLS.length);
+		const drafts = filterSkills(SKILLS, undefined, true);
 		expect(drafts.length).toBeGreaterThan(0);
 		expect(drafts.every((s) => s.status === "draft")).toBe(true);
 	});
@@ -295,45 +258,45 @@ describe("sidebar rules", () => {
 	});
 
 	it("filters the registry by name, path or description", () => {
-		expect(filterRegistry(SAMPLE_REGISTRY, "zod").map((e) => e.name)).toEqual([
-			"zod-at-the-edge",
-		]);
-		expect(filterRegistry(SAMPLE_REGISTRY, "")).toHaveLength(
-			SAMPLE_REGISTRY.length,
-		);
+		const entries = sampleRegistry(SOURCES);
+		const first = entries[0];
+		expect(first).toBeDefined();
+		if (!first) return;
+		for (const e of filterRegistry(entries, first.name)) {
+			expect(e.name).toBe(first.name);
+		}
+		expect(filterRegistry(entries, "")).toHaveLength(entries.length);
+		expect(filterRegistry(entries, "zzzz-nothing")).toEqual([]);
 	});
 });
 
 describe("SKILL.md", () => {
 	it("is frontmatter (name, description, version), then the content", () => {
-		const skill = sampleSkill(ROLE_SKILL);
-		expect(skill).toBeDefined();
-		if (!skill) return;
-		const lines = skillMarkdown(skill).split("\n");
+		const s = skill(ROLE_SKILL);
+		const lines = skillMarkdown(s).split("\n");
 		expect(lines.slice(0, 5)).toEqual([
 			"---",
-			`name: ${skill.slug}`,
-			`description: ${skill.description}`,
-			`version: ${skill.version}`,
+			`name: ${s.slug}`,
+			`description: ${s.description}`,
+			`version: ${s.version}`,
 			"---",
 		]);
-		expect(skillMarkdown(skill).endsWith(skill.contentMd)).toBe(true);
+		expect(skillMarkdown(s).endsWith(s.contentMd)).toBe(true);
 	});
 
 	it("never merges AVEL's additions into the original", () => {
-		const skill = sampleSkill(WITH_ADDITIONS);
-		const additions = skill?.avelEnhancementMd ?? "";
+		const s = skill(WITH_ADDITIONS);
+		const additions = s.avelEnhancementMd ?? "";
 		expect(additions.length).toBeGreaterThan(0);
-		expect(skill && skillMarkdown(skill)).not.toContain(additions);
+		expect(skillMarkdown(s)).not.toContain(additions);
 	});
 
-	it("names its source in words, without a middle dot", () => {
-		const internal = SAMPLE_SKILLS.find((s) => s.source.kind === "internal");
-		const vendor = SAMPLE_SKILLS.find((s) => s.source.kind === "vendor");
-		expect(internal && sourceLine(internal)).toBe("Yours");
-		expect(vendor && sourceLine(vendor)).toBe(
-			"From Framework vendor pack, example.com/vendor/skills",
+	it("names its source in words, from the skill's own source, without a middle dot", () => {
+		expect(sourceLine(skill(ROLE_SKILL))).toBe("Yours");
+		expect(sourceLine(skill(WITH_ADDITIONS))).toBe(
+			"From Framework vendor pack",
 		);
+		expect(sourceLine(skill(WITH_ADDITIONS))).not.toContain(MIDDLE_DOT);
 	});
 });
 
@@ -341,21 +304,19 @@ describe("SKILL.md", () => {
 // The page.
 
 describe("/catalog/skills, a skill", () => {
-	it("renders the same samples on every visit (sample regions only)", async () => {
-		// Only the regions are compared: the rest of the page holds ids and
-		// timing that are not the samples' to keep stable.
-		const take = async () =>
-			// Fresh renders, not the shared cache: this test is about two visits.
-			regions(
-				await renderPage(`/catalog/skills?skill=${IMPORTED_CAPABILITY}`),
-			).map((r) => r.html.replace(/_r_[0-9a-z]+_/g, "_id_"));
-		const first = await take();
-		expect(first.length).toBeGreaterThan(0);
-		expect(await take()).toEqual(first);
+	it("renders the same page for the same data on every visit", async () => {
+		const once = () =>
+			renderSeeded(
+				`/catalog/skills?skill=${IMPORTED_CAPABILITY}`,
+				seededClient(catalogSeed()),
+			);
+		expect(await once()).toBe(await once());
 	});
 
-	it("labels every sample region, and keeps the write controls real", async () => {
+	it("shows a stack skill live, with no sample region at all, and the write controls real", async () => {
 		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
+		expect(regions(html)).toEqual([]);
+		expect(html).not.toContain('data-testid="sample-data"');
 		expectLabelled(
 			html,
 			[
@@ -364,8 +325,6 @@ describe("/catalog/skills, a skill", () => {
 				"skill-approve",
 				"skill-retire",
 				"skill-filter",
-			],
-			[
 				`skill-row-${IMPORTED_CAPABILITY}`,
 				"skill-status",
 				"skill-hash",
@@ -374,13 +333,25 @@ describe("/catalog/skills, a skill", () => {
 				"skill-code",
 				"catalog-agent-link-iyo",
 			],
+			[],
 		);
+	});
+
+	it("samples only a role skill's attachments and the carriers they imply", async () => {
+		const html = await page(`?skill=${ROLE_SKILL}`);
 		expect(new Set(regions(html).map((r) => r.missing))).toEqual(
-			new Set([
-				CATALOG_MISSING.skills,
-				CATALOG_MISSING.skill,
-				CATALOG_MISSING.templates,
-			]),
+			new Set([CATALOG_MISSING.roleAttachments]),
+		);
+		expectLabelled(
+			html,
+			[
+				"skill-approve",
+				"skill-retire",
+				"skill-status",
+				"skill-hash",
+				"skill-code",
+			],
+			["skill-role-property-tests", "skill-carried-by-list"],
 		);
 	});
 
@@ -392,24 +363,27 @@ describe("/catalog/skills, a skill", () => {
 
 	it("shows the technical facts", async () => {
 		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
-		const skill = sampleSkill(IMPORTED_CAPABILITY);
+		const s = skill(IMPORTED_CAPABILITY);
 		const facts = element(html, "skill-facts");
 		expect(facts).toContain(">stack<");
 		expect(facts).toContain(">capability<");
 		expect(element(html, "skill-status")).toContain(">Draft<");
 		expect(element(html, "skill-hash")).toContain(
-			`data-full="${skill?.contentSha256}"`,
+			`data-full="${s.contentSha256}"`,
 		);
 		expect(element(html, "skill-hash-covers")).toContain(
 			HASH_COVERS.replaceAll("'", "&#x27;"),
 		);
 		expect(tagOf(html, "skill-description-length")).toContain(
-			`data-length="${skill?.description.length}"`,
+			`data-length="${s.description.length}"`,
 		);
 		expect(element(html, "skill-io")).toContain("reads large → returns small");
-		for (const grant of skill?.type === "capability" ? skill.grants : []) {
+		for (const grant of s.type === "capability" ? s.grants : []) {
 			expect(element(html, "skill-capability")).toContain(`>${grant}<`);
 		}
+		expect(element(html, "skill-source-line")).toContain(
+			">From Community skills index<",
+		);
 	});
 
 	it("never badges a capability as enforced, and says an imported draft can't attach", async () => {
@@ -447,16 +421,73 @@ describe("/catalog/skills, a skill", () => {
 		);
 	});
 
-	it("links each agent that carries it", async () => {
+	it("links each live agent that carries it", async () => {
 		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
-		const skill = sampleSkill(IMPORTED_CAPABILITY);
-		const carriers = skill ? agentsOfSkill(skill) : [];
+		const carriers = agentsOfSkill(skill(IMPORTED_CAPABILITY), AGENTS);
 		expect(carriers.length).toBeGreaterThan(0);
-		for (const agent of carriers) {
-			expect(element(html, "skill-carried-by")).toContain(
-				`href="/catalog/agents?agent=${agent.slug}"`,
-			);
+		const carried = element(html, "skill-carried-by");
+		for (const a of carriers) {
+			expect(carried).toContain(`href="/catalog/agents?agent=${a.slug}"`);
 		}
+		expect(carried.match(/catalog-agent-link-/g)).toHaveLength(carriers.length);
+	});
+
+	it("reads the skill by its slug, so a selection works whatever the list holds", async () => {
+		// The selected skill is not in the list's page, and still opens.
+		const extra = { ...skill(ROLE_SKILL), slug: "from-page-two", id: "x" };
+		const html = await renderSeeded(
+			"/catalog/skills?skill=from-page-two",
+			seededClient({
+				skills: SKILLS,
+				skillBySlug: { "from-page-two": extra },
+				agents: AGENTS,
+			}),
+		);
+		expect(tagOf(html, "skill-inspector")).toContain(
+			'data-skill="from-page-two"',
+		);
+		expect(html).not.toContain('data-testid="skill-row-from-page-two"');
+	});
+
+	it("shows the inspector's own states: loading, a stale slug, a failure", async () => {
+		const loading = await renderSeeded(
+			`/catalog/skills?skill=${ROLE_SKILL}`,
+			seededClient({ skills: SKILLS }),
+		);
+		expect(tagOf(loading, "skill-inspector-surface")).toContain(
+			'data-state="loading"',
+		);
+		expect(loading).toContain('data-testid="skill-inspector-skeleton"');
+
+		const stale = await renderSeeded(
+			"/catalog/skills?skill=nothing-here",
+			seededClient({
+				skills: SKILLS,
+				skillBySlug: {
+					"nothing-here": notFoundError(`${SKILLS_PATH}/by-slug/nothing-here`),
+				},
+			}),
+		);
+		expect(tagOf(stale, "skill-inspector-surface")).toContain(
+			'data-state="error"',
+		);
+		expect(element(stale, "catalog-skills-not-found")).toContain(
+			"nothing-here",
+		);
+		expect(stale).not.toContain('data-testid="surface-error"');
+		expect(stale).not.toContain('data-testid="skill-inspector"');
+
+		const failed = await renderSeeded(
+			`/catalog/skills?skill=${ROLE_SKILL}`,
+			seededClient({
+				skills: SKILLS,
+				skillBySlug: {
+					[ROLE_SKILL]: internalError(`${SKILLS_PATH}/by-slug/${ROLE_SKILL}`),
+				},
+			}),
+		);
+		expect(failed).toContain('data-testid="surface-error"');
+		expect(failed).not.toContain("catalog-skills-not-found");
 	});
 
 	it("writes no middle dot anywhere in the skills page", async () => {
@@ -474,10 +505,77 @@ describe("/catalog/skills, a skill", () => {
 	});
 });
 
+describe("the live list's four states", () => {
+	it("loads the real list: a skeleton, no pill, no not-built state, the definition as subtitle", async () => {
+		const html = await renderPage("/catalog/skills");
+		expect(tagOf(html, "catalog-skills-surface")).toContain(
+			'data-state="loading"',
+		);
+		expect(html).toContain('data-testid="catalog-skills-skeleton"');
+		expect(html).not.toContain('data-state="not-built"');
+		expect(html).not.toContain('data-testid="sample-data"');
+		expect(html).toContain('data-testid="topbar-definition"');
+		expect(html).not.toContain('data-testid="topbar-subtitle"');
+	});
+
+	it("counts from meta.total in the top bar, and offers the next page", async () => {
+		expect(element(await page(), "topbar-subtitle")).toContain(
+			`>${SKILLS.length} skills<`,
+		);
+		const html = await renderSeeded(
+			"/catalog/skills",
+			seededClient({ skills: { rows: SKILLS, total: 40, nextCursor: "c2" } }),
+		);
+		expect(element(html, "topbar-subtitle")).toContain(">40 skills<");
+		expect(element(html, "catalog-skills-list-footer-showing")).toContain(
+			`>Showing ${SKILLS.length} of 40<`,
+		);
+		expect(html).toContain(
+			'data-testid="catalog-skills-list-footer-load-more"',
+		);
+		const one = await renderSeeded(
+			"/catalog/skills",
+			seededClient({ skills: [skill(ROLE_SKILL)] }),
+		);
+		expect(element(one, "topbar-subtitle")).toContain(">1 skill<");
+	});
+
+	it("says when there are none, offering New skill, in words that state no build status", async () => {
+		const html = await renderSeeded(
+			"/catalog/skills",
+			seededClient({ skills: [] }),
+		);
+		expect(tagOf(html, "catalog-skills-surface")).toContain(
+			'data-state="empty"',
+		);
+		expect(html).toContain('data-testid="catalog-skills-empty"');
+		expect(tagOf(html, "catalog-skills-empty-new")).toContain(
+			'href="/catalog/skills?view=new"',
+		);
+		expect(
+			html.match(/data-testid="empty-state-description"[^>]*>([^<]+)</)?.[1],
+		).not.toMatch(/contract|avel-server|not built|yet\b|route/i);
+		expect(element(html, "topbar-subtitle")).toContain(">0 skills<");
+	});
+
+	it("shows the error state when the list fails, keeping the page's actions", async () => {
+		const html = await renderSeeded(
+			"/catalog/skills",
+			seededClient({ skills: internalError(SKILLS_PATH) }),
+		);
+		expect(tagOf(html, "catalog-skills-surface")).toContain(
+			'data-state="error"',
+		);
+		expect(html).toContain('data-testid="surface-error"');
+		expect(html).toContain(">req_catalog<");
+		expect(html).toContain('data-testid="skills-new"');
+	});
+});
+
 describe("attaching", () => {
-	it("gives a role skill one disabled switch per role, grouped by family", async () => {
+	it("gives a role skill one disabled switch per role, grouped by family, from its sample attachments", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
-		const skill = sampleSkill(ROLE_SKILL);
+		const s = skill(ROLE_SKILL);
 		const panel = element(html, "skill-attach-panel");
 		for (const { family } of SAMPLE_FAMILY_TABLE) {
 			const card = element(panel, `skill-family-${family}`);
@@ -486,7 +584,7 @@ describe("attaching", () => {
 				expect(card, role).toContain(`data-testid="skill-role-${role}"`);
 				const sw = tagOf(card, `skill-role-${role}`);
 				// Attachment (role_skills), never recommendedFor.
-				const on = skill ? carryingRoles(skill).includes(role) : false;
+				const on = carryingRoles(s).includes(role);
 				expect(sw, role).toContain(
 					`data-state="${on ? "checked" : "unchecked"}"`,
 				);
@@ -497,57 +595,63 @@ describe("attaching", () => {
 		expect(html).toContain(SKILL_WRITE_REASON.attach.replaceAll("'", "&#x27;"));
 		// Platform roles are code: no family card, no switch.
 		expect(panel).not.toContain('data-testid="skill-role-render"');
+		expect(tagOf(html, "skill-attach-sample")).toContain(
+			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
+		);
 	});
 
-	it("says a stack skill is given at dispatch, with no role switches", async () => {
+	it("says a stack skill is given at dispatch, live, with no role switches and no pill", async () => {
 		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
 		const panel = element(html, "skill-attach-panel");
 		expect(panel).not.toContain('data-slot="switch"');
+		expect(panel).not.toContain("data-sample-region=");
+		expect(html).not.toContain('data-testid="skill-attach-reason"');
 		expect(element(panel, "skill-dispatch")).toContain(
 			"given at dispatch to missions whose roles include",
 		);
-		for (const role of sampleSkill(IMPORTED_CAPABILITY)?.recommendedFor ?? []) {
+		for (const role of skill(IMPORTED_CAPABILITY).recommendedFor) {
 			expect(panel).toContain(`>${role}<`);
 		}
 	});
 });
 
 describe("the sidebar", () => {
-	it("groups rows by source, Yours first, with counts", async () => {
+	it("groups rows by source, Yours first, with counts, behind no pill", async () => {
 		const html = await page();
 		const sidebar = element(html, "skill-sidebar");
+		expect(sidebar).not.toContain('data-testid="sample-data"');
 		const order = [
 			...sidebar.matchAll(/data-testid="skill-group-([^"]+)"/g),
 		].map((m) => m[1]);
 		expect(order[0]).toBe("yours");
-		for (const group of groupBySource(SAMPLE_SKILLS)) {
+		for (const group of groupBySource(SKILLS)) {
 			const el = element(sidebar, `skill-group-${group.id}`);
 			expect(el).toContain(`>${group.label}<`);
 			expect(el).toContain(`>${group.skills.length}<`);
-			for (const skill of group.skills) {
-				expect(el).toContain(`data-testid="skill-row-${skill.slug}"`);
+			for (const s of group.skills) {
+				expect(el).toContain(`data-testid="skill-row-${s.slug}"`);
 			}
 		}
 	});
 
 	it("marks drafts with a dot and dims retired skills", async () => {
 		const html = await page();
-		for (const skill of SAMPLE_SKILLS) {
-			const row = element(html, `skill-row-${skill.slug}`);
-			expect(row.includes('data-testid="skill-row-draft"'), skill.slug).toBe(
-				skill.status === "draft",
+		for (const s of SKILLS) {
+			const row = element(html, `skill-row-${s.slug}`);
+			expect(row.includes('data-testid="skill-row-draft"'), s.slug).toBe(
+				s.status === "draft",
 			);
 			expect(
-				classes(html, `skill-row-${skill.slug}`).includes(
+				classes(html, `skill-row-${s.slug}`).includes(
 					"opacity-(--opacity-disabled)",
 				),
-				skill.slug,
-			).toBe(skill.status === "retired");
+				s.slug,
+			).toBe(s.status === "retired");
 		}
 	});
 
 	it("shows the review banner, linking to the drafts and back", async () => {
-		const count = skillsNeedingReview(SAMPLE_SKILLS).length;
+		const count = skillsNeedingReview(SKILLS).length;
 		const all = await page();
 		const banner = element(all, "skill-review-banner");
 		expect(banner).toContain(reviewBannerText(count));
@@ -561,15 +665,15 @@ describe("the sidebar", () => {
 		);
 		const shown = rowSlugs(element(drafts, "skill-sidebar"));
 		expect(shown.sort()).toEqual(
-			SAMPLE_SKILLS.filter((s) => s.status === "draft")
+			SKILLS.filter((s) => s.status === "draft")
 				.map((s) => s.slug)
 				.sort(),
 		);
 	});
 
 	it("filters by the q in the URL, and says when nothing matches", async () => {
-		const one = element(await page("?q=drizzle"), "skill-sidebar");
-		expect(rowSlugs(one)).toEqual(["drizzle-migrations"]);
+		const one = element(await page("?q=next.js"), "skill-sidebar");
+		expect(rowSlugs(one)).toEqual([WITH_ADDITIONS]);
 		expect(await page("?q=zzzz-nothing")).toContain(
 			'data-testid="skill-sidebar-none"',
 		);
@@ -577,65 +681,92 @@ describe("the sidebar", () => {
 });
 
 describe("Discover", () => {
-	it("lists what vendor and community sources offer, with hashes and a disabled import", async () => {
+	it("lists what the live vendor and community sources offer, as samples with hashes and a disabled import", async () => {
 		const html = await page("?view=discover");
 		const discover = element(html, "skill-discover");
-		expect(discover).not.toContain(
-			'data-testid="skill-discover-source-internal"',
+		expect(tagOf(html, "skill-discover-surface")).toContain(
+			'data-state="success"',
 		);
-		for (const entry of SAMPLE_REGISTRY) {
-			const row = element(discover, `skill-discover-entry-${entry.name}`);
+		expect(discover).not.toContain('data-kind="internal"');
+		const entries = sampleRegistry(SOURCES);
+		expect(entries.length).toBeGreaterThan(0);
+		for (const entry of entries) {
+			const row = element(discover, `skill-discover-entry-${entry.id}`);
 			expect(row).toContain(entry.path);
 			expect(row).toContain(`data-full="${entry.contentSha256}"`);
 			expectDisabledWithReason(
 				html,
-				`skill-discover-import-${entry.name}`,
+				`skill-discover-import-${entry.id}`,
 				SKILL_WRITE_REASON.import,
 			);
 		}
-		expect(regions(html).map((r) => r.missing)).toContain(
+		expect(regions(html).map((r) => r.missing)).toEqual([
 			CATALOG_MISSING.registry,
+		]);
+		expectLabelled(
+			html,
+			["skill-discover-search"],
+			[`skill-discover-source-${source("vendor").id}`],
 		);
 	});
 
-	it("never offers an internal source's entry, even when one reaches it", () => {
-		const internal = SAMPLE_SOURCES.find((s) => s.kind === "internal");
-		const vendor = SAMPLE_SOURCES.find((s) => s.kind === "vendor");
-		expect(internal && vendor).toBeTruthy();
-		const entry = (name: string, sourceId: string) => ({
-			id: name,
-			name,
-			path: `x/${name}`,
-			description: "d",
-			sourceId,
-			contentSha256: "0".repeat(64),
-		});
-		const html = renderToString(
-			<TooltipProvider>
-				<SkillDiscover
-					entries={[
-						entry("ours-already", internal?.id ?? ""),
-						entry("theirs", vendor?.id ?? ""),
-					]}
-				/>
-			</TooltipProvider>,
-		);
-		expect(html).toContain('data-testid="skill-discover-entry-theirs"');
-		expect(html).not.toContain(
-			'data-testid="skill-discover-entry-ours-already"',
-		);
-		expect(html).not.toContain('data-testid="skill-discover-source-internal"');
+	it("never offers an internal source's entry", () => {
+		expect(sampleRegistry([source("internal")])).toEqual([]);
+		expect(
+			sampleRegistry(SOURCES).some((e) => e.sourceId === source("internal").id),
+		).toBe(false);
 	});
 
 	it("ranks by source, then name, and shows no install count", async () => {
 		const discover = element(await page("?view=discover"), "skill-discover");
-		const kinds = [
+		const ids = [
 			...discover.matchAll(/data-testid="skill-discover-source-([^"]+)"/g),
 		].map((m) => m[1]);
-		expect(kinds).toEqual(
-			SAMPLE_SOURCES.filter((s) => s.kind !== "internal").map((s) => s.kind),
+		expect(ids).toEqual(
+			SOURCES.filter((s) => s.kind !== "internal").map((s) => s.id),
 		);
+		for (const id of ids) {
+			const section = element(discover, `skill-discover-source-${id}`);
+			const names = [...section.matchAll(/data-name="([^"]+)"/g)].map(
+				(m) => m[1] ?? "",
+			);
+			expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+		}
 		expect(discover).not.toMatch(/install(s|ed)\b/i);
+	});
+
+	it("has its own states: loading, none to offer, a failure", async () => {
+		const loading = await renderSeeded(
+			"/catalog/skills?view=discover",
+			seededClient({ skills: SKILLS }),
+		);
+		expect(tagOf(loading, "skill-discover-surface")).toContain(
+			'data-state="loading"',
+		);
+		expect(loading).toContain('data-testid="skill-discover-skeleton"');
+		expect(loading).not.toContain('data-testid="sample-data"');
+
+		// Only an internal source: nothing to discover.
+		const none = await renderSeeded(
+			"/catalog/skills?view=discover",
+			seededClient({ skills: SKILLS, sources: [source("internal")] }),
+		);
+		expect(tagOf(none, "skill-discover-surface")).toContain(
+			'data-state="empty"',
+		);
+		expect(none).toContain('data-testid="skill-discover-empty"');
+
+		const failed = await renderSeeded(
+			"/catalog/skills?view=discover",
+			seededClient({
+				skills: SKILLS,
+				sources: internalError("/api/skill-sources"),
+			}),
+		);
+		expect(tagOf(failed, "skill-discover-surface")).toContain(
+			'data-state="error"',
+		);
+		expect(failed).toContain('data-testid="surface-error"');
 	});
 });
 
@@ -671,43 +802,6 @@ describe("New skill", () => {
 // From the code review of 09b3b37 and 728e777.
 
 describe("review fixes", () => {
-	it("reads the selection from the list it is given, never from elsewhere", () => {
-		const listed = [{ slug: "only-this" }];
-		expect(selectedSkill(listed, undefined, "only-this")).toBe(listed[0]);
-		// A sample the list does not hold is not selected.
-		expect(selectedSkill(listed, undefined, ROLE_SKILL)).toBeUndefined();
-		expect(selectedSkill(listed, "discover", "only-this")).toBeUndefined();
-		expect(selectedSkill(listed, undefined, undefined)).toBeUndefined();
-	});
-
-	it("says a served route is waiting on wiring, not that the server lacks it", async () => {
-		for (const served of [
-			CATALOG_MISSING.skills,
-			CATALOG_MISSING.skill,
-			CATALOG_MISSING.templates,
-			CATALOG_MISSING.sources,
-		]) {
-			expect(catalogPillReason(served)).toBe(
-				`Sample data. avel-server serves ${served}; this page is wired to it in a later step.`,
-			);
-		}
-		for (const missing of [
-			CATALOG_MISSING.registry,
-			CATALOG_MISSING.versions,
-			CATALOG_MISSING.measures,
-			CATALOG_MISSING.families,
-		]) {
-			expect(catalogPillReason(missing)).toBeUndefined();
-		}
-		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
-		expect(html).toContain(
-			`avel-server serves ${CATALOG_MISSING.skills}; this page is wired to it in a later step.`,
-		);
-		expect(html).not.toContain(
-			`Placeholder until avel-server has ${CATALOG_MISSING.skills}`,
-		);
-	});
-
 	it("names a missing route only where avel-server has none", () => {
 		for (const key of ["approve", "retire", "create"] as const) {
 			expect(SKILL_WRITE_REASON[key]).toMatch(
@@ -740,20 +834,22 @@ describe("review fixes", () => {
 // recommendedFor, which only filters stack and domain skills at dispatch.
 
 describe("role attachment", () => {
-	const roleSkills = SAMPLE_SKILLS.filter((s) => s.layer === "role");
+	const roleSkills = SKILLS.filter((s) => s.layer === "role");
 
-	it("gives every role skill its own attachments, and no other skill any", () => {
-		for (const skill of SAMPLE_SKILLS) {
-			expect(skill.slug in SAMPLE_ROLE_ATTACHMENTS, skill.slug).toBe(
-				skill.layer === "role",
-			);
+	it("gives every role skill attachments of its own, and no other skill any", () => {
+		for (const s of roleSkills) {
+			expect(carryingRoles(s)).toBe(sampleRoleAttachments(s.slug));
 		}
-		// The samples differ from recommendedFor on purpose, so a mix-up shows.
+		for (const s of SKILLS.filter((s) => s.layer !== "role")) {
+			expect(carryingRoles(s)).toBe(s.recommendedFor);
+		}
+		// The named samples differ from recommendedFor on purpose, so a mix-up shows.
 		expect(
 			roleSkills.some(
 				(s) =>
+					s.slug in SAMPLE_ROLE_ATTACHMENTS &&
 					[...carryingRoles(s)].sort().join() !==
-					[...s.recommendedFor].sort().join(),
+						[...s.recommendedFor].sort().join(),
 			),
 		).toBe(true);
 	});
@@ -769,11 +865,9 @@ describe("role attachment", () => {
 		] as const;
 		const roles = ROLES.filter((r) => SAMPLE_ROLE_FAMILY[r] !== "Platform");
 		for (const c of cases) {
-			const skill = sampleSkill(c.slug);
-			expect(skill, c.slug).toBeDefined();
-			if (!skill) continue;
-			const states = switchStates(inspector(skill));
-			const attached = carryingRoles(skill);
+			const s = skill(c.slug);
+			const states = switchStates(inspector(s));
+			const attached = carryingRoles(s);
 			// Every role has a switch, and each one follows the attachment.
 			expect([...states.keys()].sort(), c.slug).toEqual([...roles].sort());
 			for (const role of roles) {
@@ -783,21 +877,19 @@ describe("role attachment", () => {
 			}
 			// The disagreement itself, by name.
 			if ("off" in c) {
-				expect(skill.recommendedFor).toContain(c.off);
+				expect(s.recommendedFor).toContain(c.off);
 				expect(states.get(c.off)).toBe("unchecked");
 			}
 			if ("on" in c) {
-				expect(skill.recommendedFor).not.toContain(c.on);
+				expect(s.recommendedFor).not.toContain(c.on);
 				expect(states.get(c.on)).toBe("checked");
 			}
 		}
 	});
 
-	it("lists as carriers the agents covering an attached role", async () => {
-		const skill = sampleSkill("agreeing-wrong-tests");
-		expect(skill).toBeDefined();
-		if (!skill) return;
-		const carriers = agentsOfSkill(skill)
+	it("lists as carriers the live agents covering an attached role, behind the attachment pill", async () => {
+		const s = skill("agreeing-wrong-tests");
+		const carriers = agentsOfSkill(s, AGENTS)
 			.map((a) => a.slug)
 			.sort();
 		// By recommendedFor alone it would be Brennan only; attachment adds Zane.
@@ -812,6 +904,32 @@ describe("role attachment", () => {
 		);
 	});
 
+	it("reads the carriers' templates live: loading, a failure, none", () => {
+		const s = skill(IMPORTED_CAPABILITY);
+		const loading = inProviders(<SkillInspector skill={s} />, seededClient());
+		expect(tagOf(loading, "skill-carried-by-surface")).toContain(
+			'data-state="loading"',
+		);
+		expect(loading).toContain('data-testid="skill-carried-by-skeleton"');
+		const failed = inProviders(
+			<SkillInspector skill={s} />,
+			seededClient({ agents: internalError("/api/agent-templates") }),
+		);
+		expect(tagOf(failed, "skill-carried-by-surface")).toContain(
+			'data-state="error"',
+		);
+		const none = inProviders(
+			<SkillInspector skill={s} />,
+			seededClient({ agents: [] }),
+		);
+		expect(tagOf(none, "skill-carried-by-surface")).toContain(
+			'data-state="success"',
+		);
+		expect(element(none, "skill-carried-by-none")).toContain(
+			"No agent covers a role this skill is recommended for.",
+		);
+	});
+
 	it("labels the switches as waiting on module 5's attachment read", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
 		expect(tagOf(html, "skill-attach-sample")).toContain(
@@ -822,16 +940,13 @@ describe("role attachment", () => {
 		);
 	});
 
-	it("leaves the stack branch as it was: recommendedFor, given at dispatch", async () => {
+	it("keeps a stack skill's carriers live: recommendedFor, no pill", async () => {
 		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
-		const skill = sampleSkill(IMPORTED_CAPABILITY);
-		expect(skill && carryingRoles(skill)).toEqual(skill?.recommendedFor);
-		expect(tagOf(html, "skill-attach-sample")).toContain(
-			`data-sample-region="${CATALOG_MISSING.skills}"`,
+		expect(carryingRoles(skill(IMPORTED_CAPABILITY))).toEqual(
+			skill(IMPORTED_CAPABILITY).recommendedFor,
 		);
-		expect(html).not.toContain('data-testid="skill-attach-reason"');
-		expect(tagOf(html, "skill-carried-by-sample")).toContain(
-			`data-sample-region="${CATALOG_MISSING.templates}"`,
+		expect(element(html, "skill-carried-by")).not.toContain(
+			"data-sample-region=",
 		);
 	});
 });
@@ -849,8 +964,7 @@ describe("Attaches to, polished", () => {
 
 	it("counts the attached roles in each family's header", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
-		const skill = sampleSkill(ROLE_SKILL);
-		const on = skill ? carryingRoles(skill) : [];
+		const on = carryingRoles(skill(ROLE_SKILL));
 		for (const { family } of SAMPLE_FAMILY_TABLE) {
 			const roles = ROLES.filter((r) => SAMPLE_ROLE_FAMILY[r] === family);
 			const n = roles.filter((r) => on.includes(r)).length;
@@ -902,11 +1016,10 @@ describe("Attaches to, polished", () => {
 describe("visual-pass fixes", () => {
 	it("captions each attached role, since a disabled switch barely shows on", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
-		const skill = sampleSkill(ROLE_SKILL);
 		const attached = [
 			...html.matchAll(/data-testid="skill-role-([a-z-]+)-attached"/g),
 		].map((m) => m[1]);
-		const on = skill ? [...carryingRoles(skill)] : [];
+		const on = [...carryingRoles(skill(ROLE_SKILL))];
 		expect(attached.sort()).toEqual(on.sort());
 		for (const role of on) {
 			expect(element(html, `skill-role-${role}-attached`)).toContain(
@@ -927,7 +1040,7 @@ describe("visual-pass fixes", () => {
 		// The actions come last in the markup, so flex-col-reverse lifts them.
 		const block = element(html, "skill-header");
 		expect(block.indexOf('data-testid="skill-actions"')).toBeGreaterThan(
-			block.indexOf('data-testid="skill-header-sample"'),
+			block.indexOf('data-testid="skill-header-facts"'),
 		);
 	});
 
@@ -987,9 +1100,12 @@ describe("layout", () => {
 		});
 	}
 
-	it("says a stale slug names no skill", async () => {
-		const html = await page("?skill=nothing-here");
-		expect(html).toContain('data-testid="catalog-skills-not-found"');
+	it("lets a view outrank a selection", async () => {
+		const html = await page(`?skill=${ROLE_SKILL}&view=new`);
+		expect(html).toContain('data-testid="skill-new"');
 		expect(html).not.toContain('data-testid="skill-inspector"');
+		expect(tagOf(html, `skill-row-${ROLE_SKILL}`)).not.toContain(
+			"data-selected",
+		);
 	});
 });

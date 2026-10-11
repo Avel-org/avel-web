@@ -21,21 +21,19 @@ import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
 
 /** The search writes to the URL this long after the last keystroke. */
-export const PRESET_SEARCH_DEBOUNCE_MS = 300;
+const PRESET_SEARCH_DEBOUNCE_MS = 300;
 
 const CUTS: PresetCut[] = ["horizontal", "vertical"];
 
 /**
- * The left pane: the search and the cut filter, then the presets, a page at
- * a time. Each row is a link (?preset=<id>, keeping the filters), so a
+ * The table view's left pane: the presets, a page at a time (the search
+ * and cut filter sit in the page's toolbar). Each row is a link (?preset=<id>, keeping the filters), so a
  * selected preset is a link. The route owns the query; this renders it.
  */
 export function PresetListPane({
 	query,
 	search,
 	cut,
-	onSearch,
-	onCut,
 	selectedId,
 	onClearFilters,
 }: {
@@ -43,8 +41,6 @@ export function PresetListPane({
 	/** The settled search, or undefined for none. */
 	search: string | undefined;
 	cut: PresetCut | undefined;
-	onSearch: (text: string) => void;
-	onCut: (cut: PresetCut | undefined) => void;
 	selectedId: string | undefined;
 	onClearFilters: () => void;
 }) {
@@ -54,8 +50,6 @@ export function PresetListPane({
 			data-testid="preset-pane"
 			className="flex min-h-0 flex-col gap-3"
 		>
-			<PresetSearch value={search ?? ""} onChange={onSearch} />
-			<CutFilter value={cut} onChange={onCut} />
 			<Surface
 				data-testid="preset-list"
 				query={query}
@@ -122,7 +116,7 @@ export function noMatchCopy(
  * Searches presets by name. The URL's `?q` is the source of truth, so a
  * search is a link; typing updates it after a short pause.
  */
-function PresetSearch({
+export function PresetSearch({
 	value,
 	onChange,
 }: {
@@ -170,7 +164,7 @@ function PresetSearch({
 }
 
 /** All, Horizontal or Vertical: one pressed at a time, as the URL's `?cut`. */
-function CutFilter({
+export function CutFilter({
 	value,
 	onChange,
 }: {
@@ -205,7 +199,7 @@ function CutFilter({
  * The rows: links, so Enter and a click both select, and the selection is a
  * URL. Up and Down move between rows; Home and End jump to the ends.
  */
-export function PresetRows({
+function PresetRows({
 	presets,
 	selectedId,
 	search,
@@ -320,7 +314,7 @@ function ListFooter({
 }
 
 /** Three rows in the list's real shape: few, so it does not promise many. */
-export function PresetListSkeleton() {
+function PresetListSkeleton() {
 	return (
 		<div data-testid="preset-list-skeleton" className="flex flex-col gap-0.5">
 			{[0, 1, 2].map((i) => (

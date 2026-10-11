@@ -3,7 +3,6 @@ import {
 	type AgentTemplate,
 	ROLES,
 	type Role,
-	type SkillListItem,
 	type SkillStatus,
 	WAVES,
 	type Wave,
@@ -16,14 +15,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiError } from "@/lib/api/errors";
 import { useCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
-import { catalogPillReason } from "./catalog-placeholders";
 import { SampleData } from "./sample-data";
 import { StatusPill, type StatusTone } from "./status-pill";
 import type { SurfaceQuery } from "./surface";
 
 /*
  * Pieces shared by the three catalog pages (AVEL-DESIGN.md rulings 29 and
- * 32). Every value they show comes from catalog-placeholders.ts.
+ * 32). The lists are live; a SampleRegion marks what still has no route.
  */
 
 /**
@@ -63,7 +61,7 @@ export function SampleRegion({
 				className,
 			)}
 		>
-			<SampleData missing={missing} reason={catalogPillReason(missing)} />
+			<SampleData missing={missing} />
 			{children}
 		</section>
 	);
@@ -188,32 +186,8 @@ export function RoleTag({ role }: { role: string }) {
 	);
 }
 
-/** A skill's layer and type, as two tags. */
-export function SkillKind({ skill }: { skill: SkillListItem }) {
-	return (
-		<span data-testid="catalog-skill-kind" className="inline-flex gap-1">
-			<Badge variant="tag">{skill.layer}</Badge>
-			<Badge variant="tag">{skill.type}</Badge>
-		</span>
-	);
-}
-
 const LINK =
 	"rounded-xs text-accent-text underline-offset-4 transition-colors duration-(--duration-micro) ease-avel hover:underline";
-
-/** A link to a skill on /catalog/skills. */
-export function SkillLink({ skill }: { skill: SkillListItem }) {
-	return (
-		<Link
-			to="/catalog/skills"
-			search={{ skill: skill.slug }}
-			data-testid={`catalog-skill-link-${skill.slug}`}
-			className={cn("type-small", LINK)}
-		>
-			{skill.name}
-		</Link>
-	);
-}
 
 /** A link to an agent on /catalog/agents. */
 export function AgentLink({ agent }: { agent: AgentTemplate }) {
@@ -246,14 +220,65 @@ export function CatalogField({
 }
 
 /**
- * A list's query. Today it is always the samples, already loaded; when a
- * route is mounted the page passes the real query instead, and the list's
- * loading, empty and error states, already built, take over.
+ * A list's query, as <Surface> reads it. The catalog pages pass their live
+ * queries; the Drive (drive.tsx, ruling 33) still passes its samples through
+ * sampleQuery until its routes exist.
  */
 export type CatalogQuery<T> = SurfaceQuery<readonly T[], ApiError>;
 
 export function sampleQuery<T>(data: readonly T[]): CatalogQuery<T> {
 	return { status: "success", data };
+}
+
+/**
+ * How much of a paged list is loaded, and a way to load the rest, as the
+ * Clients list does it. Nothing renders when the server gave no total and
+ * there is no next page: there is nothing to say.
+ */
+export function CatalogListFooter({
+	loaded,
+	total,
+	hasMore,
+	loadingMore,
+	onLoadMore,
+	"data-testid": testId,
+}: {
+	loaded: number;
+	total: number | undefined;
+	hasMore: boolean;
+	loadingMore: boolean;
+	onLoadMore: () => void;
+	"data-testid": string;
+}) {
+	if (total === undefined && !hasMore) return null;
+	return (
+		<div
+			data-testid={testId}
+			className="flex items-center justify-between gap-2 px-3"
+		>
+			{total === undefined ? (
+				<span />
+			) : (
+				<p
+					data-testid={`${testId}-showing`}
+					className="type-caption text-text-subtle tabular-nums"
+				>
+					{`Showing ${loaded} of ${total}`}
+				</p>
+			)}
+			{hasMore ? (
+				<Button
+					variant="ghost"
+					size="sm"
+					data-testid={`${testId}-load-more`}
+					disabled={loadingMore}
+					onClick={onLoadMore}
+				>
+					{loadingMore ? "Loading" : "Load more"}
+				</Button>
+			) : null}
+		</div>
+	);
 }
 
 /** Roles in the contract's catalog order (ROLES.md), never the data's. */

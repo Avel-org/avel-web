@@ -1,15 +1,7 @@
 import type { Client } from "avel-server/contract";
-import { type FormEvent, type ReactNode, useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
 import {
@@ -24,16 +16,24 @@ import {
 	useUpdateClient,
 } from "@/lib/api/clients";
 import { describeError } from "@/lib/error-map";
+import {
+	ActionModal,
+	type FieldIssue,
+	type IssuePath,
+	ModalField,
+} from "./action-modal";
+import { useOpenGeneration } from "./use-open-generation";
+import { fieldChanges, WhatChanges } from "./what-changes";
 
 /**
- * New client and edit client, in a sheet.
+ * New client and edit client, in a Form modal (ruling 35).
  *
  * This is step 1 of ROUTES.md's /clients/new onboarding (the client record:
  * name and contact). The six-step wizard, with engagement, repository, the
  * repository read, RepoPolicy and Canon's brief, comes later; this form is
  * the part that exists in the contract today.
  */
-export function ClientFormSheet({
+export function ClientFormModal({
 	open,
 	onOpenChange,
 	client,
@@ -46,6 +46,8 @@ export function ClientFormSheet({
 	const create = useCreateClient();
 	const update = useUpdateClient();
 	const mutation = client ? update : create;
+	// Each opening starts from the client's current values.
+	const generation = useOpenGeneration(open);
 
 	const submit = (draft: ClientDraft) => {
 		if (client) {
@@ -71,48 +73,56 @@ export function ClientFormSheet({
 	};
 
 	return (
-		<Sheet
+		<ClientForm
+			key={`${client?.id ?? "new"}:${generation}`}
 			open={open}
 			onOpenChange={(next) => {
 				if (!next) mutation.reset();
 				onOpenChange(next);
 			}}
-		>
-			<SheetContent side="right" data-testid="client-form-sheet">
-				<SheetHeader>
-					<SheetTitle>
-						{client ? `Edit ${client.name}` : "New client"}
-					</SheetTitle>
-					<SheetDescription>
-						{client
-							? "Change the client's name, contact or notes."
-							: "The client record. Engagements and repositories are added after."}
-					</SheetDescription>
-				</SheetHeader>
-				{/* Keyed by the client, so reopening starts from its current values. */}
-				<ClientForm
-					key={client?.id ?? "new"}
-					client={client}
-					pending={mutation.isPending}
-					error={mutation.error}
-					onSubmit={submit}
-				/>
-			</SheetContent>
-		</Sheet>
+			client={client}
+			pending={mutation.isPending}
+			error={mutation.error}
+			onSubmit={submit}
+		/>
 	);
 }
 
+/** The client fields, by the name the contract's issues use. */
+const CLIENT_FIELDS = ["name", "primaryContact", "notesMd"] as const;
+
+/** An issue's field, when it is one of this form's. */
+const clientFieldOf = (path: IssuePath): string | null =>
+	(CLIENT_FIELDS as readonly unknown[]).includes(path[0])
+		? (path[0] as string)
+		: null;
+
 /**
- * The form itself. Presentational: it holds the draft and reports a submit;
- * the sheet owns the request. Edit mode compares the draft with the client,
- * so Save is disabled until something changed and never sends an empty patch.
+ * Copy for a refused field. The validator's own message is for logs, never
+ * shown: a field gets this form's copy, anything else a plain line.
+ */
+export function clientIssueCopy(error: ApiError | null) {
+	const copy = fieldErrors(error);
+	return (issue: FieldIssue) =>
+		(typeof issue.path[0] === "string" ? copy[issue.path[0]] : undefined) ??
+		"A value here isn't accepted.";
+}
+
+/**
+ * The form in its modal. It holds the draft and reports a submit; the caller
+ * owns the request. Edit mode compares the draft with the client, so Save
+ * holds, saying why, until something changed, and never sends an empty patch.
  */
 export function ClientForm({
+	open = true,
+	onOpenChange = () => {},
 	client,
 	pending,
 	error,
 	onSubmit,
 }: {
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 	client?: Client;
 	pending: boolean;
 	error: ApiError | null;
@@ -120,11 +130,12 @@ export function ClientForm({
 }) {
 	const [draft, setDraft] = useState<ClientDraft>(() => draftOf(client));
 	const [nameMissing, setNameMissing] = useState(false);
-	const serverErrors = fieldErrors(error);
-	const errors: Record<string, string> = {
-		...serverErrors,
-		...(nameMissing ? { name: "Give it a name of 1 to 200 characters." } : {}),
-	};
+	const before = client ? draftOf(client) : undefined;
+	const changes = fieldChanges(before, draft, [
+		{ key: "name", label: "Name" },
+		{ key: "primaryContact", label: "Primary contact" },
+		{ key: "notesMd", label: "Notes" },
+	]);
 	const unchanged =
 		client !== undefined && changedFields(client, draft) === null;
 
@@ -133,8 +144,7 @@ export function ClientForm({
 		if (field === "name") setNameMissing(false);
 	};
 
-	const submit = (event: FormEvent) => {
-		event.preventDefault();
+	const submit = () => {
 		if (draft.name.trim() === "") {
 			setNameMissing(true);
 			return;
@@ -143,13 +153,38 @@ export function ClientForm({
 	};
 
 	return (
-		<form
-			data-testid="client-form"
-			noValidate
+		<ActionModal
+			open={open}
+			onOpenChange={onOpenChange}
+			size="form"
+			title={client ? `Edit ${client.name}` : "Add client"}
+			description={
+				client
+					? "Change the client's name, contact or notes."
+					: "The client record. Engagements and repositories are added after."
+			}
+			dirty={changes.length > 0}
+			submitLabel={client ? "Save client" : "Add client"}
+			pendingLabel={client ? "Saving" : "Adding"}
+			submitDisabledReason={unchanged ? "Nothing has changed yet." : undefined}
 			onSubmit={submit}
-			className="flex flex-1 flex-col gap-4 px-4 pb-4"
+			pending={pending}
+			error={error}
+			fieldOf={clientFieldOf}
+			describeIssue={clientIssueCopy(error)}
+			changes={
+				<WhatChanges changes={changes} data-testid="client-form-changes" />
+			}
+			data-testid="client-form"
 		>
-			<Field label="Name" error={errors.name} testid="client-form-name">
+			<ModalField
+				name="name"
+				label="Name"
+				error={
+					nameMissing ? "Give it a name of 1 to 200 characters." : undefined
+				}
+				testid="client-form-name"
+			>
 				{(props) => (
 					<Input
 						{...props}
@@ -160,11 +195,11 @@ export function ClientForm({
 						onChange={(e) => set("name")(e.target.value)}
 					/>
 				)}
-			</Field>
-			<Field
+			</ModalField>
+			<ModalField
+				name="primaryContact"
 				label="Primary contact"
 				hint="Optional"
-				error={errors.primaryContact}
 				testid="client-form-contact"
 			>
 				{(props) => (
@@ -175,11 +210,11 @@ export function ClientForm({
 						onChange={(e) => set("primaryContact")(e.target.value)}
 					/>
 				)}
-			</Field>
-			<Field
+			</ModalField>
+			<ModalField
+				name="notesMd"
 				label="Notes"
 				hint="Optional"
-				error={errors.notesMd}
 				testid="client-form-notes"
 			>
 				{(props) => (
@@ -191,22 +226,8 @@ export function ClientForm({
 						onChange={(e) => set("notesMd")(e.target.value)}
 					/>
 				)}
-			</Field>
-			<FormError
-				error={error}
-				hasFieldErrors={Object.keys(serverErrors).length > 0}
-			/>
-			<div className="mt-auto flex justify-end gap-2">
-				<Button
-					type="submit"
-					data-testid="client-form-submit"
-					disabled={pending}
-					disabledReason={unchanged ? "Nothing has changed yet." : undefined}
-				>
-					{pending ? "Saving" : client ? "Save changes" : "Add client"}
-				</Button>
-			</div>
-		</form>
+			</ModalField>
+		</ActionModal>
 	);
 }
 

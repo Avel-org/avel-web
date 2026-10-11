@@ -1,6 +1,6 @@
 import { type AgentTemplate, type Preset, WAVES } from "avel-server/contract";
 import { Plus, Trash2 } from "lucide-react";
-import { type FormEvent, useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,16 +12,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiError } from "@/lib/api";
-import { loadedRows, useAgentTemplates } from "@/lib/api/catalog";
 import {
 	type AgentDraft,
 	agentDraftOf,
@@ -29,39 +21,48 @@ import {
 	changedPresetFields,
 	createBodyOf,
 	isRosterable,
+	keyOf,
 	nextVersion,
 	type PresetCut,
 	type PresetDraft,
+	presetDiff,
 	presetDraftOf,
-	presetFieldErrors,
+	presetIssueCopy,
 	presetProblems,
 	shortId,
 	useCreatePreset,
 	useUpdatePreset,
 } from "@/lib/api/presets";
-import { Field, FormError } from "./client-form";
+import { ActionModal, ModalField, useFieldIssues } from "./action-modal";
+import { agentName, fieldText } from "./preset-compare";
+import { type Names, useAllTemplates, useTemplateNames } from "./preset-detail";
+import { useOpenGeneration } from "./use-open-generation";
+import { type Change, fieldChanges, WhatChanges } from "./what-changes";
 
 /**
- * New preset and edit preset, in a sheet. Every rule the form checks is the
- * contract's own createPresetBody, so it refuses what the server would.
- * Editing says which version the save makes, since every update adds 1.
+ * New preset and edit preset, in a Form modal (ruling 35). Every rule the
+ * form checks is the contract's own createPresetBody, so it refuses what the
+ * server would. Editing says which version the save makes: every update
+ * adds 1.
  */
-export function PresetFormSheet({
+export function PresetFormModal({
 	open,
 	onOpenChange,
 	preset,
-	onCreated,
+	onSaved,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	/** Present when editing; absent when creating. */
 	preset?: Preset;
-	/** Selects the new preset, so it opens where it was made. */
-	onCreated?: (preset: Preset) => void;
+	/** The saved preset, for the caller's landed highlight or selection. */
+	onSaved?: (preset: Preset) => void;
 }) {
 	const create = useCreatePreset();
 	const update = useUpdatePreset();
 	const mutation = preset ? update : create;
+	// Each opening starts from the preset's current values.
+	const generation = useOpenGeneration(open);
 
 	const submit = (draft: PresetDraft) => {
 		if (preset) {
@@ -73,6 +74,7 @@ export function PresetFormSheet({
 					onSuccess: (saved) => {
 						toast.success(`Saved ${saved.name} as v${saved.version}.`);
 						onOpenChange(false);
+						onSaved?.(saved);
 					},
 				},
 			);
@@ -81,63 +83,125 @@ export function PresetFormSheet({
 				onSuccess: (saved) => {
 					toast.success(`Added ${saved.name}.`);
 					onOpenChange(false);
-					onCreated?.(saved);
+					onSaved?.(saved);
 				},
 			});
 		}
 	};
 
 	return (
-		<Sheet
+		<PresetForm
+			key={`${preset?.id ?? "new"}:${generation}`}
 			open={open}
 			onOpenChange={(next) => {
 				if (!next) mutation.reset();
 				onOpenChange(next);
 			}}
-		>
-			<SheetContent
-				side="right"
-				data-testid="preset-form-sheet"
-				className="sm:max-w-xl"
-			>
-				<SheetHeader>
-					<SheetTitle>
-						{preset ? `Edit ${preset.name}` : "New preset"}
-					</SheetTitle>
-					<SheetDescription>
-						{preset
-							? "Change the squad. Missions that already applied it keep their copy."
-							: "Save a squad once. Applying it copies these agents into a mission's roster."}
-					</SheetDescription>
-				</SheetHeader>
-				{/* Keyed by the preset and its version, so reopening starts from what is saved. */}
-				<PresetForm
-					key={preset ? `${preset.id}@${preset.version}` : "new"}
-					preset={preset}
-					pending={mutation.isPending}
-					error={mutation.error}
-					onSubmit={submit}
-				/>
-			</SheetContent>
-		</Sheet>
+			preset={preset}
+			pending={mutation.isPending}
+			error={mutation.error}
+			onSubmit={submit}
+		/>
 	);
+}
+
+/**
+ * What saving does, for the WhatChanges strip: the preset's own fields, the
+ * agents added, removed or set differently, and on an edit the version it
+ * makes. Computed from the form against the loaded preset only.
+ */
+export function presetChanges(
+	preset: Preset | undefined,
+	draft: PresetDraft,
+	names: Names,
+): Change[] {
+	const body = createBodyOf(draft);
+	const shown = (p: {
+		name: string;
+		description: string | null;
+		cut: PresetCut;
+	}) => ({
+		name: p.name,
+		description: p.description ?? "",
+		cut: CUT_LABEL[p.cut],
+	});
+	const changes = fieldChanges(
+		preset ? shown(preset) : undefined,
+		shown({ ...body, description: body.description ?? null }),
+		[
+			{ key: "name", label: "Name" },
+			{ key: "description", label: "Description" },
+			{ key: "cut", label: "Cut" },
+		],
+	);
+	const agents = body.agents.map((a) => ({
+		agentTemplateId: a.agentTemplateId,
+		waves: a.waves,
+		territory: a.territory,
+		writablePaths: a.writablePaths,
+		estimatedTokens: a.estimatedTokens,
+	}));
+	const diff = presetDiff(
+		{ cut: preset?.cut ?? body.cut, agents: preset?.agents ?? [] },
+		{ cut: body.cut, agents },
+	);
+	for (const agent of diff.onlyB) {
+		if (agent.agentTemplateId === "") continue;
+		changes.push({
+			label: `Agent · ${agentName(agent, names)}`,
+			kind: "add",
+			to: fieldText(agent, "waves"),
+			mono: true,
+		});
+	}
+	for (const agent of diff.onlyA) {
+		changes.push({
+			label: `Agent · ${agentName(agent, names)}`,
+			kind: "remove",
+			from: fieldText(agent, "waves"),
+			mono: true,
+		});
+	}
+	for (const { a, b, fields } of diff.changed) {
+		changes.push({
+			label: `Agent · ${agentName(a, names)}`,
+			kind: "change",
+			from: fields.map((f) => fieldText(a, f)).join("; "),
+			to: fields.map((f) => fieldText(b, f)).join("; "),
+			mono: true,
+		});
+	}
+	if (preset && changes.length > 0) {
+		changes.push({
+			label: "Version",
+			kind: "change",
+			from: `v${preset.version}`,
+			to: `v${nextVersion(preset)}`,
+			mono: true,
+		});
+	}
+	return changes;
 }
 
 /** An agent row with a key of its own: the form adds and removes rows. */
 type Row = { uid: number; draft: AgentDraft };
 
 /**
- * The form itself. Presentational: it holds the draft and reports a submit;
- * the sheet owns the request. Problems show once a submit was tried, then
- * follow every change. Edit mode sends only what changed, so Save is
- * disabled until something did.
+ * The form in its modal. It holds the draft and reports a submit; the caller
+ * owns the request. Problems show once a submit was tried, then follow every
+ * change. Edit mode sends only what changed, so Save holds, saying why,
+ * until something did.
  */
 export function PresetForm({
+	open = true,
+	onOpenChange = () => {},
 	preset,
 	pending,
 	error,
 	onSubmit,
 }: {
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 	preset?: Preset;
 	pending: boolean;
 	error: ApiError | null;
@@ -145,6 +209,7 @@ export function PresetForm({
 }) {
 	const initial = presetDraftOf(preset);
 	const nextUid = useRef(initial.agents.length);
+	const names = useTemplateNames();
 	const [fields, setFields] = useState(() => ({
 		name: initial.name,
 		description: initial.description,
@@ -157,8 +222,7 @@ export function PresetForm({
 
 	const draft: PresetDraft = { ...fields, agents: rows.map((r) => r.draft) };
 	const problems = tried ? presetProblems(draft) : {};
-	const serverErrors = presetFieldErrors(error);
-	const errors = { ...serverErrors, ...problems };
+	const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
 	const unchanged =
 		preset !== undefined && changedPresetFields(preset, draft) === null;
 
@@ -175,35 +239,61 @@ export function PresetForm({
 	const removeRow = (uid: number) =>
 		setRows((current) => current.filter((row) => row.uid !== uid));
 
-	const submit = (event: FormEvent) => {
-		event.preventDefault();
+	const submit = () => {
 		setTried(true);
 		if (Object.keys(presetProblems(draft)).length > 0) return;
 		onSubmit(draft);
 	};
 
 	return (
-		<form
-			data-testid="preset-form"
-			noValidate
+		<ActionModal
+			open={open}
+			onOpenChange={onOpenChange}
+			size="form"
+			title={preset ? "Edit preset" : "New preset"}
+			description={
+				preset
+					? `${preset.name}, v${preset.version}. Missions that already applied it keep their copy.`
+					: "Save a squad once. Applying it copies these agents into a mission's roster."
+			}
+			dirty={dirty}
+			submitLabel={preset ? `Save as v${nextVersion(preset)}` : "Add preset"}
 			onSubmit={submit}
-			className="app-scroll flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4"
+			pending={pending}
+			submitDisabledReason={unchanged ? "Nothing has changed yet." : undefined}
+			error={error}
+			fieldOf={keyOf}
+			describeIssue={presetIssueCopy}
+			changes={
+				<WhatChanges
+					data-testid="preset-form-changes"
+					changes={presetChanges(preset, draft, names)}
+				/>
+			}
+			data-testid="preset-form"
 		>
-			<Field label="Name" error={errors.name} testid="preset-form-name">
+			<ModalField
+				name="name"
+				label="Name"
+				error={problems.name}
+				testid="preset-form-name"
+			>
 				{(props) => (
 					<Input
 						{...props}
 						required
 						maxLength={200}
+						autoFocus
 						value={fields.name}
 						onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))}
 					/>
 				)}
-			</Field>
-			<Field
+			</ModalField>
+			<ModalField
+				name="description"
 				label="Description"
 				hint="Optional"
-				error={errors.description}
+				error={problems.description}
 				testid="preset-form-description"
 			>
 				{(props) => (
@@ -217,7 +307,7 @@ export function PresetForm({
 						}
 					/>
 				)}
-			</Field>
+			</ModalField>
 			<CutField
 				value={fields.cut}
 				onChange={(cut) => setFields((f) => ({ ...f, cut }))}
@@ -225,7 +315,7 @@ export function PresetForm({
 
 			<AgentRows
 				rows={rows}
-				errors={errors}
+				problems={problems}
 				onChange={setRow}
 				onRemove={removeRow}
 			/>
@@ -240,34 +330,7 @@ export function PresetForm({
 				<Plus aria-hidden="true" />
 				Add agent
 			</Button>
-
-			<FormError
-				error={error}
-				hasFieldErrors={Object.keys(serverErrors).length > 0}
-			/>
-			<div className="mt-auto flex items-center justify-end gap-3">
-				{preset ? (
-					<p
-						data-testid="preset-form-version"
-						className="type-caption text-text-subtle tabular-nums"
-					>
-						{`v${preset.version} → v${nextVersion(preset)}`}
-					</p>
-				) : null}
-				<Button
-					type="submit"
-					data-testid="preset-form-submit"
-					disabled={pending}
-					disabledReason={unchanged ? "Nothing has changed yet." : undefined}
-				>
-					{pending
-						? "Saving"
-						: preset
-							? `Save as v${nextVersion(preset)}`
-							: "Add preset"}
-				</Button>
-			</div>
-		</form>
+		</ActionModal>
 	);
 }
 
@@ -314,20 +377,20 @@ function CutField({
  */
 function AgentRows({
 	rows,
-	errors,
+	problems,
 	onChange,
 	onRemove,
 }: {
 	rows: Row[];
-	errors: Record<string, string>;
+	problems: Record<string, string>;
 	onChange: (uid: number, change: Partial<AgentDraft>) => void;
 	onRemove: (uid: number) => void;
 }) {
-	const templates = useAgentTemplates();
+	const templates = useAllTemplates();
 	const choices = useMemo(
 		() =>
-			(templates.data ? loadedRows(templates.data) : []).filter(isRosterable),
-		[templates.data],
+			templates.status === "success" ? templates.list.filter(isRosterable) : [],
+		[templates],
 	);
 
 	if (rows.length === 0) {
@@ -342,104 +405,113 @@ function AgentRows({
 	}
 	return (
 		<ol data-testid="preset-form-agents" className="flex flex-col gap-3">
-			{rows.map((row, i) => (
-				<li
-					key={row.uid}
-					data-testid={`preset-form-agent-${i}`}
-					className="flex flex-col gap-3 rounded-md border border-border p-3"
-				>
-					<div className="flex items-center justify-between gap-2">
-						<span className="type-panel-title text-foreground">
-							{`Agent ${i + 1}`}
-						</span>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-xs"
-							aria-label={`Remove agent ${i + 1}`}
-							data-testid={`preset-form-remove-${i}`}
-							onClick={() => onRemove(row.uid)}
+			{rows.map((row, i) => {
+				const at = (field: string) => `agents.${i}.${field}`;
+				return (
+					<li
+						key={row.uid}
+						data-testid={`preset-form-agent-${i}`}
+						className="flex flex-col gap-3 rounded-md border border-border p-3"
+					>
+						<div className="flex items-center justify-between gap-2">
+							<span className="type-panel-title text-foreground">
+								{`Agent ${i + 1}`}
+							</span>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-xs"
+								aria-label={`Remove agent ${i + 1}`}
+								data-testid={`preset-form-remove-${i}`}
+								onClick={() => onRemove(row.uid)}
+							>
+								<Trash2 aria-hidden="true" />
+							</Button>
+						</div>
+						<TemplateField
+							name={at("agentTemplateId")}
+							value={row.draft.agentTemplateId}
+							choices={choices}
+							loading={templates.status === "pending"}
+							error={problems[at("agentTemplateId")]}
+							testid={`preset-form-template-${i}`}
+							onChange={(agentTemplateId) =>
+								onChange(row.uid, { agentTemplateId })
+							}
+						/>
+						<WavesField
+							name={at("waves")}
+							value={row.draft.waves}
+							error={problems[at("waves")]}
+							testid={`preset-form-waves-${i}`}
+							onChange={(waves) => onChange(row.uid, { waves })}
+						/>
+						<ModalField
+							name={at("territory")}
+							label="Territory"
+							hint="Optional"
+							error={problems[at("territory")]}
+							testid={`preset-form-territory-${i}`}
 						>
-							<Trash2 aria-hidden="true" />
-						</Button>
-					</div>
-					<TemplateField
-						value={row.draft.agentTemplateId}
-						choices={choices}
-						loading={templates.status === "pending"}
-						error={errors[`agents.${i}.agentTemplateId`]}
-						testid={`preset-form-template-${i}`}
-						onChange={(agentTemplateId) =>
-							onChange(row.uid, { agentTemplateId })
-						}
-					/>
-					<WavesField
-						value={row.draft.waves}
-						error={errors[`agents.${i}.waves`]}
-						testid={`preset-form-waves-${i}`}
-						onChange={(waves) => onChange(row.uid, { waves })}
-					/>
-					<Field
-						label="Territory"
-						hint="Optional"
-						error={errors[`agents.${i}.territory`]}
-						testid={`preset-form-territory-${i}`}
-					>
-						{(props) => (
-							<Input
-								{...props}
-								maxLength={200}
-								placeholder="Whole project"
-								value={row.draft.territory}
-								onChange={(e) =>
-									onChange(row.uid, { territory: e.target.value })
-								}
-							/>
-						)}
-					</Field>
-					<Field
-						label="Writable paths"
-						hint="One per line. Empty keeps the template's."
-						error={errors[`agents.${i}.writablePaths`]}
-						testid={`preset-form-paths-${i}`}
-					>
-						{(props) => (
-							<Textarea
-								{...props}
-								rows={2}
-								className="type-mono-small"
-								value={row.draft.writablePaths}
-								onChange={(e) =>
-									onChange(row.uid, { writablePaths: e.target.value })
-								}
-							/>
-						)}
-					</Field>
-					<Field
-						label="Estimated tokens"
-						hint="Optional. A default; every mission estimates again."
-						error={errors[`agents.${i}.estimatedTokens`]}
-						testid={`preset-form-tokens-${i}`}
-					>
-						{(props) => (
-							<Input
-								{...props}
-								inputMode="numeric"
-								className="tabular-nums"
-								value={row.draft.estimatedTokens}
-								onChange={(e) =>
-									onChange(row.uid, { estimatedTokens: e.target.value })
-								}
-							/>
-						)}
-					</Field>
-				</li>
-			))}
+							{(props) => (
+								<Input
+									{...props}
+									maxLength={200}
+									placeholder="Whole project"
+									value={row.draft.territory}
+									onChange={(e) =>
+										onChange(row.uid, { territory: e.target.value })
+									}
+								/>
+							)}
+						</ModalField>
+						<ModalField
+							name={at("writablePaths")}
+							label="Writable paths"
+							hint="One per line. Empty keeps the template's."
+							error={problems[at("writablePaths")]}
+							testid={`preset-form-paths-${i}`}
+						>
+							{(props) => (
+								<Textarea
+									{...props}
+									rows={2}
+									className="type-mono-small"
+									value={row.draft.writablePaths}
+									onChange={(e) =>
+										onChange(row.uid, { writablePaths: e.target.value })
+									}
+								/>
+							)}
+						</ModalField>
+						<ModalField
+							name={at("estimatedTokens")}
+							label="Estimated tokens"
+							hint="Optional. A default; every mission estimates again."
+							error={problems[at("estimatedTokens")]}
+							testid={`preset-form-tokens-${i}`}
+						>
+							{(props) => (
+								<Input
+									{...props}
+									inputMode="numeric"
+									className="tabular-nums"
+									value={row.draft.estimatedTokens}
+									onChange={(e) =>
+										onChange(row.uid, { estimatedTokens: e.target.value })
+									}
+								/>
+							)}
+						</ModalField>
+					</li>
+				);
+			})}
 		</ol>
 	);
 }
 
 function TemplateField({
+	name,
 	value,
 	choices,
 	loading,
@@ -447,6 +519,7 @@ function TemplateField({
 	testid,
 	onChange,
 }: {
+	name: string;
 	value: string;
 	choices: AgentTemplate[];
 	loading: boolean;
@@ -456,7 +529,7 @@ function TemplateField({
 }) {
 	const offered = choices.some((t) => t.id === value);
 	return (
-		<Field label="Template" error={error} testid={testid}>
+		<ModalField name={name} label="Template" error={error} testid={testid}>
 			{({ id, ...props }) => (
 				<Select
 					value={value === "" ? undefined : value}
@@ -481,27 +554,34 @@ function TemplateField({
 					</SelectContent>
 				</Select>
 			)}
-		</Field>
+		</ModalField>
 	);
 }
 
 /** A to E, any number pressed; at least one is required. */
 function WavesField({
+	name,
 	value,
 	error,
 	testid,
 	onChange,
 }: {
+	name: string;
 	value: AgentDraft["waves"];
 	error: string | undefined;
 	testid: string;
 	onChange: (waves: AgentDraft["waves"]) => void;
 }) {
 	const errorId = useId();
+	// A custom control: the refusal's messages for it come from the modal.
+	const messages = [
+		...new Set([...(error ? [error] : []), ...useFieldIssues(name)]),
+	];
 	return (
 		<fieldset
 			data-testid={testid}
-			aria-describedby={error ? errorId : undefined}
+			data-field={name}
+			aria-describedby={messages.length > 0 ? errorId : undefined}
 			className="flex flex-col gap-1.5"
 		>
 			<legend className="type-small font-medium text-foreground">Waves</legend>
@@ -530,13 +610,13 @@ function WavesField({
 					);
 				})}
 			</div>
-			{error ? (
+			{messages.length > 0 ? (
 				<p
 					id={errorId}
 					data-testid={`${testid}-error`}
 					className="type-small text-gate-block"
 				>
-					{error}
+					{messages.join(" ")}
 				</p>
 			) : null}
 		</fieldset>

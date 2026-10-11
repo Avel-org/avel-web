@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { loadedActivity, type useActivity } from "@/lib/api/activity";
 import { relativeTime } from "@/lib/api/clients";
 import { ActivityActor } from "./activity-actor";
+import { AuditTable, DecisionRecord, RecordLink } from "./activity-audit";
 import { ACTION_COPY, ENTITY_LABEL } from "./activity-copy";
 import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
@@ -24,12 +25,17 @@ export function ActivityLog({
 	filtered,
 	onClearFilters,
 	now,
+	selectedId,
+	onSelect = () => {},
 }: {
 	query: ReturnType<typeof useActivity>;
 	filtered: boolean;
 	onClearFilters: () => void;
 	/** Fixed by the page, so relative times render once and do not churn. */
 	now: number;
+	/** The entry whose decision record is open: the URL's `entry`. */
+	selectedId?: string;
+	onSelect?: (id: string | undefined) => void;
 }) {
 	return (
 		<Surface
@@ -69,8 +75,24 @@ export function ActivityLog({
 			{(data) => {
 				const entries = loadedActivity(data);
 				return (
-					<div className="flex flex-col gap-2">
-						<ActivityRows entries={entries} now={now} />
+					<div className="flex flex-col gap-4">
+						{/* The audit table from md; below it, the two-line rows. */}
+						<div className="hidden md:block">
+							<AuditTable
+								entries={entries}
+								selectedId={selectedId}
+								onSelect={onSelect}
+								now={now}
+							/>
+						</div>
+						<div className="md:hidden">
+							<ActivityRows entries={entries} now={now} withRecordLinks />
+						</div>
+						<DecisionRecord
+							entry={entries.find((e) => e.id === selectedId)}
+							selectedId={selectedId}
+							onClose={() => onSelect(undefined)}
+						/>
 						<ActivityFooter
 							loaded={entries.length}
 							total={data.pages[0]?.meta.total}
@@ -92,9 +114,12 @@ export function ActivityLog({
 export function ActivityRows({
 	entries,
 	now,
+	withRecordLinks = false,
 }: {
 	entries: ActivityEntry[];
 	now: number;
+	/** On a phone, each row opens its decision record by a link. */
+	withRecordLinks?: boolean;
 }) {
 	return (
 		<ol
@@ -131,6 +156,7 @@ export function ActivityRows({
 						>
 							{relativeTime(entry.at, now)}
 						</time>
+						{withRecordLinks ? <RecordLink id={entry.id} /> : null}
 					</span>
 				</li>
 			))}

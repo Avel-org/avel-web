@@ -9,19 +9,23 @@ import {
 } from "@tanstack/react-query";
 import {
 	type AgentTemplate,
+	type CoherenceInput,
 	contract,
 	createPresetBody,
 	FIRM_ROLES,
 	type PageMeta,
 	type Preset,
 	type PresetAgent,
+	type PresetApplication,
 	type Role,
 	type updatePresetBody,
+	WAVES,
 	type Wave,
 } from "avel-server/contract";
 import type { z } from "zod";
+import { missionKeys } from "@/components/avel/mission-data";
 import { type ApiClient, call, callPage } from "./client";
-import { ApiError } from "./errors";
+import { presetCoherenceInput } from "./coherence";
 import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
 
@@ -278,8 +282,12 @@ const PROBLEM_COPY: Record<string, string> = {
 	estimatedTokens: "Give a whole number of tokens above 0, or leave it empty.",
 };
 
-/** The key of an issue's path, cut at its last named field, or null. */
-function keyOf(path: readonly (string | number)[]): ProblemKey | null {
+/**
+ * The key of an issue's path, cut at its last named field ("name",
+ * "agents.0.waves"), or null when no field of the form holds it. The preset
+ * form's fieldOf.
+ */
+export function keyOf(path: readonly (string | number)[]): ProblemKey | null {
 	for (let end = path.length - 1; end >= 0; end--) {
 		const part = path[end];
 		if (typeof part === "string") {
@@ -291,6 +299,18 @@ function keyOf(path: readonly (string | number)[]): ProblemKey | null {
 
 function copyOf(key: ProblemKey): string {
 	return PROBLEM_COPY[key.split(".").at(-1) ?? ""] ?? "";
+}
+
+/**
+ * Copy for a refused issue. The validator's own message is for logs, never
+ * shown: a field gets this form's copy, anything else a plain line, as the
+ * client form does.
+ */
+export function presetIssueCopy(issue: {
+	path: readonly (string | number)[];
+}): string {
+	const key = keyOf(issue.path);
+	return key === null ? "A value here isn't accepted." : copyOf(key);
 }
 
 /**
@@ -319,21 +339,6 @@ export function presetProblems(draft: PresetDraft): Record<ProblemKey, string> {
 		seen.add(pair);
 	});
 	return problems;
-}
-
-/** Field problems the server answered with (400 VALIDATION_FAILED). */
-export function presetFieldErrors(error: unknown): Record<ProblemKey, string> {
-	if (!(error instanceof ApiError)) return {};
-	const { failure } = error;
-	if (failure.kind !== "contract" || failure.code !== "VALIDATION_FAILED") {
-		return {};
-	}
-	const errors: Record<ProblemKey, string> = {};
-	for (const issue of failure.details?.body ?? []) {
-		const key = keyOf(issue.path);
-		if (key !== null) errors[key] = copyOf(key);
-	}
-	return errors;
 }
 
 /** An agent's fields in one fixed order, so two agents compare by value. */
@@ -369,4 +374,265 @@ export function changedPresetFields(
 /** The version a save produces: every update adds 1. */
 export function nextVersion(preset: Pick<Preset, "version">): number {
 	return preset.version + 1;
+}
+
+// ---------------------------------------------------------------------------
+// The squad board.
+
+/**
+ * A preset's agents by wave, A to E: an agent sits in every wave it works
+ * in. Agents with no wave (the read shape allows none) are kept apart, so
+ * nothing silently disappears from the grid.
+ */
+export function waveGrid(agents: readonly PresetAgent[]): {
+	columns: Array<{ wave: Wave; agents: PresetAgent[] }>;
+	noWave: PresetAgent[];
+} {
+	return {
+		columns: WAVES.map((wave) => ({
+			wave,
+			agents: agents.filter((a) => a.waves.includes(wave)),
+		})),
+		noWave: agents.filter((a) => a.waves.length === 0),
+	};
+}
+
+/**
+ * What identifies an agent within a preset: its template and territory,
+ * since a template sits at most once per territory (409 CONFLICT).
+ */
+export function presetAgentKey(
+	agent: Pick<PresetAgent, "agentTemplateId" | "territory">,
+): string {
+	return `${agent.agentTemplateId}:${agent.territory ?? ""}`;
+}
+
+/** The fields compared for an agent both presets hold, in display order. */
+export const DIFF_FIELDS = [
+	"waves",
+	"writablePaths",
+	"estimatedTokens",
+] as const satisfies readonly (keyof PresetAgent)[];
+
+export type DiffField = (typeof DIFF_FIELDS)[number];
+
+export type PresetDiff = {
+	/** Agents only the first preset has. */
+	onlyA: PresetAgent[];
+	/** Agents only the second preset has. */
+	onlyB: PresetAgent[];
+	/** Agents both have, with the fields that differ. */
+	changed: Array<{ a: PresetAgent; b: PresetAgent; fields: DiffField[] }>;
+	/** Agents both have, alike in every compared field. */
+	same: PresetAgent[];
+	/** Whether the cuts differ: applying either gives a different kind of roster. */
+	cutDiffers: boolean;
+};
+
+const sameValue = (x: unknown, y: unknown) =>
+	JSON.stringify(x) === JSON.stringify(y);
+
+/**
+ * Two presets' squads, side by side: agents matched by template and
+ * territory, then compared field by field. Order follows the first preset,
+ * then the second's extras, so the diff reads like the presets do.
+ */
+export function presetDiff(
+	a: Pick<Preset, "cut" | "agents">,
+	b: Pick<Preset, "cut" | "agents">,
+): PresetDiff {
+	const inB = new Map(b.agents.map((agent) => [presetAgentKey(agent), agent]));
+	const inA = new Set(a.agents.map(presetAgentKey));
+	const diff: PresetDiff = {
+		onlyA: [],
+		onlyB: b.agents.filter((agent) => !inA.has(presetAgentKey(agent))),
+		changed: [],
+		same: [],
+		cutDiffers: a.cut !== b.cut,
+	};
+	for (const agent of a.agents) {
+		const other = inB.get(presetAgentKey(agent));
+		if (!other) {
+			diff.onlyA.push(agent);
+			continue;
+		}
+		const fields = DIFF_FIELDS.filter(
+			(field) => !sameValue(agent[field], other[field]),
+		);
+		if (fields.length === 0) diff.same.push(agent);
+		else diff.changed.push({ a: agent, b: other, fields });
+	}
+	return diff;
+}
+
+/** The last few changes to a preset: its detail's Activity tab, one page. */
+const PRESET_ACTIVITY_LIMIT = 20;
+
+/**
+ * contract.activity.list for one preset: preset.created and preset.updated
+ * (entity type roster_preset). Applying a preset logs against the roster
+ * entries it made (roster.preset_applied), so it is on the mission, not here.
+ */
+export function presetActivityQuery(api: ApiClient, id: string) {
+	return queryOptions({
+		queryKey: queryKeys.presets.activity(id, PRESET_ACTIVITY_LIMIT),
+		queryFn: () =>
+			callPage(contract.activity.list, () =>
+				api.activity.list({
+					query: {
+						entityType: "roster_preset",
+						entityId: id,
+						limit: PRESET_ACTIVITY_LIMIT,
+					},
+				}),
+			),
+	});
+}
+
+export function usePresetActivity(id: string) {
+	return useQuery(presetActivityQuery(useApiClient(), id));
+}
+
+// ---------------------------------------------------------------------------
+// Applying a preset to a mission.
+
+/**
+ * Applies a preset to a draft mission: its agents become roster entries
+ * (copy-then-edit). A roster with entries is refused (422 roster_not_empty)
+ * unless `replace`, which removes them first. The mission's roster and
+ * detail change, and the apply is logged, so all three refresh.
+ */
+export function useApplyPreset() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			missionId,
+			presetId,
+			replace,
+		}: {
+			missionId: string;
+			presetId: string;
+			replace: boolean;
+		}) =>
+			call(contract.roster.applyPreset, () =>
+				api.roster.applyPreset({
+					params: { missionId },
+					body: { presetId, replace },
+				}),
+			),
+		onSuccess: (_roster, { missionId }) =>
+			Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: queryKeys.roster.list(missionId),
+				}),
+				queryClient.invalidateQueries({
+					queryKey: missionKeys.detail(missionId),
+				}),
+				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+				queryClient.invalidateQueries({ queryKey: queryKeys.presets.all() }),
+			]),
+	});
+}
+
+/** "Apply 6 agents", "Apply 1 agent": what the stepper's button does. */
+export function applyLabel(n: number): string {
+	return n === 1 ? "Apply 1 agent" : `Apply ${n} agents`;
+}
+
+/**
+ * The CoherenceInput the roster would have after applying: the preset's
+ * agents as active entries, after the current ones unless they are
+ * replaced. Paths resolve through the contract's resolveWritablePaths. Null
+ * when a preset agent's template is not in the catalog: there is nothing to
+ * read its kind and roles from, and the server will refuse it anyway.
+ */
+export function appliedCoherenceInput(
+	before: CoherenceInput,
+	agents: readonly PresetAgent[],
+	templates: ReadonlyMap<
+		string,
+		Pick<AgentTemplate, "kind" | "roles" | "writablePaths">
+	>,
+	replace: boolean,
+): CoherenceInput | null {
+	return presetCoherenceInput({ cut: before.cut, agents }, templates, {
+		before,
+		replace,
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Moving agents between waves on the board.
+
+/**
+ * An agent's waves after its chip moves from one wave to another: `from` is
+ * replaced by `to`, a wave it already works in is not repeated, and the
+ * result keeps A to E order. Moving onto its own wave changes nothing.
+ */
+export function moveWave(waves: readonly Wave[], from: Wave, to: Wave): Wave[] {
+	const next = new Set(waves.filter((w) => w !== from));
+	next.add(to);
+	return WAVES.filter((w) => next.has(w));
+}
+
+/** The wave beside this one, left (-1) or right (1), or null at either end. */
+export function adjacentWave(wave: Wave, step: -1 | 1): Wave | null {
+	return WAVES[WAVES.indexOf(wave) + step] ?? null;
+}
+
+/** An agent's waves with one more, in A to E order. */
+export function addWave(waves: readonly Wave[], wave: Wave): Wave[] {
+	return WAVES.filter((w) => w === wave || waves.includes(w));
+}
+
+// ---------------------------------------------------------------------------
+// Where a preset was applied.
+
+const APPLICATIONS_PAGE_SIZE = 50;
+
+/** contract.presets.applications: newest first, a page at a time. */
+export function presetApplicationsQuery(api: ApiClient, id: string) {
+	return infiniteQueryOptions({
+		queryKey: queryKeys.presets.presetApplications(id, APPLICATIONS_PAGE_SIZE),
+		queryFn: ({ pageParam }) =>
+			callPage(contract.presets.applications, () =>
+				api.presets.applications({
+					params: { id },
+					query: {
+						limit: APPLICATIONS_PAGE_SIZE,
+						...(pageParam ? { cursor: pageParam } : {}),
+					},
+				}),
+			),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: (last) => last.meta.nextCursor ?? undefined,
+	});
+}
+
+export function usePresetApplications(id: string) {
+	return useInfiniteQuery(presetApplicationsQuery(useApiClient(), id));
+}
+
+/**
+ * The preset's version now, when an application used an older one: the
+ * mission has that version's squad, not this one's. Null when current.
+ */
+export function staleSince(
+	application: Pick<PresetApplication, "presetVersion">,
+	preset: Pick<Preset, "version">,
+): number | null {
+	return application.presetVersion < preset.version ? preset.version : null;
+}
+
+/** The preset agents' template ids the catalog does not hold, each once. */
+export function missingTemplateIds(
+	agents: readonly Pick<PresetAgent, "agentTemplateId">[],
+	templates: ReadonlyMap<string, unknown>,
+): string[] {
+	return [
+		...new Set(
+			agents.map((a) => a.agentTemplateId).filter((id) => !templates.has(id)),
+		),
+	];
 }

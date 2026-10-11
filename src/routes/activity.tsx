@@ -18,6 +18,8 @@ import { Page, pageHead } from "../shell/page";
 export const activitySearch = z.object({
 	entityType: activityEntityType.optional().catch(undefined),
 	actorKind: activityActorKind.optional().catch(undefined),
+	/** The entry whose decision record is open, so a record is a link. */
+	entry: z.string().uuid().optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/activity")({
@@ -47,6 +49,7 @@ function ActivityPage() {
 
 	const setFilters = (next: ActivityFilters) =>
 		navigate({
+			// A new filter closes the record: its entry may no longer be listed.
 			search: { entityType: next.entityType, actorKind: next.actorKind },
 			replace: true,
 		});
@@ -65,6 +68,10 @@ function ActivityPage() {
 					filtered={filtered}
 					onClearFilters={() => setFilters({})}
 					now={now}
+					selectedId={search.entry}
+					onSelect={(entry) =>
+						navigate({ search: (prev) => ({ ...prev, entry }), replace: true })
+					}
 				/>
 			</div>
 		</Page>

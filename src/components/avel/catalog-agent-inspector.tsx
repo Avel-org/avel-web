@@ -5,6 +5,7 @@ import {
 	CircleCheck,
 	Copy,
 	Network,
+	SearchX,
 	X,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -16,7 +17,10 @@ import {
 	SheetDescription,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isNotFound, useAgentTemplate } from "@/lib/api/catalog";
+import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 import {
 	AGENT_MISSING,
@@ -49,13 +53,18 @@ import {
 } from "./catalog-sample";
 import { CodeView } from "./code-view";
 import { type DataColumn, DataTable } from "./data-table";
+import { EmptyState } from "./empty-state";
 import { StatusPill } from "./status-pill";
+import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
 /*
- * The agent panel: one template, in a slide-over from the right at every
- * width, so the table or graph keeps the whole content width. Read-only
- * throughout: an identity is generated from roles, so the only way to change
- * one is to change a role it covers.
+ * The agent panel: one template, read by its slug (GET
+ * /api/agent-templates/by-slug/:slug), in a slide-over from the right at
+ * every width, so the table or graph keeps the whole content width.
+ * Read-only throughout: an identity is generated from roles, so the only way
+ * to change one is to change a role it covers. The template's own fields are
+ * live; its measures, edges, versions and allowed actions are labelled
+ * samples (catalog-placeholders.ts) until their routes exist.
  */
 
 export const PANEL_TABS = [
@@ -102,12 +111,19 @@ export function panelOpener(slug: string): HTMLElement | SVGElement | null {
 
 /**
  * The panel, sliding in from the right over the page. It closes by its X,
- * Escape or a click outside, each through onOpenChange.
+ * Escape or a click outside, each through onOpenChange. The template is read
+ * by its slug, so a selection is a link that works whatever the list's
+ * filters or paging; a stale slug says so instead of showing nothing.
  */
 export function AgentPanelSheet({
 	open,
+	slug,
 	...props
-}: PanelProps & { open: boolean }) {
+}: Omit<PanelProps, "agent"> & {
+	open: boolean;
+	slug: string;
+}) {
+	const query = useAgentTemplate(slug);
 	return (
 		<Sheet
 			open={open}
@@ -121,15 +137,135 @@ export function AgentPanelSheet({
 				data-testid="catalog-agent-panel-sheet"
 				className={cn("gap-0", PANEL_WIDTH)}
 				onCloseAutoFocus={(event) => {
-					const opener = panelOpener(props.agent.slug);
+					const opener = panelOpener(slug);
 					if (!opener) return;
 					event.preventDefault();
 					opener.focus();
 				}}
 			>
-				<PanelBody {...props} inSheet />
+				<AgentPanelSurface
+					slug={slug}
+					query={query}
+					onClose={props.onClose}
+					inSheet
+				>
+					{(agent) => <PanelBody {...props} agent={agent} inSheet />}
+				</AgentPanelSurface>
 			</SheetContent>
 		</Sheet>
+	);
+}
+
+/** The panel's header while it loads or when its slug finds nothing. */
+function PanelFrame({
+	title,
+	inSheet,
+	onClose,
+	children,
+	"data-testid": testId,
+}: {
+	title: string;
+	inSheet: boolean;
+	onClose: () => void;
+	children: ReactNode;
+	"data-testid": string;
+}) {
+	const Title = inSheet ? SheetTitle : "h2";
+	const Description = inSheet ? SheetDescription : "p";
+	return (
+		<div data-testid={testId} className="flex min-h-0 flex-1 flex-col">
+			<header className="flex items-start gap-3 border-b border-border p-4">
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<Title className="type-h2 truncate text-foreground">{title}</Title>
+					<Description className="sr-only">Agent template</Description>
+				</div>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					aria-label="Close panel"
+					data-testid="catalog-agent-panel-close"
+					onClick={onClose}
+				>
+					<X aria-hidden="true" />
+				</Button>
+			</header>
+			<div className="flex flex-col gap-3 p-4">{children}</div>
+		</div>
+	);
+}
+
+/**
+ * The four states of one template read by slug. NOT_FOUND is a stale link,
+ * not a failure: it says so, with a way to close. Any other error is the
+ * standard error state, with Try again where it can help.
+ */
+export function AgentPanelSurface({
+	slug,
+	query,
+	onClose,
+	inSheet = false,
+	children,
+}: {
+	slug: string;
+	query: ReturnType<typeof useAgentTemplate>;
+	onClose: () => void;
+	inSheet?: boolean;
+	children: (agent: AgentTemplate) => ReactNode;
+}) {
+	const failed = ({ error, retry, retrying }: ErrorStateProps<ApiError>) =>
+		isNotFound(error) ? (
+			<PanelFrame
+				title="No agent with this name"
+				inSheet={inSheet}
+				onClose={onClose}
+				data-testid="catalog-agent-panel-not-found"
+			>
+				<EmptyState
+					data-testid="catalog-agent-not-found"
+					compact
+					icon={SearchX}
+					title="No agent with this name"
+					description={`No live template is called “${slug}”. It may have been renamed or removed; choose one from the table.`}
+				/>
+			</PanelFrame>
+		) : (
+			<PanelFrame
+				title="Agent template"
+				inSheet={inSheet}
+				onClose={onClose}
+				data-testid="catalog-agent-panel-error"
+			>
+				<ErrorState error={error} retry={retry} retrying={retrying} />
+			</PanelFrame>
+		);
+	return (
+		<Surface
+			data-testid="catalog-agent-panel-surface"
+			query={query}
+			// One template is never empty: a missing one answers NOT_FOUND.
+			isEmpty={() => false}
+			loading={
+				<PanelFrame
+					title="Loading"
+					inSheet={inSheet}
+					onClose={onClose}
+					data-testid="catalog-agent-panel-loading"
+				>
+					<div
+						data-testid="catalog-agent-panel-skeleton"
+						className="flex flex-col gap-2"
+					>
+						<Skeleton className="h-9 w-full" />
+						<Skeleton className="h-24 w-full" />
+						<Skeleton className="h-24 w-full" />
+					</div>
+				</PanelFrame>
+			}
+			empty={null}
+			error={failed}
+		>
+			{children}
+		</Surface>
 	);
 }
 
@@ -531,21 +667,32 @@ export function OverviewTab({
 
 type WithHistory = { agent: AgentTemplate; history: SampleAgentHistory };
 
+/**
+ * identity.md is the template's own field, live. Its size in tokens is not:
+ * no route counts it, so the line against the cap is a labelled sample.
+ */
 export function IdentityTab({ agent, history }: WithHistory) {
 	return (
-		<SampleRegion
-			missing={CATALOG_MISSING.versions}
-			title="identity.md"
-			what="The identity generated for the current version, read-only, and its size against the 800-token cap."
-			data-testid="catalog-agent-identity"
-		>
+		<div data-testid="catalog-agent-identity" className="flex flex-col gap-3">
 			<CodeView
 				text={agent.identityMd}
 				label={`${agent.name}'s identity.md`}
 				data-testid="catalog-agent-identity-code"
-				footer={`${history.identityTokens} / ${IDENTITY_TOKEN_CAP} tokens`}
 			/>
-		</SampleRegion>
+			<SampleRegion
+				missing={CATALOG_MISSING.versions}
+				title="Identity size"
+				what="The identity's size in tokens against the 800-token cap."
+				data-testid="catalog-agent-identity-size"
+			>
+				<p
+					data-testid="catalog-agent-identity-tokens"
+					className="type-mono-small text-text-muted tabular-nums"
+				>
+					{`${history.identityTokens} / ${IDENTITY_TOKEN_CAP} tokens`}
+				</p>
+			</SampleRegion>
+		</div>
 	);
 }
 
@@ -559,15 +706,12 @@ function Line({ k, children }: { k: string; children: ReactNode }) {
 	);
 }
 
+/** The template's own fields, live, then the sample allowed-actions table. */
 export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 	return (
 		<div className="flex flex-col gap-4">
-			<SampleRegion
-				missing={CATALOG_MISSING.templates}
-				title="Manifest"
-				what="The template's own fields: kind, roles, default waves, engagement scope, writable paths and version."
-				data-testid="catalog-agent-manifest"
-			>
+			<div data-testid="catalog-agent-manifest" className="flex flex-col gap-2">
+				<h3 className="type-panel-title text-foreground">Manifest</h3>
 				<div
 					data-testid="catalog-agent-manifest-text"
 					className="flex flex-col gap-0.5 rounded-xs border border-border bg-app-recessed p-3 type-mono-small"
@@ -598,7 +742,7 @@ export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 					)}
 					<Line k="version">{agent.version}</Line>
 				</div>
-			</SampleRegion>
+			</div>
 			<ActionsRegion agent={agent} />
 		</div>
 	);

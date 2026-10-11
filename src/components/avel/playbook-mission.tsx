@@ -10,8 +10,8 @@ import { linkFor } from "@/shell/nav";
 import { EmptyState } from "./empty-state";
 import { useMission } from "./mission-data";
 import { MissionRowsSkeleton } from "./mission-panels";
+import { PlaybookBuilder } from "./playbook-builder";
 import { CoherencePanel } from "./playbook-coherence";
-import { PlaybookDetail } from "./playbook-detail";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
@@ -62,28 +62,7 @@ function MissionPlaybookError(props: ErrorStateProps<ApiError>) {
 function MissionPlaybookContent({ mission }: { mission: MissionDetail }) {
 	return (
 		<div data-testid="mission-playbook-content" className="flex flex-col gap-4">
-			<div className="grid gap-4 md:grid-cols-2">
-				<TemplatePanel missionId={mission.id} />
-				<SectionPanel
-					title="Coherence"
-					description="Whether this mission's roster can run its playbook, as the export gate will decide it."
-					data-testid="mission-playbook-coherence"
-				>
-					{mission.playbook ? (
-						<CoherencePanel
-							mission={mission}
-							missionType={mission.playbook.missionType}
-						/>
-					) : (
-						<p
-							data-testid="coherence-no-playbook"
-							className="type-small text-text-subtle"
-						>
-							No playbook, so nothing to check the roster against.
-						</p>
-					)}
-				</SectionPanel>
-			</div>
+			<TemplatePanel missionId={mission.id} />
 			{mission.playbook ? (
 				<>
 					<div className="flex items-center justify-end">
@@ -93,27 +72,47 @@ function MissionPlaybookContent({ mission }: { mission: MissionDetail }) {
 								params={{ missionType: mission.playbook.missionType }}
 								data-testid="mission-playbook-open-type"
 							>
-								{`All ${mission.playbook.missionType} playbook details`}
+								{`The ${mission.playbook.missionType} playbook`}
 								<ArrowUpRight aria-hidden="true" />
 							</Link>
 						</Button>
 					</div>
-					<PlaybookDetail missionType={mission.playbook.missionType} />
+					{/* The builder, with this mission's coherence as its pre-flight. */}
+					<PlaybookBuilder
+						missionType={mission.playbook.missionType}
+						sections={false}
+						preflight={
+							<div data-testid="mission-playbook-coherence">
+								<CoherencePanel
+									mission={mission}
+									missionType={mission.playbook.missionType}
+								/>
+							</div>
+						}
+					/>
 				</>
 			) : (
-				<EmptyState
-					data-testid="mission-playbook-none"
-					icon={linkFor("/playbooks").icon}
-					title="No live playbook for this mission type"
-					description={`No playbook is set up for missions of type ${mission.type}, so there are no waves or gates to follow.`}
-					action={
-						<Button asChild variant="outline" size="sm">
-							<Link to="/playbooks" data-testid="mission-playbook-all">
-								See playbooks
-							</Link>
-						</Button>
-					}
-				/>
+				<>
+					<EmptyState
+						data-testid="mission-playbook-none"
+						icon={linkFor("/playbooks").icon}
+						title="No live playbook for this mission type"
+						description={`No playbook is set up for missions of type ${mission.type}, so there are no waves or gates to follow.`}
+						action={
+							<Button asChild variant="outline" size="sm">
+								<Link to="/playbooks" data-testid="mission-playbook-all">
+									See playbooks
+								</Link>
+							</Button>
+						}
+					/>
+					<p
+						data-testid="coherence-no-playbook"
+						className="type-small text-text-subtle"
+					>
+						No playbook, so nothing to check the roster against.
+					</p>
+				</>
 			)}
 		</div>
 	);

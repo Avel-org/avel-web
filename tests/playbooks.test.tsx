@@ -1,14 +1,26 @@
 import { QueryClient } from "@tanstack/react-query";
 import {
 	createMemoryHistory,
+	createRootRoute,
 	createRouter,
 	RouterProvider,
 } from "@tanstack/react-router";
 import { type Playbook, playbookSchema } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { InlineModals } from "@/components/avel/action-modal";
+import { PlaybookBuilderBody } from "@/components/avel/playbook-builder";
 import { gateSummary } from "@/components/avel/playbook-list";
-import { ApiError, ApiOverrideProvider, queryKeys } from "@/lib/api";
+import { draftOf, draftReducer } from "@/components/avel/playbook-pipeline";
+import { PublishConfirm } from "@/components/avel/playbook-publish";
+import { PlaybookVersions } from "@/components/avel/playbook-versions";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+	ApiError,
+	ApiOverrideProvider,
+	ApiProvider,
+	queryKeys,
+} from "@/lib/api";
 import { PLAYBOOK_PAGE_SIZE } from "@/lib/api/playbooks";
 import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "@/routeTree.gen";
@@ -58,7 +70,7 @@ const DISCOVERY = playbook(2, {
 
 async function render(
 	path: string,
-	seed: (client: QueryClient) => void = () => {},
+	...seeds: ((client: QueryClient) => void)[]
 ): Promise<string> {
 	const queryClient = new QueryClient({
 		defaultOptions: {
@@ -69,7 +81,7 @@ async function render(
 			},
 		},
 	});
-	seed(queryClient);
+	for (const seed of seeds) seed(queryClient);
 	const router = createRouter({
 		routeTree,
 		history: createMemoryHistory({ initialEntries: [path] }),
@@ -78,7 +90,9 @@ async function render(
 	return renderToString(
 		<SessionSourceProvider source={signedIn()}>
 			<ApiOverrideProvider queryClient={queryClient}>
-				<RouterProvider router={router} />
+				<InlineModals>
+					<RouterProvider router={router} />
+				</InlineModals>
 			</ApiOverrideProvider>
 		</SessionSourceProvider>,
 	);
@@ -162,8 +176,32 @@ describe("gateSummary", () => {
 });
 
 describe("/playbooks", () => {
-	it("lists each playbook from the contract, linked to its mission type", async () => {
+	it("shows a board by default: a card per playbook, opening its builder", async () => {
 		const html = await render("/playbooks", withList([FULL_BUILD, DISCOVERY]));
+		expect(html).not.toContain('data-testid="playbook-table"');
+		expect(tagOf(html, "playbooks-view-board")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(tagOf(html, "playbook-card-full-build")).toContain(
+			'href="/playbooks/full-build"',
+		);
+		const strip = element(html, "playbook-card-waves-full-build");
+		expect(strip.match(/data-runs="true"/g)).toHaveLength(3);
+		expect(strip.match(/data-runs="false"/g)).toHaveLength(2);
+		expect(text(element(html, "playbook-card-discovery"))).toContain(
+			"No gates",
+		);
+	});
+
+	it("lists each playbook in the table view, linked to its builder", async () => {
+		const html = await render(
+			"/playbooks?view=table",
+			withList([FULL_BUILD, DISCOVERY]),
+		);
+		expect(tagOf(html, "playbooks-view-table")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(html).not.toContain('data-testid="playbook-board"');
 		const table = element(html, "playbook-table");
 		expect(tagOf(table, "playbook-row-link-full-build")).toContain(
 			'href="/playbooks/full-build"',
@@ -212,91 +250,127 @@ describe("/playbooks", () => {
 	});
 });
 
-describe("/playbooks/$missionType", () => {
-	it("titles the tab by the mission type and crumbs back to Playbooks", async () => {
-		const html = await render(
-			"/playbooks/full-build",
-			withPlaybook(FULL_BUILD),
-		);
+describe("/playbooks/$missionType, the builder", () => {
+	const PAGE = "/playbooks/full-build";
+
+	it("titles the tab by the mission type, crumbs back, and shows the version", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
 		expect(html).toContain("<title>full-build · Playbooks · AVEL</title>");
 		expect(html).toMatch(/href="\/playbooks"[^>]*>Playbooks</);
+		expect(element(html, "playbook-version-pill")).toContain(">v3<");
 	});
 
-	it("shows the header from the contract", async () => {
-		const header = text(
-			element(
-				await render("/playbooks/full-build", withPlaybook(FULL_BUILD)),
-				"playbook-detail-header",
-			),
+	it("has Builder, Runs and Versions tabs; Runs and Versions are not built", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		expect(tagOf(html, "playbook-tab-builder")).toContain(
+			'aria-selected="true"',
 		);
-		expect(header).toContain(">Full build<");
-		expect(header).toContain(">full-build<");
-		expect(header).toContain(">Pull request<");
-		expect(header).toContain(">v3<");
-		expect(header).toContain('dateTime="2026-10-09T00:00:00.000Z"');
+		expect(html).toContain('data-testid="playbook-tab-runs"');
+		expect(html).toContain('data-testid="playbook-tab-versions"');
 	});
 
-	it("marks the waves the playbook runs, and no others", async () => {
-		const html = await render(
-			"/playbooks/full-build",
-			withPlaybook(FULL_BUILD),
+	it("draws every wave, the skipped ones as stubs, then gates, then the deliverable", async () => {
+		const canvas = element(
+			await render(PAGE, withPlaybook(FULL_BUILD)),
+			"playbook-canvas",
 		);
 		for (const wave of ["A", "B", "C"]) {
-			expect(tagOf(html, `playbook-wave-${wave}`)).toContain(
-				'data-applicable="true"',
+			expect(tagOf(canvas, `playbook-node-wave-${wave}`)).toContain(
+				'data-state="live"',
 			);
 		}
 		for (const wave of ["D", "E"]) {
-			expect(tagOf(html, `playbook-wave-${wave}`)).toContain(
-				'data-applicable="false"',
+			expect(tagOf(canvas, `playbook-node-wave-${wave}`)).toContain(
+				'data-state="skipped"',
 			);
 		}
+		const order = [
+			"wave-E",
+			"gate-phase1-close",
+			"gate-qa",
+			"gate-security",
+			"deliverable",
+		].map((id) => canvas.indexOf(`data-testid="playbook-node-${id}"`));
+		expect(order).toEqual([...order].sort((a, b) => a - b));
+		expect(element(canvas, "playbook-node-gate-phase1-close")).toContain(
+			'data-glyph="stop"',
+		);
+		expect(element(canvas, "playbook-node-gate-security")).toContain(
+			'data-glyph="pass"',
+		);
+		expect(element(canvas, "playbook-node-deliverable")).toContain(
+			">Pull request<",
+		);
 	});
 
-	it("lists each declared gate with its policy as stored, and only those", async () => {
-		const gates = element(
-			await render("/playbooks/full-build", withPlaybook(FULL_BUILD)),
-			"playbook-section-gates",
+	it("makes the rail one toolbar: one node takes Tab, each says what it is", async () => {
+		const canvas = element(
+			await render(PAGE, withPlaybook(FULL_BUILD)),
+			"playbook-canvas",
 		);
-		expect(tagOf(gates, "playbook-gate-phase1-close")).toContain(
-			'data-policy="mandatory"',
+		expect(canvas).toContain('role="toolbar"');
+		expect(canvas.match(/tabindex="0"/g)).toHaveLength(1);
+		expect(tagOf(canvas, "playbook-node-wave-A")).toContain('tabindex="0"');
+		expect(tagOf(canvas, "playbook-node-gate-qa")).toContain(
+			'aria-label="Gate qa, mandatory, a hard stop"',
 		);
-		expect(tagOf(gates, "playbook-gate-security")).toContain(
+	});
+
+	it("shows the whole playbook's properties with nothing selected", async () => {
+		const panel = element(
+			await render(PAGE, withPlaybook(FULL_BUILD)),
+			"playbook-panel",
+		);
+		expect(tagOf(panel, "playbook-prop-name")).toContain('value="Full build"');
+		expect(element(panel, "playbook-prop-type")).toContain(">full-build<");
+		expect(tagOf(panel, "playbook-prop-wave-A")).toContain(
+			'aria-checked="true"',
+		);
+		expect(tagOf(panel, "playbook-prop-wave-D")).toContain(
+			'aria-checked="false"',
+		);
+		expect(tagOf(panel, "playbook-prop-gate-security")).toContain(
 			'data-policy="warn"',
 		);
-		expect(element(gates, "playbook-gate-security")).toContain(">Warn<");
-		expect(gates).not.toContain("playbook-gate-rollback");
-	});
-
-	it("says so for no gates and no required fields", async () => {
-		const html = await render("/playbooks/discovery", withPlaybook(DISCOVERY));
-		expect(element(html, "playbook-section-gates")).toContain(
-			"No gates declared.",
-		);
-		expect(element(html, "playbook-section-fields")).toContain(
-			"None required.",
-		);
-	});
-
-	it("lists required fields, and links the default preset", async () => {
-		const html = await render(
-			"/playbooks/full-build",
-			withPlaybook(FULL_BUILD),
-		);
-		const fields = element(html, "playbook-section-fields");
-		expect(fields).toContain(">repoUrl<");
-		expect(fields).toContain(">spendCeilingUsd<");
-		expect(tagOf(html, "playbook-preset-link")).toContain(
+		expect(panel).toContain('data-testid="playbook-prop-add-gate-rollback"');
+		expect(panel).not.toContain('data-testid="playbook-prop-add-gate-qa"');
+		expect(element(panel, "playbook-prop-fields")).toContain(">repoUrl<");
+		expect(tagOf(panel, "playbook-preset-link")).toContain(
 			`href="/presets?preset=${PRESET}"`,
 		);
 	});
 
-	it("has no write controls", async () => {
-		const html = await render(
-			"/playbooks/full-build",
-			withPlaybook(FULL_BUILD),
+	it("leaves the edit controls live: only Publish waits on a write route", async () => {
+		const panel = element(
+			await render(PAGE, withPlaybook(FULL_BUILD)),
+			"playbook-panel",
 		);
-		expect(element(html, "playbook-detail-content")).not.toContain("<button");
+		expect(tagOf(panel, "playbook-prop-wave-A")).not.toMatch(/\sdisabled=""/);
+		expect(tagOf(panel, "playbook-prop-add-gate-rollback")).not.toMatch(
+			/\sdisabled=""/,
+		);
+		expect(tagOf(panel, "playbook-prop-remove-qa")).not.toMatch(
+			/\sdisabled=""/,
+		);
+		expect(tagOf(panel, "playbook-prop-name")).not.toMatch(/\sdisabled=""/);
+	});
+
+	it("shows no unpublished banner for an untouched playbook", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		expect(html).not.toContain('data-testid="playbook-dirty"');
+	});
+
+	it("says pre-flight runs per mission, and links that type's missions", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		expect(tagOf(html, "playbook-preflight-missions")).toContain(
+			'href="/missions?q=full-build"',
+		);
+	});
+
+	it("says so for no gates and no required fields", async () => {
+		const html = await render("/playbooks/discovery", withPlaybook(DISCOVERY));
+		expect(element(html, "playbook-panel")).toContain("No gates declared.");
+		expect(element(html, "playbook-panel")).toContain("None required.");
 	});
 
 	it("answers a type with no playbook with NOT_FOUND and a way back", async () => {
@@ -304,16 +378,226 @@ describe("/playbooks/$missionType", () => {
 			"/playbooks/nothing",
 			failing(queryKeys.playbooks.byType("nothing"), 404, "NOT_FOUND"),
 		);
-		expect(tagOf(html, "playbook-detail")).toContain('data-state="error"');
-		expect(tagOf(html, "playbook-detail-back")).toContain('href="/playbooks"');
+		expect(tagOf(html, "playbook-builder")).toContain('data-state="error"');
+		expect(tagOf(html, "playbook-builder-back")).toContain('href="/playbooks"');
 	});
 
 	it("offers no way back for a failure that is not NOT_FOUND", async () => {
 		const html = await render(
-			"/playbooks/full-build",
+			PAGE,
 			failing(queryKeys.playbooks.byType("full-build"), 500, "INTERNAL"),
 		);
-		expect(tagOf(html, "playbook-detail")).toContain('data-state="error"');
-		expect(html).not.toContain("playbook-detail-back");
+		expect(tagOf(html, "playbook-builder")).toContain('data-state="error"');
+		expect(html).not.toContain("playbook-builder-back");
+	});
+});
+
+describe("the builder with a draft", () => {
+	/** The body alone, inside a memory router so its links resolve. */
+	const body = async (over: Parameters<typeof PlaybookBuilderBody>[0]) => {
+		const root = createRootRoute({
+			component: () => (
+				<ApiOverrideProvider queryClient={new QueryClient()}>
+					<ApiProvider>
+						<TooltipProvider>
+							<PlaybookBuilderBody {...over} />
+						</TooltipProvider>
+					</ApiProvider>
+				</ApiOverrideProvider>
+			),
+		});
+		const router = createRouter({
+			routeTree: root,
+			history: createMemoryHistory({ initialEntries: ["/"] }),
+		});
+		await router.load();
+		return renderToString(<RouterProvider router={router} />);
+	};
+
+	it("shows unpublished changes, with Revert and Publish both live", async () => {
+		const html = await body({
+			playbook: FULL_BUILD,
+			preflight: null,
+			initialDraft: draftReducer(draftOf(FULL_BUILD), {
+				type: "toggleWave",
+				wave: "D",
+			}),
+		});
+		expect(html).toContain("Unpublished changes (1)");
+		expect(tagOf(html, "playbook-revert")).not.toMatch(/\sdisabled=""/);
+		expect(tagOf(html, "playbook-publish")).not.toMatch(/\sdisabled=""/);
+		// The canvas draws the draft, not the stored playbook.
+		expect(tagOf(html, "playbook-node-wave-D")).toContain('data-state="live"');
+	});
+
+	it("shows a selected node's own properties, with a way back to the whole", async () => {
+		const html = await body({
+			playbook: FULL_BUILD,
+			preflight: null,
+			initialSelected: "gate-security",
+		});
+		expect(element(html, "playbook-panel-heading")).toContain(
+			"Gate security, warn, passes through",
+		);
+		expect(html).toContain('data-testid="playbook-node-props"');
+		expect(html).toContain('data-testid="playbook-panel-clear"');
+		expect(tagOf(html, "playbook-node-gate-security")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(tagOf(html, "playbook-node-gate-security")).toContain(
+			'tabindex="0"',
+		);
+	});
+
+	it("draws live connectors on, keeps skipped ones dashed, and staggers the nodes", async () => {
+		const html = await body({ playbook: FULL_BUILD, preflight: null });
+		const lines = html.match(/<line[^>]*>/g) ?? [];
+		// A to C run, D and E are skipped: the connectors out of D and E stay dashed.
+		const drawn = lines.filter((l) => l.includes("animate-draw-on"));
+		const dashed = lines.filter((l) => l.includes('stroke-dasharray="3 3"'));
+		expect(dashed).toHaveLength(2);
+		expect(drawn).toHaveLength(lines.length - 2);
+		expect(drawn.every((l) => /--draw-length:\s*\d+px/.test(l))).toBe(true);
+		const wave = element(html, "playbook-node-wave-B");
+		expect(wave).toMatch(/class="animate-node-in" style="--i:\s*1"/);
+	});
+
+	it("slides the banner down, and says the version publishing makes", async () => {
+		const html = text(
+			await body({
+				playbook: FULL_BUILD,
+				preflight: null,
+				initialDraft: draftReducer(draftOf(FULL_BUILD), {
+					type: "toggleWave",
+					wave: "D",
+				}),
+			}),
+		);
+		expect(tagOf(html, "playbook-dirty")).toContain("animate-slide-down");
+		const next = element(html, "playbook-next-version");
+		expect(next).toContain(">v3<");
+		expect(next).toMatch(/animate-tick-up[^>]*>v4</);
+	});
+
+	it("puts the caller's pre-flight in the panel", async () => {
+		const html = await body({
+			playbook: FULL_BUILD,
+			preflight: <p data-testid="custom-preflight">coherence here</p>,
+		});
+		expect(element(html, "playbook-preflight")).toContain("coherence here");
+	});
+});
+
+describe("publishing", () => {
+	const confirm = (error: ApiError | null) =>
+		renderToString(
+			<TooltipProvider>
+				<InlineModals>
+					<PublishConfirm
+						open
+						onOpenChange={() => {}}
+						playbook={FULL_BUILD}
+						draft={draftReducer(draftOf(FULL_BUILD), {
+							type: "toggleWave",
+							wave: "D",
+						})}
+						changes={[]}
+						pending={false}
+						error={error}
+						onSubmit={() => {}}
+					/>
+				</InlineModals>
+			</TooltipProvider>,
+		);
+
+	it("names the version it makes, and shows the body it will send", () => {
+		const html = text(confirm(null));
+		expect(html).toContain(">Publish full-build<");
+		expect(element(html, "playbook-publish-modal-submit")).toContain(
+			"Publish v4",
+		);
+		expect(element(html, "playbook-publish-row-wavesApplicable")).toContain(
+			">A B C D<",
+		);
+	});
+
+	it("puts a refusal's issues on the row their path names", () => {
+		const html = confirm(
+			new ApiError({
+				method: "PUT",
+				path: "/api/playbooks/by-type/:missionType",
+				kind: "contract",
+				status: 400,
+				code: "VALIDATION_FAILED",
+				message: "for logs only",
+				requestId: "req-1",
+				details: {
+					body: [
+						{
+							path: ["gates", 1, "gate"],
+							message: "The qa gate is listed twice",
+						},
+						{ path: [], message: "Whole body" },
+					],
+				},
+			}),
+		);
+		expect(tagOf(html, "playbook-publish-row-gates")).toContain(
+			'data-invalid="true"',
+		);
+		expect(element(html, "playbook-publish-issue-gates")).toContain(
+			"The qa gate is listed twice",
+		);
+		expect(html).not.toContain("playbook-publish-issue-wavesApplicable");
+		expect(element(html, "action-modal-unplaced")).toContain("Whole body");
+	});
+
+	it("gives a 422 its error-map copy", () => {
+		const html = confirm(
+			new ApiError({
+				method: "PUT",
+				path: "/api/playbooks/by-type/:missionType",
+				kind: "contract",
+				status: 422,
+				code: "PRECONDITION_FAILED",
+				message: "for logs only",
+				requestId: "req-1",
+				details: { reason: "playbook_in_use" },
+			}),
+		);
+		expect(text(element(html, "action-modal-refusal"))).toContain(
+			"so its playbook can&#x27;t change now.",
+		);
+	});
+});
+
+describe("versions", () => {
+	const V2 = {
+		...FULL_BUILD,
+		version: 2,
+		wavesApplicable: ["A", "B"] as typeof FULL_BUILD.wavesApplicable,
+		updatedAt: "2026-10-05T00:00:00.000Z",
+	};
+	const history = async (rows: Playbook[]) => {
+		const client = new QueryClient({
+			defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+		});
+		client.setQueryData([...queryKeys.playbooks.versions("full-build")], rows);
+		return renderToString(
+			<ApiOverrideProvider queryClient={client}>
+				<ApiProvider>
+					<PlaybookVersions missionType="full-build" />
+				</ApiProvider>
+			</ApiOverrideProvider>,
+		);
+	};
+
+	it("lists versions newest first, each with what it changed from the last", async () => {
+		const html = text(await history([FULL_BUILD, V2]));
+		expect(html.indexOf("playbook-version-3")).toBeLessThan(
+			html.indexOf("playbook-version-2"),
+		);
+		expect(element(html, "playbook-version-changes-3")).toContain("Waves");
+		expect(element(html, "playbook-version-2")).toContain("The first version.");
 	});
 });

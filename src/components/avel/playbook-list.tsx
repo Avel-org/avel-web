@@ -5,14 +5,18 @@ import type {
 	Playbook,
 	PlaybookGate,
 } from "avel-server/contract";
+import { WAVES } from "avel-server/contract";
+import { Rows3, SquareKanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { catalogTotal } from "@/lib/api/catalog";
 import { loadedPlaybooks, type usePlaybooks } from "@/lib/api/playbooks";
+import { cn } from "@/lib/utils";
 import { linkFor } from "@/shell/nav";
 import { type DataColumn, DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
+import type { ViewOption } from "./view-toggle";
 
 /*
  * Playbooks, /playbooks: the process each mission type follows (ROUTES.md,
@@ -108,11 +112,22 @@ const COLUMNS: DataColumn<Playbook>[] = [
 	},
 ];
 
+/** Board (cards, the default) or Table (the rows), as the URL's `view` says. */
+export type PlaybookView = "board" | "table";
+
+/** Board, then Table: the options for the shared view switch. */
+export const PLAYBOOK_VIEWS = [
+	{ id: "board", label: "Board", icon: SquareKanban },
+	{ id: "table", label: "Table", icon: Rows3 },
+] as const satisfies readonly ViewOption<PlaybookView>[];
+
 /** The list, a page at a time. The route owns the query; this renders it. */
 export function PlaybookList({
 	query,
+	view = "board",
 }: {
 	query: ReturnType<typeof usePlaybooks>;
+	view?: PlaybookView;
 }) {
 	return (
 		<div data-testid="playbooks" className="flex flex-col gap-4 pb-6">
@@ -136,13 +151,17 @@ export function PlaybookList({
 					const total = catalogTotal(data);
 					return (
 						<div className="flex flex-col gap-2">
-							<DataTable
-								label="Playbooks"
-								data-testid="playbook-table"
-								columns={COLUMNS}
-								rows={rows}
-								getRowId={(row) => row.id}
-							/>
+							{view === "table" ? (
+								<DataTable
+									label="Playbooks"
+									data-testid="playbook-table"
+									columns={COLUMNS}
+									rows={rows}
+									getRowId={(row) => row.id}
+								/>
+							) : (
+								<PlaybookBoard playbooks={rows} />
+							)}
 							{total !== undefined || query.hasNextPage ? (
 								<div className="flex items-center justify-between gap-2 px-3">
 									{total === undefined ? (
@@ -189,5 +208,80 @@ function PlaybookListSkeleton() {
 				</div>
 			))}
 		</div>
+	);
+}
+
+/**
+ * The board: a card per playbook, each a link to its builder. A strip of the
+ * five waves (the ones it runs filled), its gate count by policy and its
+ * deliverable, so the shape of the process reads before opening it.
+ */
+export function PlaybookBoard({
+	playbooks,
+}: {
+	playbooks: readonly Playbook[];
+}) {
+	return (
+		<ul
+			data-testid="playbook-board"
+			className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+		>
+			{playbooks.map((playbook) => {
+				const runs = new Set<string>(playbook.wavesApplicable);
+				return (
+					<li key={playbook.id}>
+						<Link
+							to="/playbooks/$missionType"
+							params={{ missionType: playbook.missionType }}
+							data-testid={`playbook-card-${playbook.missionType}`}
+							className="plate plate-interactive flex h-full flex-col gap-3 rounded-md p-4"
+						>
+							<span className="flex items-baseline justify-between gap-2">
+								<span className="type-body font-medium text-foreground">
+									{playbook.name}
+								</span>
+								<span className="type-mono-small text-text-subtle">
+									{`v${playbook.version}`}
+								</span>
+							</span>
+							<span className="type-mono-small text-text-muted">
+								{playbook.missionType}
+							</span>
+							<span
+								data-testid={`playbook-card-waves-${playbook.missionType}`}
+								className="flex gap-1"
+							>
+								{WAVES.map((wave) => (
+									<span
+										key={wave}
+										data-wave={wave}
+										data-runs={runs.has(wave)}
+										className={cn(
+											"flex h-6 flex-1 items-center justify-center rounded-xs border type-mono-small",
+											runs.has(wave)
+												? "border-accent bg-accent-soft text-foreground"
+												: "border-dashed border-border text-text-subtle",
+										)}
+									>
+										{wave}
+									</span>
+								))}
+								<span className="sr-only">
+									{runs.size === 0
+										? "Runs no waves."
+										: `Runs waves ${playbook.wavesApplicable.join(", ")}.`}
+								</span>
+							</span>
+							<span className="mt-auto flex flex-wrap items-center justify-between gap-2 type-small text-text-muted">
+								<span data-testid="playbook-card-gates">
+									{gateSummary(playbook.gates)}
+								</span>
+								<span>{DELIVERABLE_LABEL[playbook.deliverable]}</span>
+							</span>
+						</Link>
+					</li>
+				);
+			})}
+		</ul>
 	);
 }

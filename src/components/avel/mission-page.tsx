@@ -31,6 +31,8 @@ import {
 	quietText,
 } from "./mission-watch";
 import { PlanLink } from "./plan-page";
+import { PlanReadiness } from "./plan-readiness";
+import { UnblockCard } from "./plan-unblock";
 import { SampleData } from "./sample-data";
 import { SectionPanel } from "./section-panel";
 import {
@@ -253,6 +255,7 @@ function MissionContent({
 		<div data-testid="mission-page-content" className="flex flex-col gap-4">
 			<Header mission={mission} />
 			<NowBanner mission={mission} now={now} />
+			<UnblockCard mission={mission} />
 			<ProgressTrack mission={mission} />
 			<div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 				<div className="flex min-w-0 flex-col gap-4">
@@ -316,6 +319,7 @@ function MissionContent({
 						data-testid="mission-section-brief-page"
 						actions={<PlanLink missionId={mission.id} />}
 					>
+						<PlanReadiness missionId={mission.id} compact />
 						<Brief brief={mission.brief} />
 					</SectionPanel>
 				</div>
@@ -328,7 +332,7 @@ function Header({ mission }: { mission: MissionDetail }) {
 	return (
 		<header
 			data-testid="mission-page-header"
-			className="surface-steel flex flex-col gap-3 rounded-md border border-border bg-card p-4"
+			className="plate flex flex-col gap-3 rounded-md p-4"
 		>
 			<div className="flex flex-wrap items-center gap-2">
 				<span className="type-mono text-foreground" title={mission.id}>
@@ -424,7 +428,7 @@ function ProgressTrack({ mission }: { mission: MissionDetail }) {
 		<section
 			aria-label="Progress"
 			data-testid="mission-progress"
-			className="surface-steel flex flex-col gap-3 rounded-md border border-border bg-card p-4 md:flex-row md:items-start"
+			className="plate flex flex-col gap-3 rounded-md p-4 md:flex-row md:items-start"
 		>
 			<div
 				data-testid="mission-progress-early"

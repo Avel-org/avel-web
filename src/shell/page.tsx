@@ -146,7 +146,7 @@ export function Page(props: PageProps) {
 					// into the remaining height and centre in it.
 					canvas
 						? "flex min-h-0 flex-col"
-						: cn(CONTENT, "flex flex-col pt-2 pb-8"),
+						: cn(CONTENT, "stagger-in flex flex-col pt-2 pb-8"),
 				)}
 			>
 				{children}

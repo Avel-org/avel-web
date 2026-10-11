@@ -1,14 +1,10 @@
 import { readFileSync } from "node:fs";
-import {
-	createMemoryHistory,
-	createRouter,
-	RouterContextProvider,
-} from "@tanstack/react-router";
-import { type AgentTemplate, ROLES, WAVES } from "avel-server/contract";
+import { ROLES, WAVES } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+	AgentPanelSurface,
 	IdentityTab,
 	ManifestTab,
 	OverviewTab,
@@ -45,15 +41,29 @@ import {
 import { CatalogAgents } from "@/components/avel/catalog-agents";
 import {
 	CATALOG_MISSING,
-	SAMPLE_AGENTS,
-	sampleAgent,
 	sampleHistory,
 } from "@/components/avel/catalog-placeholders";
 import { CodeView } from "@/components/avel/code-view";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ApiError } from "@/lib/api";
-import { routeTree } from "../src/routeTree.gen";
+import { useAgentTemplate, useAgentTemplates } from "@/lib/api/catalog";
+import {
+	AGENTS,
+	agent,
+	inProviders,
+	internalError,
+	notFoundError,
+	renderSeeded,
+	seededClient,
+} from "./catalog-fixtures";
 import { renderPage, tagOf } from "./render-page";
+
+/*
+ * /catalog/agents: the templates are live (GET /api/agent-templates, and
+ * the panel by slug), rendered through the real router with a seeded
+ * QueryClient. The graph's edges and four of the table's columns are still
+ * labelled samples (AVEL-DESIGN.md rulings 32 and 34), derived from the live
+ * template's own fields.
+ */
 
 // ---------------------------------------------------------------------------
 // Markup helpers. The node environment has no DOM; tests read the markup.
@@ -120,7 +130,6 @@ const ROUTES = new Set<string>([
  */
 function expectLabelled(html: string, real: string[]) {
 	const rs = regions(html);
-	expect(rs.length).toBeGreaterThan(0);
 	for (const region of rs) {
 		expect(ROUTES.has(region.missing), region.missing).toBe(true);
 		const body = region.html.slice(region.html.indexOf(">") + 1);
@@ -146,25 +155,6 @@ function expectLabelled(html: string, real: string[]) {
 	}
 }
 
-const agent = (slug: string): AgentTemplate => {
-	const found = sampleAgent(slug);
-	if (!found) throw new Error(`no sample agent ${slug}`);
-	return found;
-};
-
-/** Renders inside a router context and the tooltip provider, as the app does. */
-function inApp(node: ReactNode): string {
-	const router = createRouter({
-		routeTree,
-		history: createMemoryHistory({ initialEntries: ["/catalog/agents"] }),
-	});
-	return renderToString(
-		<RouterContextProvider router={router}>
-			<TooltipProvider>{node}</TooltipProvider>
-		</RouterContextProvider>,
-	);
-}
-
 const tip = (node: ReactNode) =>
 	renderToString(<TooltipProvider>{node}</TooltipProvider>);
 
@@ -175,6 +165,50 @@ const cellsOf = (row: string) =>
 	);
 
 const noop = () => {};
+
+const PATH = "/api/agent-templates";
+
+/** The page with every template loaded, rendered once and shared. */
+const rendered = new Map<string, Promise<string>>();
+const page = (search = ""): Promise<string> => {
+	const path = `/catalog/agents${search}`;
+	let html = rendered.get(path);
+	if (!html) {
+		html = renderSeeded(path, seededClient({ agents: AGENTS }));
+		rendered.set(path, html);
+	}
+	return html;
+};
+
+/** The console in a chosen view, with the list it reads seeded. */
+function Console({
+	selected,
+	view,
+}: {
+	selected: string | undefined;
+	view: "table" | "graph";
+}) {
+	const query = useAgentTemplates();
+	return <CatalogAgents selected={selected} query={query} initialView={view} />;
+}
+
+/** The panel's surface over the by-slug query, as the sheet renders it. */
+function Panel({ slug }: { slug: string }) {
+	const query = useAgentTemplate(slug);
+	return (
+		<AgentPanelSurface slug={slug} query={query} onClose={noop}>
+			{(a) => (
+				<PanelBody
+					agent={a}
+					agents={AGENTS}
+					onOpen={noop}
+					onViewInGraph={noop}
+					onClose={noop}
+				/>
+			)}
+		</AgentPanelSurface>
+	);
+}
 
 // ---------------------------------------------------------------------------
 
@@ -188,7 +222,7 @@ describe("the agent samples", () => {
 		expect(sideOfRole("spec-judgment")).toBe("judge");
 		expect(sideOfRole("intake")).toBeNull();
 		expect(sideOfRole("deploy")).toBeNull();
-		for (const a of SAMPLE_AGENTS) {
+		for (const a of AGENTS) {
 			const sides = new Set(a.roles.map(sideOfRole).filter(Boolean));
 			expect(sides.size, a.slug).toBeLessThanOrEqual(1);
 		}
@@ -203,7 +237,7 @@ describe("the agent samples", () => {
 	});
 
 	it("draw an edge exactly where a producer's output is a consumer's input", () => {
-		const edges = sampleEdges(SAMPLE_AGENTS);
+		const edges = sampleEdges(AGENTS);
 		expect(edges.length).toBeGreaterThan(0);
 		for (const edge of edges) {
 			expect(edge.from).not.toBe(edge.to);
@@ -233,17 +267,34 @@ describe("the agent samples", () => {
 	});
 
 	it("set each estimate under its soft ceiling, under its hard one", () => {
-		for (const a of SAMPLE_AGENTS) {
+		for (const a of AGENTS) {
 			const d = sampleDispatch(a);
 			expect(d.estimate).toBeLessThan(d.softCeiling);
 			expect(d.softCeiling).toBeLessThan(d.hardCeiling);
 		}
 	});
 
-	it("take territories from the outcome rows, so table and measures agree", () => {
-		expect(territoriesOf(agent("atlas"))).toEqual(["scheduling", "billing"]);
-		expect(territoriesOf(agent("leon"))).toEqual(["booking"]);
-		expect(territoriesOf(agent("nemi"))).toEqual([]);
+	it("give a feature agent one or two territories by its slug, a horizontal agent none", () => {
+		for (const a of AGENTS) {
+			const territories = territoriesOf(a);
+			if (a.kind === "feature") {
+				expect(territories.length, a.slug).toBeGreaterThanOrEqual(1);
+				expect(territories.length, a.slug).toBeLessThanOrEqual(2);
+			} else {
+				expect(territories, a.slug).toEqual([]);
+			}
+			// From the outcome rows, so the table and the measures agree.
+			expect(territories).toEqual([
+				...new Set(
+					sampleHistory(a)
+						.outcomes.map((r) => r.territory)
+						.filter((t) => t !== null),
+				),
+			]);
+		}
+		expect(territoriesOf(agent("atlas"))).toEqual(
+			territoriesOf(agent("atlas")),
+		);
 	});
 
 	it("judge the status box by rule: good only with no violations and no halts", () => {
@@ -270,7 +321,7 @@ describe("the agent samples", () => {
 describe("filtering and sorting", () => {
 	it("filters by side tab, kind, wave and search, together", () => {
 		const slugs = (f: Parameters<typeof filterAgents>[1]) =>
-			filterAgents(SAMPLE_AGENTS, f)
+			filterAgents(AGENTS, f)
 				.map((a) => a.slug)
 				.sort();
 		expect(slugs({ side: "judge" })).toEqual(["brennan", "zane"]);
@@ -285,14 +336,11 @@ describe("filtering and sorting", () => {
 		// Search matches the name, the slug or a role.
 		expect(slugs({ q: "ATL" })).toEqual(["atlas"]);
 		expect(slugs({ q: "contract" })).toEqual(["leonora"]);
-		expect(slugs({ q: "  " })).toHaveLength(SAMPLE_AGENTS.length);
+		expect(slugs({ q: "  " })).toHaveLength(AGENTS.length);
 	});
 
 	it("sorts by wave, side or name, breaking ties by wave then name", () => {
-		const byWave = sortAgents(SAMPLE_AGENTS, {
-			column: "wave",
-			direction: "asc",
-		});
+		const byWave = sortAgents(AGENTS, { column: "wave", direction: "asc" });
 		// Firm agents have no waves, so they sort after every wave.
 		const waves = byWave.map((a) =>
 			isFirmAgent(a) ? WAVES.length : WAVES.indexOf(a.waveDefaults[0] ?? "A"),
@@ -300,17 +348,11 @@ describe("filtering and sorting", () => {
 		expect(waves).toEqual([...waves].sort((x, y) => x - y));
 		expect(byWave[0]?.slug).toBe("leonora");
 		expect(byWave.at(-1)?.slug).toBe("canon");
-		const bySide = sortAgents(SAMPLE_AGENTS, {
-			column: "side",
-			direction: "asc",
-		});
+		const bySide = sortAgents(AGENTS, { column: "side", direction: "asc" });
 		expect(bySide.at(-1)?.slug).toBe("canon");
-		const byName = sortAgents(SAMPLE_AGENTS, {
-			column: "name",
-			direction: "desc",
-		});
+		const byName = sortAgents(AGENTS, { column: "name", direction: "desc" });
 		expect(byName.map((a) => a.name)).toEqual(
-			SAMPLE_AGENTS.map((a) => a.name)
+			AGENTS.map((a) => a.name)
 				.sort()
 				.reverse(),
 		);
@@ -318,24 +360,23 @@ describe("filtering and sorting", () => {
 });
 
 describe("/catalog/agents: the table", () => {
-	it("renders the same samples on every visit", async () => {
-		expect(await renderPage("/catalog/agents?agent=atlas")).toBe(
-			await renderPage("/catalog/agents?agent=atlas"),
-		);
+	it("renders the same page for the same data on every visit", async () => {
+		const once = () =>
+			renderSeeded("/catalog/agents", seededClient({ agents: AGENTS }));
+		expect(await once()).toBe(await once());
 	});
 
-	it("labels the table's region and each sample column, and nothing real", async () => {
-		const html = await renderPage("/catalog/agents");
-		expectLabelled(html, ["catalog-agents-read-only", "catalog-agents-view"]);
-		expect(tagOf(html, "catalog-agents-table-region")).toContain(
-			`data-sample-region="${CATALOG_MISSING.templates}"`,
-		);
-		const region = element(html, "catalog-agents-table-region");
-		// One pill for the table: the columns say they are samples in their
-		// headers, not in a row of pills above it.
-		expect(pills(region)).toHaveLength(1);
-		expect(region).not.toContain('data-testid="catalog-agents-sample-columns"');
-		const table = element(region, "catalog-agents-table");
+	it("puts no pill on the live table, and names what each sample column waits for", async () => {
+		const html = await page();
+		expectLabelled(html, [
+			"catalog-agents-read-only",
+			"catalog-agents-view",
+			"catalog-agents-table",
+		]);
+		// The rows are live: no region, no pill, anywhere in the table view.
+		expect(html).not.toContain("data-sample-region=");
+		expect(html).not.toContain('data-testid="sample-data"');
+		const table = element(html, "catalog-agents-table");
 		for (const c of SAMPLE_COLUMNS) {
 			const header = element(table, `catalog-agents-sample-column-${c.column}`);
 			// In a column header, underlined dashed, naming what it waits for.
@@ -345,6 +386,7 @@ describe("/catalog/agents: the table", () => {
 					table.indexOf(`catalog-agents-sample-column-${c.column}`),
 				),
 			).toBeGreaterThan(-1);
+			expect(ROUTES.has(c.missing), c.column).toBe(true);
 			expect(fromAttr(header)).toContain(`data-missing="${c.missing}"`);
 			expect(header).toMatch(/class="[^"]*\bborder-dashed\b/);
 			expect(fromAttr(header)).toContain(
@@ -357,7 +399,7 @@ describe("/catalog/agents: the table", () => {
 		// sr-only text is absolute. Inside a column the table scrolls past, it
 		// must be positioned against its own header or cell, or it stretches
 		// the canvas (it did, by 191px, at 768).
-		const html = await renderPage("/catalog/agents");
+		const html = await page();
 		for (const id of [
 			...SAMPLE_COLUMNS.map((c) => `catalog-agents-sample-column-${c.column}`),
 			"catalog-agent-waves-canon",
@@ -370,7 +412,7 @@ describe("/catalog/agents: the table", () => {
 	});
 
 	it("gives a firm agent no waves: a dash, and why", async () => {
-		const html = await renderPage("/catalog/agents");
+		const html = await page();
 		const canon = element(html, "catalog-agents-table-row-canon");
 		expect(cellsOf(canon)[3]).toBe(`${FIRM_WAVES.text}, ${FIRM_WAVES.title}`);
 		expect(tagOf(canon, "catalog-agent-waves-canon")).toContain(
@@ -381,13 +423,11 @@ describe("/catalog/agents: the table", () => {
 			"B",
 		);
 		expect(isFirmAgent(agent("canon"))).toBe(true);
-		expect(SAMPLE_AGENTS.filter(isFirmAgent).map((a) => a.slug)).toEqual([
-			"canon",
-		]);
+		expect(AGENTS.filter(isFirmAgent).map((a) => a.slug)).toEqual(["canon"]);
 	});
 
-	it("lists one row per template, in wave order, with these columns", async () => {
-		const html = await renderPage("/catalog/agents");
+	it("lists one row per live template, in wave order, with these columns", async () => {
+		const html = await page();
 		const table = element(html, "catalog-agents-table");
 		const headers = [...table.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) =>
 			(m[1] ?? "").replace(/<[^>]+>/g, ""),
@@ -407,20 +447,20 @@ describe("/catalog/agents: the table", () => {
 			...table.matchAll(/data-testid="catalog-agents-table-row-([a-z]+)"/g),
 		].map((m) => m[1]);
 		expect(order).toEqual(
-			sortAgents(SAMPLE_AGENTS, { column: "wave", direction: "asc" }).map(
+			sortAgents(AGENTS, { column: "wave", direction: "asc" }).map(
 				(a) => a.slug,
 			),
 		);
 	});
 
 	it("shows a tile, the name over its territory, role chips, and mono machine values", async () => {
-		const html = await renderPage("/catalog/agents");
+		const html = await page();
 		const atlas = agent("atlas");
 		const row = element(html, "catalog-agents-table-row-atlas");
 		const d = sampleDispatch(atlas);
 		const sha = sampleHistory(atlas).versions[0]?.sha256 ?? "";
 		expect(cellsOf(row)).toEqual([
-			"ATAtlasscheduling, billing",
+			`ATAtlas${territoriesOf(atlas).join(", ")}`,
 			"author",
 			"domainapi-surface",
 			"B",
@@ -441,7 +481,7 @@ describe("/catalog/agents: the table", () => {
 	});
 
 	it("gives each side its own tile tone, from tokens only", async () => {
-		const html = await renderPage("/catalog/agents");
+		const html = await page();
 		const tone = (slug: string) =>
 			tagOf(html, `catalog-agent-tile-${slug}`).match(/class="([^"]*)"/)?.[1] ??
 			"";
@@ -461,7 +501,7 @@ describe("/catalog/agents: the table", () => {
 	});
 
 	it("opens a row by pointer or keyboard, and sorts by side, wave and name only", async () => {
-		const html = await renderPage("/catalog/agents");
+		const html = await page();
 		expect(tagOf(html, "catalog-agents-table-row-atlas")).toContain(
 			'tabindex="0"',
 		);
@@ -474,7 +514,7 @@ describe("/catalog/agents: the table", () => {
 	});
 
 	it("tabs by side with counts, then search and a wave and kind filter", async () => {
-		const html = await renderPage("/catalog/agents");
+		const html = await page();
 		expect(SIDE_TABS.map((t) => t.label)).toEqual([
 			"All",
 			"Authors",
@@ -485,7 +525,7 @@ describe("/catalog/agents: the table", () => {
 		]);
 		const count = (id: string) =>
 			element(html, `catalog-agents-side-${id}-count`).replace(/<[^>]+>/g, "");
-		expect(count("all")).toBe(String(SAMPLE_AGENTS.length));
+		expect(count("all")).toBe(String(AGENTS.length));
 		expect(count("author")).toBe("3");
 		expect(count("tester")).toBe("2");
 		expect(count("judge")).toBe("2");
@@ -503,21 +543,43 @@ describe("/catalog/agents: the table", () => {
 	});
 
 	it("says how many it shows, with no pages when they all fit", async () => {
-		const html = await renderPage("/catalog/agents");
+		const html = await page();
 		expect(html).toMatch(
 			new RegExp(
-				`data-testid="catalog-agents-showing"[^>]*>Showing ${SAMPLE_AGENTS.length} of ${SAMPLE_AGENTS.length}<`,
+				`data-testid="catalog-agents-showing"[^>]*>Showing ${AGENTS.length} of ${AGENTS.length}<`,
 			),
 		);
 		expect(html).not.toContain('aria-label="Pages"');
 	});
 
+	it("counts from meta.total in the top bar, and offers the next page", async () => {
+		expect(element(await page(), "topbar-subtitle")).toContain(
+			`>${AGENTS.length} agent templates<`,
+		);
+		const html = await renderSeeded(
+			"/catalog/agents",
+			seededClient({ agents: { rows: AGENTS, total: 40, nextCursor: "c2" } }),
+		);
+		expect(element(html, "topbar-subtitle")).toContain(">40 agent templates<");
+		expect(element(html, "catalog-agents-list-footer-showing")).toContain(
+			`>Showing ${AGENTS.length} of 40<`,
+		);
+		expect(html).toContain(
+			'data-testid="catalog-agents-list-footer-load-more"',
+		);
+		const one = await renderSeeded(
+			"/catalog/agents",
+			seededClient({ agents: [agent("atlas")] }),
+		);
+		expect(element(one, "topbar-subtitle")).toContain(">1 agent template<");
+	});
+
 	it("puts no middle dot in any meta string (ruling 4)", async () => {
-		const html = await renderPage("/catalog/agents?agent=atlas");
+		const html = await page("?agent=atlas");
 		const body = element(html, "catalog-agents");
 		expect(body).not.toContain("·");
 		expect(panelSubtitle(agent("atlas"))).toBe(
-			"scheduling, billing, domain, api-surface",
+			`${territoriesOf(agent("atlas")).join(", ")}, domain, api-surface`,
 		);
 	});
 });
@@ -529,7 +591,7 @@ describe("/catalog/agents: the panel", () => {
 		tip(
 			<PanelBody
 				agent={a}
-				agents={SAMPLE_AGENTS}
+				agents={AGENTS}
 				onOpen={noop}
 				onViewInGraph={noop}
 				onClose={noop}
@@ -539,12 +601,8 @@ describe("/catalog/agents: the panel", () => {
 	it("is a slide-over at every width: no aside, the table at full width", async () => {
 		// The sheet portals, and server rendering draws no portal, so the page
 		// itself must hold no panel at all: nothing beside the table.
-		for (const path of [
-			"/catalog/agents",
-			"/catalog/agents?agent=atlas",
-			"/catalog/agents?agent=nobody",
-		]) {
-			const html = await renderPage(path);
+		for (const path of ["", "?agent=atlas", "?agent=nobody"]) {
+			const html = await page(path);
 			expect(html, path).not.toContain("catalog-agent-panel");
 			expect(html, path).not.toMatch(/<aside[^>]*agent template/);
 		}
@@ -583,12 +641,60 @@ describe("/catalog/agents: the panel", () => {
 		expect(seen[0]).toContain('[data-testid="catalog-agent-node-atlas"]');
 	});
 
+	it("reads the template by slug: loading, a stale slug, a failure, then the panel", () => {
+		const loading = inProviders(
+			<Panel slug="atlas" />,
+			seededClient(),
+			"/catalog/agents",
+		);
+		expect(tagOf(loading, "catalog-agent-panel-surface")).toContain(
+			'data-state="loading"',
+		);
+		expect(loading).toContain('data-testid="catalog-agent-panel-skeleton"');
+
+		const stale = inProviders(
+			<Panel slug="nobody" />,
+			seededClient({
+				agentBySlug: { nobody: notFoundError(`${PATH}/by-slug/nobody`) },
+			}),
+			"/catalog/agents",
+		);
+		expect(tagOf(stale, "catalog-agent-panel-surface")).toContain(
+			'data-state="error"',
+		);
+		expect(element(stale, "catalog-agent-not-found")).toContain("nobody");
+		expect(stale).not.toContain('data-testid="surface-error"');
+		expect(stale).toContain('data-testid="catalog-agent-panel-close"');
+
+		const failed = inProviders(
+			<Panel slug="atlas" />,
+			seededClient({
+				agentBySlug: { atlas: internalError(`${PATH}/by-slug/atlas`) },
+			}),
+			"/catalog/agents",
+		);
+		expect(failed).toContain('data-testid="surface-error"');
+		expect(failed).not.toContain("catalog-agent-not-found");
+
+		const found = inProviders(
+			<Panel slug="atlas" />,
+			seededClient({ agentBySlug: { atlas } }),
+			"/catalog/agents",
+		);
+		expect(tagOf(found, "catalog-agent-panel-surface")).toContain(
+			'data-state="success"',
+		);
+		expect(tagOf(found, "catalog-agent-panel")).toContain('data-agent="atlas"');
+	});
+
 	it("heads with the tile, the name, territory and roles, and the version", () => {
 		const html = body();
 		expect(html).toContain('data-testid="catalog-agent-tile-atlas"');
 		expect(html).toMatch(/<h2[^>]*>Atlas<\/h2>/);
 		expect(html).toMatch(
-			/data-testid="catalog-agent-panel-subtitle"[^>]*>scheduling, billing, domain, api-surface</,
+			new RegExp(
+				`data-testid="catalog-agent-panel-subtitle"[^>]*>${panelSubtitle(atlas)}<`,
+			),
 		);
 		expect(html).toMatch(
 			new RegExp(
@@ -624,8 +730,8 @@ describe("/catalog/agents: the panel", () => {
 	});
 
 	it("overview: four measures, each against the previous version", () => {
-		const later = SAMPLE_AGENTS.find((a) => a.version > 1);
-		const first = SAMPLE_AGENTS.find((a) => a.version === 1);
+		const later = AGENTS.find((a) => a.version > 1);
+		const first = AGENTS.find((a) => a.version === 1);
 		expect(later && first).toBeTruthy();
 		if (!later || !first) return;
 		const html = body(later);
@@ -658,7 +764,7 @@ describe("/catalog/agents: the panel", () => {
 	});
 
 	it("overview: the status box says what the rule says", () => {
-		for (const a of SAMPLE_AGENTS) {
+		for (const a of AGENTS) {
 			const html = body(a);
 			const { ok } = agentStatus(sampleOverview(a).current);
 			expect(tagOf(html, "catalog-agent-status"), a.slug).toContain(
@@ -673,12 +779,12 @@ describe("/catalog/agents: the panel", () => {
 		const html = tip(
 			<OverviewTab
 				agent={atlas}
-				agents={SAMPLE_AGENTS}
+				agents={AGENTS}
 				history={history}
 				onOpen={(slug) => opened.push(slug)}
 			/>,
 		);
-		const { incoming, outgoing } = edgesOf(atlas, SAMPLE_AGENTS);
+		const { incoming, outgoing } = edgesOf(atlas, AGENTS);
 		expect(incoming.length + outgoing.length).toBeGreaterThan(0);
 		for (const e of incoming) {
 			const row = element(html, `catalog-agent-edge-row-${e.from}-${e.to}`);
@@ -697,15 +803,20 @@ describe("/catalog/agents: the panel", () => {
 	});
 
 	it("overview: measures kept apart, reconstructed runs set aside", () => {
-		const html = body();
+		const withRuns = AGENTS.find(
+			(a) => sampleHistory(a).reconstructed.length > 0,
+		);
+		expect(withRuns).toBeDefined();
+		if (!withRuns) return;
+		const html = body(withRuns);
 		expect(element(html, "catalog-agent-discipline")).not.toContain(
 			"catalog-outcome-table",
 		);
 		const client = element(html, "catalog-outcome-table-client");
 		const internal = element(html, "catalog-outcome-table-internal");
-		expect(client).toMatch(/-row-atlas:client:/);
-		expect(client).not.toMatch(/-row-atlas:internal:/);
-		expect(internal).not.toMatch(/-row-atlas:client:/);
+		expect(client).toMatch(new RegExp(`-row-${withRuns.slug}:client:`));
+		expect(client).not.toMatch(new RegExp(`-row-${withRuns.slug}:internal:`));
+		expect(internal).not.toMatch(new RegExp(`-row-${withRuns.slug}:client:`));
 		expect(element(html, "catalog-agent-reconstructed")).toContain(
 			">Reconstructed<",
 		);
@@ -715,7 +826,7 @@ describe("/catalog/agents: the panel", () => {
 		expect(element(html, "catalog-agent-outcome")).not.toContain("mission-002");
 	});
 
-	it("identity: numbered lines, and its size against the 800-token cap", () => {
+	it("identity: the live text, numbered, with only its token count a sample", () => {
 		const html = tip(<IdentityTab agent={atlas} history={history} />);
 		const lines = atlas.identityMd.split("\n").length;
 		expect(
@@ -723,14 +834,21 @@ describe("/catalog/agents: the panel", () => {
 				/<div>\d+<\/div>/g,
 			),
 		).toHaveLength(lines);
+		expect(element(html, "catalog-agent-identity-code")).toContain(
+			`>${atlas.identityMd.replaceAll("\n", "\n")}</pre>`,
+		);
 		expect(html).toMatch(
 			new RegExp(
-				`data-testid="catalog-agent-identity-code-footer"[^>]*>${history.identityTokens} / 800 tokens<`,
+				`data-testid="catalog-agent-identity-tokens"[^>]*>${history.identityTokens} / 800 tokens<`,
 			),
 		);
+		expect(tagOf(html, "catalog-agent-identity-size")).toContain(
+			`data-sample-region="${CATALOG_MISSING.versions}"`,
+		);
+		expectLabelled(html, ["catalog-agent-identity-code"]);
 	});
 
-	it("manifest: the template's fields, each glob on its line, then allowed actions", () => {
+	it("manifest: the template's live fields, each glob on its line, then sample allowed actions", () => {
 		const html = tip(<ManifestTab agent={atlas} />);
 		const text = element(html, "catalog-agent-manifest-text").replace(
 			/<[^>]+>/g,
@@ -750,6 +868,10 @@ describe("/catalog/agents: the panel", () => {
 			html.match(/data-testid="catalog-agent-actions-table-row-[A-Za-z]+"/g),
 		).toEqual(['data-testid="catalog-agent-actions-table-row-Build"']);
 		expect(tip(<ManifestTab agent={agent("canon")} />)).toContain("-row-Firm");
+		expectLabelled(html, ["catalog-agent-manifest-text"]);
+		expect(tagOf(html, "catalog-agent-actions")).toContain(
+			`data-sample-region="${CATALOG_MISSING.families}"`,
+		);
 	});
 
 	it("versions: a log, eight characters of hash, full on hover, Copy", () => {
@@ -771,13 +893,30 @@ describe("/catalog/agents: the panel", () => {
 		).toHaveLength(1);
 	});
 
-	it("labels every sample region in the panel", () => {
-		expectLabelled(body(), ["catalog-agent-view-in-graph"]);
+	it("labels every sample region in the panel, and only those", () => {
+		// The panel renders the open tab (Overview); the others are tested alone.
+		const html = body();
+		expectLabelled(html, ["catalog-agent-view-in-graph"]);
+		expect(new Set(regions(html).map((r) => r.missing))).toEqual(
+			new Set([CATALOG_MISSING.measures, AGENT_MISSING.edges]),
+		);
+		const tabs = [
+			tip(<IdentityTab agent={atlas} history={history} />),
+			tip(<ManifestTab agent={atlas} />),
+			tip(<VersionsTab history={history} />),
+		].join("");
+		expect(new Set(regions(tabs).map((r) => r.missing))).toEqual(
+			new Set([CATALOG_MISSING.versions, CATALOG_MISSING.families]),
+		);
 	});
 });
 
 describe("/catalog/agents: the artifact graph", () => {
-	const html = inApp(<CatalogAgents selected="atlas" initialView="graph" />);
+	const html = inProviders(
+		<Console selected="atlas" view="graph" />,
+		seededClient({ agents: AGENTS }),
+		"/catalog/agents",
+	);
 
 	it("sits in a region whose pill names the artifact edge graph", () => {
 		expectLabelled(html, ["catalog-agents-read-only"]);
@@ -787,8 +926,8 @@ describe("/catalog/agents: the artifact graph", () => {
 		expect(html).not.toContain('data-testid="catalog-agents-table"');
 	});
 
-	it("draws every agent as a focusable node that names itself", () => {
-		for (const a of SAMPLE_AGENTS) {
+	it("draws every live agent as a focusable node that names itself", () => {
+		for (const a of AGENTS) {
 			const node = tagOf(html, `catalog-agent-node-${a.slug}`);
 			expect(node).toMatch(/^<g/);
 			expect(node).toContain('role="button"');
@@ -844,13 +983,13 @@ describe("/catalog/agents: the artifact graph", () => {
 			return { x: Number(m?.[1]), y: Number(m?.[2]) };
 		};
 		const firm = at("canon");
-		for (const a of SAMPLE_AGENTS.filter((a) => !isFirmAgent(a))) {
+		for (const a of AGENTS.filter((a) => !isFirmAgent(a))) {
 			expect(firm.y, a.slug).toBeGreaterThan(at(a.slug).y);
 		}
 		expect(html).toMatch(
 			/data-testid="catalog-agent-graph-lane-firm"[^>]*>firm, between missions</,
 		);
-		// Leonora is alone in wave A now.
+		// Leonora is alone in wave A.
 		expect(firm.y).not.toBe(at("leonora").y);
 	});
 
@@ -876,7 +1015,7 @@ describe("/catalog/agents: the artifact graph", () => {
 	});
 
 	it("draws each edge with an arrow, naming artifact@hash on hover, printed for the selected agent", () => {
-		const edges = sampleEdges(SAMPLE_AGENTS);
+		const edges = sampleEdges(AGENTS);
 		const touching = (e: (typeof edges)[number]) =>
 			e.from === "atlas" || e.to === "atlas";
 		expect(edges.some(touching)).toBe(true);
@@ -946,54 +1085,50 @@ describe("the code view", () => {
 	});
 });
 
-describe("every state of the template list, inside its region", () => {
-	const failed = {
-		status: "error" as const,
-		error: new ApiError({
-			method: "GET",
-			path: "/api/agent-templates",
-			kind: "contract",
-			status: 500,
-			code: "INTERNAL",
-			message: "m",
-			requestId: "req_catalog",
-		} as ConstructorParameters<typeof ApiError>[0]),
-		refetch: () => undefined,
-		isFetching: false,
-	};
-
-	it("loading, empty and error, each labelled like success", () => {
-		const loading = tip(
-			<CatalogAgents selected={undefined} query={{ status: "pending" }} />,
-		);
-		expect(tagOf(loading, "catalog-agents-surface")).toContain(
+describe("every state of the live template list", () => {
+	it("loads the real list: a skeleton, no pill, no not-built state, the definition as subtitle", async () => {
+		const html = await renderPage("/catalog/agents");
+		expect(tagOf(html, "catalog-agents-surface")).toContain(
 			'data-state="loading"',
 		);
-		expect(loading).toContain('data-testid="catalog-agents-skeleton"');
+		expect(html).toContain('data-testid="catalog-agents-skeleton"');
+		expect(html).not.toContain('data-state="not-built"');
+		expect(html).not.toContain('data-testid="sample-data"');
+		expect(html).toContain('data-testid="topbar-definition"');
+		expect(html).not.toContain('data-testid="topbar-subtitle"');
+		// Counts only with data: never a zero it cannot vouch for.
+		expect(html).not.toContain("catalog-agents-side-all-count");
+	});
 
-		const empty = tip(
-			<CatalogAgents
-				selected={undefined}
-				query={{ status: "success", data: [] }}
-			/>,
+	it("says when there are none, in words that state no build status", async () => {
+		const html = await renderSeeded(
+			"/catalog/agents",
+			seededClient({ agents: [] }),
 		);
-		expect(tagOf(empty, "catalog-agents-surface")).toContain(
+		expect(tagOf(html, "catalog-agents-surface")).toContain(
 			'data-state="empty"',
 		);
+		expect(html).toContain('data-testid="catalog-agents-empty"');
 		expect(
-			empty.match(/data-testid="empty-state-description"[^>]*>([^<]+)</)?.[1],
+			html.match(/data-testid="empty-state-description"[^>]*>([^<]+)</)?.[1],
 		).not.toMatch(/contract|avel-server|not built|yet\b|route/i);
+		expect(element(html, "topbar-subtitle")).toContain(">0 agent templates<");
+		expect(html).not.toContain("catalog-agents-side-all-count");
+		expect(html).not.toContain('data-testid="sample-data"');
+	});
 
-		const error = tip(<CatalogAgents selected={undefined} query={failed} />);
-		expect(tagOf(error, "catalog-agents-surface")).toContain(
+	it("shows the error state when the list fails, with the request reference", async () => {
+		const html = await renderSeeded(
+			"/catalog/agents",
+			seededClient({ agents: internalError(PATH) }),
+		);
+		expect(tagOf(html, "catalog-agents-surface")).toContain(
 			'data-state="error"',
 		);
-		expect(error).toContain('data-testid="surface-error"');
-
-		for (const html of [loading, empty, error]) {
-			expectLabelled(html, []);
-			// Counts only with data: never a zero it cannot vouch for.
-			expect(html).not.toContain("catalog-agents-side-all-count");
-		}
+		expect(html).toContain('data-testid="surface-error"');
+		expect(html).toContain(">req_catalog<");
+		expect(html).not.toContain("catalog-agents-side-all-count");
+		expect(html).not.toContain('data-testid="sample-data"');
+		expect(html).toContain('data-testid="catalog-agents-read-only"');
 	});
 });

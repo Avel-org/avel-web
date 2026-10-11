@@ -2,8 +2,11 @@ import { queryOptions } from "@tanstack/react-query";
 import {
 	type AgentTemplate,
 	type CoherenceInput,
+	type CoherenceResult,
 	contract,
 	type MissionDetail,
+	type Preset,
+	type PresetAgent,
 	type RosterEntry,
 	resolveWritablePaths,
 } from "avel-server/contract";
@@ -82,4 +85,50 @@ export function coherenceInputFor(
 		});
 	}
 	return { cut, roster: entries };
+}
+
+/**
+ * A preset as if it were a mission's roster: every agent active, in its
+ * saved waves, with its template's kind and roles and its resolved paths,
+ * under the preset's cut. Run through computeCoherence against a playbook,
+ * this is the client-side form of avel-server's preset_misses_first_wave.
+ *
+ * With `onto`, it is the roster after applying the preset to a mission: the
+ * preset's agents after the mission's current entries, or in place of them
+ * when `replace`, under the mission's cut. Null while a template is not
+ * loaded: there is nothing to read its kind and roles from.
+ */
+export function presetCoherenceInput(
+	preset: { cut: Preset["cut"]; agents: readonly PresetAgent[] },
+	templates: ReadonlyMap<
+		string,
+		Pick<AgentTemplate, "kind" | "roles" | "writablePaths">
+	>,
+	onto?: { before: CoherenceInput; replace: boolean },
+): CoherenceInput | null {
+	const roster: CoherenceInput["roster"] = [];
+	for (const agent of preset.agents) {
+		const template = templates.get(agent.agentTemplateId);
+		if (!template) return null;
+		roster.push({
+			// A preset agent has no entry id; its template's stands in.
+			id: agent.agentTemplateId,
+			active: true,
+			waves: agent.waves,
+			kind: template.kind,
+			roles: template.roles,
+			writablePaths: resolveWritablePaths(agent, template),
+		});
+	}
+	if (!onto) return { cut: preset.cut, roster };
+	return {
+		cut: onto.before.cut,
+		roster: [...(onto.replace ? [] : onto.before.roster), ...roster],
+	};
+}
+
+/** A coherence result in one word: blocked, warned, or clear. */
+export function verdictOf(result: CoherenceResult): "block" | "warn" | "clear" {
+	if (result.block) return "block";
+	return result.warnings.length > 0 ? "warn" : "clear";
 }

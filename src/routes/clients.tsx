@@ -7,12 +7,12 @@ import {
 	type ClientActions,
 	ClientDetail,
 } from "@/components/avel/client-detail";
-import { ClientFormSheet } from "@/components/avel/client-form";
+import { ClientFormModal } from "@/components/avel/client-form";
 import { ClientListPane, loadedClients } from "@/components/avel/client-list";
 import { ClientStatusDialog } from "@/components/avel/client-status-dialog";
 import { EmptyState } from "@/components/avel/empty-state";
 import { EngagementCloseDialog } from "@/components/avel/engagement-close";
-import { EngagementFormSheet } from "@/components/avel/engagement-form";
+import { EngagementFormModal } from "@/components/avel/engagement-form";
 import { Button } from "@/components/ui/button";
 import {
 	clientCountLabel,
@@ -201,12 +201,12 @@ function ClientsPage() {
 					</div>
 				</div>
 			)}
-			<ClientFormSheet
+			<ClientFormModal
 				open={overlay.kind === "new-client" || overlay.kind === "edit-client"}
 				onOpenChange={onOpenChange}
 				client={overlay.kind === "edit-client" ? overlay.client : undefined}
 			/>
-			<EngagementFormSheet
+			<EngagementFormModal
 				open={overlay.kind === "new-engagement"}
 				onOpenChange={onOpenChange}
 				client={overlay.kind === "new-engagement" ? overlay.client : null}

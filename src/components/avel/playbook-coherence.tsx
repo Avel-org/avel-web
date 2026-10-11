@@ -98,7 +98,7 @@ export function useCoherenceInput(
 }
 
 /** Both reads coherence needs, as one state: the input, then the playbook. */
-function useCoherence(
+export function useCoherence(
 	mission: Pick<MissionDetail, "id" | "cut">,
 	missionType: string,
 ): SurfaceQuery<CoherenceResult, ApiError> {

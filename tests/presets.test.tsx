@@ -117,12 +117,13 @@ describe("the Presets page", () => {
 		expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
 	});
 
-	it("loads the real list, never the not-built state", async () => {
+	it("loads the board by default, never the not-built state", async () => {
 		const html = await renderPage("/presets");
 		expect(tagOf(html, "preset-list")).toContain('data-state="loading"');
-		expect(html.match(/data-testid="preset-list-skeleton-row"/g)).toHaveLength(
-			3,
-		);
+		expect(tagOf(html, "presets-view-board")).toContain('aria-pressed="true"');
+		expect(
+			html.match(/data-testid="preset-board-skeleton-card"/g),
+		).toHaveLength(3);
 		expect(html).not.toContain('data-state="not-built"');
 	});
 
@@ -156,6 +157,7 @@ describe("the Presets list", () => {
 	it("shows each row's name, cut, agent count and version, as a link", async () => {
 		const html = await renderSeeded(
 			one(preset(1, { cut: "horizontal", version: 3 })),
+			{ path: "/presets?view=table" },
 		);
 		const row = tagOf(html, `preset-row-${ID(1)}`);
 		expect(row).toMatch(/^<a/);
@@ -233,7 +235,7 @@ describe("the Presets list", () => {
 describe("the selected preset", () => {
 	const selected = (p: Preset, extra: Seed = {}) =>
 		renderSeeded(one(p), {
-			path: `/presets?preset=${p.id}`,
+			path: `/presets?view=table&preset=${p.id}`,
 			detail: p,
 			templates: [template(1), template(2)],
 			...extra,
@@ -385,7 +387,9 @@ describe("the selected preset", () => {
 	});
 
 	it("narrows the list pane at lg so the detail's table fits", async () => {
-		const html = await renderSeeded(one(preset(1)));
+		const html = await renderSeeded(one(preset(1)), {
+			path: "/presets?view=table",
+		});
 		const pane = tagOf(html, "presets-list-pane");
 		expect(pane).toMatch(/\blg:w-72\b/);
 		expect(pane).not.toMatch(/\blg:w-80\b/);
@@ -393,13 +397,33 @@ describe("the selected preset", () => {
 
 	it("shows a gone preset as an error with the way back", async () => {
 		const html = await renderSeeded(one(preset(1)), {
-			path: `/presets?preset=${ID(7)}`,
+			path: `/presets?view=table&preset=${ID(7)}`,
 			detail: contractError("NOT_FOUND", 404),
 		});
 		expect(tagOf(html, "preset-detail-surface")).toContain(
 			'data-state="error"',
 		);
 		expect(html).toContain('data-testid="preset-back"');
+	});
+});
+
+describe("the Presets views", () => {
+	it("opens the table view from the URL, and the board without one", async () => {
+		const table = await renderSeeded(one(preset(1)), {
+			path: "/presets?view=table",
+		});
+		expect(tagOf(table, "presets-view-table")).toContain('aria-pressed="true"');
+		expect(table).toContain('data-testid="presets-panes"');
+		expect(table).not.toContain('data-testid="preset-cards"');
+
+		const board = await renderSeeded(one(preset(1)));
+		expect(board).toContain(`data-testid="preset-card-${ID(1)}"`);
+		expect(board).not.toContain('data-testid="presets-panes"');
+	});
+
+	it("drops an unknown view rather than failing the page", () => {
+		expect(presetsSearch.parse({ view: "graph" }).view).toBeUndefined();
+		expect(presetsSearch.parse({ view: "table" }).view).toBe("table");
 	});
 });
 

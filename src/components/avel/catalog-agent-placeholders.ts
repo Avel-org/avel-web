@@ -4,8 +4,9 @@
  * dispatch token estimates. None of these has a contract shape; the side and
  * the produce/consume pairs are client copies of design data in avel-server's
  * docs (ROSTER-V2.md, ROLES.md), so they are samples behind a pill like the
- * rest, never presented as live. Shared catalog samples (templates, versions,
- * families) stay in catalog-placeholders.ts.
+ * rest, never presented as live. Every value here derives from a live
+ * template's own fields (its slug, roles and waveDefaults). Shared catalog
+ * samples (versions, measures, families) stay in catalog-placeholders.ts.
  */
 import type { AgentTemplate, Role, Wave } from "avel-server/contract";
 import { WAVES } from "avel-server/contract";

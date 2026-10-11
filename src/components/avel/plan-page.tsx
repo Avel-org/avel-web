@@ -3,6 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMission } from "./mission-data";
 import { MissionRowsSkeleton } from "./mission-panels";
+import { PlanReadiness } from "./plan-readiness";
 import { PlanRegion } from "./plan-region";
 import { ErrorState, Surface } from "./surface";
 
@@ -10,13 +11,13 @@ import { ErrorState, Surface } from "./surface";
  * The plan editor as a page (/missions/$id/plan). The mission is loaded for
  * its status: only a draft's plan can change.
  *
- * The top of the page is left for the readiness card, which comes next.
+ * The readiness card sits on top: where each requirement stands.
  */
 export function MissionPlanPage({ id }: { id: string }) {
 	const mission = useMission(id);
 	return (
 		<div data-testid="plan-page" className="flex flex-col gap-6">
-			{/* Readiness card: next round. */}
+			<PlanReadiness missionId={id} />
 			<Surface
 				data-testid="plan-page-mission"
 				query={mission}
@@ -27,7 +28,11 @@ export function MissionPlanPage({ id }: { id: string }) {
 				error={ErrorState}
 			>
 				{(detail) => (
-					<PlanRegion missionId={detail.id} status={detail.status} />
+					<PlanRegion
+						missionId={detail.id}
+						status={detail.status}
+						rawBrief={detail.brief}
+					/>
 				)}
 			</Surface>
 		</div>
