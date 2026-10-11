@@ -197,4 +197,11 @@ export const queryKeys = {
 		template: (id: string) =>
 			["catalog", "agentTemplates", "byId", id] as const,
 	},
+	missionSkills: {
+		/**
+		 * contract.roster.skills: the skills attached to one mission,
+		 * unpaginated. Under "missions", as the roster is.
+		 */
+		list: (missionId: string) => ["missions", "skills", missionId] as const,
+	},
 } as const;

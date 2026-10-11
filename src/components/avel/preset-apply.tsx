@@ -17,9 +17,11 @@ import { usePlaybook } from "@/lib/api/playbooks";
 import {
 	appliedCoherenceInput,
 	applyLabel,
+	loadedPresets,
 	missingTemplateIds,
 	shortId,
 	useApplyPreset,
+	usePresets,
 } from "@/lib/api/presets";
 import { PRECONDITION_COPY } from "@/lib/error-map";
 import { ActionModal } from "./action-modal";
@@ -32,6 +34,10 @@ import { useOpenGeneration } from "./use-open-generation";
 import { type Change, WhatChanges } from "./what-changes";
 
 const STEPS = ["Mission", "Preview"] as const;
+const PRESET_STEPS = ["Preset", "Preview"] as const;
+
+/** What the preview reads of the mission: its roster, cut and playbook. */
+type ApplyTarget = Pick<MissionListItem, "id" | "cut" | "type">;
 
 /** Draft missions only: applying refuses any other (422 mission_not_editable). */
 export const draftMissions = (
@@ -44,7 +50,6 @@ export const draftMissions = (
 	status: ["draft"],
 });
 
-/** A mission as the picker names it: type and sprint, then whose. */
 /** Fetches every page of an infinite list, one after another. */
 function useAllPages(query: {
 	hasNextPage: boolean;
@@ -57,6 +62,7 @@ function useAllPages(query: {
 	}, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 }
 
+/** A mission as the picker names it: type and sprint, then whose. */
 export function missionLabel(m: MissionListItem): string {
 	const whose = m.client ? m.client.name : "Internal";
 	return `${m.type} · sprint ${m.sprintN} · ${whose}`;
@@ -243,6 +249,254 @@ export function ApplyPresetSteps({
 	);
 }
 
+/**
+ * The same apply from the mission's side (the loadout): pick a preset, then
+ * the same preview, replace choice and request as from /presets.
+ */
+export function ApplyToMissionModal({
+	mission,
+	open,
+	onOpenChange,
+	names,
+}: {
+	mission: ApplyTarget;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	names: Names;
+}) {
+	const generation = useOpenGeneration(open);
+	// Not opened yet: nothing to read. After, it stays mounted to animate out.
+	if (generation === 0) return null;
+	return (
+		<ApplyToMissionSteps
+			key={generation}
+			mission={mission}
+			open={open}
+			onOpenChange={onOpenChange}
+			names={names}
+		/>
+	);
+}
+
+export function ApplyToMissionSteps({
+	mission,
+	open = true,
+	onOpenChange = () => {},
+	names,
+	initialPreset,
+}: {
+	mission: ApplyTarget;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	names: Names;
+	/** For a test: start on the preview of this preset. */
+	initialPreset?: Preset;
+}) {
+	const api = useApiClient();
+	const list = usePresets();
+	useAllPages(list);
+	const presets = list.data ? loadedPresets(list.data) : [];
+	const presetsLoading = list.status === "pending" || list.hasNextPage;
+	const [step, setStep] = useState(initialPreset ? 1 : 0);
+	const [presetId, setPresetId] = useState(initialPreset?.id ?? "");
+	const [replace, setReplace] = useState(false);
+	const apply = useApplyPreset();
+	const preset =
+		presets.find((p) => p.id === presetId) ??
+		(initialPreset?.id === presetId ? initialPreset : undefined);
+	const roster = useQuery(rosterQuery(api, mission.id));
+	const occupied = (roster.data?.length ?? 0) > 0;
+	const n = preset?.agents.length ?? 0;
+
+	const reason =
+		step === 0 || !preset
+			? presetId === ""
+				? "Pick a preset first."
+				: undefined
+			: roster.status !== "success"
+				? "Reading the mission's roster."
+				: occupied && !replace
+					? `This roster already has ${roster.data.length} ${roster.data.length === 1 ? "agent" : "agents"}. Choose to replace them, or go back and pick another preset.`
+					: n === 0
+						? "This preset has no agents to apply."
+						: undefined;
+
+	const changes: Change[] = preset
+		? [
+				...preset.agents.map(
+					(agent): Change => ({
+						label: `Add · ${agentName(agent, names)}`,
+						kind: "add",
+						to: fieldText(agent, "waves"),
+						mono: true,
+					}),
+				),
+				...(replace && roster.data
+					? roster.data.map(
+							(entry): Change => ({
+								label: `Remove · ${entry.agentTemplate.name}${entry.territory ? ` · ${entry.territory}` : ""}`,
+								kind: "remove",
+								from: entry.waves.join(" · ") || "No waves",
+								mono: true,
+							}),
+						)
+					: []),
+			]
+		: [];
+
+	return (
+		<ActionModal
+			open={open}
+			onOpenChange={(next) => {
+				if (!next) apply.reset();
+				onOpenChange(next);
+			}}
+			size="stepper"
+			title="Apply preset"
+			description="A preset's agents become this mission's roster entries, a copy the mission can then edit."
+			dirty={presetId !== ""}
+			steps={PRESET_STEPS}
+			step={step}
+			onBack={() => setStep(0)}
+			submitLabel={step === 0 ? "Preview" : applyLabel(n)}
+			pendingLabel="Applying"
+			destructive={step === 1 && replace}
+			submitDisabledReason={reason}
+			onSubmit={async () => {
+				if (step === 0) {
+					setStep(1);
+					return;
+				}
+				if (!preset) return;
+				try {
+					const entries = await apply.mutateAsync({
+						missionId: mission.id,
+						presetId: preset.id,
+						replace,
+					});
+					onOpenChange(false);
+					toast.success(
+						`${applyLabel(entries.length).replace("Apply", "Applied")} from ${preset.name}.`,
+					);
+				} catch {
+					// The refusal is on apply.error, shown in the modal.
+				}
+			}}
+			pending={apply.isPending}
+			error={apply.error}
+			changes={
+				step === 1 ? (
+					<WhatChanges data-testid="preset-apply-changes" changes={changes} />
+				) : undefined
+			}
+			data-testid="loadout-apply"
+		>
+			{step === 0 || !preset ? (
+				<PresetPicker
+					presets={presets}
+					loading={presetsLoading}
+					error={list.status === "error"}
+					value={presetId}
+					onChange={(id) => {
+						setPresetId(id);
+						setReplace(false);
+					}}
+				/>
+			) : (
+				<Preview
+					preset={preset}
+					mission={mission}
+					names={names}
+					occupied={occupied}
+					rosterCount={roster.data?.length ?? 0}
+					replace={replace}
+					onReplace={setReplace}
+				/>
+			)}
+		</ActionModal>
+	);
+}
+
+function PresetPicker({
+	presets,
+	loading,
+	error,
+	value,
+	onChange,
+}: {
+	presets: Preset[];
+	loading: boolean;
+	error: boolean;
+	value: string;
+	onChange: (id: string) => void;
+}) {
+	if (error) {
+		return (
+			<p
+				data-testid="loadout-apply-presets-error"
+				className="type-small text-text-muted"
+			>
+				The presets could not be read. Close and try again.
+			</p>
+		);
+	}
+	if (loading) {
+		return (
+			<div
+				data-testid="loadout-apply-presets-loading"
+				className="flex flex-col gap-2"
+			>
+				<Skeleton className="h-9 w-full" />
+				<Skeleton className="h-9 w-full" />
+			</div>
+		);
+	}
+	if (presets.length === 0) {
+		return (
+			<p
+				data-testid="loadout-apply-no-presets"
+				className="type-small text-text-muted"
+			>
+				There are no presets yet. Save this roster as one, or make one in
+				Presets.
+			</p>
+		);
+	}
+	return (
+		<fieldset className="flex flex-col gap-2">
+			<legend className="type-small font-medium text-foreground">
+				Presets
+			</legend>
+			<RadioGroup
+				data-testid="loadout-apply-presets"
+				value={value}
+				onValueChange={onChange}
+				className="flex flex-col gap-1"
+			>
+				{presets.map((p) => (
+					<label
+						key={p.id}
+						htmlFor={`apply-preset-${p.id}`}
+						className="flex items-center gap-3 rounded-sm border border-border px-3 py-2 has-[[data-state=checked]]:bg-state-selected"
+					>
+						<RadioGroupItem
+							id={`apply-preset-${p.id}`}
+							value={p.id}
+							data-testid={`loadout-apply-preset-${p.id}`}
+						/>
+						<span className="type-small min-w-0 flex-1 truncate text-foreground">
+							{p.name}
+						</span>
+						<span className="type-mono-small text-text-subtle">
+							{`v${p.version} · ${p.agents.length} ${p.agents.length === 1 ? "agent" : "agents"}`}
+						</span>
+					</label>
+				))}
+			</RadioGroup>
+		</fieldset>
+	);
+}
+
 function MissionPicker({
 	missions,
 	loading,
@@ -321,7 +575,7 @@ function Preview({
 	onReplace,
 }: {
 	preset: Preset;
-	mission: MissionListItem;
+	mission: ApplyTarget;
 	names: Names;
 	occupied: boolean;
 	rosterCount: number;
@@ -439,7 +693,7 @@ function CoherenceRegion({
  * catalog, after the current entries unless they are replaced.
  */
 function useCoherencePair(
-	mission: MissionListItem,
+	mission: ApplyTarget,
 	preset: Preset,
 	replace: boolean,
 ): {

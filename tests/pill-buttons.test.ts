@@ -115,6 +115,11 @@ const EXCEPTIONS: { file: string; marker: string; why: string }[] = [
 		marker: "onChange(target(i))",
 		why: "a breadcrumb step: text, like the shell's breadcrumbs",
 	},
+	{
+		file: "components/avel/loadout-board.tsx",
+		marker: "chipRefs.current.set(entry.id, el)",
+		why: "a roster chip's name: the chip card around it is the surface",
+	},
 ];
 
 const sources = files(SRC).map((path) => ({

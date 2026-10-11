@@ -560,7 +560,23 @@ function Repository({ mission }: { mission: MissionDetail }) {
 function Team({ mission }: { mission: MissionDetail }) {
 	const { agents, active } = mission.roster;
 	return (
-		<SectionPanel title="Team" data-testid="mission-section-team">
+		<SectionPanel
+			title="Team"
+			data-testid="mission-section-team"
+			actions={
+				// The roster is built on the loadout screen; the overview links there.
+				<Button asChild variant="ghost" size="sm">
+					<Link
+						to="/missions/$id/roster"
+						params={{ id: mission.id }}
+						data-testid="mission-loadout-open"
+					>
+						Loadout
+						<ArrowUpRight aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<p className="type-small text-text-muted">
 				<span className="type-mono text-foreground">{agents}</span>{" "}
 				{agents === 1 ? "agent" : "agents"},{" "}

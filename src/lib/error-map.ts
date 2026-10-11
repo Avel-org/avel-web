@@ -421,6 +421,18 @@ export const PRECONDITION_COPY = {
 	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;
 
+/**
+ * contract.roster.attachSkill's 409 CONFLICT: the skill is already on the
+ * mission, most likely attached from another tab. Its generic copy would
+ * send the operator to reload for a change that is in fact already made.
+ */
+export const SKILL_ALREADY_ATTACHED: ErrorCopy = {
+	what: "This skill is already on the mission.",
+	written: "Nothing new was written. The skill stays attached once.",
+	next: "The list now shows it attached. Nothing else to do.",
+	retry: false,
+};
+
 /** Copy for an error from avel-server's contract. */
 export function describeError(error: ApiError): ErrorCopy {
 	const { failure } = error;

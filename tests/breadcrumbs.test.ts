@@ -45,7 +45,7 @@ describe("crumbLabel against the real router", async () => {
 	it("leaves out a path no route covers, despite fuzzy matching", () => {
 		// /missions/$id covers one segment; the router would fuzzily match
 		// this deeper path to it, and the guard must not.
-		expect(crumbLabel(router, "/missions/abc/roster")).toBeUndefined();
+		expect(crumbLabel(router, "/missions/abc/nowhere")).toBeUndefined();
 		expect(crumbLabel(router, "/nowhere")).toBeUndefined();
 	});
 
