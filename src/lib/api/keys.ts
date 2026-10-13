@@ -210,4 +210,12 @@ export const queryKeys = {
 		 */
 		list: (missionId: string) => ["missions", "skills", missionId] as const,
 	},
+	templates: {
+		/** Everything under contract.templates. */
+		all: () => ["templates"] as const,
+		/** contract.templates.list: every template in the allowlist, unpaginated. */
+		list: () => ["templates", "list"] as const,
+		/** contract.templates.get: one template, by its slug. */
+		detail: (slug: string) => ["templates", "detail", slug] as const,
+	},
 } as const;

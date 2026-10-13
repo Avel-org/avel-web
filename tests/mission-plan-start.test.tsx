@@ -10,7 +10,7 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { startPlanBody } from "@/lib/api/mission-plans";
 import { contractError } from "./clients-fixtures";
-import { plan } from "./mission-plan-fixtures";
+import { plan, withApi } from "./mission-plan-fixtures";
 import { tagOf, tagWithId, textOfId } from "./render-page";
 
 const noop = () => {};
@@ -128,17 +128,19 @@ describe("what starting changes", () => {
 describe("the editor on a brief that predates the shape", () => {
 	const render = (onStartPlan?: () => void, landed = false) =>
 		renderToString(
-			<TooltipProvider>
-				<PlanEditor
-					plan={plan({ brief: null, approvedBrief: null })}
-					readOnlyReason={null}
-					pending={false}
-					error={null}
-					onSave={noop}
-					onStartPlan={onStartPlan}
-					landed={landed}
-				/>
-			</TooltipProvider>,
+			withApi(
+				<TooltipProvider>
+					<PlanEditor
+						plan={plan({ brief: null, approvedBrief: null })}
+						readOnlyReason={null}
+						pending={false}
+						error={null}
+						onSave={noop}
+						onStartPlan={onStartPlan}
+						landed={landed}
+					/>
+				</TooltipProvider>,
+			),
 		);
 
 	it("offers Start a plan only when the caller allows it", () => {
@@ -148,16 +150,18 @@ describe("the editor on a brief that predates the shape", () => {
 
 	it("highlights a plan that just started", () => {
 		const html = renderToString(
-			<TooltipProvider>
-				<PlanEditor
-					plan={plan({ approvedBrief: null })}
-					readOnlyReason={null}
-					pending={false}
-					error={null}
-					onSave={noop}
-					landed
-				/>
-			</TooltipProvider>,
+			withApi(
+				<TooltipProvider>
+					<PlanEditor
+						plan={plan({ approvedBrief: null })}
+						readOnlyReason={null}
+						pending={false}
+						error={null}
+						onSave={noop}
+						landed
+					/>
+				</TooltipProvider>,
+			),
 		);
 		expect(tagOf(html, "plan-editor")).toMatch(/\blanded\b/);
 		expect(tagOf(render(undefined, false), "plan-no-brief")).toBeDefined();

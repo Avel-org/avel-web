@@ -1,4 +1,12 @@
-import type { Brief, MissionPlan } from "avel-server/contract";
+import { QueryClient } from "@tanstack/react-query";
+import type { Brief, MissionPlan, Template } from "avel-server/contract";
+import { createElement, type ReactNode } from "react";
+import {
+	ApiError,
+	ApiOverrideProvider,
+	ApiProvider,
+	queryKeys,
+} from "@/lib/api";
 
 /**
  * Shared fixtures for the plan editor tests. Not a test file: vitest collects
@@ -51,4 +59,48 @@ export function plan(overrides: Partial<MissionPlan> = {}): MissionPlan {
 		},
 		...overrides,
 	};
+}
+
+/** A template as templates.list serves it. */
+export function template(overrides: Partial<Template> = {}): Template {
+	return {
+		slug: "template-booking",
+		readable: true,
+		name: "Booking",
+		scope: "full-stack",
+		startingState: "greenfield",
+		latestSha: "a".repeat(40),
+		defaultPresetId: null,
+		missionCount: 2,
+		...overrides,
+	};
+}
+
+/**
+ * The editor's template picker reads templates.list, so the editor renders
+ * inside the API providers. With `templates` the list is in the cache, with
+ * an ApiError its read failed, and without either it is still loading, since
+ * server rendering runs no query.
+ */
+export function withApi(
+	node: ReactNode,
+	templates?: Template[] | ApiError,
+): ReactNode {
+	const queryClient = new QueryClient({
+		defaultOptions: {
+			queries: { retry: false, retryOnMount: false, staleTime: Infinity },
+		},
+	});
+	const key = queryKeys.templates.list().slice();
+	if (templates instanceof ApiError)
+		queryClient
+			.getQueryCache()
+			.build(queryClient, { queryKey: key })
+			.setState({ status: "error", fetchStatus: "idle", error: templates });
+	else if (templates) queryClient.setQueryData(key, templates);
+	return createElement(
+		ApiOverrideProvider,
+		{ queryClient },
+		createElement(ApiProvider, null, node),
+	);
 }

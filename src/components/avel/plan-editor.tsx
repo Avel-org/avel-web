@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { Field, FormError } from "./client-form";
 import { CodeView } from "./code-view";
 import { groupBrief, type RequirementGroup } from "./mission-details";
+import { LatestCommit, TemplatePicker } from "./template-picker";
 
 /**
  * The plan anchor a Resolve link landed on, taken out of the URL so it is
@@ -934,8 +935,8 @@ function TemplateFields({
 		<fieldset data-testid="plan-template" className="flex flex-col gap-3">
 			<legend className="type-panel-title text-foreground">Template</legend>
 			<p className="type-caption text-text-subtle">
-				Both or neither: the template's name and the full commit it was built
-				from.
+				Both or neither: the AVEL project template it is built from, and the
+				full commit. Choosing a template pins its latest commit.
 			</p>
 			<div id={planAnchor("templateRef")}>
 				<Field
@@ -945,14 +946,11 @@ function TemplateFields({
 					testid="plan-template-ref"
 				>
 					{(props) => (
-						<Input
-							{...props}
-							readOnly={readOnly}
-							maxLength={100}
-							placeholder="template-booking"
-							className="type-mono-small"
+						<TemplatePicker
+							field={props}
 							value={draft.templateRef}
-							onChange={(e) => onChange({ templateRef: e.target.value })}
+							readOnly={readOnly}
+							onChange={onChange}
 						/>
 					)}
 				</Field>
@@ -975,6 +973,12 @@ function TemplateFields({
 						/>
 					)}
 				</Field>
+				<LatestCommit
+					templateRef={draft.templateRef}
+					templateVersion={draft.templateVersion}
+					readOnly={readOnly}
+					onUse={(sha) => onChange({ templateVersion: sha })}
+				/>
 			</div>
 		</fieldset>
 	);

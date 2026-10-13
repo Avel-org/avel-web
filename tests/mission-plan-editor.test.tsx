@@ -6,10 +6,11 @@ import {
 	consumePlanHash,
 	PlanEditor,
 } from "@/components/avel/plan-editor";
+import { choiceFor, NO_TEMPLATE } from "@/components/avel/template-picker";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ApiError } from "@/lib/api";
 import { contractError } from "./clients-fixtures";
-import { plan } from "./mission-plan-fixtures";
+import { plan, template, withApi } from "./mission-plan-fixtures";
 import { tagOf, tagWithId, textOfId } from "./render-page";
 
 const READ_ONLY = "This mission can no longer be changed.";
@@ -22,15 +23,17 @@ function render(
 	}: { readOnlyReason?: string | null; error?: ApiError | null } = {},
 ) {
 	return renderToString(
-		<TooltipProvider>
-			<PlanEditor
-				plan={p}
-				readOnlyReason={readOnlyReason}
-				pending={false}
-				error={error}
-				onSave={() => {}}
-			/>
-		</TooltipProvider>,
+		withApi(
+			<TooltipProvider>
+				<PlanEditor
+					plan={p}
+					readOnlyReason={readOnlyReason}
+					pending={false}
+					error={error}
+					onSave={() => {}}
+				/>
+			</TooltipProvider>,
+		),
 	);
 }
 
@@ -241,5 +244,108 @@ describe("where Resolve lands", () => {
 			consumePlanHash({ ...location, hash: "#other" }, history),
 		).toBeNull();
 		expect(replaced).toHaveLength(1);
+	});
+});
+
+describe("the template, picked from templates.list", () => {
+	const BOOKING = template();
+	const SHA = "b".repeat(40);
+	const UNREADABLE = template({
+		slug: "template-legacy",
+		readable: false,
+		name: null,
+		scope: null,
+		startingState: null,
+		latestSha: null,
+	});
+
+	/** The picker's trigger, from its opening tag to its close. */
+	const picked = (html: string) => {
+		const from = region(html, "plan-template-ref");
+		return from.slice(0, from.indexOf("</button>"));
+	};
+
+	function renderWith(
+		p: MissionPlan,
+		templates?: Parameters<typeof withApi>[1],
+	) {
+		return renderToString(
+			withApi(
+				<TooltipProvider>
+					<PlanEditor
+						plan={p}
+						readOnlyReason={null}
+						pending={false}
+						error={null}
+						onSave={() => {}}
+					/>
+				</TooltipProvider>,
+				templates,
+			),
+		);
+	}
+
+	it("is a picker, not a text field, naming the chosen template", () => {
+		const html = renderWith(
+			plan({ templateRef: "template-booking", templateVersion: SHA }),
+			[BOOKING, UNREADABLE],
+		);
+		const trigger = tagOf(html, "plan-template-ref");
+		expect(trigger).toMatch(/^<button/);
+		expect(trigger).toContain('role="combobox"');
+		expect(html).not.toContain('placeholder="template-booking"');
+		expect(picked(html)).toContain(">Booking<");
+	});
+
+	it("says No template when the plan has none", () => {
+		const html = renderWith(plan(), [BOOKING]);
+		expect(picked(html)).toContain(">No template<");
+		expect(html).not.toContain('data-testid="plan-template-latest"');
+	});
+
+	it("offers the latest commit when the plan pins another", () => {
+		const html = renderWith(
+			plan({ templateRef: "template-booking", templateVersion: SHA }),
+			[BOOKING],
+		);
+		expect(html).toContain('data-testid="plan-template-use-latest"');
+		expect(region(html, "plan-template-latest")).toContain(">aaaaaaaa<");
+		const pinned = renderWith(
+			plan({
+				templateRef: "template-booking",
+				templateVersion: BOOKING.latestSha,
+			}),
+			[BOOKING],
+		);
+		expect(pinned).not.toContain('data-testid="plan-template-latest"');
+	});
+
+	it("waits, disabled, while the list loads", () => {
+		const html = renderWith(plan());
+		expect(tagOf(html, "plan-template-ref")).toMatch(/\sdisabled=""/);
+		expect(picked(html)).toContain(">Loading templates<");
+	});
+
+	it("falls back to typing the name when the list cannot be read", () => {
+		const html = renderWith(plan(), contractError(404, "NOT_FOUND"));
+		expect(tagOf(html, "plan-template-ref")).toMatch(/^<input/);
+		expect(html).toContain('data-testid="plan-template-ref-fallback"');
+	});
+
+	it("pins a chosen template's latest commit, and clears both for none", () => {
+		const list = [BOOKING, UNREADABLE];
+		expect(choiceFor("template-booking", list)).toEqual({
+			templateRef: "template-booking",
+			templateVersion: BOOKING.latestSha,
+		});
+		// No commit can be read from an unreadable repository: type it.
+		expect(choiceFor("template-legacy", list)).toEqual({
+			templateRef: "template-legacy",
+			templateVersion: "",
+		});
+		expect(choiceFor(NO_TEMPLATE, list)).toEqual({
+			templateRef: "",
+			templateVersion: "",
+		});
 	});
 });

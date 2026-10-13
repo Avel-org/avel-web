@@ -1,6 +1,7 @@
 /**
- * The sidebar: twelve links in three groups, as specified in
- * design/AVEL-DESIGN.md (section 6, ruling 3; ruling 33 adds Drive). Agents and Settings are
+ * The sidebar: thirteen links in three groups, as specified in
+ * design/AVEL-DESIGN.md (section 6, ruling 3; ruling 33 adds Drive; Templates
+ * joins Library beside Playbooks, the templates they are keyed by). Agents and Settings are
  * parents that group links without being pages themselves; no /catalog or
  * /settings route exists. tests/nav.test.ts fails if any link here has no
  * route, or any route is missing from here.
@@ -13,6 +14,7 @@ import {
 	FolderGit2,
 	HardDrive,
 	Layers,
+	LayoutTemplate,
 	Library,
 	ListChecks,
 	type LucideIcon,
@@ -105,6 +107,13 @@ export const NAV: NavGroup[] = [
 				purpose: "The phases and gates each kind of mission follows.",
 			},
 			{
+				label: "Templates",
+				to: "/templates",
+				icon: LayoutTemplate,
+				purpose:
+					"AVEL project templates: the repositories a mission is built from.",
+			},
+			{
 				label: "Drive",
 				to: "/drive",
 				icon: HardDrive,
@@ -150,7 +159,7 @@ export const NAV: NavGroup[] = [
 	},
 ];
 
-/** The twelve leaf links, in sidebar order. Parents are not links. */
+/** The thirteen leaf links, in sidebar order. Parents are not links. */
 export const ALL_LINKS: NavLink[] = NAV.flatMap((group) =>
 	group.items.flatMap((item) => (isParent(item) ? item.children : [item])),
 );
