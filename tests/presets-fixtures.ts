@@ -42,6 +42,7 @@ export function template(n: number, roles: Role[] = ["schema"]): AgentTemplate {
 		slug: `template-${n}`,
 		name: `Template ${n}`,
 		kind: "horizontal",
+		description: null,
 		roles,
 		engagementId: null,
 		waveDefaults: ["A"],

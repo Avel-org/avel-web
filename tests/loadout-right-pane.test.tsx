@@ -112,6 +112,7 @@ function template(
 		slug: `agent-${n}`,
 		name: `Agent ${n}`,
 		kind: "horizontal",
+		description: null,
 		roles: ["api-surface"],
 		engagementId: null,
 		waveDefaults: ["A"],

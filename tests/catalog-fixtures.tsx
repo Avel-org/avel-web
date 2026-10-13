@@ -50,7 +50,13 @@ const AT = "2026-09-07T09:00:00.000Z";
 
 type AgentSeed = Pick<
 	AgentTemplate,
-	"slug" | "name" | "kind" | "roles" | "waveDefaults" | "writablePaths"
+	| "slug"
+	| "name"
+	| "kind"
+	| "roles"
+	| "waveDefaults"
+	| "writablePaths"
+	| "description"
 > & { version: number };
 
 const AGENT_SEEDS: readonly AgentSeed[] = [
@@ -62,6 +68,8 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 		roles: ["api-surface", "domain"],
 		waveDefaults: ["B"],
 		writablePaths: ["src/server/**", "!**/*.test.ts"],
+		description:
+			"Builds the server side of a feature: its services and the routes the screens call.",
 		version: 3,
 	},
 	{
@@ -71,6 +79,8 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 		roles: ["schema", "contract"],
 		waveDefaults: ["A"],
 		writablePaths: ["src/db/**", "src/contract/**", "!**/*.test.ts"],
+		description:
+			"Lays the ground every feature builds on: the tables, the migrations and the contract the frontend reads.",
 		version: 2,
 	},
 	{
@@ -80,6 +90,7 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 		roles: ["interface", "state"],
 		waveDefaults: ["B"],
 		writablePaths: ["src/app/**", "!**/*.test.ts"],
+		description: "Builds the screens of a feature and the state behind them.",
 		version: 1,
 	},
 	{
@@ -89,6 +100,7 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 		roles: ["frontend-tests"],
 		waveDefaults: ["C"],
 		writablePaths: ["tests/e2e/**", "**/*.test.tsx"],
+		description: null,
 		version: 1,
 	},
 	{
@@ -98,6 +110,8 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 		roles: ["backend-tests", "property-tests"],
 		waveDefaults: ["C"],
 		writablePaths: ["tests/**", "**/*.test.ts"],
+		description:
+			"Writes the backend and property tests that hold the contract to its word.",
 		version: 1,
 	},
 	{
@@ -107,6 +121,8 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 		roles: ["spec-judgment"],
 		waveDefaults: ["D"],
 		writablePaths: ["findings/spec-judgment/**"],
+		description:
+			"Reads the brief against what was built and files a finding for every gap.",
 		version: 2,
 	},
 	{
@@ -119,6 +135,8 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 			"findings/security-review/**",
 			"findings/compliance-review/**",
 		],
+		description:
+			"Reviews each change for security and compliance before it ships.",
 		version: 1,
 	},
 	{
@@ -128,6 +146,7 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 		roles: ["intake", "strategy"],
 		waveDefaults: ["A"],
 		writablePaths: [],
+		description: null,
 		version: 1,
 	},
 ];
