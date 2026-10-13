@@ -1,6 +1,6 @@
 /**
- * Sample data for the catalog pages, /catalog/agents, /catalog/skills and
- * /catalog/sources (AVEL-DESIGN.md rulings 29 and 32). The templates, skills
+ * Sample data for the catalog pages, /catalog/agents and /catalog/skills
+ * (AVEL-DESIGN.md rulings 29 and 32). The templates, skills
  * and sources themselves are live: the pages read GET /api/agent-templates,
  * GET /api/skills and GET /api/skill-sources (module 4). What remains here is
  * what no route serves yet: version history, per-agent measures, the

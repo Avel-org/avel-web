@@ -92,7 +92,7 @@ export function SkillDiscover() {
 						compact
 						icon={BookOpen}
 						title="No vendor or community sources"
-						description="Discover lists what outside sources offer. Add a vendor or community source on the Sources page to browse its skills here."
+						description="Discover lists what outside sources offer. None is registered yet; skills from one appear here, grouped by source."
 					/>
 				}
 				error={ErrorState}

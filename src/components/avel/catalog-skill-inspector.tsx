@@ -62,8 +62,7 @@ export const HASH_COVERS =
 
 /**
  * "From Framework vendor pack", or "Yours". The skill carries its source's
- * name and kind (the list needs no per-row source query); its address is on
- * the Sources page.
+ * name and kind (the list needs no per-row source query).
  */
 export function sourceLine(skill: Pick<Skill, "source">): string {
 	if (skill.source.kind === "internal") return "Yours";

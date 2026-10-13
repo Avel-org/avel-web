@@ -1,5 +1,5 @@
 /**
- * The sidebar: thirteen links in three groups, as specified in
+ * The sidebar: twelve links in three groups, as specified in
  * design/AVEL-DESIGN.md (section 6, ruling 3; ruling 33 adds Drive). Agents and Settings are
  * parents that group links without being pages themselves; no /catalog or
  * /settings route exists. tests/nav.test.ts fails if any link here has no
@@ -7,7 +7,6 @@
  */
 import {
 	Activity,
-	BookOpen,
 	Bot,
 	BotMessageSquare,
 	Building2,
@@ -90,12 +89,6 @@ export const NAV: NavGroup[] = [
 						icon: Wrench,
 						purpose:
 							"What agents know and the tools they may use. Only reviewed skills can be attached.",
-					},
-					{
-						label: "Sources",
-						to: "/catalog/sources",
-						icon: BookOpen,
-						purpose: "Where skills come from.",
 					},
 				],
 			},

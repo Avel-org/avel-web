@@ -85,21 +85,6 @@ export const queryKeys = {
 				// The kind is in the key only when set, so the full list keeps its key.
 				kind === undefined ? { limit } : { limit, kind },
 			] as const,
-		/**
-		 * contract.skillSources.list for one kind, one row: read for its
-		 * meta.total, the count on the shelf's kind tab.
-		 */
-		skillSourceCount: (kind: string) =>
-			["catalog", "skillSources", "count", kind] as const,
-		/**
-		 * contract.skills.list for one source and layer, one row: read for its
-		 * meta.total, a segment of the source's layer bar.
-		 */
-		sourceLayerCount: (sourceId: string, layer: string) =>
-			["catalog", "skills", "sourceLayerCount", sourceId, layer] as const,
-		/** contract.skills.list for one source, paged by cursor: its detail. */
-		sourceSkills: (sourceId: string, limit: number) =>
-			["catalog", "skills", "bySource", sourceId, { limit }] as const,
 	},
 	connections: {
 		/** Everything under contract.connections. */
