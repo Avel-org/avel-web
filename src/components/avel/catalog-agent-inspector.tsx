@@ -29,13 +29,7 @@ import {
 	type SampleOrigin,
 	type SampleOutcome,
 } from "./catalog-placeholders";
-import {
-	inCatalogOrder,
-	inWaveOrder,
-	SampleRegion,
-	teamsOf,
-	Wrap,
-} from "./catalog-sample";
+import { inWaveOrder, SampleRegion, teamsOf, Wrap } from "./catalog-sample";
 import { CodeView } from "./code-view";
 import { type DataColumn, DataTable } from "./data-table";
 import { InlineExpand } from "./inline-expand";
@@ -549,8 +543,9 @@ const KIND_MEANING = {
 } as const satisfies Record<AgentTemplate["kind"], string>;
 
 /**
- * The template's own fields, live, then the sample allowed actions. The
- * panel around it carries the "Manifest" title, so this has none of its own.
+ * The template's fields the editors above it do not cover, live, then the
+ * sample allowed actions. The panel around it carries the "Manifest" title,
+ * so this has none of its own.
  */
 export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 	return (
@@ -568,29 +563,12 @@ export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 							className="text-text-muted"
 						>{` # ${KIND_LABELS[agent.kind]}`}</span>
 					</Line>
-					<Line k="roles">{`[${inCatalogOrder(agent.roles).join(", ")}]`}</Line>
 					<Line k="waveDefaults">{`[${inWaveOrder(agent.waveDefaults).join(", ")}]`}</Line>
 					<Line k="engagementId">
 						{agent.engagementId ?? (
 							<span className="text-text-muted"># used for every client</span>
 						)}
 					</Line>
-					<span className="text-text-subtle">writablePaths:</span>
-					{agent.writablePaths.length === 0 ? (
-						<span className="pl-4 text-text-muted">[] # writes nothing</span>
-					) : (
-						<ul aria-label="Writable paths" className="flex flex-col">
-							{agent.writablePaths.map((glob) => (
-								<li
-									key={glob}
-									data-testid="catalog-agent-writable-path"
-									className="pl-4 text-foreground"
-								>
-									{`- ${glob}`}
-								</li>
-							))}
-						</ul>
-					)}
 					<Line k="version">{agent.version}</Line>
 				</div>
 			</div>

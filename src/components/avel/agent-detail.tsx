@@ -40,6 +40,12 @@ import { useSessionState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AgentTools } from "./agent-access";
 import { AgentActivity } from "./agent-activity";
+import {
+	AgentDescriptionEdit,
+	AgentPathsEdit,
+	AgentRolesEdit,
+	AgentTitleEdit,
+} from "./agent-edit";
 import { IdentityVersions, RegenerateIdentity } from "./agent-identity";
 import {
 	IdentityTab,
@@ -340,10 +346,17 @@ function AgentPage({
 					</div>
 					<SectionPanel
 						title="Manifest"
-						description="This agent's settings, exactly as stored."
+						description="This agent's settings. Changing its roles or files leaves the identity out of date until it is regenerated."
 						data-testid="agent-manifest-panel"
 					>
-						<ManifestTab agent={agent} />
+						{/* Each editor saves on its own and names its own field. */}
+						<div className="flex flex-col gap-5">
+							<AgentTitleEdit agent={agent} />
+							<AgentDescriptionEdit agent={agent} />
+							<AgentRolesEdit agent={agent} />
+							<AgentPathsEdit agent={agent} />
+							<ManifestTab agent={agent} />
+						</div>
 					</SectionPanel>
 				</div>
 			</TabsContent>
