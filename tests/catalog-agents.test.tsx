@@ -546,9 +546,11 @@ describe("/catalog/agents: the table", () => {
 			seededClient({ agents: { rows: AGENTS, total: 40, nextCursor: "c2" } }),
 		);
 		expect(element(html, "topbar-subtitle")).toContain(">40 agent templates<");
-		expect(element(html, "catalog-agents-list-footer-showing")).toContain(
+		// One count on the page, the table's, against the server's total.
+		expect(element(html, "catalog-agents-showing")).toContain(
 			`>Showing ${AGENTS.length} of 40<`,
 		);
+		expect(html.match(/>Showing \d+ of \d+</g)).toHaveLength(1);
 		expect(html).toContain(
 			'data-testid="catalog-agents-list-footer-load-more"',
 		);

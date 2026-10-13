@@ -201,7 +201,8 @@ function AgentConsole({
 							/>
 							<AgentTableFooter
 								shown={shown.length}
-								total={agents.length}
+								// The server's count when it gave one: one "Showing", here.
+								total={total ?? agents.length}
 								page={page}
 								pages={pages}
 								onPage={setPage}
@@ -211,9 +212,10 @@ function AgentConsole({
 						<AgentGraph agents={matching} onOpen={open} />
 					)}
 				</ViewFrame>
+				{/* Only Load more: the table's footer already says how many. */}
 				<CatalogListFooter
 					loaded={agents.length}
-					total={total}
+					total={undefined}
 					hasMore={hasMore}
 					loadingMore={loadingMore}
 					onLoadMore={onLoadMore}

@@ -7,10 +7,11 @@ import { cn } from "@/lib/utils";
 /*
  * The entity banner (ruling 38): the deep band at the head of one entity's
  * page. Back to its list, its tile, its name and state, one line of facts,
- * its numbers, its actions, and the tabs that split the page below. It stays
- * dark in both themes, so everything inside it uses the banner's own tokens
- * (bg-banner, text-banner-*), never the theme's: a theme colour would follow
- * .light and fall below contrast on the band.
+ * its numbers, its actions, and the tabs that split the page below. Its face
+ * is banner-surface (app.css): the band lit by an accent glow behind the
+ * tile, under a fading grid. Everything inside it uses the banner's own
+ * tokens (bg-banner, text-banner-*), which are deep on dark and light on
+ * .light (ruling 41).
  *
  * The top bar keeps the page's h1 and its crumbs. The banner repeats the
  * name large, as the screen's heading people see, and hides it from screen
@@ -54,9 +55,14 @@ export function EntityBanner({
 		<section
 			data-testid={testId}
 			aria-label={name}
-			className="overflow-hidden rounded-md border border-banner-line bg-banner text-banner-text shadow-e1"
+			className="relative isolate overflow-hidden rounded-lg border border-banner-line banner-surface text-banner-text"
 		>
-			<div className="flex flex-col gap-4 px-4 pt-4 md:px-6 md:pt-5">
+			<span
+				aria-hidden="true"
+				data-testid={`${testId}-grid`}
+				className="pointer-events-none absolute inset-0 -z-10 banner-grid"
+			/>
+			<div className="flex flex-col gap-5 px-4 pt-4 md:px-8 md:pt-6">
 				<Link
 					to={back.to}
 					search={back.search}
@@ -66,8 +72,8 @@ export function EntityBanner({
 					<ArrowLeft aria-hidden="true" className="size-3.5" />
 					{back.label}
 				</Link>
-				<div className="flex flex-wrap items-center gap-x-8 gap-y-4">
-					<div className="flex min-w-0 flex-1 basis-80 items-center gap-4">
+				<div className="flex flex-wrap items-center gap-x-10 gap-y-5">
+					<div className="flex min-w-0 flex-1 basis-80 items-center gap-5">
 						{tile}
 						<div className="flex min-w-0 flex-col gap-1">
 							<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -91,7 +97,7 @@ export function EntityBanner({
 					{stats ? (
 						<dl
 							data-testid={`${testId}-stats`}
-							className="flex flex-wrap items-start gap-x-6 gap-y-3"
+							className="flex flex-wrap items-stretch gap-y-3"
 						>
 							{stats}
 						</dl>
@@ -107,14 +113,14 @@ export function EntityBanner({
 				</div>
 				<TabsList
 					aria-label={tabsLabel}
-					className="no-scrollbar -mx-1 max-w-full justify-start overflow-x-auto pb-2"
+					className="no-scrollbar -mx-4 h-11! w-auto max-w-none justify-start gap-1 overflow-x-auto rounded-none border-t border-banner-line px-3 md:-mx-8 md:px-7"
 				>
 					{tabs.map((tab) => (
 						<TabsTrigger
 							key={tab.id}
 							value={tab.id}
 							data-testid={`${testId}-tab-${tab.id}`}
-							className="flex-none text-banner-muted hover:text-banner-text data-[state=active]:bg-banner-raised data-[state=active]:text-banner-text"
+							className="h-full flex-none rounded-none px-3 text-banner-muted after:bottom-0! hover:text-banner-text data-[state=active]:text-banner-text"
 						>
 							{tab.label}
 							{tab.count === undefined ? null : (
@@ -172,9 +178,12 @@ export function BannerStat({
 	"data-testid": string;
 }) {
 	return (
-		<div data-testid={testId} className="flex flex-col-reverse">
+		<div
+			data-testid={testId}
+			className="flex flex-col-reverse gap-0.5 border-l border-banner-line px-5 first:border-l-0 first:pl-0"
+		>
 			<dt className="type-caption text-banner-muted">{label}</dt>
-			<dd className="type-h2 text-banner-text tabular-nums">{value}</dd>
+			<dd className="type-h1 text-banner-text tabular-nums">{value}</dd>
 		</div>
 	);
 }
@@ -201,7 +210,7 @@ export function BannerTile({
 		<span
 			aria-hidden="true"
 			data-testid={testId}
-			className="inline-flex size-14 shrink-0 items-center justify-center rounded-md bg-accent type-h2 font-semibold text-accent-ink"
+			className="inline-flex size-16 shrink-0 items-center justify-center rounded-lg bg-accent type-h1 font-semibold text-accent-ink shadow-[0_0_0_1px_var(--color-banner-line),0_8px_24px_-6px_var(--color-accent)]"
 		>
 			{initials}
 		</span>
