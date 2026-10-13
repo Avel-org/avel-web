@@ -11,13 +11,12 @@
  */
 import type { AgentTemplate, Role, Side, Wave } from "avel-server/contract";
 import { ROLE_SIDE, ROLE_TEAM, WAVES } from "avel-server/contract";
-import { sampleHistory, sampleSha256 } from "./catalog-placeholders";
+import { sampleSha256 } from "./catalog-placeholders";
 
 /** The source each agent-only sample stands in for, named in its pill. */
 export const AGENT_MISSING = {
 	edges: "the handoff graph",
 	dispatch: "dispatch token estimates",
-	territories: "the roster's territories",
 } as const;
 
 export type AgentMissing = (typeof AGENT_MISSING)[keyof typeof AGENT_MISSING];
@@ -240,22 +239,6 @@ export function sampleDispatch(
 
 /** "48k": tokens in thousands, for a dense column. */
 export const kTokens = (n: number) => `${Math.round(n / 1000)}k`;
-
-// ---------------------------------------------------------------------------
-// Territories. A template has none of its own: a territory is where a
-// roster places a feature agent. The samples take them from the outcome
-// rows, so the table and the measures always agree.
-
-/** A feature agent's territories, in order; empty for a horizontal one. */
-export function territoriesOf(agent: AgentTemplate): string[] {
-	return [
-		...new Set(
-			sampleHistory(agent)
-				.outcomes.map((row) => row.territory)
-				.filter((t): t is string => t !== null),
-		),
-	];
-}
 
 // ---------------------------------------------------------------------------
 // The panel's overview: four measures on client runs, this version against

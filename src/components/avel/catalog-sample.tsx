@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiError } from "@/lib/api/errors";
+import { WAVE_TEAM } from "@/lib/api/roster";
 import { cn } from "@/lib/utils";
 import { SampleData } from "./sample-data";
 import { StatusPill, type StatusTone } from "./status-pill";
@@ -262,9 +263,20 @@ export function teamsOf(roles: readonly Role[]): Team[] {
 	return TEAMS.filter((team) => covered.has(team));
 }
 
-/** An agent's team: its first, so every agent sits in one section. */
-export const teamOf = (agent: Pick<AgentTemplate, "roles">): Team =>
-	teamsOf(agent.roles)[0] ?? "platform";
+/**
+ * An agent's team, for the sections of All agents: the team of its first
+ * default wave (WAVE_TEAM), so Atlas, who works in wave B, sits with Build.
+ * A firm agent, or one in no wave, works between missions: Front office.
+ */
+export function teamOf(
+	agent: Pick<AgentTemplate, "roles" | "waveDefaults">,
+): Team {
+	const firm =
+		agent.roles.length > 0 &&
+		agent.roles.every((role) => ROLE_TEAM[role] === "firm");
+	const first = inWaveOrder(agent.waveDefaults)[0];
+	return firm || first === undefined ? "firm" : WAVE_TEAM[first];
+}
 
 /** Waves in the contract's order, A to E. */
 export function inWaveOrder(waves: readonly Wave[]): Wave[] {

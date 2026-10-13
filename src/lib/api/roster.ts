@@ -43,7 +43,7 @@ import { useApiClient } from "./provider";
  * The team each wave belongs to (ROLES.md): one team per wave, so a wave is
  * named by its team and the board and the catalog use the same words.
  */
-const WAVE_TEAM = {
+export const WAVE_TEAM = {
 	A: "foundation",
 	B: "build",
 	C: "verify",

@@ -13,19 +13,12 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import {
-	AGENT_MISSING,
-	artifactsOf,
-	isFirmAgent,
-	sideOf,
-	territoriesOf,
-} from "./catalog-agent-placeholders";
+import { artifactsOf, isFirmAgent, sideOf } from "./catalog-agent-placeholders";
 import { AgentTile } from "./catalog-agent-table";
 import {
 	inCatalogOrder,
 	inWaveOrder,
 	RoleTag,
-	SampleRegion,
 	teamOf,
 	teamsOf,
 } from "./catalog-sample";
@@ -33,11 +26,9 @@ import {
 /*
  * All agents as cards (ruling 44): one notched plate per agent, built from
  * sections of related facts, so an agent's shape reads before it is opened.
- * The identity band, then its description, roles, where it works, its
- * territory (a sample, labelled), what it may write, and Open. The whole
- * card opens the agent's page: one link, stretched over the card, so the
- * Sample data pill inside stays a button of its own (a button inside a link
- * is invalid) and the keyboard meets one link per card.
+ * The identity band, then its description, roles, its waves and side, the
+ * files it may change, and Open. The whole card opens the agent's page: one
+ * link, stretched over the card, so the keyboard meets one link per card.
  */
 
 /** What a firm agent's waves section says, and why. */
@@ -57,17 +48,17 @@ export const CARD_SECTIONS = [
 	"identity",
 	"description",
 	"roles",
-	"waves",
-	"territory",
+	"facts",
 	"paths",
 	"footer",
 ] as const;
 
-const CARD_SPAN = "row-span-7";
+const CARD_SPAN = "row-span-6";
 
 /** How many globs and roles a card lists before it counts the rest. */
 export const CARD_PATHS = 3;
-export const CARD_ROLES = 4;
+/** Two role chips and the count of the rest fit two lines at the narrowest card. */
+export const CARD_ROLES = 2;
 
 // ---------------------------------------------------------------------------
 // The description. The agent's own written description first; when it has
@@ -151,14 +142,6 @@ export function agentDescription(agent: AgentTemplate): AgentDescription {
 		: { text: cap(rolesSentence(agent)), source: "roles" };
 }
 
-/** "Identity v3", "Identity v3, out of date", or not generated yet. */
-export function identityCue(
-	agent: Pick<AgentTemplate, "identityVersion" | "identityStale">,
-): string {
-	if (agent.identityVersion === null) return "Identity not generated yet";
-	return `Identity v${agent.identityVersion}${agent.identityStale ? ", out of date" : ""}`;
-}
-
 /** The first section: what the agent is, in prose, with the most room. */
 function DescriptionSection({ agent }: { agent: AgentTemplate }) {
 	const { text, source } = agentDescription(agent);
@@ -167,34 +150,25 @@ function DescriptionSection({ agent }: { agent: AgentTemplate }) {
 			data-testid={`catalog-agent-card-description-${agent.slug}`}
 			data-section="description"
 			data-source={source}
-			className="flex min-w-0 flex-col gap-1.5 px-4 pt-3.5 pb-3"
+			className="flex min-w-0 flex-col gap-1.5 px-4 py-3"
 		>
+			{/* In full: descriptions are short by rule, and the subgrid gives
+			    every card in a row the tallest one's height. */}
 			<p
 				data-testid={`catalog-agent-description-${agent.slug}`}
-				title={text}
-				className="line-clamp-3 min-h-[3lh] type-body leading-relaxed font-[450] text-foreground"
+				className="type-body leading-relaxed font-[450] text-foreground"
 			>
 				{text}
 			</p>
-			<span className="flex flex-wrap items-baseline gap-x-3 type-caption text-text-subtle">
-				{source === "roles" ? (
-					<span
-						data-testid={`catalog-agent-description-source-${agent.slug}`}
-						title="Summed up from its roles, because no description has been written yet."
-						className="type-caption"
-					>
-						From its roles
-					</span>
-				) : null}
+			{source === "roles" ? (
 				<span
-					data-testid={`catalog-agent-identity-cue-${agent.slug}`}
-					data-generated={agent.identityVersion !== null}
-					data-stale={agent.identityStale || undefined}
-					className={cn(agent.identityStale && "text-gate-warn")}
+					data-testid={`catalog-agent-description-source-${agent.slug}`}
+					title="Summed up from its roles, because no description has been written yet."
+					className="type-caption text-text-subtle"
 				>
-					{identityCue(agent)}
+					From its roles
 				</span>
-			</span>
+			) : null}
 		</div>
 	);
 }
@@ -241,7 +215,7 @@ function CardSection({
 		<div
 			data-testid={`catalog-agent-card-${section}-${slug}`}
 			data-section={section}
-			className="flex min-w-0 flex-col gap-2 border-t border-border px-4 py-3"
+			className="flex min-w-0 flex-col justify-start gap-2 border-t border-border px-4 py-3"
 		>
 			<SectionLabel count={count}>{label}</SectionLabel>
 			{children}
@@ -257,7 +231,7 @@ function WaveStrip({ agent }: { agent: AgentTemplate }) {
 				data-testid={`catalog-agent-waves-${agent.slug}`}
 				data-firm="true"
 				title={FIRM_WAVES.title}
-				className="relative flex h-6 items-center justify-center rounded-xs border border-dashed border-border-strong type-caption text-text-muted"
+				className="relative flex h-5 items-center justify-center rounded-xs border border-dashed border-border-strong px-2 type-caption text-text-muted"
 			>
 				{FIRM_WAVES.text}
 				<span className="sr-only">{`. ${FIRM_WAVES.title}`}</span>
@@ -268,7 +242,7 @@ function WaveStrip({ agent }: { agent: AgentTemplate }) {
 	return (
 		<span
 			data-testid={`catalog-agent-waves-${agent.slug}`}
-			className="flex gap-1"
+			className="flex w-36 shrink-0 gap-0.5"
 		>
 			{WAVES.map((wave) => (
 				<span
@@ -277,7 +251,7 @@ function WaveStrip({ agent }: { agent: AgentTemplate }) {
 					data-wave={wave}
 					data-runs={runs.has(wave)}
 					className={cn(
-						"flex h-6 flex-1 items-center justify-center rounded-xs border type-mono-small",
+						"flex h-5 flex-1 items-center justify-center rounded-xs border type-mono-small",
 						runs.has(wave)
 							? "border-accent bg-accent-soft text-foreground"
 							: "border-dashed border-border text-text-subtle",
@@ -301,47 +275,52 @@ export const sideLabel = (agent: Pick<AgentTemplate, "roles">) => {
 	return side === null ? "No side" : SIDE_LABELS[side];
 };
 
-/**
- * Side, live from the contract's ROLE_SIDE, then the territory: a sample
- * from the roster, in a region of its own whose pill names the territories.
- */
-function TerritorySection({ agent }: { agent: AgentTemplate }) {
-	const territories = territoriesOf(agent);
+/** Waves and side on one row: when it works, and what kind of work. */
+function FactsSection({ agent }: { agent: AgentTemplate }) {
 	return (
-		<div
-			data-section="territory"
-			className="flex flex-col gap-2 border-t border-border px-4 py-3"
-		>
-			<dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3">
-				<dt className="type-caption text-text-subtle">Side</dt>
-				<dd
+		<CardSection label="Waves and side" section="facts" slug={agent.slug}>
+			<span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+				<WaveStrip agent={agent} />
+				<span
 					data-testid={`catalog-agent-side-${agent.slug}`}
 					data-side={sideOf(agent) ?? "none"}
 					className="type-small text-foreground"
 				>
 					{sideLabel(agent)}
-				</dd>
-			</dl>
-			<SampleRegion
-				missing={AGENT_MISSING.territories}
-				title="Territory"
-				what="The part of the project this agent works in."
-				data-testid={`catalog-agent-card-territory-${agent.slug}`}
-				// Above the stretched link, so the pill's tooltip can be reached.
-				className="relative z-10 gap-1.5"
-			>
-				<dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3">
-					<dt className="type-caption text-text-subtle">Territory</dt>
-					<dd
-						data-testid={`catalog-agent-territory-${agent.slug}`}
-						className="truncate type-small text-foreground"
-						title={territories.join(", ") || "whole project"}
-					>
-						{territories.length > 0 ? territories.join(", ") : "whole project"}
-					</dd>
-				</dl>
-			</SampleRegion>
-		</div>
+				</span>
+			</span>
+		</CardSection>
+	);
+}
+
+/**
+ * The identity in force as its ref, "atlas@v1", in a mono chip; out of date
+ * beside it when its inputs moved; not generated when there is none. The
+ * template's own version (an edit counter) is never shown on the card.
+ */
+function IdentityRef({ agent }: { agent: AgentTemplate }) {
+	const ref =
+		agent.identityVersion === null
+			? null
+			: `${agent.slug}@v${agent.identityVersion}`;
+	return (
+		<span
+			data-testid={`catalog-agent-ref-${agent.slug}`}
+			data-generated={ref !== null}
+			data-stale={agent.identityStale || undefined}
+			className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5"
+		>
+			<span className="truncate rounded-xs border border-border bg-app-recessed px-1.5 type-mono-small text-text-muted">
+				{ref ?? agent.slug}
+			</span>
+			{ref === null ? (
+				<span className="type-caption text-text-subtle">not generated</span>
+			) : agent.identityStale ? (
+				<span className="type-caption font-medium text-gate-warn">
+					out of date
+				</span>
+			) : null}
+		</span>
 	);
 }
 
@@ -400,15 +379,7 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 								{agent.title}
 							</span>
 						)}
-						<span className="flex min-w-0 items-baseline gap-1.5 type-mono-small text-text-subtle">
-							<span className="truncate">{agent.slug}</span>
-							<span
-								data-testid={`catalog-agent-version-${agent.slug}`}
-								className="shrink-0"
-							>
-								{`v${agent.version}`}
-							</span>
-						</span>
+						<IdentityRef agent={agent} />
 					</span>
 				</div>
 
@@ -422,24 +393,23 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 				>
 					<span
 						data-testid={`catalog-agent-roles-${agent.slug}`}
-						className="flex flex-wrap gap-1"
+						className="flex flex-wrap content-start items-start gap-1"
 					>
 						{roles.slice(0, CARD_ROLES).map((role) => (
 							<RoleTag key={role} role={role} />
 						))}
 						{roles.length > CARD_ROLES ? (
-							<span className="self-center type-caption text-text-subtle">
+							<span
+								data-testid={`catalog-agent-roles-more-${agent.slug}`}
+								className="self-center type-caption text-text-subtle"
+							>
 								{`+${roles.length - CARD_ROLES} more`}
 							</span>
 						) : null}
 					</span>
 				</CardSection>
 
-				<CardSection label="Waves" section="waves" slug={agent.slug}>
-					<WaveStrip agent={agent} />
-				</CardSection>
-
-				<TerritorySection agent={agent} />
+				<FactsSection agent={agent} />
 
 				<CardSection
 					label="Files it may change"
@@ -572,7 +542,7 @@ export function AgentCardSkeleton({
 							</span>
 							<Skeleton className="h-5 w-14 rounded-full" />
 						</div>
-						<div className="flex flex-col gap-1.5 px-4 pt-3.5 pb-3">
+						<div className="flex flex-col gap-1.5 px-4 py-3">
 							<Skeleton className="h-3.5 w-full" />
 							<Skeleton className="h-3.5 w-11/12" />
 							<Skeleton className="h-3.5 w-2/3" />
