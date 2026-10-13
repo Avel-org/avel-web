@@ -106,10 +106,10 @@ export function noMatchCopy(
 	cut: PresetCut | undefined,
 ): string {
 	const q = presetSearchText(search);
-	const cutText = cut ? `${CUT_LABEL[cut].toLowerCase()} ` : "";
+	const cutText = cut ? ` cut ${CUT_LABEL[cut].toLowerCase()}` : "";
 	return q === undefined
-		? `There are no ${cutText}teams.`
-		: `No ${cutText}team's name contains “${q}”.`;
+		? `There are no teams${cutText}.`
+		: `No team${cutText} has “${q}” in its name.`;
 }
 
 /**

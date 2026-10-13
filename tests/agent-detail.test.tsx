@@ -6,8 +6,10 @@ import type {
 import { describe, expect, it } from "vitest";
 import {
 	AccessTable,
+	credentialSystems,
 	entryLabel,
 	entryReadOnlyReason,
+	hiddenTools,
 	MODE_LABEL,
 	rowsOf,
 } from "@/components/avel/agent-access";
@@ -27,6 +29,22 @@ import {
 	seededClient,
 } from "./catalog-fixtures";
 import { tagOf } from "./render-page";
+
+/** From an element's opening tag to its matching close. */
+function element(html: string, testid: string): string {
+	const at = html.indexOf(`data-testid="${testid}"`);
+	expect(at, testid).toBeGreaterThan(-1);
+	const start = html.lastIndexOf("<", at);
+	const name = /^<([a-z0-9]+)/.exec(html.slice(start))?.[1] ?? "";
+	const re = new RegExp(`<${name}[\\s>]|</${name}>`, "g");
+	re.lastIndex = start;
+	let depth = 0;
+	for (let m = re.exec(html); m; m = re.exec(html)) {
+		depth += m[0].startsWith("</") ? -1 : 1;
+		if (depth === 0) return html.slice(start, re.lastIndex);
+	}
+	return html.slice(start);
+}
 
 const noop = () => {};
 /** The disabled attribute itself, not a disabled: utility in a class. */
@@ -188,11 +206,16 @@ describe("/catalog/agents/:slug", () => {
 		expect(html).toContain(agentFacts(atlas));
 		expect(tagOf(html, "agent-banner-status")).toContain("data-live");
 		expect(html).toContain("Active on 1 mission");
-		// The numbers are samples, behind their pill.
-		expect(html).toContain('data-testid="agent-stat-gate"');
-		expect(tagOf(html, "sample-data")).toContain(
-			'data-missing="per-agent measures"',
-		);
+		// The numbers are live: missions and running from the roster entries,
+		// tools from its own access, roles from the agent. No sample pill.
+		const stat = (id: string) => element(html, `agent-stat-${id}`);
+		expect(stat("missions")).toContain(">1<");
+		expect(stat("missions")).toContain(">mission<");
+		expect(stat("running")).toContain(">1<");
+		expect(stat("tools")).toContain(">2<");
+		expect(stat("roles")).toContain(`>${atlas.roles.length}<`);
+		expect(html).not.toContain('data-testid="agent-stat-tokens"');
+		expect(element(html, "agent-banner")).not.toContain("sample-data");
 		// Ask and Pause are real controls, disabled with their reasons.
 		expect(tagOf(html, "agent-ask")).toMatch(DISABLED);
 		expect(tagOf(html, "agent-pause")).toMatch(DISABLED);
@@ -291,5 +314,19 @@ describe("/catalog/agents/:slug", () => {
 		expect(html).toContain("module 6");
 		expect(html).toContain("module 7");
 		expect(html).toContain("module 8");
+	});
+
+	it("lists a credential per system it may touch, and what is turned off", () => {
+		expect(credentialSystems(ACCESS)).toEqual(["Repository", "db"]);
+		const off: AgentAccess = {
+			...ACCESS,
+			rows: [read, { ...migrate, system: "github", mode: "none" }],
+		};
+		// A tool turned off holds no credential, and is what it cannot see.
+		expect(credentialSystems(off)).toEqual(["db"]);
+		expect(hiddenTools(off).map((r) => r.grant)).toEqual(["db:migrate"]);
+		const html = render({ tab: "tools" });
+		expect(html).toContain('data-testid="agent-credential-Repository"');
+		expect(html).toContain("No tool is turned off here.");
 	});
 });

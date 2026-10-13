@@ -1,10 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { AgentRosterEntry, AgentTemplate } from "avel-server/contract";
-import { History, MessageSquare, Pause, SearchX } from "lucide-react";
+import { MessageSquare, Pause, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { useTemplateRosterEntries } from "@/lib/api/access";
+import { useTemplateAccess, useTemplateRosterEntries } from "@/lib/api/access";
 import {
 	isNotFound,
 	loadedRows,
@@ -14,19 +14,15 @@ import {
 import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 import { AgentTools } from "./agent-access";
+import { AgentActivity } from "./agent-activity";
 import {
 	IdentityTab,
 	ManifestTab,
 	OverviewTab,
 	VersionsTab,
 } from "./catalog-agent-inspector";
-import { kTokens, sampleOverview } from "./catalog-agent-placeholders";
 import { initialsOf } from "./catalog-agent-table";
-import {
-	CATALOG_MISSING,
-	familiesOf,
-	sampleHistory,
-} from "./catalog-placeholders";
+import { familiesOf, sampleHistory } from "./catalog-placeholders";
 import { EmptyState } from "./empty-state";
 import {
 	BANNER_BUTTON,
@@ -36,23 +32,21 @@ import {
 	BannerTile,
 	EntityBanner,
 } from "./entity-banner";
-import { SampleData } from "./sample-data";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
 /*
  * One agent template's page (ruling 38): the entity banner, then one tab at a
- * time. The template's own fields are live. Its numbers, measures and
- * versions are the catalog's labelled samples (ruling 32) until their routes
+ * time. The agent's own fields and the banner's numbers are live. Its
+ * measures and versions are labelled samples (ruling 32) until their routes
  * exist; activity and memory are not built, and say which module builds them.
  */
 
+/** Four tabs, related things together: activity sits on Overview, versions beside the measures that compare them. */
 export const AGENT_TABS = [
 	"overview",
 	"tools",
 	"performance",
-	"versions",
-	"activity",
 	"memory",
 ] as const;
 
@@ -62,8 +56,6 @@ const TAB_LABEL: Record<AgentTabId, string> = {
 	overview: "Overview",
 	tools: "Tools and access",
 	performance: "Performance",
-	versions: "Versions",
-	activity: "Activity",
 	memory: "Memory",
 };
 
@@ -203,14 +195,19 @@ function AgentPage({
 				tabsLabel={`${agent.name}'s page`}
 			/>
 			<TabsContent value="overview">
-				<div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-					<SectionPanel
-						title="Identity"
-						description="Generated from its roles. Change a role to change it."
-						data-testid="agent-identity-panel"
-					>
-						<IdentityTab agent={agent} history={history} />
-					</SectionPanel>
+				{/* Panels take their own height: a short manifest never stretches
+				    beside a long identity. */}
+				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+					<div className="flex min-w-0 flex-col gap-6">
+						<SectionPanel
+							title="Identity"
+							description="Generated from its roles. Change a role to change it."
+							data-testid="agent-identity-panel"
+						>
+							<IdentityTab agent={agent} history={history} />
+						</SectionPanel>
+						<AgentActivity agent={agent} />
+					</div>
 					<SectionPanel
 						title="Manifest"
 						description="The agent's own fields."
@@ -224,33 +221,22 @@ function AgentPage({
 				<AgentTools agent={agent} mission={mission} onMission={onMission} />
 			</TabsContent>
 			<TabsContent value="performance">
-				<SectionPanel
-					title="Performance"
-					description="Client runs of the current version, against the previous one."
-					data-testid="agent-performance-panel"
-				>
-					<PerformanceBody agent={agent} />
-				</SectionPanel>
-			</TabsContent>
-			<TabsContent value="versions">
-				<SectionPanel
-					title="Versions"
-					description="Every identity this agent has had. None is ever deleted."
-					data-testid="agent-versions-panel"
-				>
-					<VersionsTab history={history} />
-				</SectionPanel>
-			</TabsContent>
-			<TabsContent value="activity">
-				<Surface
-					data-testid="agent-activity"
-					notBuilt={{
-						title: `What ${agent.name} did`,
-						what: "Agents write activity once dispatch runs them. The log then filters by the roster entries made from this agent.",
-						needs: ["GET /api/activity by actor (module 6)"],
-						icon: History,
-					}}
-				/>
+				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+					<SectionPanel
+						title="Performance"
+						description="Client runs of the current version, against the previous one."
+						data-testid="agent-performance-panel"
+					>
+						<PerformanceBody agent={agent} />
+					</SectionPanel>
+					<SectionPanel
+						title="Versions"
+						description="Every identity this agent has had. None is ever deleted."
+						data-testid="agent-versions-panel"
+					>
+						<VersionsTab history={history} />
+					</SectionPanel>
+				</div>
 			</TabsContent>
 			<TabsContent value="memory">
 				<Surface
@@ -283,36 +269,41 @@ function PerformanceBody({ agent }: { agent: AgentTemplate }) {
 	);
 }
 
-const pct = (n: number) => `${Math.round(n * 100)}%`;
-
-/** The banner's numbers: the catalog's samples, behind their pill. */
+/**
+ * The banner's numbers, all live: the missions the agent is on and how many
+ * are running, from its roster entries; its tools, from its own access; and
+ * its roles. Nothing shows until both reads answer, so no number is a guess.
+ */
 function AgentStats({ agent }: { agent: AgentTemplate }) {
-	const { current } = sampleOverview(agent);
+	const entries = useTemplateRosterEntries(agent.id);
+	const access = useTemplateAccess(agent.id);
+	if (entries.status !== "success" || access.status !== "success") return null;
+	const missions = new Map(
+		entries.data.map((e) => [e.missionId, e.mission.status] as const),
+	);
+	const running = [...missions.values()].filter((s) => s === "active").length;
+	const tools = access.data.rows.filter((r) => r.kind === "grant").length;
 	return (
 		<>
 			<BannerStat
-				data-testid="agent-stat-gate"
-				value={pct(current.firstPassGateRate)}
-				label="first-pass gates"
+				data-testid="agent-stat-missions"
+				value={String(missions.size)}
+				label={missions.size === 1 ? "mission" : "missions"}
 			/>
 			<BannerStat
-				data-testid="agent-stat-tokens"
-				value={`${kTokens(current.tokensActual)} / ${kTokens(current.tokensEstimate)}`}
-				label="tokens of estimate"
+				data-testid="agent-stat-running"
+				value={String(running)}
+				label="running now"
 			/>
 			<BannerStat
-				data-testid="agent-stat-blockers"
-				value={String(current.blockersFiled)}
-				label="blockers filed"
+				data-testid="agent-stat-tools"
+				value={String(tools)}
+				label={tools === 1 ? "tool" : "tools"}
 			/>
 			<BannerStat
-				data-testid="agent-stat-violations"
-				value={String(current.boundaryViolations)}
-				label="boundary violations"
-			/>
-			<SampleData
-				missing={CATALOG_MISSING.measures}
-				className="border-banner-line text-banner-muted"
+				data-testid="agent-stat-roles"
+				value={String(agent.roles.length)}
+				label={agent.roles.length === 1 ? "role" : "roles"}
 			/>
 		</>
 	);

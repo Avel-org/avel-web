@@ -420,14 +420,7 @@ describe("/catalog/agents: the table", () => {
 		// Sample headers carry their reason for screen readers; strip it here.
 		expect(
 			headers.map((h) => h.replace(/, Sample data until[^.]*\./g, "")),
-		).toEqual([
-			"AGENT TERRITORY",
-			"SIDE",
-			"ROLES",
-			"WAVES",
-			"VER SHA",
-			"EST/CEIL",
-		]);
+		).toEqual(["AGENT TERRITORY", "SIDE", "ROLES", "WAVES"]);
 		const order = [
 			...table.matchAll(/data-testid="catalog-agents-table-row-([a-z]+)"/g),
 		].map((m) => m[1]);
@@ -442,27 +435,24 @@ describe("/catalog/agents: the table", () => {
 		const html = await page();
 		const atlas = agent("atlas");
 		const row = element(html, "catalog-agents-table-row-atlas");
-		const d = sampleDispatch(atlas);
-		const sha = sampleHistory(atlas).versions[0]?.sha256 ?? "";
 		expect(cellsOf(row)).toEqual([
 			`ATAtlas${territoriesOf(atlas).join(", ")}`,
 			"author",
 			"domainapi-surface",
 			"B",
-			`v${atlas.version}${sha.slice(0, 8)}`,
-			`${Math.round(d.estimate / 1000)}k/${Math.round(d.hardCeiling / 1000)}k`,
 		]);
 		const tile = tagOf(row, "catalog-agent-tile-atlas");
 		expect(tile).toContain('aria-hidden="true"');
 		expect(tile).toContain('data-side="author"');
 		expect(row.match(/data-testid="catalog-role"/g)).toHaveLength(2);
-		expect(tagOf(row, "catalog-agent-sha-atlas")).toContain(`title="${sha}"`);
 		// A horizontal agent's territory is the whole project.
 		expect(element(html, "catalog-agent-territory-nemi")).toContain(
 			">whole project<",
 		);
 		const tds = [...row.matchAll(/<td[^>]*class="([^"]*)"/g)].map((m) => m[1]);
-		for (const i of [1, 3, 4, 5]) expect(tds[i]).toMatch(/\btype-mono\b/);
+		for (const i of [1, 3]) expect(tds[i]).toMatch(/\btype-mono\b/);
+		// Version, hash and the token estimate wait for a page of their own.
+		expect(row).not.toContain("catalog-agent-sha-");
 	});
 
 	it("gives each side its own tile tone, from tokens only", async () => {

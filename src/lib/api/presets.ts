@@ -118,8 +118,8 @@ export function agentCount(n: number): string {
 }
 
 export const CUT_LABEL: Record<PresetCut, string> = {
-	horizontal: "Horizontal",
-	vertical: "Vertical",
+	horizontal: "By layer",
+	vertical: "By feature",
 };
 
 /** The first group of a uuid: enough to tell rows apart, never the whole id. */

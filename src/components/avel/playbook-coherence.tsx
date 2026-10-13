@@ -51,7 +51,7 @@ const MISSING_ROLE = {
 /** Each warning in words, keyed on the contract's warning codes. */
 export const WARNING_COPY = {
 	vertical_cut_roles_unassigned: (warning) =>
-		`Under a vertical cut, no active agent holds ${warning.missing
+		`When the team is cut by feature, no active agent holds ${warning.missing
 			.map((role) => MISSING_ROLE[role])
 			.join(" or ")}.`,
 } as const satisfies {

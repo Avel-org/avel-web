@@ -8,10 +8,9 @@ import type {
 } from "avel-server/contract";
 import {
 	CircleAlert,
-	EyeOff,
 	FolderGit2,
-	Inbox,
 	KeyRound,
+	Lock,
 	type LucideIcon,
 	Send,
 	Wrench,
@@ -107,8 +106,49 @@ export function AgentTools({
 		mission === undefined
 			? undefined
 			: list.find((e) => e.missionId === mission);
+	const head = (
+		<>
+			<ContextPicker
+				entries={list}
+				loading={entries.status === "pending"}
+				value={entry?.missionId}
+				onChange={onMission}
+			/>
+			{mission !== undefined && entries.status === "success" && !entry ? (
+				<p
+					data-testid="agent-access-not-on-mission"
+					className="type-small text-text-muted"
+				>
+					{`${agent.name} isn't on mission ${short(mission)}. Showing its own access, from its roles.`}
+				</p>
+			) : null}
+		</>
+	);
+	return entry ? (
+		<EntryAccess agent={agent} entry={entry} head={head} />
+	) : (
+		<TemplateAccess agent={agent} head={head} />
+	);
+}
+
+/**
+ * The tab's layout: the tools table in its panel, and beside it the three
+ * panels that read the same access (credentials, what the agent cannot see,
+ * its access requests), as the operator's reference lays them out.
+ */
+function ToolsLayout({
+	agent,
+	head,
+	query,
+	children,
+}: {
+	agent: AgentTemplate;
+	head: ReactNode;
+	query: ReturnType<typeof useTemplateAccess>;
+	children: (access: AgentAccess) => ReactNode;
+}) {
 	return (
-		<div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+		<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 min-[90rem]:grid-cols-[minmax(0,1fr)_minmax(0,19rem)]">
 			<SectionPanel
 				title={`Tools ${agent.name} can use`}
 				description="Each row is worked out by avel-server from the agent's skills, paths and the gate."
@@ -123,25 +163,8 @@ export function AgentTools({
 				data-testid="agent-tools-panel"
 			>
 				<div className="flex flex-col gap-4">
-					<ContextPicker
-						entries={list}
-						loading={entries.status === "pending"}
-						value={entry?.missionId}
-						onChange={onMission}
-					/>
-					{mission !== undefined && entries.status === "success" && !entry ? (
-						<p
-							data-testid="agent-access-not-on-mission"
-							className="type-small text-text-muted"
-						>
-							{`${agent.name} isn't on mission ${short(mission)}. Showing its own access, from its roles.`}
-						</p>
-					) : null}
-					{entry ? (
-						<EntryAccess agent={agent} entry={entry} />
-					) : (
-						<TemplateAccess agent={agent} />
-					)}
+					{head}
+					<AccessSurface query={query}>{children}</AccessSurface>
 					<p className="type-caption text-text-subtle">
 						Nothing here is enforced until each agent works in its own room
 						(module 7). Until then it is the record of what the agent may do.
@@ -150,28 +173,12 @@ export function AgentTools({
 					</p>
 				</div>
 			</SectionPanel>
-			<div className="flex flex-col gap-6">
-				<RailCard
-					title="Credentials"
-					icon={KeyRound}
-					what="A run's token lives only while the run does, and is never shown. Its state appears here once dispatch runs agents."
-					needs="dispatch tokens (module 6)"
-					data-testid="agent-credentials"
-				/>
-				<RailCard
-					title={`What ${agent.name} cannot see`}
-					icon={EyeOff}
-					what="What each room leaves out, such as the render kept from the fixture's author. Rooms come with module 7."
-					needs="rooms (module 7)"
-					data-testid="agent-cannot-see"
-				/>
-				<RailCard
-					title="Access requests"
-					icon={Inbox}
-					what="An agent asks for access by filing a blocker. Blockers for missing access, and what was done about them, show here."
-					needs="completion reports (module 8)"
-					data-testid="agent-access-requests"
-				/>
+			{/* Beside the table from 1440px, where the table still fits; a row
+			    of three under it below that, so the table never scrolls. */}
+			<div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-3 min-[90rem]:grid-cols-[minmax(0,1fr)]">
+				<Credentials access={query.data} />
+				<CannotSee agent={agent} access={query.data} />
+				<AccessRequests />
 			</div>
 		</div>
 	);
@@ -226,10 +233,16 @@ function ContextPicker({
 	);
 }
 
-function TemplateAccess({ agent }: { agent: AgentTemplate }) {
+function TemplateAccess({
+	agent,
+	head,
+}: {
+	agent: AgentTemplate;
+	head: ReactNode;
+}) {
 	const query = useTemplateAccess(agent.id);
 	return (
-		<AccessSurface query={query}>
+		<ToolsLayout agent={agent} head={head} query={query}>
 			{(access) => (
 				<AccessTable
 					access={access}
@@ -237,22 +250,24 @@ function TemplateAccess({ agent }: { agent: AgentTemplate }) {
 					onRowMode={() => {}}
 				/>
 			)}
-		</AccessSurface>
+		</ToolsLayout>
 	);
 }
 
 function EntryAccess({
 	agent,
 	entry,
+	head,
 }: {
 	agent: AgentTemplate;
 	entry: AgentRosterEntry;
+	head: ReactNode;
 }) {
 	const query = useEntryAccess(entry.missionId, entry.entryId);
 	const write = useSetAccessOverrides(entry.missionId);
 	const readOnly = entryReadOnlyReason(entry.mission.status, entry.active);
 	return (
-		<AccessSurface query={query}>
+		<ToolsLayout agent={agent} head={head} query={query}>
 			{(access) => (
 				<div className="flex flex-col gap-3">
 					{access.staleOverrides.length > 0 ? (
@@ -277,7 +292,7 @@ function EntryAccess({
 					{write.error ? <WriteFailure error={write.error} /> : null}
 				</div>
 			)}
-		</AccessSurface>
+		</ToolsLayout>
 	);
 }
 
@@ -539,7 +554,7 @@ export function AccessTable({
 		{
 			id: "access",
 			header: "Access",
-			width: "10rem",
+			width: "9rem",
 			cell: (row) => <AccessCell row={row} />,
 		},
 		{
@@ -574,25 +589,165 @@ export function AccessTable({
 	);
 }
 
-/** A right-rail card for a region whose module has not landed. */
-function RailCard({
-	title,
-	icon,
-	what,
-	needs,
+/** A list row in a side panel: an icon, a name, and a quiet fact at the end. */
+function PanelRow({
+	icon: Icon,
+	name,
+	fact,
 	"data-testid": testId,
 }: {
-	title: string;
 	icon: LucideIcon;
-	what: string;
-	needs: string;
+	name: string;
+	fact: string;
 	"data-testid": string;
 }) {
 	return (
-		<Surface
+		<li
 			data-testid={testId}
-			notBuilt={{ title, what, needs: [needs], icon, compact: true }}
-		/>
+			className="flex items-center gap-2.5 border-b border-border py-2.5 last:border-b-0"
+		>
+			<Icon aria-hidden="true" className="size-4 shrink-0 text-text-subtle" />
+			<span className="min-w-0 flex-1 truncate type-small font-medium text-foreground">
+				{name}
+			</span>
+			<span className="shrink-0 type-caption text-text-subtle">{fact}</span>
+		</li>
+	);
+}
+
+function PanelSkeleton() {
+	return (
+		<div className="flex flex-col gap-2">
+			<Skeleton className="h-6 w-full" />
+			<Skeleton className="h-6 w-full" />
+		</div>
+	);
+}
+
+/**
+ * The systems an agent holds a credential for: the repository when it may
+ * write there, and each tool it may use. Delivery is the operator's.
+ */
+export function credentialSystems(access: AgentAccess): string[] {
+	const systems = access.rows.flatMap((row) =>
+		row.kind === "repository" && row.scope.length > 0
+			? ["Repository"]
+			: row.kind === "grant" && row.mode !== "none"
+				? [row.system]
+				: [],
+	);
+	return [...new Set(systems)];
+}
+
+/**
+ * Credentials: one per system the agent may touch, from its access. A run's
+ * token lives only while the run does and is never shown; none is issued
+ * until dispatch runs agents (module 6), and each row says so.
+ */
+function Credentials({ access }: { access: AgentAccess | undefined }) {
+	return (
+		<SectionPanel
+			title="Credentials"
+			description="Scoped tokens, one per run, never shown."
+			data-testid="agent-credentials"
+		>
+			{access === undefined ? (
+				<PanelSkeleton />
+			) : (
+				<div className="flex flex-col gap-3">
+					<ul className="flex flex-col">
+						{credentialSystems(access).map((system) => (
+							<PanelRow
+								key={system}
+								icon={KeyRound}
+								name={system}
+								fact="No token yet"
+								data-testid={`agent-credential-${system}`}
+							/>
+						))}
+					</ul>
+					<p className="type-caption text-text-subtle">
+						Tokens are issued when dispatch runs agents (module 6). Delivery
+						needs none: you deliver.
+					</p>
+				</div>
+			)}
+		</SectionPanel>
+	);
+}
+
+/** The tools turned off on this mission: what the agent is kept from. */
+export function hiddenTools(access: AgentAccess): GrantRow[] {
+	return access.rows.filter(
+		(row): row is GrantRow => row.kind === "grant" && row.mode === "none",
+	);
+}
+
+/**
+ * What the agent cannot see: the tools turned off for it, from its access,
+ * and what each room leaves out once rooms land (module 7).
+ */
+function CannotSee({
+	agent,
+	access,
+}: {
+	agent: AgentTemplate;
+	access: AgentAccess | undefined;
+}) {
+	const hidden = access ? hiddenTools(access) : [];
+	return (
+		<SectionPanel
+			title={`What ${agent.name} cannot see`}
+			description="Kept from it, even where a tool has the data."
+			data-testid="agent-cannot-see"
+		>
+			{access === undefined ? (
+				<PanelSkeleton />
+			) : (
+				<div className="flex flex-col gap-3">
+					{hidden.length > 0 ? (
+						<ul className="flex flex-col">
+							{hidden.map((row) => (
+								<PanelRow
+									key={`${row.skillId}:${row.grant}`}
+									icon={Lock}
+									name={`${row.system} · ${row.grant}`}
+									fact="Turned off"
+									data-testid={`agent-hidden-${row.grant}`}
+								/>
+							))}
+						</ul>
+					) : (
+						<p className="type-small text-text-muted">
+							No tool is turned off here.
+						</p>
+					)}
+					<p className="type-caption text-text-subtle">
+						What each room leaves out, such as the render kept from the
+						fixture's author, comes with rooms (module 7).
+					</p>
+				</div>
+			)}
+		</SectionPanel>
+	);
+}
+
+/** Access requests: blockers filed for missing access, once reports land (module 8). */
+function AccessRequests() {
+	return (
+		<SectionPanel
+			title="Access requests"
+			description="What it asked for, and what you decided."
+			data-testid="agent-access-requests"
+		>
+			<div className="flex flex-col gap-2">
+				<p className="type-small text-text-muted">None recorded.</p>
+				<p className="type-caption text-text-subtle">
+					An agent asks by filing a blocker. Requests and your answers show here
+					with completion reports (module 8).
+				</p>
+			</div>
+		</SectionPanel>
 	);
 }
 

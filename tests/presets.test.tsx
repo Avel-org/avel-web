@@ -163,7 +163,7 @@ describe("the Presets list", () => {
 		expect(row).toMatch(/^<a/);
 		expect(row).toContain(`preset=${ID(1)}`);
 		expect(html).toMatch(
-			new RegExp(`data-testid="preset-cut-${ID(1)}"[^>]*>Horizontal<`),
+			new RegExp(`data-testid="preset-cut-${ID(1)}"[^>]*>By layer<`),
 		);
 		expect(html).toContain(">1 agent · v3<");
 		expect(html).toContain(">Preset 1<");
@@ -453,7 +453,7 @@ describe("the Presets URL and copy", () => {
 		expect(presetCountLabel(1, false)).toBe("1 team");
 		expect(presetCountLabel(3, true)).toBe("3 teams match");
 		expect(noMatchCopy(undefined, "vertical")).toBe(
-			"There are no vertical teams.",
+			"There are no teams cut by feature.",
 		);
 	});
 

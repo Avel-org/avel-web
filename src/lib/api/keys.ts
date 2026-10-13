@@ -12,6 +12,9 @@ export const queryKeys = {
 	activity: {
 		/** Everything under contract.activity. */
 		all: () => ["activity"] as const,
+		/** contract.activity.list for one entity, its first page: an agent's entries. */
+		entity: (entityType: string, entityId: string, limit: number) =>
+			["activity", "entity", entityType, entityId, { limit }] as const,
 		/**
 		 * contract.activity.list, paged by cursor. Each filter set is its own
 		 * entry: the cursor is not bound to the filters, so a page fetched under

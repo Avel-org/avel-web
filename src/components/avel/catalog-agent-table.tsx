@@ -33,13 +33,10 @@ import {
 	type AgentSide,
 	firstWave,
 	isFirmAgent,
-	kTokens,
 	SIDES,
-	sampleDispatch,
 	sideOf,
 	territoriesOf,
 } from "./catalog-agent-placeholders";
-import { CATALOG_MISSING, sampleHistory } from "./catalog-placeholders";
 import { inCatalogOrder, inWaveOrder } from "./catalog-sample";
 import { type DataColumn, DataTable, type SortState } from "./data-table";
 
@@ -190,8 +187,6 @@ function SampleHeader({
 export const SAMPLE_COLUMNS = [
 	{ column: "TERRITORY", missing: AGENT_MISSING.territories },
 	{ column: "SIDE", missing: AGENT_MISSING.sides },
-	{ column: "SHA", missing: CATALOG_MISSING.versions },
-	{ column: "EST/CEIL", missing: AGENT_MISSING.dispatch },
 ] as const;
 
 const sampleHeader = (column: (typeof SAMPLE_COLUMNS)[number]["column"]) => (
@@ -283,44 +278,6 @@ const COLUMNS: DataColumn<AgentTemplate>[] = [
 			) : (
 				inWaveOrder(agent.waveDefaults).join("")
 			),
-	},
-	{
-		id: "version",
-		header: <span>VER {sampleHeader("SHA")}</span>,
-		mono: true,
-		cell: (agent) => {
-			const sha = sampleHistory(agent).versions[0]?.sha256 ?? "";
-			return (
-				// Stacked, so the column stays narrow beside the panel.
-				<span className="flex flex-col">
-					<span className="text-foreground">{`v${agent.version}`}</span>
-					<code
-						data-testid={`catalog-agent-sha-${agent.slug}`}
-						title={sha}
-						data-full={sha}
-						className="text-text-subtle"
-					>
-						{sha.slice(0, 8)}
-					</code>
-				</span>
-			);
-		},
-	},
-	{
-		id: "tokens",
-		header: sampleHeader("EST/CEIL"),
-		mono: true,
-		align: "end",
-		cell: (agent) => {
-			const d = sampleDispatch(agent);
-			return (
-				<span
-					title={`Estimate ${d.estimate.toLocaleString("en-US")} tokens, soft ceiling ${d.softCeiling.toLocaleString("en-US")}, hard ceiling ${d.hardCeiling.toLocaleString("en-US")}`}
-				>
-					{`${kTokens(d.estimate)}/${kTokens(d.hardCeiling)}`}
-				</span>
-			);
-		},
 	},
 ];
 

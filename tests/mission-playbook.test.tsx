@@ -321,10 +321,10 @@ describe("coherence copy", () => {
 				missing,
 			});
 		expect(warn(["foundations"])).toBe(
-			"Under a vertical cut, no active agent holds the foundations role.",
+			"When the team is cut by feature, no active agent holds the foundations role.",
 		);
 		expect(warn(["foundations", "verification"])).toBe(
-			"Under a vertical cut, no active agent holds the foundations role or a verification role.",
+			"When the team is cut by feature, no active agent holds the foundations role or a verification role.",
 		);
 		const html = renderToString(
 			<CoherenceView
