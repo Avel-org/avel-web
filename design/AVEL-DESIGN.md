@@ -232,6 +232,71 @@ These supersede the sections they name.
 41. The banner is lit, and follows the theme (operator direction, 2026-10-12: "the banner isn't styled", "light mode the banner shows dark"). This amends ruling 38: the banner is no longer dark in both themes. Its tokens are deep on dark and light on `.light`. Its face is `banner-surface`: the band colour, an accent glow behind the tile, a fainter one at the bottom right, a sheen and a top highlight, with a fine grid on its own layer (`banner-grid`) that fades out before the tabs. The tile is 64px with an accent glow; each number is `type-h1` in a cell divided by a hairline; the tabs sit on a ruled bottom edge across the full width, the active one underlined in accent. One list shows one count: the agent table's "Showing n of total" against the server's total, and the list footer below it offers only Load more.
 42. One vocabulary across the app (operator direction, 2026-10-12: "wording needs to match our updates whole project"). What people read says agent, never agent template; team, never preset; and All agents or Skills, never the catalog. Template means only an AVEL project template (a mission's template repository), so the word is free for it. This amends ruling 39's note that the Teams page still says preset. Only copy changes: routes, test ids, query keys, activity action names and the contract's field names (`agentTemplateId`, `defaultPresetId`) keep their names.
 43. An agent's page, repacked (operator direction, 2026-10-12). Four tabs, related things together: Overview (Identity and Recent activity on the left, Manifest on the right, each panel its own height), Tools and access, Performance (the measures, with Versions beside them, since the measures compare versions) and Memory. Recent activity is live: the log's entries for each of the agent's roster entries, merged newest first, each linking to its decision record; the agent's own work joins it with dispatch (module 6). The banner's numbers are live (missions, running now, tools, roles), so the banner carries no sample pill and no token estimate. Tools and access lays out as the operator's reference: the tools table, and beside it from 1440px (in a row of three under it below that, so the table never scrolls) three panels read from the same access: Credentials (one row per system the agent may touch, each "No token yet" until module 6), What it cannot see (the tools turned off for it, then rooms in module 7) and Access requests (none recorded until module 8). The All agents table drops its version, hash and token estimate columns until their routes land. A team's cut reads By feature (vertical) or By layer (horizontal).
+44. All agents is a board of agent cards (operator direction, 2026-10-12: "remove the table and add cards components for each ai agent … each card is individually built by sections of information related to the agent"). This replaces ruling 34's process table and ruling 41's table count. The table, its paging and its sample column headers are deleted. The page toggles Cards | Graph, with cards as the default and the view in the URL (`?view=graph`). Each agent is one card (`AgentCard`) on a notched plate (`plate-notched`): ruling 37's plate with its top-right corner cut at 45 degrees and a small matching cut at the bottom left. Each cut redraws its own edge in the plate's edge token, and `plate-notched-lift` casts the slab's ledge and e1 so the shadow follows the cut. This amends ruling 37's "no bevelled corners" for agent cards only. A card is built from sections, each under a hairline with an engraved label and, where it has one, a count in mono. The identity band comes first: the side's tile, the name, the slug in mono, the kind as "Shared" (horizontal) or "Feature", and the version, with no hash and no token estimate. Then come:
+   - the description, as the card's main text in body type, at foreground weight 450, three lines at most with the whole text on hover;
+   - the roles, as chips in catalog order;
+   - where it works: the five waves, the ones it runs filled and the rest dashed, or "Between missions" for a firm agent;
+   - the territory and side, in a Sample data region (ruling 32), the side with its own dashed underline and reason;
+   - the writable paths in mono, three at most, then a count;
+   - Open.
+
+   The description is the agent's written `description` (avel-server 0e9c3db). When none is written, it is the first prose paragraph of its identity. When the identity has none, it is one sentence from its roles, drawn from the client copy of ROLES.md and captioned "From its roles". The whole card is one link to the agent's page, stretched over the plate, so the Sample data pill stays a button of its own. The card rises as a plate does, on hover and on keyboard focus. The filter row (side tabs with counts, search, wave and kind) sits above the cards. Below them are one "Showing n of total" against the server's total and, when there is more, Load more. While the list loads, the skeleton has the cards' shape. The cards fill as many columns as fit, never narrower than 17.5rem, and the canvas never scrolls sideways.
+45. Clients is a board, and a client has its own page (operator direction, 2026-10-12: "more creative than just list and detail"). This supersedes the Clients list and detail of section 12 and ruling 35's Clients panel.
+
+   The board:
+   - `/clients` shows a Board by default and the table as its second view, behind a Board | Table toggle (`?view=table`), as ruling 36 sets for Teams and Playbooks.
+   - The board has two sections, Active then Closed, each under a ruled heading with its count. Each section is a grid of plate cards that open the client.
+   - A card shows the client's tile (initials on the accent while active, recessed once closed), its name, contact, status and a menu (edit, new engagement, close or reopen). Below that come a meter of its engagements, one segment per engagement with active first, read from the row's own counts; its three latest engagements, active first, then "and n more"; and when it last changed.
+   - The Active section ends with a dashed New client card.
+   - Search stays in `?q`. An All, Active or Closed filter sits in `?status`. It narrows only the clients loaded, because `clients.list` has no status filter, and says so when more remain.
+
+   The client page:
+   - A client opens on its page, `/clients/:id`, headed by the entity banner (rulings 38 and 41) with a building tile.
+   - The banner holds the client's state, one line of facts (client since, contact, updated), its live counts (engagements, active, closed), and New engagement, Edit and Close or Reopen as real buttons.
+   - Its tabs, in `?tab`, are:
+     - Overview: the engagements as an Active and a Closed lane of cards, the client's details, and Missions, not built until `missions.list` takes a client filter.
+     - Engagements: the list, with Active only in `?active`.
+     - Drive: ruling 33's samples.
+     - Activity: the log's latest entries for the client and each engagement, merged newest first, each linking to its record.
+   - Only Engagements carries a count.
+   - The old `/clients?client=<id>` redirects to the page.
+46. An agent's page, polished (operator approval, 2026-10-12):
+   - One heading per panel: a part placed in a titled panel prints no title of its own.
+   - An identity that is only headings says plainly that it is still a stub, and sits in a box as wide as its text.
+   - Allowed actions are a term and description list per family, never a table in a narrow column.
+   - The manifest gives the kind in words beside the machine value (`horizontal # Shared`, `feature # Feature`).
+   - A tab shows a count only where a live read supplies one: Tools and access counts the rows of the access it shows.
+   - The status pill is a state word (Working, Idle, Not on a mission), and the counts belong to the banner's numbers.
+   - A number links where its target exists: missions to Missions (no agent filter is invented), tools to its tab.
+   - The tile shows an icon for the agent's side (author, tester, judge, fixture, firm or mixed), not initials.
+   - The facts line carries the waves ("wave A", "waves A and C"), or "between missions" for a firm agent.
+   - Mission choices read as words ("template-booking, sprint 1 (draft)"), with the short id beside them in mono.
+   - A row no switch changes shows a lock you can tab to, with its reason in a tooltip and for screen readers.
+   - Recent activity is grouped by mission, each group headed by a link to the mission.
+   - Long measures fold behind InlineExpand.
+   - Once the banner scrolls away, a pinned banner (`PinnedBanner`: tile, name, tabs as plain buttons) stays under the top bar. It is sticky at zero height, inert while hidden, and raises the canvas's scroll padding while it shows.
+   - Keys 1 to 4 open the tabs and Escape returns to All agents, never in a field or while a dialog, menu or list is open. The tabs announce the keys with aria-keyshortcuts.
+47. Templates is a page (operator report, 2026-10-12: "I'm not seeing my project template page"). A template is an AVEL project template (ruling 42): a repository a mission is built from, read by avel-server from its `.avel/template.json` and default branch (`templates.list`, `templates.get`). Templates (`/templates`) joins Library after Playbooks, so the sidebar has thirteen links; this supersedes ruling 40's count.
+
+   The board:
+   - Per ruling 36 the page is a Board of cards by default, with a Board | Table toggle (`?view=table`).
+   - A card shows the template's name, its slug in mono, its scope and starting state, its latest commit as eight mono characters with the full sha on hover, and its mission count. It also shows the playbook keyed by its slug (a playbook's mission type is the template's slug) and that playbook's default team.
+   - The card's name is its link, stretched over the card, so the playbook and team links never nest inside it.
+   - A repository avel-server could not read says so in a sentence, and its unknown fields are never guessed.
+   - A card never says "No playbook" before the playbooks are read.
+
+   The template page:
+   - `/templates/:slug` heads the page with the entity banner (ruling 38).
+   - The banner has the template icon as its tile, Readable or Not readable as its state, and scope, starting state and slug as its facts. Its numbers are the missions and the playbook's version and gate count, and its actions are Open playbook and Open team.
+   - Its tabs are:
+     - Overview: the manifest and the full commit, then what is built from it.
+     - Playbook: the playbook's shape and a link to its builder, or how to create one.
+     - Missions: the server's count and a search of Missions by the slug. The filtered list is not built until `missions.list` filters by `templateRef`.
+
+   The plan editor:
+   - The plan editor's template is chosen from `templates.list`, never typed.
+   - Choosing one pins its latest commit, since templateRef and templateVersion are set together, and the commit stays editable for an older one.
+   - If the list cannot be read, the field falls back to typing the name.
 
 ## 12. Rules for every screen
 
