@@ -1,18 +1,14 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import type { Client, Engagement } from "avel-server/contract";
-import { MousePointerClick, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { type ClientStatus, clientStatus } from "avel-server/contract";
+import { LayoutGrid, Plus, Rows3 } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { z } from "zod";
-import {
-	type ClientActions,
-	ClientDetail,
-} from "@/components/avel/client-detail";
-import { ClientFormModal } from "@/components/avel/client-form";
-import { ClientListPane, loadedClients } from "@/components/avel/client-list";
-import { ClientStatusDialog } from "@/components/avel/client-status-dialog";
+import { ClientBoard } from "@/components/avel/client-board";
+import { ClientTable, loadedClients } from "@/components/avel/client-list";
+import { useClientOverlays } from "@/components/avel/client-overlays";
+import { ClientSearch } from "@/components/avel/client-search";
 import { EmptyState } from "@/components/avel/empty-state";
-import { EngagementCloseDialog } from "@/components/avel/engagement-close";
-import { EngagementFormModal } from "@/components/avel/engagement-form";
+import { type ViewOption, ViewToggle } from "@/components/avel/view-toggle";
 import { Button } from "@/components/ui/button";
 import {
 	clientCountLabel,
@@ -20,7 +16,6 @@ import {
 	listTotal,
 	useClients,
 } from "@/lib/api/clients";
-import { cn } from "@/lib/utils";
 import { linkFor } from "../shell/nav";
 import { Page, pageHead } from "../shell/page";
 
@@ -28,10 +23,12 @@ import { Page, pageHead } from "../shell/page";
  * The page's state in the URL.
  * - `q` searches the list (name or primary contact), trimmed and cut to the
  *   contract's 200 characters; empty means no search.
- * - `client` is the selected client. It stays in the URL: a selected client
- *   is a link, and Back walks the selections.
- * - `new` opens the New client sheet, so the command menu or any link can
+ * - `status` keeps one section of the board, or one status in the table.
+ * - `view` is "table" for the table; absent is the board (ruling 36).
+ * - `new` opens the New client modal, so the command menu or any link can
  *   start one. It is read once and removed, so Back does not reopen it.
+ * - `client` is the old way to open a client, from before it had a page. It
+ *   redirects there, so an old link or log entry still lands.
  */
 export const clientsSearch = z.object({
 	q: z
@@ -39,6 +36,8 @@ export const clientsSearch = z.object({
 		.transform((value) => clientSearchText(value))
 		.optional()
 		.catch(undefined),
+	status: clientStatus.optional().catch(undefined),
+	view: z.literal("table").optional().catch(undefined),
 	new: z.boolean().optional().catch(undefined),
 	client: z.string().uuid().optional().catch(undefined),
 });
@@ -46,76 +45,71 @@ export const clientsSearch = z.object({
 export const Route = createFileRoute("/clients")({
 	staticData: { device: "construction" },
 	validateSearch: clientsSearch,
+	beforeLoad: ({ search }) => {
+		if (search.client) {
+			throw redirect({
+				to: "/clients/$id",
+				params: { id: search.client },
+				replace: true,
+			});
+		}
+	},
 	head: pageHead("/clients"),
 	component: ClientsPage,
 });
 
-/** Which overlay is open, if any. One at a time. */
-type Overlay =
-	| { kind: "none" }
-	| { kind: "new-client" }
-	| { kind: "edit-client"; client: Client }
-	| { kind: "client-status"; client: Client; to: "closed" | "active" }
-	| { kind: "new-engagement"; client: Client }
-	| { kind: "close-engagement"; engagement: Pick<Engagement, "id" | "name"> };
+type View = "board" | "table";
+
+/** Board first: the portfolio is the page; Table is for reading across. */
+const CLIENT_VIEWS: readonly ViewOption<View>[] = [
+	{ id: "board", label: "Board", icon: LayoutGrid },
+	{ id: "table", label: "Table", icon: Rows3 },
+];
 
 /**
- * Clients as a list and a detail (AVEL-DESIGN.md section 12). At md and up
- * the list sits left and the selected client right; below md the list is
- * the page and a selection replaces it, with a way back. The top bar counts
- * from meta.total, never from the rows loaded.
+ * Clients as a board of cards (ruling 45), with the table as its second
+ * view. A card opens the client's own page. The top bar counts from
+ * meta.total, never from the rows loaded.
  */
 function ClientsPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/clients" });
 	const clients = useClients(search.q);
-	const [overlay, setOverlay] = useState<Overlay>({ kind: "none" });
-	// The id whose engagements show active only. Tied to the selection, so
-	// choosing another client starts from all of its engagements.
-	const [activeOnlyFor, setActiveOnlyFor] = useState<string | null>(null);
 	// Fixed at mount, so relative times render once and do not churn.
 	const [now] = useState(() => Date.now());
-	const close = () => setOverlay({ kind: "none" });
-	const onOpenChange = (open: boolean) => {
-		if (!open) close();
-	};
+	const { actions, modals } = useClientOverlays({
+		// A refused close shows the client's active engagements on its page.
+		onShowEngagements: (id) =>
+			navigate({
+				to: "/clients/$id",
+				params: { id },
+				search: { tab: "engagements", active: true },
+			}),
+	});
+	const view: View = search.view === "table" ? "table" : "board";
 
 	useEffect(() => {
 		if (!search.new) return;
-		setOverlay({ kind: "new-client" });
+		actions.onNewClient();
 		navigate({
 			search: (prev) => ({ ...prev, new: undefined }),
 			replace: true,
 		});
-	}, [search.new, navigate]);
+	}, [search.new, navigate, actions.onNewClient]);
 
-	const setQuery = (text: string) =>
-		navigate({
-			search: (prev) => ({ ...prev, q: clientSearchText(text) }),
-			replace: true,
-		});
+	const setSearch = (next: Partial<z.infer<typeof clientsSearch>>) =>
+		navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
+	const setQuery = (text: string) => setSearch({ q: clientSearchText(text) });
 
 	const total = listTotal(clients.data);
 	const searching = search.q !== undefined;
 	const subtitle =
 		total === undefined ? undefined : clientCountLabel(total, searching);
-	const selected = search.client;
 	// First run: no clients at all, not a search that matched none.
 	const firstRun =
 		clients.status === "success" &&
 		!searching &&
 		loadedClients(clients.data).length === 0;
-
-	const actions: ClientActions = {
-		onEdit: (client) => setOverlay({ kind: "edit-client", client }),
-		onNewEngagement: (client) => setOverlay({ kind: "new-engagement", client }),
-		onClose: (client) =>
-			setOverlay({ kind: "client-status", client, to: "closed" }),
-		onReopen: (client) =>
-			setOverlay({ kind: "client-status", client, to: "active" }),
-		onCloseEngagement: (_client, engagement) =>
-			setOverlay({ kind: "close-engagement", engagement }),
-	};
 
 	return (
 		<Page
@@ -125,7 +119,7 @@ function ClientsPage() {
 				<Button
 					size="sm"
 					data-testid="clients-new"
-					onClick={() => setOverlay({ kind: "new-client" })}
+					onClick={actions.onNewClient}
 				>
 					<Plus aria-hidden="true" />
 					New client
@@ -142,7 +136,7 @@ function ClientsPage() {
 						<Button
 							size="sm"
 							data-testid="clients-empty-new"
-							onClick={() => setOverlay({ kind: "new-client" })}
+							onClick={actions.onNewClient}
 						>
 							<Plus aria-hidden="true" />
 							New client
@@ -150,85 +144,95 @@ function ClientsPage() {
 					}
 				/>
 			) : (
-				<div data-testid="clients-panes" className="flex min-h-0 flex-1 gap-6">
+				<div
+					data-testid="clients-page"
+					className="flex min-w-0 flex-1 flex-col gap-5"
+				>
 					<div
-						data-testid="clients-list-pane"
-						className={cn(
-							"flex min-h-0 w-full flex-col lg:w-80 lg:shrink-0",
-							// Below lg a selection replaces the list: at md the two panes
-							// left the detail too narrow to read.
-							selected && "max-lg:hidden",
-						)}
+						data-testid="clients-toolbar"
+						className="flex flex-wrap items-center gap-3"
 					>
-						<ClientListPane
-							query={clients}
-							search={search.q}
-							onSearch={setQuery}
-							selectedId={selected}
-							onClearSearch={() => setQuery("")}
+						<div className="w-full sm:w-80">
+							<ClientSearch value={search.q ?? ""} onChange={setQuery} />
+						</div>
+						<StatusFilter
+							value={search.status}
+							onChange={(status) => setSearch({ status })}
+						/>
+						<ViewToggle
+							options={CLIENT_VIEWS}
+							view={view}
+							onChange={(next) =>
+								setSearch({ view: next === "table" ? "table" : undefined })
+							}
+							testIdPrefix="clients-view"
+							className="sm:ml-auto"
 						/>
 					</div>
-					<div
-						data-testid="clients-detail-pane"
-						className={cn(
-							"flex min-w-0 flex-1 flex-col lg:border-l lg:border-border lg:pl-6",
-							!selected && "max-lg:hidden",
-						)}
-					>
-						{selected ? (
-							<ClientDetail
-								key={selected}
-								clientId={selected}
-								actions={actions}
-								activeOnly={activeOnlyFor === selected}
-								onActiveOnlyChange={(on) =>
-									setActiveOnlyFor(on ? selected : null)
-								}
-								now={now}
-							/>
-						) : (
-							<EmptyState
-								data-testid="clients-choose"
-								icon={MousePointerClick}
-								title="Choose a client"
-								description={
-									subtitle
-										? `${subtitle}. Choose one to see its engagements and notes.`
-										: "Choose one to see its engagements and notes."
-								}
-							/>
-						)}
-					</div>
+					{view === "table" ? (
+						<ClientTable
+							query={clients}
+							search={search.q}
+							status={search.status}
+							onClearSearch={() => setQuery("")}
+							now={now}
+						/>
+					) : (
+						<ClientBoard
+							query={clients}
+							search={search.q}
+							status={search.status}
+							onClearSearch={() => setQuery("")}
+							actions={actions}
+							now={now}
+						/>
+					)}
 				</div>
 			)}
-			<ClientFormModal
-				open={overlay.kind === "new-client" || overlay.kind === "edit-client"}
-				onOpenChange={onOpenChange}
-				client={overlay.kind === "edit-client" ? overlay.client : undefined}
-			/>
-			<EngagementFormModal
-				open={overlay.kind === "new-engagement"}
-				onOpenChange={onOpenChange}
-				client={overlay.kind === "new-engagement" ? overlay.client : null}
-				today={new Date(now).toLocaleDateString("en-CA")}
-			/>
-			<ClientStatusDialog
-				client={
-					overlay.kind === "client-status"
-						? { value: overlay.client, to: overlay.to }
-						: null
-				}
-				onOpenChange={onOpenChange}
-				// The refused client is the selected one: show its active
-				// engagements in place.
-				onShowEngagements={(id) => setActiveOnlyFor(id)}
-			/>
-			<EngagementCloseDialog
-				engagement={
-					overlay.kind === "close-engagement" ? overlay.engagement : null
-				}
-				onOpenChange={onOpenChange}
-			/>
+			{modals}
 		</Page>
+	);
+}
+
+const STATUS_OPTIONS: { id: ClientStatus | undefined; label: string }[] = [
+	{ id: undefined, label: "All" },
+	{ id: "active", label: "Active" },
+	{ id: "closed", label: "Closed" },
+];
+
+/**
+ * All, Active or Closed, as pressed-state buttons. The contract's list has
+ * no status filter, so this narrows the clients loaded, not the request.
+ */
+function StatusFilter({
+	value,
+	onChange,
+}: {
+	value: ClientStatus | undefined;
+	onChange: (value: ClientStatus | undefined) => void;
+}) {
+	const legendId = useId();
+	return (
+		<fieldset
+			aria-labelledby={legendId}
+			data-testid="clients-status"
+			className="inline-flex items-center gap-0.5 rounded-sm border border-border p-0.5"
+		>
+			<legend id={legendId} className="sr-only">
+				Status
+			</legend>
+			{STATUS_OPTIONS.map(({ id, label }) => (
+				<Button
+					key={label}
+					size="sm"
+					variant={value === id ? "secondary" : "ghost"}
+					aria-pressed={value === id}
+					data-testid={`clients-status-${id ?? "all"}`}
+					onClick={() => onChange(id)}
+				>
+					{label}
+				</Button>
+			))}
+		</fieldset>
 	);
 }

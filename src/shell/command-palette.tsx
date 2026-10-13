@@ -84,9 +84,9 @@ export function CommandPalette({
 				label: missionLabel(mission),
 			}),
 		openRecent: openEntry,
-		openClient: (client, search) => {
+		openClient: (client) => {
 			close();
-			navigate({ to: "/clients", search: { q: search, client: client.id } });
+			navigate({ to: "/clients/$id", params: { id: client.id } });
 		},
 		newClient: () => {
 			close();
@@ -155,7 +155,7 @@ export function goToEntries(): { link: NavLink; words: string }[] {
 export type CommandHandlers = {
 	openPage: (to: string, label: string) => void;
 	openMission: (mission: MissionListItem) => void;
-	/** Selects the client on /clients, keeping the search it matched. */
+	/** Opens the client's page. The search it matched is passed for callers that keep it. */
 	openClient: (client: Client, search: string) => void;
 	openRecent: (entry: RecentEntry) => void;
 	newClient: () => void;

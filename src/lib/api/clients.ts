@@ -3,6 +3,7 @@ import {
 	queryOptions,
 	useInfiniteQuery,
 	useMutation,
+	useQueries,
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
@@ -19,6 +20,7 @@ import {
 } from "avel-server/contract";
 import type { z } from "zod";
 import type { StatusTone } from "@/components/avel/status-pill";
+import { entityActivityQuery, newestFirst } from "./activity";
 import { type ApiClient, call, callPage } from "./client";
 import { ApiError } from "./errors";
 import { queryKeys } from "./keys";
@@ -399,4 +401,112 @@ export function fieldErrors(error: unknown): Record<string, string> {
 		if (field !== undefined && copy) errors[field] = copy;
 	}
 	return errors;
+}
+
+// The client board and the client's page (ruling 45).
+
+/** A client page's tabs, in order. Overview is the page with no parameter. */
+export const CLIENT_TABS = [
+	"overview",
+	"engagements",
+	"drive",
+	"activity",
+] as const;
+
+export type ClientTabId = (typeof CLIENT_TABS)[number];
+
+/**
+ * The loaded clients split by status, each keeping the list's order. The
+ * contract's list has no status filter, so the board groups and filters the
+ * rows it has loaded, and says so when more remain.
+ */
+export function byStatus(
+	clients: readonly Client[],
+): Record<ClientStatus, Client[]> {
+	return {
+		active: clients.filter((c) => c.status === "active"),
+		closed: clients.filter((c) => c.status === "closed"),
+	};
+}
+
+/** "AC" for "Acme Corp", "ME" for "Meridian": two letters for a tile. */
+export function clientInitials(name: string): string {
+	// Words that start with a letter or digit: "Halvorsen & Pike" is "HP".
+	const words = name
+		.trim()
+		.split(/\s+/)
+		.filter((word) => /^[\p{L}\p{N}]/u.test(word));
+	const [first, second] = words;
+	if (first && second) return `${first[0]}${second[0]}`.toUpperCase();
+	return (first ?? "").slice(0, 2).toUpperCase();
+}
+
+const MONTH = new Intl.DateTimeFormat("en-GB", {
+	month: "long",
+	year: "numeric",
+	timeZone: "UTC",
+});
+
+/** "October 2026", in UTC, so every viewer reads the same month. */
+export function monthLabel(iso: string): string {
+	return MONTH.format(new Date(iso));
+}
+
+/** The banner's facts line: "Client since October 2026 · jane@acme.com · updated 3 days ago". */
+export function clientFacts(client: Client, now: number): string {
+	return [
+		`Client since ${monthLabel(client.createdAt)}`,
+		client.primaryContact ?? "No primary contact",
+		`updated ${relativeTime(client.updatedAt, now)}`,
+	].join(" · ");
+}
+
+/** The most segments a card's engagement meter draws before it says "+n". */
+export const METER_SEGMENTS = 12;
+
+/**
+ * A card's engagement meter, from the row's own counts: one segment per
+ * engagement, active first, capped so a long history stays one line.
+ */
+export function engagementMeter(
+	client: Pick<Client, "engagementCount" | "activeEngagementCount">,
+): { active: number; closed: number; more: number } {
+	const total = client.engagementCount;
+	const active = Math.min(client.activeEngagementCount, METER_SEGMENTS);
+	const closed = Math.min(
+		total - client.activeEngagementCount,
+		METER_SEGMENTS - active,
+	);
+	return { active, closed, more: Math.max(0, total - METER_SEGMENTS) };
+}
+
+/**
+ * One client's recent activity: the log's latest entries for the client and
+ * for each of its engagements, merged newest first. The log keys rows by
+ * entity, so this reads one small page per entity, as an agent's page does.
+ */
+export function useClientActivity(
+	clientId: string,
+	engagementIds: readonly string[],
+) {
+	const api = useApiClient();
+	return useQueries({
+		queries: [
+			entityActivityQuery(api, "client", clientId),
+			...engagementIds.map((id) => entityActivityQuery(api, "engagement", id)),
+		],
+		combine: (results) => ({
+			status: results.some((r) => r.status === "error")
+				? ("error" as const)
+				: results.every((r) => r.status === "success")
+					? ("success" as const)
+					: ("pending" as const),
+			error: results.find((r) => r.error)?.error ?? null,
+			retry: () => {
+				for (const r of results) if (r.status === "error") r.refetch();
+			},
+			retrying: results.some((r) => r.isFetching),
+			entries: newestFirst(results.flatMap((r) => r.data?.data ?? [])),
+		}),
+	});
 }

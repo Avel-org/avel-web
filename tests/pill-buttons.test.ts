@@ -120,6 +120,11 @@ const EXCEPTIONS: { file: string; marker: string; why: string }[] = [
 		marker: "chipRefs.current.set(entry.id, el)",
 		why: "a roster chip's name: the chip card around it is the surface",
 	},
+	{
+		file: "components/avel/client-board.tsx",
+		marker: 'data-testid="client-card-new"',
+		why: "the New client card closing the board: a card, like the clients beside it (ruling 45)",
+	},
 ];
 
 const sources = files(SRC).map((path) => ({

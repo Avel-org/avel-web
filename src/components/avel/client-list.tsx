@@ -1,20 +1,29 @@
 import type { InfiniteData } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Client } from "avel-server/contract";
+import type { Client, ClientStatus } from "avel-server/contract";
 import { SearchX } from "lucide-react";
-import type { KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import {
+	clientInitials,
 	clientSearchText,
 	engagementSummary,
+	isoDate,
 	listTotal,
 	type Page,
+	relativeTime,
 	statusTone,
 	type useClients,
 } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
-import { ClientSearch } from "./client-search";
 import { EmptyState } from "./empty-state";
 import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
@@ -24,68 +33,74 @@ export function loadedClients(data: InfiniteData<Page<Client>>): Client[] {
 	return data.pages.flatMap((page) => page.data);
 }
 
+/** The loaded clients a status filter keeps; no filter keeps them all. */
+export function filtered(
+	clients: Client[],
+	status: ClientStatus | undefined,
+): Client[] {
+	return status ? clients.filter((c) => c.status === status) : clients;
+}
+
 /**
- * The left pane: the search, then a slim list of clients, a page at a time.
- * Each row is a link to the client (?client=<id>, keeping the search), so a
- * selected client is a link. The route owns the query; this renders it.
+ * The Table view (ruling 36): every loaded client as one row, for reading
+ * across. Each name is a link to the client's page. The board is the page's
+ * first view; this is the second.
  */
-export function ClientListPane({
+export function ClientTable({
 	query,
 	search,
-	onSearch,
-	selectedId,
+	status,
 	onClearSearch,
+	now,
 }: {
 	query: ReturnType<typeof useClients>;
-	/** The settled search, or undefined for none. */
 	search: string | undefined;
-	onSearch: (text: string) => void;
-	selectedId: string | undefined;
+	status: ClientStatus | undefined;
 	onClearSearch: () => void;
+	now: number;
 }) {
 	return (
-		<section
-			aria-label="Clients"
-			data-testid="client-pane"
-			className="flex min-h-0 flex-col gap-3"
+		<Surface
+			data-testid="client-list"
+			query={query}
+			isEmpty={(data) => loadedClients(data).length === 0}
+			loading={<ClientListSkeleton />}
+			empty={<ClientsNoMatch search={search} onClearSearch={onClearSearch} />}
+			error={ErrorState}
 		>
-			<ClientSearch value={search ?? ""} onChange={onSearch} />
-			<Surface
-				data-testid="client-list"
-				query={query}
-				isEmpty={(data) => loadedClients(data).length === 0}
-				loading={<ClientListSkeleton />}
-				// First run (no clients at all) is the page's to show, across both
-				// panes; here an empty list is always a search that matched nothing.
-				empty={
-					<EmptyState
-						data-testid="clients-no-match"
-						compact
-						icon={SearchX}
-						title="No clients match"
-						description={`Nothing matches “${clientSearchText(search) ?? ""}” in a client's name or primary contact.`}
-						action={
-							<Button
-								size="sm"
-								variant="outline"
-								data-testid="clients-clear-search"
-								onClick={onClearSearch}
-							>
-								Clear search
-							</Button>
-						}
-					/>
-				}
-				error={ErrorState}
-			>
-				{(data) => (
-					<div className="flex flex-col gap-2">
-						<ClientRows
-							clients={loadedClients(data)}
-							selectedId={selectedId}
-							search={search}
-						/>
-						<ListFooter
+			{(data) => {
+				const rows = filtered(loadedClients(data), status);
+				return (
+					<div className="flex flex-col gap-3">
+						<div className="plate overflow-hidden rounded-md border">
+							<Table data-testid="client-table">
+								<TableHeader className="bg-app-band">
+									<TableRow>
+										<TableHead className="pl-4">Client</TableHead>
+										<TableHead>Status</TableHead>
+										<TableHead>Engagements</TableHead>
+										<TableHead className="hidden lg:table-cell">
+											Since
+										</TableHead>
+										<TableHead className="pr-4 text-right">Updated</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody data-testid="client-rows">
+									{rows.map((client) => (
+										<ClientRow key={client.id} client={client} now={now} />
+									))}
+								</TableBody>
+							</Table>
+							{rows.length === 0 ? (
+								<p
+									data-testid="client-table-none"
+									className="type-small px-4 py-3 text-text-muted"
+								>
+									{`No ${status} clients among those loaded.`}
+								</p>
+							) : null}
+						</div>
+						<ClientListFooter
 							loaded={loadedClients(data).length}
 							total={listTotal(data)}
 							hasMore={query.hasNextPage}
@@ -93,95 +108,127 @@ export function ClientListPane({
 							onLoadMore={() => query.fetchNextPage()}
 						/>
 					</div>
-				)}
-			</Surface>
-		</section>
+				);
+			}}
+		</Surface>
+	);
+}
+
+function ClientRow({ client, now }: { client: Client; now: number }) {
+	const closed = client.status === "closed";
+	return (
+		<TableRow
+			data-testid={`client-row-${client.id}`}
+			data-status={client.status}
+			className="hover:bg-state-hover"
+		>
+			<TableCell className="pl-4">
+				<div className="flex min-w-0 items-center gap-3">
+					<ClientTile name={client.name} closed={closed} size="sm" />
+					<div className="flex min-w-0 flex-col">
+						<Link
+							to="/clients/$id"
+							params={{ id: client.id }}
+							data-testid={`client-row-link-${client.id}`}
+							className="type-body truncate rounded-xs font-medium text-foreground underline-offset-4 hover:underline"
+						>
+							{client.name}
+						</Link>
+						<span className="type-caption truncate text-text-subtle">
+							{client.primaryContact ?? "No primary contact"}
+						</span>
+					</div>
+				</div>
+			</TableCell>
+			<TableCell>
+				<StatusPill
+					size="sm"
+					tone={statusTone(client.status)}
+					label={closed ? "Closed" : "Active"}
+					data-testid={`client-status-${client.id}`}
+				/>
+			</TableCell>
+			<TableCell className="type-mono-small text-text-muted">
+				{engagementSummary(client)}
+			</TableCell>
+			<TableCell className="type-mono-small hidden text-text-muted lg:table-cell">
+				<time dateTime={client.createdAt}>{isoDate(client.createdAt)}</time>
+			</TableCell>
+			<TableCell className="type-caption pr-4 text-right text-text-subtle">
+				<time
+					dateTime={client.updatedAt}
+					title={client.updatedAt}
+					suppressHydrationWarning
+				>
+					{relativeTime(client.updatedAt, now)}
+				</time>
+			</TableCell>
+		</TableRow>
 	);
 }
 
 /**
- * The rows: links, so Enter and a click both select, and the selection is a
- * URL. Up and Down move between rows (AVEL-DESIGN.md section 12, keyboard
- * first); Home and End jump to the ends.
+ * A client's tile: its initials on the accent while active, on a quiet
+ * recessed face once closed, so a closed client reads as ended at a glance.
  */
-export function ClientRows({
-	clients,
-	selectedId,
-	search,
+export function ClientTile({
+	name,
+	closed,
+	size = "md",
 }: {
-	clients: Client[];
-	selectedId: string | undefined;
-	search: string | undefined;
+	name: string;
+	closed: boolean;
+	size?: "sm" | "md";
 }) {
-	const move = (event: KeyboardEvent<HTMLUListElement>) => {
-		const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
-		if (!keys.includes(event.key)) return;
-		const links = [
-			...event.currentTarget.querySelectorAll<HTMLAnchorElement>("a"),
-		];
-		const at = links.indexOf(document.activeElement as HTMLAnchorElement);
-		const next =
-			event.key === "Home"
-				? 0
-				: event.key === "End"
-					? links.length - 1
-					: event.key === "ArrowDown"
-						? Math.min(at + 1, links.length - 1)
-						: Math.max(at - 1, 0);
-		event.preventDefault();
-		links[next]?.focus();
-	};
-
 	return (
-		<ul
-			aria-label="Clients"
-			data-testid="client-rows"
-			className="flex flex-col gap-0.5"
-			onKeyDown={move}
+		<span
+			aria-hidden="true"
+			data-testid="client-tile"
+			data-closed={closed || undefined}
+			className={cn(
+				"inline-flex shrink-0 items-center justify-center rounded-sm border font-semibold",
+				size === "sm" ? "size-8 type-caption" : "size-10 type-small",
+				closed
+					? "border-border bg-app-recessed text-text-subtle"
+					: "border-accent bg-accent-soft text-accent-text",
+			)}
 		>
-			{clients.map((client) => {
-				const selected = client.id === selectedId;
-				return (
-					<li key={client.id}>
-						<Link
-							to="/clients"
-							search={{ q: search, client: client.id }}
-							data-testid={`client-row-${client.id}`}
-							// The router marks the active link aria-current="page" itself,
-							// after any prop, so the selected row needs no marker of ours.
-							data-selected={selected || undefined}
-							className={cn(
-								"focus-inset relative flex flex-col gap-1 rounded-sm px-3 py-2 transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover",
-								// The selected row: the selected fill, and the accent edge
-								// section 5 allows for a selected list row.
-								selected &&
-									"bg-state-selected before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent hover:bg-state-selected",
-							)}
-						>
-							<span className="flex items-center gap-2">
-								<span className="type-body min-w-0 flex-1 truncate font-medium text-foreground">
-									{client.name}
-								</span>
-								<StatusPill
-									size="sm"
-									tone={statusTone(client.status)}
-									label={client.status === "active" ? "Active" : "Closed"}
-									data-testid={`client-status-${client.id}`}
-								/>
-							</span>
-							<span className="type-mono-small text-text-muted">
-								{engagementSummary(client)}
-							</span>
-						</Link>
-					</li>
-				);
-			})}
-		</ul>
+			{clientInitials(name)}
+		</span>
+	);
+}
+
+/** A search that matched no client, with the way out of it. */
+export function ClientsNoMatch({
+	search,
+	onClearSearch,
+}: {
+	search: string | undefined;
+	onClearSearch: () => void;
+}) {
+	return (
+		<EmptyState
+			data-testid="clients-no-match"
+			compact
+			icon={SearchX}
+			title="No clients match"
+			description={`Nothing matches “${clientSearchText(search) ?? ""}” in a client's name or primary contact.`}
+			action={
+				<Button
+					size="sm"
+					variant="outline"
+					data-testid="clients-clear-search"
+					onClick={onClearSearch}
+				>
+					Clear search
+				</Button>
+			}
+		/>
 	);
 }
 
 /** How much of the list is loaded, and a way to load the rest. */
-function ListFooter({
+export function ClientListFooter({
 	loaded,
 	total,
 	hasMore,
@@ -196,7 +243,7 @@ function ListFooter({
 }) {
 	if (total === undefined && !hasMore) return null;
 	return (
-		<div className="flex items-center justify-between gap-2 px-3">
+		<div className="flex items-center justify-between gap-2">
 			{total === undefined ? (
 				<span />
 			) : (
@@ -222,21 +269,27 @@ function ListFooter({
 	);
 }
 
-/** Three rows in the list's real shape: few, so it does not promise many. */
+/** Three rows in the table's real shape: few, so it does not promise many. */
 export function ClientListSkeleton() {
 	return (
-		<div data-testid="client-list-skeleton" className="flex flex-col gap-0.5">
+		<div
+			data-testid="client-list-skeleton"
+			className="plate flex flex-col overflow-hidden rounded-md border"
+		>
+			<div className="h-10 border-b border-border bg-app-band" />
 			{[0, 1, 2].map((i) => (
 				<div
 					key={i}
 					data-testid="client-list-skeleton-row"
-					className="flex flex-col gap-1.5 px-3 py-2"
+					className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
 				>
-					<span className="flex items-center gap-2">
-						<Skeleton className="h-4 flex-1" />
-						<Skeleton className="h-5 w-14 rounded-full" />
+					<Skeleton className="size-8 rounded-sm" />
+					<span className="flex flex-1 flex-col gap-1.5">
+						<Skeleton className="h-4 w-40" />
+						<Skeleton className="h-3 w-28" />
 					</span>
-					<Skeleton className="h-3 w-36" />
+					<Skeleton className="h-5 w-14 rounded-full" />
+					<Skeleton className="hidden h-3 w-36 md:block" />
 				</div>
 			))}
 		</div>

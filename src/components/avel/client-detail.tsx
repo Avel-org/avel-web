@@ -1,52 +1,77 @@
 import { Link } from "@tanstack/react-router";
 import type { Client } from "avel-server/contract";
-import { ArrowLeft, MoreHorizontal } from "lucide-react";
-import { useId } from "react";
-import { Button } from "@/components/ui/button";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+	ArrowLeft,
+	Building2,
+	Pencil,
+	Plus,
+	Power,
+	Rocket,
+	RotateCcw,
+	SearchX,
+} from "lucide-react";
+import { useRef } from "react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { ApiError } from "@/lib/api";
-import { relativeTime, statusTone, useClient } from "@/lib/api/clients";
+import { isNotFound } from "@/lib/api/catalog";
+import {
+	CLIENT_TABS,
+	type ClientTabId,
+	clientFacts,
+	isoDate,
+	relativeTime,
+	useClient,
+} from "@/lib/api/clients";
+import { cn } from "@/lib/utils";
+import { ClientActivity } from "./client-activity";
 import { ClientFilesDrive, ClientNotesDrive } from "./client-drive";
+import type { ClientActions } from "./client-overlays";
+import { EmptyState } from "./empty-state";
+import { EngagementBoard } from "./engagement-board";
 import { EngagementList } from "./engagement-list";
-import { StatusPill } from "./status-pill";
+import {
+	BANNER_BUTTON,
+	BannerStat,
+	BannerStatus,
+	type BannerTab,
+	BannerTile,
+	EntityBanner,
+	PinnedBanner,
+} from "./entity-banner";
+import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
-/** What the operator can do to a client, from its detail. */
-export type ClientActions = {
-	onEdit: (client: Client) => void;
-	onNewEngagement: (client: Client) => void;
-	onClose: (client: Client) => void;
-	onReopen: (client: Client) => void;
-	onCloseEngagement: (
-		client: Client,
-		engagement: { id: string; name: string },
-	) => void;
+/*
+ * One client's page (ruling 45): the entity banner, then one tab at a time.
+ * Everything on it is live from the contract: the client, its engagements
+ * and the log. Its Drive tab is ruling 33's samples until the Drive's routes
+ * exist, and its missions wait for a client filter on the missions list.
+ */
+
+const TAB_LABEL: Record<ClientTabId, string> = {
+	overview: "Overview",
+	engagements: "Engagements",
+	drive: "Drive",
+	activity: "Activity",
 };
 
-/**
- * The selected client, fetched by id (contract.clients.get), so a selected
- * client is a link that opens whatever the list's search or paging. A client
- * that is gone answers NOT_FOUND, shown by ErrorState with a way back.
- */
 export function ClientDetail({
 	clientId,
-	actions,
+	tab,
 	activeOnly,
+	onTab,
 	onActiveOnlyChange,
+	actions,
 	now,
 }: {
 	clientId: string;
-	actions: ClientActions;
+	tab: ClientTabId;
 	activeOnly: boolean;
+	onTab: (tab: ClientTabId) => void;
 	onActiveOnlyChange: (activeOnly: boolean) => void;
+	actions: ClientActions;
 	now: number;
 }) {
 	const query = useClient(clientId);
@@ -56,16 +81,18 @@ export function ClientDetail({
 			query={query}
 			// A client is one record: it is either there or an error.
 			isEmpty={() => false}
-			loading={<ClientDetailSkeleton />}
+			loading={<ClientPageSkeleton />}
 			empty={null}
 			error={DetailError}
 		>
 			{(client) => (
-				<ClientDetailBody
+				<ClientPage
 					client={client}
-					actions={actions}
+					tab={tab}
 					activeOnly={activeOnly}
+					onTab={onTab}
 					onActiveOnlyChange={onActiveOnlyChange}
+					actions={actions}
 					now={now}
 				/>
 			)}
@@ -73,191 +100,192 @@ export function ClientDetail({
 	);
 }
 
-/** The error, with the way back to the list (the search is kept). */
+/** A client that is gone says so, with the way back; anything else is the error map's. */
 function DetailError(props: ErrorStateProps<ApiError>) {
 	return (
 		<div data-testid="client-detail-error" className="flex flex-col gap-3">
-			<ErrorState {...props} />
-			<BackToClients />
+			{isNotFound(props.error) ? (
+				<EmptyState
+					data-testid="client-not-found"
+					icon={SearchX}
+					title="No such client"
+					description="This client could not be found. Choose one from All clients."
+				/>
+			) : (
+				<ErrorState {...props} />
+			)}
+			<Button variant="outline" size="sm" className="self-start" asChild>
+				<Link to="/clients" data-testid="client-back">
+					<ArrowLeft aria-hidden="true" />
+					All clients
+				</Link>
+			</Button>
 		</div>
 	);
 }
 
-function BackToClients({ className }: { className?: string }) {
-	return (
-		<Button variant="outline" size="sm" className={className} asChild>
-			<Link
-				to="/clients"
-				search={(prev) => ({ q: prev.q })}
-				data-testid="client-back"
-				className="self-start"
-			>
-				<ArrowLeft aria-hidden="true" />
-				Back to clients
-			</Link>
-		</Button>
-	);
-}
-
-/** The client itself: header, engagements, notes, and when it last changed. */
-export function ClientDetailBody({
+function ClientPage({
 	client,
-	actions,
+	tab,
 	activeOnly,
+	onTab,
 	onActiveOnlyChange,
+	actions,
 	now,
 }: {
 	client: Client;
-	actions: ClientActions;
+	tab: ClientTabId;
 	activeOnly: boolean;
+	onTab: (tab: ClientTabId) => void;
 	onActiveOnlyChange: (activeOnly: boolean) => void;
+	actions: ClientActions;
 	now: number;
 }) {
-	const titleId = useId();
-	const engagementsId = useId();
-	const notesId = useId();
 	const closed = client.status === "closed";
-
+	// Engagements carries the client's own count; the others have no route
+	// that counts them, so they carry none.
+	const tabs: BannerTab[] = CLIENT_TABS.map((id) => ({
+		id,
+		label: TAB_LABEL[id],
+		...(id === "engagements" ? { count: client.engagementCount } : {}),
+	}));
+	const banner = useRef<HTMLElement>(null);
 	return (
-		<article
-			aria-labelledby={titleId}
+		<Tabs
+			value={tab}
+			onValueChange={(next) => onTab(next as ClientTabId)}
 			data-testid="client-detail"
-			className="flex flex-col gap-6"
+			data-client={client.id}
+			className="min-w-0 gap-6 [&>*]:min-w-0"
 		>
-			{/* Below lg the detail is the page; this is the way back to the list. */}
-			<BackToClients className="lg:hidden" />
-
-			<header className="flex items-start gap-3">
-				<div className="flex min-w-0 flex-1 flex-col gap-1.5">
-					<h2 id={titleId} className="type-h2 truncate text-foreground">
-						{client.name}
-					</h2>
-					<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-						<StatusPill
-							size="sm"
-							tone={statusTone(client.status)}
-							label={closed ? "Closed" : "Active"}
-							data-testid="client-detail-status"
+			{/* Zero height, so its -mb-6 takes back the gap the column gives it. */}
+			<PinnedBanner
+				data-testid="client-pinned"
+				className="-mb-6"
+				watch={banner}
+				icon={Building2}
+				name={client.name}
+				tabs={tabs}
+				value={tab}
+				onSelect={(next) => onTab(next as ClientTabId)}
+			/>
+			<EntityBanner
+				ref={banner}
+				data-testid="client-banner"
+				back={{ label: "All clients", to: "/clients" }}
+				tile={<BannerTile icon={Building2} data-testid="client-banner-tile" />}
+				name={client.name}
+				status={
+					<BannerStatus
+						data-testid="client-banner-status"
+						label={closed ? "Closed" : "Active"}
+						live={!closed}
+					/>
+				}
+				facts={clientFacts(client, now)}
+				stats={<ClientStats client={client} />}
+				actions={<ClientBannerActions client={client} actions={actions} />}
+				tabs={tabs}
+				tabsLabel={`${client.name}'s page`}
+			/>
+			<TabsContent value="overview">
+				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+					<SectionPanel
+						title="Engagements"
+						description="Each piece of work for this client. Closing one revokes its connections."
+						data-testid="client-engagements-panel"
+					>
+						<EngagementBoard
+							client={client}
+							onNewEngagement={() => actions.onNewEngagement(client)}
+							onCloseEngagement={actions.onCloseEngagement}
 						/>
-						<span
-							data-testid="client-detail-contact"
-							className="type-small text-text-muted"
+					</SectionPanel>
+					<div className="flex min-w-0 flex-col gap-6">
+						<SectionPanel
+							title="Details"
+							description="The client's own fields."
+							data-testid="client-details-panel"
+							actions={
+								<Button
+									variant="ghost"
+									size="sm"
+									data-testid="client-details-edit"
+									onClick={() => actions.onEdit(client)}
+								>
+									<Pencil aria-hidden="true" />
+									Edit
+								</Button>
+							}
 						>
-							{client.primaryContact ?? (
-								<span className="text-text-subtle">
-									Primary contact: none set
-								</span>
-							)}
-						</span>
+							<ClientDetails client={client} now={now} />
+						</SectionPanel>
+						<SectionPanel
+							title="Missions"
+							description="The work run under this client's engagements."
+							data-testid="client-missions-panel"
+						>
+							<Surface
+								data-testid="client-missions"
+								notBuilt={{
+									title: "Missions for this client",
+									what: "The missions list cannot be narrowed to one client yet, so this client's missions are not listed here.",
+									needs: ["a clientId filter on missions.list"],
+									icon: Rocket,
+									compact: true,
+								}}
+							/>
+						</SectionPanel>
 					</div>
 				</div>
-				<ClientMenu client={client} actions={actions} />
-			</header>
-
-			<Tabs defaultValue="overview" data-testid="client-tabs">
-				<TabsList aria-label="Client sections">
-					<TabsTrigger value="overview" data-testid="client-tab-overview">
-						Overview
-					</TabsTrigger>
-					<TabsTrigger value="notes" data-testid="client-tab-notes">
-						Notes
-					</TabsTrigger>
-					<TabsTrigger value="files" data-testid="client-tab-files">
-						Files
-					</TabsTrigger>
-				</TabsList>
-				<TabsContent
-					value="overview"
-					forceMount
-					className="flex flex-col gap-4 data-[state=inactive]:hidden"
-				>
-					<section
-						aria-labelledby={engagementsId}
-						className="flex flex-col gap-3"
-					>
-						<div className="flex items-center justify-between gap-2">
-							<h3
-								id={engagementsId}
-								className="type-panel-title text-foreground"
-							>
-								Engagements
-							</h3>
-							<Button
-								variant="ghost"
-								size="sm"
-								aria-pressed={activeOnly}
-								data-testid="client-active-only"
-								onClick={() => onActiveOnlyChange(!activeOnly)}
-								className="aria-pressed:bg-state-selected"
-							>
-								Active only
-							</Button>
-						</div>
-						<EngagementList
-							client={client}
-							activeOnly={activeOnly}
-							onShowAll={() => onActiveOnlyChange(false)}
-							onNewEngagement={() => actions.onNewEngagement(client)}
-							onCloseEngagement={(e) => actions.onCloseEngagement(client, e)}
-						/>
-					</section>
-				</TabsContent>
-				<TabsContent
-					value="notes"
-					forceMount
-					className="flex flex-col gap-4 data-[state=inactive]:hidden"
-				>
-					<section aria-labelledby={notesId} className="flex flex-col gap-2">
-						<h3 id={notesId} className="type-panel-title text-foreground">
-							Notes
-						</h3>
-						{client.notesMd ? (
-							// Plain text with its line breaks; markdown is not rendered yet.
-							<p
-								data-testid="client-detail-notes"
-								className="type-body whitespace-pre-line text-text-muted"
-							>
-								{client.notesMd}
-							</p>
-						) : (
-							<p
-								data-testid="client-detail-notes"
-								className="type-small text-text-subtle"
-							>
-								None set.
-							</p>
-						)}
-					</section>
+			</TabsContent>
+			<TabsContent value="engagements">
+				<ClientEngagements
+					client={client}
+					activeOnly={activeOnly}
+					onActiveOnlyChange={onActiveOnlyChange}
+					actions={actions}
+				/>
+			</TabsContent>
+			<TabsContent value="drive">
+				<div className="flex flex-col gap-6">
 					<ClientNotesDrive clientId={client.id} />
-				</TabsContent>
-				<TabsContent
-					value="files"
-					forceMount
-					className="flex flex-col gap-4 data-[state=inactive]:hidden"
-				>
 					<ClientFilesDrive clientId={client.id} />
-				</TabsContent>
-			</Tabs>
-
-			<p
-				data-testid="client-detail-updated"
-				className="type-caption text-text-subtle"
-			>
-				Updated{" "}
-				<time
-					dateTime={client.updatedAt}
-					title={client.updatedAt}
-					suppressHydrationWarning
-				>
-					{relativeTime(client.updatedAt, now)}
-				</time>
-			</p>
-		</article>
+				</div>
+			</TabsContent>
+			<TabsContent value="activity">
+				<ClientActivity client={client} />
+			</TabsContent>
+		</Tabs>
 	);
 }
 
-/** Edit, and close or reopen. New engagement sits with the engagements. */
-function ClientMenu({
+/** The banner's numbers: the client's own counts, live. */
+function ClientStats({ client }: { client: Client }) {
+	const closedCount = client.engagementCount - client.activeEngagementCount;
+	return (
+		<>
+			<BannerStat
+				data-testid="client-stat-engagements"
+				value={String(client.engagementCount)}
+				label={client.engagementCount === 1 ? "engagement" : "engagements"}
+			/>
+			<BannerStat
+				data-testid="client-stat-active"
+				value={String(client.activeEngagementCount)}
+				label="active"
+			/>
+			<BannerStat
+				data-testid="client-stat-closed"
+				value={String(closedCount)}
+				label="closed"
+			/>
+		</>
+	);
+}
+
+/** New engagement, Edit, and Close or Reopen: real buttons on the banner. */
+function ClientBannerActions({
 	client,
 	actions,
 }: {
@@ -266,57 +294,168 @@ function ClientMenu({
 }) {
 	const closed = client.status === "closed";
 	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
+		<>
+			<Button
+				size="sm"
+				className={cn(BANNER_BUTTON)}
+				data-testid="client-new-engagement"
+				disabledReason={
+					closed ? "Reopen the client to add an engagement." : undefined
+				}
+				onClick={() => actions.onNewEngagement(client)}
+			>
+				<Plus aria-hidden="true" />
+				New engagement
+			</Button>
+			<Button
+				size="sm"
+				className={cn(BANNER_BUTTON)}
+				data-testid="client-edit"
+				onClick={() => actions.onEdit(client)}
+			>
+				<Pencil aria-hidden="true" />
+				Edit
+			</Button>
+			{closed ? (
 				<Button
-					variant="ghost"
-					size="icon-sm"
-					aria-label={`Actions for ${client.name}`}
-					data-testid="client-menu"
+					size="sm"
+					className={cn(BANNER_BUTTON)}
+					data-testid="client-reopen"
+					onClick={() => actions.onReopen(client)}
 				>
-					<MoreHorizontal aria-hidden="true" />
+					<RotateCcw aria-hidden="true" />
+					Reopen
 				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="w-56">
-				<DropdownMenuItem
-					data-testid="client-edit"
-					onSelect={() => actions.onEdit(client)}
+			) : (
+				<Button
+					size="sm"
+					className={cn(BANNER_BUTTON)}
+					data-testid="client-close"
+					onClick={() => actions.onClose(client)}
 				>
-					Edit client
-				</DropdownMenuItem>
-				<DropdownMenuSeparator />
-				{closed ? (
-					<DropdownMenuItem
-						data-testid="client-reopen"
-						onSelect={() => actions.onReopen(client)}
-					>
-						Reopen client
-					</DropdownMenuItem>
-				) : (
-					<DropdownMenuItem
-						variant="destructive"
-						data-testid="client-close"
-						onSelect={() => actions.onClose(client)}
-					>
-						Close client
-					</DropdownMenuItem>
-				)}
-			</DropdownMenuContent>
-		</DropdownMenu>
+					<Power aria-hidden="true" />
+					Close client
+				</Button>
+			)}
+		</>
 	);
 }
 
-function ClientDetailSkeleton() {
+/** Contact, notes and dates, as a definition list. */
+function ClientDetails({ client, now }: { client: Client; now: number }) {
+	return (
+		<dl className="flex flex-col gap-4">
+			<div className="flex flex-col gap-1">
+				<dt className="type-caption text-text-subtle">Primary contact</dt>
+				<dd
+					data-testid="client-detail-contact"
+					className={cn(
+						"type-body break-words",
+						client.primaryContact ? "text-foreground" : "text-text-subtle",
+					)}
+				>
+					{client.primaryContact ?? "None set"}
+				</dd>
+			</div>
+			<div className="flex flex-col gap-1">
+				<dt className="type-caption text-text-subtle">Notes</dt>
+				{/* Plain text with its line breaks; markdown is not rendered yet. */}
+				<dd
+					data-testid="client-detail-notes"
+					className={cn(
+						"type-small whitespace-pre-line break-words",
+						client.notesMd ? "text-text-muted" : "text-text-subtle",
+					)}
+				>
+					{client.notesMd ?? "None set."}
+				</dd>
+			</div>
+			<div className="grid grid-cols-2 gap-3">
+				<div className="flex flex-col gap-1">
+					<dt className="type-caption text-text-subtle">Added</dt>
+					<dd className="type-mono-small text-text-muted">
+						<time dateTime={client.createdAt}>{isoDate(client.createdAt)}</time>
+					</dd>
+				</div>
+				<div className="flex flex-col gap-1">
+					<dt className="type-caption text-text-subtle">Updated</dt>
+					<dd
+						data-testid="client-detail-updated"
+						className="type-mono-small text-text-muted"
+					>
+						<time
+							dateTime={client.updatedAt}
+							title={client.updatedAt}
+							suppressHydrationWarning
+						>
+							{relativeTime(client.updatedAt, now)}
+						</time>
+					</dd>
+				</div>
+			</div>
+		</dl>
+	);
+}
+
+/** The Engagements tab: every engagement as a row, with Active only. */
+function ClientEngagements({
+	client,
+	activeOnly,
+	onActiveOnlyChange,
+	actions,
+}: {
+	client: Client;
+	activeOnly: boolean;
+	onActiveOnlyChange: (activeOnly: boolean) => void;
+	actions: ClientActions;
+}) {
+	return (
+		<SectionPanel
+			title="Engagements"
+			description="Newest first. Active only lists the ones that keep this client open."
+			data-testid="client-engagements-tab"
+			actions={
+				<Button
+					variant="ghost"
+					size="sm"
+					aria-pressed={activeOnly}
+					data-testid="client-active-only"
+					onClick={() => onActiveOnlyChange(!activeOnly)}
+					className="aria-pressed:bg-state-selected"
+				>
+					Active only
+				</Button>
+			}
+		>
+			<EngagementList
+				client={client}
+				activeOnly={activeOnly}
+				onShowAll={() => onActiveOnlyChange(false)}
+				onNewEngagement={() => actions.onNewEngagement(client)}
+				onCloseEngagement={actions.onCloseEngagement}
+			/>
+		</SectionPanel>
+	);
+}
+
+/** The banner and the first panels' shape while the client loads. */
+function ClientPageSkeleton() {
 	return (
 		<div data-testid="client-detail-skeleton" className="flex flex-col gap-6">
-			<div className="flex flex-col gap-2">
-				<Skeleton className="h-6 w-56" />
-				<Skeleton className="h-5 w-40" />
+			<div className="flex flex-col gap-5 rounded-lg border border-border p-4 md:px-8 md:pt-6">
+				<Skeleton className="h-3 w-20" />
+				<div className="flex items-center gap-5">
+					<Skeleton className="size-16 rounded-lg" />
+					<div className="flex flex-col gap-2">
+						<Skeleton className="h-7 w-56" />
+						<Skeleton className="h-4 w-72 max-w-full" />
+					</div>
+				</div>
+				<Skeleton className="h-9 w-full" />
 			</div>
-			<div className="flex flex-col gap-2">
-				<Skeleton className="h-4 w-28" />
-				<Skeleton className="h-9 w-full rounded-sm" />
-				<Skeleton className="h-9 w-full rounded-sm" />
+			<div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+				<Skeleton className="h-64 w-full rounded-md" />
+				<Skeleton className="h-48 w-full rounded-md" />
 			</div>
 		</div>
 	);
