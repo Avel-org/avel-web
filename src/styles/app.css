@@ -879,3 +879,47 @@ select:focus-visible {
 	filter: drop-shadow(0 1px 0 var(--color-plate-ledge))
 		drop-shadow(var(--shadow-e1));
 }
+
+/*
+ * A template's cover (ruling 48): the banner's deep band, lit by one accent
+ * glow whose position each template's slug sets (--cover-glow-x), so the
+ * generated art sits on the same face as the entity banner in both themes.
+ * An unreadable template's cover is recessed and unlit, with a fine hatch:
+ * nothing about it is known, so nothing glows.
+ */
+@utility template-cover {
+	background-color: var(--color-banner);
+	background-image:
+		radial-gradient(
+			ellipse 18rem 10rem at var(--cover-glow-x, 30%) 0,
+			color-mix(in oklab, var(--color-accent) 28%, transparent),
+			transparent 70%
+		),
+		linear-gradient(
+			to bottom,
+			color-mix(in oklab, var(--color-banner-text) 4%, transparent),
+			transparent 60%
+		);
+	box-shadow: inset 0 -1px 0 var(--color-border-plate);
+	&[data-readable="false"] {
+		background-color: var(--color-app-recessed);
+		background-image: repeating-linear-gradient(
+			135deg,
+			var(--color-banner-raised) 0 1px,
+			transparent 1px 7px
+		);
+	}
+}
+
+/*
+ * The tab where a project card's body rises into its cover (ruling 48): the
+ * plate's own body and edge, with the rim catching light along its top, so
+ * the cut reads as one machined part, not a label laid on a picture.
+ */
+@utility cover-tab {
+	background-color: var(--color-app-plate);
+	border-top: 1px solid var(--color-border-plate);
+	border-right: 1px solid var(--color-border-plate);
+	border-top-right-radius: var(--radius-sm);
+	box-shadow: inset 0 1px 0 var(--color-plate-rim);
+}

@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { Playbook, Template } from "avel-server/contract";
-import { ListChecks, SearchX, Target, Users } from "lucide-react";
+import { ListChecks, SearchX, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,9 @@ import type { ApiError } from "@/lib/api/errors";
 import {
 	missionCountLabel,
 	SCOPE_LABEL,
+	SCOPE_SUMMARY,
 	STARTING_STATE_LABEL,
+	STARTING_STATE_SENTENCE,
 	templateName,
 	useTemplate,
 } from "@/lib/api/templates";
@@ -28,12 +30,14 @@ import {
 import { DELIVERABLE_LABEL, gateSummary } from "./playbook-list";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
+import { TemplateCover } from "./template-cover";
 import {
 	TeamName,
 	type TemplateLinks,
 	UNREADABLE_COPY,
 	useTemplateLinks,
-} from "./template-list";
+} from "./template-links";
+import { TemplateMissions } from "./template-missions";
 
 /*
  * One template's page (ruling 38): the entity banner, then one tab at a time.
@@ -166,7 +170,8 @@ function TemplatePage({
 				tabs={tabs}
 				tabsLabel={`${name}'s page`}
 			/>
-			<TabsContent value="overview">
+			<TabsContent value="overview" className="flex flex-col gap-6">
+				<TemplateCoverStrip template={template} />
 				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
 					<SectionPanel
 						title="Manifest"
@@ -456,42 +461,35 @@ function TemplatePlaybook({
 }
 
 /**
- * Missions built from this template. The count is the server's. The list
- * cannot be filtered by template yet, so the missions themselves are not
- * built here; Missions searched by the slug is the nearest view, because a
- * mission's type is its playbook's key, which is the template's slug.
+ * The project card's cover, wide (ruling 48): the same generated art at the
+ * head of Overview, with what the template starts as written over it.
  */
-function TemplateMissions({ template }: { template: Template }) {
+function TemplateCoverStrip({ template }: { template: Template }) {
+	const { scope, startingState } = template;
+	const sentence = template.readable
+		? [
+				startingState ? STARTING_STATE_SENTENCE[startingState] : null,
+				scope ? `${SCOPE_LABEL[scope]}: ${SCOPE_SUMMARY[scope]}` : null,
+			]
+				.filter((part): part is string => part !== null)
+				.join(" ")
+		: "Not readable. Its scope and starting state are unknown.";
 	return (
-		<div className="flex flex-col gap-6">
-			<SectionPanel
-				title="Missions"
-				description={`${missionCountLabel(template.missionCount)} built from ${template.slug}, not counting deleted ones.`}
-				data-testid="template-missions-panel"
-				actions={
-					<Button asChild variant="outline" size="sm">
-						<Link
-							to="/missions"
-							search={{ q: template.slug }}
-							data-testid="template-missions-search"
-						>
-							<Target aria-hidden="true" />
-							Search Missions
-						</Link>
-					</Button>
-				}
-			>
-				<Surface
-					data-testid="template-missions"
-					notBuilt={{
-						title: "Missions built from this template",
-						what: "The missions list cannot be filtered by template yet. Search Missions finds missions whose type is this slug.",
-						needs: ["missions.list filtered by templateRef"],
-						icon: Target,
-						compact: true,
-					}}
-				/>
-			</SectionPanel>
-		</div>
+		<TemplateCover
+			template={template}
+			image={template.cover}
+			variant="strip"
+			data-testid="template-cover-strip"
+			className="h-44 rounded-md border border-border-plate"
+		>
+			{sentence === "" ? null : (
+				<p
+					data-testid="template-cover-strip-sentence"
+					className="absolute bottom-3 left-3 max-w-[min(32rem,calc(100%-1.5rem))] rounded-xs border border-banner-line bg-banner/85 px-3 py-1.5 type-small text-banner-text backdrop-blur-sm"
+				>
+					{sentence}
+				</p>
+			)}
+		</TemplateCover>
 	);
 }

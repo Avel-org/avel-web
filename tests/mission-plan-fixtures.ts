@@ -72,6 +72,7 @@ export function template(overrides: Partial<Template> = {}): Template {
 		latestSha: "a".repeat(40),
 		defaultPresetId: null,
 		missionCount: 2,
+		cover: null,
 		...overrides,
 	};
 }
