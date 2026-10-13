@@ -181,7 +181,7 @@ describe("the new playbook form", () => {
 		);
 		expect(tagOf(html, "playbook-new-preset")).toContain('aria-invalid="true"');
 		expect(html).toContain(
-			"The default preset has no agent in this playbook&#x27;s first wave.",
+			"The default team has no agent in this playbook&#x27;s first wave.",
 		);
 		expect(tagOf(html, "playbook-new-type")).not.toContain(
 			'aria-invalid="true"',

@@ -636,7 +636,7 @@ describe("save as preset", () => {
 			),
 		);
 		expect(html).toContain("Left out, being idle: Nemi · Booking.");
-		expect(html).toContain("Save 1 agent as a preset");
+		expect(html).toContain("Save 1 agent as a team");
 		expect(html).toContain('data-state="checked"');
 	});
 });

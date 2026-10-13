@@ -96,8 +96,7 @@ export const NAV: NavGroup[] = [
 				label: "Teams",
 				to: "/presets",
 				icon: Layers,
-				purpose:
-					"Saved squads, called presets, that you can apply to a mission.",
+				purpose: "Saved squads of agents that you can apply to a mission.",
 			},
 			{
 				label: "Playbooks",

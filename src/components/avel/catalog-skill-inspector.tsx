@@ -473,7 +473,7 @@ function CarriedBy({ skill }: { skill: Skill }) {
 						<SampleRegion
 							missing={CATALOG_MISSING.roleAttachments}
 							title="Carried by"
-							what="The agent templates that carry this skill through the roles it is attached to."
+							what="The agents that carry this skill through the roles it is attached to."
 							data-testid="skill-carried-by-sample"
 						>
 							<Carriers skill={skill} agents={loadedRows(data)} />

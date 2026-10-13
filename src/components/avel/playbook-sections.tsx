@@ -183,7 +183,7 @@ function WavesSection({ draft }: { draft: PlaybookDraft }) {
 	return (
 		<SectionPanel
 			title="Waves and who can staff them"
-			description="Agent templates by the waves they declare. A wave this playbook runs needs one of them on the roster."
+			description="Agents by the waves they declare. A wave this playbook runs needs one of them on the roster."
 			data-testid="playbook-section-waves"
 		>
 			<Surface
@@ -191,9 +191,7 @@ function WavesSection({ draft }: { draft: PlaybookDraft }) {
 				query={templates}
 				loading={<Skeleton className="h-24 w-full" />}
 				isEmpty={(data) => loadedRows(data).length === 0}
-				empty={
-					<p className="type-small text-text-subtle">No agent templates yet.</p>
-				}
+				empty={<p className="type-small text-text-subtle">No agents yet.</p>}
 				error={ErrorState}
 			>
 				{(data) => {
@@ -240,7 +238,7 @@ function WavesSection({ draft }: { draft: PlaybookDraft }) {
 												className="inline-flex items-center gap-1 type-caption text-text-muted"
 											>
 												<StatusGlyph tone="warn" />
-												No template declares it
+												No agent declares it
 											</span>
 										) : null}
 									</li>
@@ -346,7 +344,7 @@ function PresetFitSection({
 	const preset = usePreset(playbook.defaultPresetId);
 	return (
 		<SectionPanel
-			title="Default preset"
+			title="Default team"
 			description="The squad a mission of this type starts from, run through coherence against this playbook."
 			data-testid="playbook-section-preset"
 		>
@@ -400,7 +398,7 @@ function PresetFit({
 					data-testid="playbook-preset-open"
 					className="ml-auto type-small text-accent-text underline-offset-4 hover:underline"
 				>
-					Open preset
+					Open team
 				</Link>
 			</p>
 			<ol

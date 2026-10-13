@@ -26,7 +26,7 @@ export function fieldText(agent: PresetAgent, field: DiffField): string {
 			return agent.waves.length === 0 ? "None" : agent.waves.join(" · ");
 		case "writablePaths":
 			return agent.writablePaths === null
-				? "Template's"
+				? "Agent's"
 				: agent.writablePaths.join(", ");
 		case "estimatedTokens":
 			return agent.estimatedTokens === null

@@ -319,9 +319,9 @@ export const PRECONDITION_COPY = {
 		retry: false,
 	},
 	agent_template_not_found: {
-		what: "That agent template no longer exists.",
+		what: "That agent no longer exists.",
 		written: NOTHING_WRITTEN,
-		next: "Reload the catalog and choose an existing agent.",
+		next: "Reload All agents and choose an existing one.",
 		retry: false,
 	},
 	template_not_rosterable: {
@@ -331,15 +331,15 @@ export const PRECONDITION_COPY = {
 		retry: false,
 	},
 	preset_not_found: {
-		what: "That preset no longer exists.",
+		what: "That team no longer exists.",
 		written: NOTHING_WRITTEN,
-		next: "Reload the presets and choose an existing one.",
+		next: "Reload the teams and choose an existing one.",
 		retry: false,
 	},
 	roster_not_empty: {
 		what: "This mission's roster already has agents.",
 		written: NOTHING_WRITTEN,
-		next: "Apply the preset again choosing to replace the roster, or remove its agents first.",
+		next: "Apply the team again choosing to replace the roster, or remove its agents first.",
 		retry: false,
 	},
 	skill_not_found: {
@@ -406,9 +406,9 @@ export const PRECONDITION_COPY = {
 	// src/routes/playbooks.ts (module 3): the default preset has no agent in
 	// the earliest wave the playbook declares, or the playbook declares none.
 	preset_misses_first_wave: {
-		what: "The default preset has no agent in this playbook's first wave.",
+		what: "The default team has no agent in this playbook's first wave.",
 		written: NOTHING_WRITTEN,
-		next: "Turn on a wave the preset staffs, or choose a preset with an agent in the first wave, then publish again.",
+		next: "Turn on a wave the team staffs, or choose a team with an agent in the first wave, then publish again.",
 		retry: false,
 	},
 	// src/routes/playbooks.ts: a live mission of this type is active or

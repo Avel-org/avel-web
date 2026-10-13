@@ -146,7 +146,7 @@ export function NewPlaybookForm({
 			: missionTypeProblem(missionType);
 	const nameProblem = name.trim() === "" ? "Give it a name." : null;
 	const presetProblem =
-		presetId === "" ? "Choose the preset a mission starts from." : null;
+		presetId === "" ? "Choose the team a mission starts from." : null;
 	const refusedOn = refusalField(error);
 	const refusal = error && refusedOn ? describeError(error).what : undefined;
 	const presetName = presets.find((p) => p.id === presetId)?.name;
@@ -172,7 +172,7 @@ export function NewPlaybookForm({
 			{ key: "waves", label: "Waves", mono: true },
 			{ key: "gates", label: "Gates" },
 			{ key: "deliverable", label: "Deliverable", mono: true },
-			{ key: "preset", label: "Default preset" },
+			{ key: "preset", label: "Default team" },
 		],
 	);
 
@@ -263,14 +263,14 @@ export function NewPlaybookForm({
 			</ModalField>
 			<ModalField
 				name="defaultPresetId"
-				label="Default preset"
+				label="Default team"
 				error={shown(presetProblem, "defaultPresetId")}
 				testid="playbook-new-preset"
 			>
 				{(props) => (
 					<Select value={presetId} onValueChange={setPresetId}>
 						<SelectTrigger {...props} className="w-full">
-							<SelectValue placeholder="Choose a preset">
+							<SelectValue placeholder="Choose a team">
 								{presetName}
 							</SelectValue>
 						</SelectTrigger>

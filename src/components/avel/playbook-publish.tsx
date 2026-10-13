@@ -127,7 +127,7 @@ export function PublishConfirm({
 							: body.requiredFields.join(", ")}
 					</span>
 				</BodyRow>
-				<BodyRow name="defaultPresetId" label="Default preset">
+				<BodyRow name="defaultPresetId" label="Default team">
 					<span className="type-mono-small" title={body.defaultPresetId}>
 						{body.defaultPresetId.slice(0, 8)}
 					</span>

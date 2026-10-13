@@ -56,7 +56,7 @@ import { type Change, WhatChanges } from "./what-changes";
 
 /** Why Apply waits while the board has unsaved changes. */
 export const APPLY_WAITS =
-	"Save or discard your changes first: applying uses the saved preset.";
+	"Save or discard your changes first: applying uses the saved team.";
 
 /** Why a Firm template is shown but cannot be added. */
 const NOT_ROSTERABLE = PRECONDITION_COPY.template_not_rosterable.what;
@@ -237,7 +237,7 @@ export function PresetKanban({
 					onClick={requestClose}
 				>
 					<ArrowLeft aria-hidden="true" />
-					All presets
+					All teams
 				</Button>
 				<h2 className="type-h2 min-w-0 truncate text-foreground">
 					{preset.name}
@@ -492,7 +492,7 @@ export function SavePresetConfirm({
 			open={open}
 			onOpenChange={onOpenChange}
 			size="form"
-			title="Save preset"
+			title="Save team"
 			description={`${name.trim() || preset.name}: v${preset.version} becomes v${nextVersion(preset)}. Missions that already applied it keep their copy.`}
 			dirty={false}
 			submitLabel={`Save as v${nextVersion(preset)}`}
@@ -507,7 +507,7 @@ export function SavePresetConfirm({
 			data-testid="preset-save"
 		>
 			<p className="type-small text-text-muted">
-				The preset's whole squad is saved as it stands on the board.
+				The team's whole squad is saved as it stands on the board.
 			</p>
 		</ActionModal>
 	);
@@ -593,7 +593,7 @@ function WaveColumn({
 					);
 					const name =
 						row.draft.agentTemplateId === ""
-							? "No template"
+							? "No agent"
 							: agentName(agentBodyOf(row.draft), names);
 					const keyMove = (event: KeyboardEvent) => {
 						if (!isSelected || !holding) return;
@@ -940,7 +940,7 @@ function Inspector({
 						</Field>
 						<Field
 							label="Writable paths"
-							hint="One per line. Empty keeps the template's."
+							hint="One per line. Empty keeps the agent's."
 							error={at("writablePaths")}
 							testid="preset-field-paths"
 						>

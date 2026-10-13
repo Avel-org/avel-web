@@ -47,7 +47,7 @@ export function PresetSections({
 }) {
 	return (
 		<Tabs defaultValue="overview" data-testid="preset-sections">
-			<TabsList aria-label="Preset sections">
+			<TabsList aria-label="Team sections">
 				{(
 					[
 						["overview", "Overview"],
@@ -242,8 +242,8 @@ function Coverage({ preset }: { preset: Preset }) {
 						data-testid="preset-coverage-unknown"
 						className="type-small text-text-muted"
 					>
-						An agent's template is not in the catalog, so its roles cannot be
-						read and coverage cannot be checked.
+						An agent is not in All agents, so its roles cannot be read and
+						coverage cannot be checked.
 					</p>
 				) : usedAsDefault.length === 0 ? (
 					<p className="type-small text-text-muted">
@@ -287,7 +287,7 @@ function Agents({ preset, names }: { preset: Preset; names: Names }) {
 		templates.status === "success" ? templates.byId : new Map();
 	if (preset.agents.length === 0) {
 		return (
-			<p className="type-small text-text-muted">This preset saves no agents.</p>
+			<p className="type-small text-text-muted">This team saves no agents.</p>
 		);
 	}
 	return (
@@ -325,7 +325,7 @@ function Agents({ preset, names }: { preset: Preset; names: Names }) {
 									<span className="ml-1 text-text-subtle">inherited</span>
 								</>
 							) : (
-								<span className="text-text-subtle">The template's</span>
+								<span className="text-text-subtle">The agent's</span>
 							)}
 						</span>
 						<span className="type-mono-small tabular-nums text-text-muted">
@@ -376,7 +376,7 @@ function PresetHistory({ preset }: { preset: Preset }) {
 			loading={<Skeleton className="h-16 w-full" />}
 			empty={
 				<p className="type-small text-text-muted">
-					Nothing recorded for this preset yet.
+					Nothing recorded for this team yet.
 				</p>
 			}
 			error={ErrorState}
@@ -438,7 +438,7 @@ function UsedBy({ preset }: { preset: Preset }) {
 					data-testid="preset-used-by-none"
 					className="type-small text-text-muted"
 				>
-					No mission has applied this preset yet.
+					No mission has applied this team yet.
 				</p>
 			}
 			error={ErrorState}

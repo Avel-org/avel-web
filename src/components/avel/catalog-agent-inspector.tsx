@@ -728,7 +728,7 @@ export function MeasuresRegion({ history }: { history: SampleAgentHistory }) {
 		<SampleRegion
 			missing={CATALOG_MISSING.measures}
 			title="Measures"
-			what="Discipline across all of the agent's work, outcome within one territory and template, client and internal runs apart, and reconstructed runs set aside."
+			what="Discipline across all of the agent's work, outcome within one territory and project template, client and internal runs apart, and reconstructed runs set aside."
 			data-testid="catalog-agent-measures"
 		>
 			<div className="flex flex-col gap-6">

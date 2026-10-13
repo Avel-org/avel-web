@@ -297,7 +297,7 @@ describe("the preset form", () => {
 		);
 		expect(tagOf(html, "preset-form-submit")).not.toMatch(/\sdisabled=""/);
 		expect(tagOf(html, "preset-form")).toContain('data-size="form"');
-		expect(html).toMatch(/data-testid="preset-form-submit"[^>]*>Add preset</);
+		expect(html).toMatch(/data-testid="preset-form-submit"[^>]*>Add team</);
 		expect(html).not.toMatch(/Save as v/);
 		expect(html).toContain('data-testid="preset-form-no-agents"');
 	});

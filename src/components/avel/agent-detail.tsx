@@ -120,7 +120,7 @@ export function AgentDetail({
 				data-testid="agent-detail-not-found"
 				icon={SearchX}
 				title="No agent with this name"
-				description={`No live template is called “${slug}”. It may have been renamed or removed; choose one from All agents.`}
+				description={`No agent is called “${slug}”. It may have been renamed or removed; choose one from All agents.`}
 			/>
 		) : (
 			<ErrorState error={error} retry={retry} retrying={retrying} />
@@ -213,7 +213,7 @@ function AgentPage({
 					</SectionPanel>
 					<SectionPanel
 						title="Manifest"
-						description="The template's own fields."
+						description="The agent's own fields."
 						data-testid="agent-manifest-panel"
 					>
 						<ManifestTab agent={agent} />
@@ -235,7 +235,7 @@ function AgentPage({
 			<TabsContent value="versions">
 				<SectionPanel
 					title="Versions"
-					description="Every identity this template has had. None is ever deleted."
+					description="Every identity this agent has had. None is ever deleted."
 					data-testid="agent-versions-panel"
 				>
 					<VersionsTab history={history} />
@@ -246,7 +246,7 @@ function AgentPage({
 					data-testid="agent-activity"
 					notBuilt={{
 						title: `What ${agent.name} did`,
-						what: "Agents write activity once dispatch runs them. The log then filters by the roster entries made from this template.",
+						what: "Agents write activity once dispatch runs them. The log then filters by the roster entries made from this agent.",
 						needs: ["GET /api/activity by actor (module 6)"],
 						icon: History,
 					}}

@@ -43,7 +43,7 @@ const TIERS = [
 const TIER_EMPTY = {
 	recommended: "No skill left to add is recommended for a role on this roster.",
 	available: "No other approved stack or domain skill is left to add.",
-	all: "Every skill in the catalog is on this mission.",
+	all: "Every skill in Skills is on this mission.",
 } as const satisfies Record<Tier, string>;
 
 /** Both reads the pane needs as one state: the mission's skills, then the catalog. */

@@ -140,7 +140,7 @@ describe("the Presets list", () => {
 			data: [preset(1)],
 			meta: { nextCursor: "c1", total: 40 },
 		});
-		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>40 presets</);
+		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>40 teams</);
 		expect(html).toContain('data-testid="presets-load-more"');
 		expect(html).toMatch(/data-testid="presets-showing"[^>]*>Showing 1 of 40</);
 	});
@@ -198,7 +198,7 @@ describe("the Presets list", () => {
 			path: "/presets?cut=horizontal",
 			cut: "horizontal",
 		});
-		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>2 presets match</);
+		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>2 teams match</);
 	});
 
 	it("maps a list error to the error map's copy", async () => {
@@ -288,7 +288,7 @@ describe("the selected preset", () => {
 		const cell = html.slice(
 			html.indexOf('data-testid="preset-template-unknown"'),
 		);
-		expect(cell).toContain(">Unknown template<");
+		expect(cell).toContain(">Unknown agent<");
 		expect(cell).toContain(`>${missing.slice(0, 8)}<`);
 		expect(html).not.toContain(missing);
 	});
@@ -298,7 +298,7 @@ describe("the selected preset", () => {
 			templates: unreachable(),
 		});
 		expect(html).toContain('data-testid="preset-names-error"');
-		expect(html).not.toContain(">Unknown template<");
+		expect(html).not.toContain(">Unknown agent<");
 		expect(html).not.toContain(TEMPLATE(1));
 	});
 
@@ -320,7 +320,7 @@ describe("the selected preset", () => {
 		for (const text of [
 			"None",
 			"Whole project",
-			"Template&#x27;s",
+			"Agent&#x27;s",
 			"Not set",
 		]) {
 			expect(row).toContain(`>${text}<`);
@@ -359,7 +359,7 @@ describe("the selected preset", () => {
 				new RegExp(`<th\\s[^>]*>(?:(?!</th>).)*${text}.*?</th>`),
 			)?.[0] ?? "";
 		for (const text of [
-			"Template",
+			"Agent",
 			"Territory",
 			"Writable paths",
 			"Est. tokens",
@@ -455,10 +455,10 @@ describe("the Presets URL and copy", () => {
 	});
 
 	it("labels counts in the singular and as matches", () => {
-		expect(presetCountLabel(1, false)).toBe("1 preset");
-		expect(presetCountLabel(3, true)).toBe("3 presets match");
+		expect(presetCountLabel(1, false)).toBe("1 team");
+		expect(presetCountLabel(3, true)).toBe("3 teams match");
 		expect(noMatchCopy(undefined, "vertical")).toBe(
-			"There are no vertical presets.",
+			"There are no vertical teams.",
 		);
 	});
 

@@ -775,7 +775,7 @@ function PlaybookProperties({
 					onAdd={(field) => onEdit({ type: "addField", field })}
 				/>
 			</Row>
-			<Row label="Default preset">
+			<Row label="Default team">
 				<div className="flex flex-wrap items-center gap-2">
 					<span
 						className="type-mono-small text-text-muted"
@@ -789,7 +789,7 @@ function PlaybookProperties({
 							search={{ preset: playbook.defaultPresetId }}
 							data-testid="playbook-preset-link"
 						>
-							Open preset
+							Open team
 							<ArrowUpRight aria-hidden="true" />
 						</Link>
 					</Button>

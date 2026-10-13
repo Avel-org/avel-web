@@ -23,7 +23,7 @@ function CatalogAgentsPage() {
 			subtitle={
 				total === undefined
 					? undefined
-					: catalogCountLabel(total, "agent template", "agent templates")
+					: catalogCountLabel(total, "agent", "agents")
 			}
 		>
 			<CatalogAgents query={templates} />

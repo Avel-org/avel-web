@@ -128,7 +128,7 @@ function PresetsPage() {
 					onClick={() => setForm({ kind: "new" })}
 				>
 					<Plus aria-hidden="true" />
-					New preset
+					New team
 				</Button>
 			}
 		>
@@ -136,8 +136,8 @@ function PresetsPage() {
 				<EmptyState
 					data-testid="presets-empty"
 					icon={linkFor("/presets").icon}
-					title="No presets yet"
-					description="A preset saves a squad of agents once, so any mission can start from it. Applying one copies its agents into the mission's roster."
+					title="No teams yet"
+					description="A team saves a squad of agents once, so any mission can start from it. Applying one copies its agents into the mission's roster."
 					action={
 						<Button
 							size="sm"
@@ -145,7 +145,7 @@ function PresetsPage() {
 							onClick={() => setForm({ kind: "new" })}
 						>
 							<Plus aria-hidden="true" />
-							New preset
+							New team
 						</Button>
 					}
 				/>
@@ -336,7 +336,7 @@ function TableView({
 					<EmptyState
 						data-testid="presets-choose"
 						icon={MousePointerClick}
-						title="Choose a preset"
+						title="Choose a team"
 						description={
 							subtitle
 								? `${subtitle}. Choose one to see the agents it saves.`

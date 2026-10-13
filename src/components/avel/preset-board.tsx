@@ -51,7 +51,7 @@ const DIFF_CLASS: Record<ChipDiff, string> = {
 };
 
 const DIFF_WORD: Record<ChipDiff, string> = {
-	only: "only in this preset",
+	only: "only in this team",
 	changed: "set differently",
 };
 
@@ -98,7 +98,7 @@ export function PresetBoard({
 					data-testid="presets-no-match"
 					compact
 					icon={SearchX}
-					title="No presets match"
+					title="No teams match"
 					description={noMatchCopy(search, cut)}
 					action={
 						<Button

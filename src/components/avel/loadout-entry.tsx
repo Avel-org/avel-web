@@ -160,7 +160,7 @@ export function EntryEditor({
 			onOpenChange={onOpenChange}
 			size="form"
 			title={`Edit ${entry.agentTemplate.name}`}
-			description={`${entryName(entry)} on this mission. The template is unchanged; this copy is the mission's own.`}
+			description={`${entryName(entry)} on this mission. The agent itself is unchanged; this copy is the mission's own.`}
 			dirty={patch !== null}
 			submitLabel="Save entry"
 			submitDisabledReason={reason}
@@ -192,7 +192,7 @@ export function EntryEditor({
 						onChange={(e) => set("customizedMd")(e.target.value)}
 					/>
 				),
-				"Markdown. Empty keeps the template's.",
+				"Markdown. Empty keeps the agent's.",
 			)}
 			{field(
 				"territory",
@@ -279,7 +279,7 @@ function RemoveEntryConfirm({
 			onOpenChange={onOpenChange}
 			size="confirm"
 			title="Remove agent"
-			description={`${entryName(entry)} leaves this mission's roster, with its instructions and budget. The template stays in the catalog.`}
+			description={`${entryName(entry)} leaves this mission's roster, with its instructions and budget. The agent stays in All agents.`}
 			dirty={false}
 			destructive
 			submitLabel="Remove agent"
@@ -340,7 +340,7 @@ export function SaveRosterPresetModal({
 					const saved = await create.mutateAsync(
 						presetBodyFromRoster(roster, fields),
 					);
-					toast.success(`Saved ${saved.name} as a preset.`);
+					toast.success(`Saved ${saved.name} as a team.`);
 					onOpenChange(false);
 				} catch {
 					// The refusal is on create.error, shown in the modal.
@@ -379,19 +379,19 @@ export function SaveRosterPresetForm({
 	const idle = roster.filter((e) => !e.active);
 	const reason =
 		active.length === 0
-			? "No agent is active: a preset needs at least one to save."
+			? "No agent is active: a team needs at least one to save."
 			: name.trim() === ""
-				? "Give the preset a name."
+				? "Give the team a name."
 				: undefined;
 	return (
 		<ActionModal
 			open={open}
 			onOpenChange={onOpenChange}
 			size="form"
-			title="Save as preset"
+			title="Save as team"
 			description="A copy of this squad, to apply to other draft missions. The mission keeps its roster."
 			dirty={name !== "" || description !== ""}
-			submitLabel={`Save ${active.length} ${active.length === 1 ? "agent" : "agents"} as a preset`}
+			submitLabel={`Save ${active.length} ${active.length === 1 ? "agent" : "agents"} as a team`}
 			submitDisabledReason={reason}
 			onSubmit={() => onSave({ name, description, cut })}
 			pending={pending}
@@ -470,7 +470,7 @@ export function SaveRosterPresetForm({
 					data-testid="loadout-save-preset-idle"
 					className="type-small text-text-muted"
 				>
-					{`Left out, being idle: ${idle.map(entryName).join(", ")}. Applying a preset makes every agent active.`}
+					{`Left out, being idle: ${idle.map(entryName).join(", ")}. Applying a team makes every agent active.`}
 				</p>
 			) : null}
 		</ActionModal>

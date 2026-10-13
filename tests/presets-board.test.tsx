@@ -254,7 +254,7 @@ describe("the expanded board", () => {
 	});
 
 	it("holds Apply while the board has unsaved changes", () => {
-		expect(APPLY_WAITS).toMatch(/applying uses the saved preset/);
+		expect(APPLY_WAITS).toMatch(/applying uses the saved team/);
 	});
 });
 

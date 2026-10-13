@@ -539,13 +539,13 @@ describe("/catalog/agents: the table", () => {
 
 	it("counts from meta.total in the top bar, and offers the next page", async () => {
 		expect(element(await page(), "topbar-subtitle")).toContain(
-			`>${AGENTS.length} agent templates<`,
+			`>${AGENTS.length} agents<`,
 		);
 		const html = await renderSeeded(
 			"/catalog/agents",
 			seededClient({ agents: { rows: AGENTS, total: 40, nextCursor: "c2" } }),
 		);
-		expect(element(html, "topbar-subtitle")).toContain(">40 agent templates<");
+		expect(element(html, "topbar-subtitle")).toContain(">40 agents<");
 		// One count on the page, the table's, against the server's total.
 		expect(element(html, "catalog-agents-showing")).toContain(
 			`>Showing ${AGENTS.length} of 40<`,
@@ -558,7 +558,7 @@ describe("/catalog/agents: the table", () => {
 			"/catalog/agents",
 			seededClient({ agents: [agent("atlas")] }),
 		);
-		expect(element(one, "topbar-subtitle")).toContain(">1 agent template<");
+		expect(element(one, "topbar-subtitle")).toContain(">1 agent<");
 	});
 
 	it("puts no middle dot in any meta string (ruling 4)", async () => {
@@ -991,7 +991,7 @@ describe("every state of the live template list", () => {
 		expect(
 			html.match(/data-testid="empty-state-description"[^>]*>([^<]+)</)?.[1],
 		).not.toMatch(/contract|avel-server|not built|yet\b|route/i);
-		expect(element(html, "topbar-subtitle")).toContain(">0 agent templates<");
+		expect(element(html, "topbar-subtitle")).toContain(">0 agents<");
 		expect(html).not.toContain("catalog-agents-side-all-count");
 		expect(html).not.toContain('data-testid="sample-data"');
 	});

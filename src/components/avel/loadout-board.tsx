@@ -618,14 +618,14 @@ function Palette({
 					data-testid="loadout-palette-loading"
 					className="type-small text-text-muted"
 				>
-					Reading the catalog.
+					Reading the agents.
 				</p>
 			) : templates.status === "error" ? (
 				<p
 					data-testid="loadout-palette-error"
 					className="type-small text-text-muted"
 				>
-					The catalog could not be read, so no agent can be added. Reload to try
+					The agents could not be read, so none can be added. Reload to try
 					again.
 				</p>
 			) : (

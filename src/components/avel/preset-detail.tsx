@@ -74,7 +74,7 @@ function BackToPresets({ className }: { className?: string }) {
 				className="self-start"
 			>
 				<ArrowLeft aria-hidden="true" />
-				Back to presets
+				Back to teams
 			</Link>
 		</Button>
 	);
@@ -150,7 +150,7 @@ function PresetDetailBody({
 						data-testid="preset-agents-none"
 						className="type-small text-text-muted"
 					>
-						This preset saves no agents. Applying it adds nothing to a roster.
+						This team saves no agents. Applying it adds nothing to a roster.
 					</p>
 				) : (
 					<PresetAgentsTable agents={preset.agents} />
@@ -223,7 +223,7 @@ function PresetAgentsTable({ agents }: { agents: PresetAgent[] }) {
 					data-testid="preset-names-error"
 					className="type-small text-text-muted"
 				>
-					Template names could not be loaded, so agents show their short id.
+					Agent names could not be loaded, so agents show their short id.
 				</p>
 			) : null}
 			<Table data-testid="preset-agents">
@@ -232,7 +232,7 @@ function PresetAgentsTable({ agents }: { agents: PresetAgent[] }) {
 						{/* Prose headers and cells wrap so the table fits a lg pane
 						    (728e777); mono values (waves, slugs, tokens) stay on one line. */}
 						<TableHead>
-							<Wrap>Template</Wrap>
+							<Wrap>Agent</Wrap>
 						</TableHead>
 						<TableHead>Waves</TableHead>
 						<TableHead>
@@ -276,7 +276,7 @@ function PresetAgentsTable({ agents }: { agents: PresetAgent[] }) {
 							>
 								{agent.writablePaths === null ? (
 									<Wrap>
-										<Muted>Template's</Muted>
+										<Muted>Agent's</Muted>
 									</Wrap>
 								) : (
 									<span className="flex flex-col">
@@ -324,7 +324,7 @@ function TemplateCell({ id, names }: { id: string; names: Names }) {
 	return (
 		<span data-testid="preset-template-unknown" className="flex flex-col">
 			<span className="type-body text-text-muted">
-				{names.status === "error" ? "Template" : "Unknown template"}
+				{names.status === "error" ? "Agent" : "Unknown agent"}
 			</span>
 			<span className="type-mono-small text-text-subtle">{label.shortId}</span>
 		</span>

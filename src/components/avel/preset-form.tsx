@@ -250,14 +250,14 @@ export function PresetForm({
 			open={open}
 			onOpenChange={onOpenChange}
 			size="form"
-			title={preset ? "Edit preset" : "New preset"}
+			title={preset ? "Edit team" : "New team"}
 			description={
 				preset
 					? `${preset.name}, v${preset.version}. Missions that already applied it keep their copy.`
 					: "Save a squad once. Applying it copies these agents into a mission's roster."
 			}
 			dirty={dirty}
-			submitLabel={preset ? `Save as v${nextVersion(preset)}` : "Add preset"}
+			submitLabel={preset ? `Save as v${nextVersion(preset)}` : "Add team"}
 			onSubmit={submit}
 			pending={pending}
 			submitDisabledReason={unchanged ? "Nothing has changed yet." : undefined}
@@ -399,7 +399,7 @@ function AgentRows({
 				data-testid="preset-form-no-agents"
 				className="type-small text-text-muted"
 			>
-				No agents yet. A preset with none applies nothing.
+				No agents yet. A team with none applies nothing.
 			</p>
 		);
 	}
@@ -468,7 +468,7 @@ function AgentRows({
 						<ModalField
 							name={at("writablePaths")}
 							label="Writable paths"
-							hint="One per line. Empty keeps the template's."
+							hint="One per line. Empty keeps the agent's."
 							error={problems[at("writablePaths")]}
 							testid={`preset-form-paths-${i}`}
 						>
@@ -537,13 +537,13 @@ function TemplateField({
 				>
 					<SelectTrigger id={id} {...props} className="w-full">
 						<SelectValue
-							placeholder={loading ? "Loading templates" : "Choose a template"}
+							placeholder={loading ? "Loading agents" : "Choose an agent"}
 						/>
 					</SelectTrigger>
 					<SelectContent>
 						{value !== "" && !offered ? (
 							<SelectItem value={value}>
-								{`Unknown template · ${shortId(value)}`}
+								{`Unknown agent · ${shortId(value)}`}
 							</SelectItem>
 						) : null}
 						{choices.map((t) => (

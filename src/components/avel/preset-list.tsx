@@ -46,7 +46,7 @@ export function PresetListPane({
 }) {
 	return (
 		<section
-			aria-label="Presets"
+			aria-label="Teams"
 			data-testid="preset-pane"
 			className="flex min-h-0 flex-col gap-3"
 		>
@@ -62,7 +62,7 @@ export function PresetListPane({
 						data-testid="presets-no-match"
 						compact
 						icon={SearchX}
-						title="No presets match"
+						title="No teams match"
 						description={noMatchCopy(search, cut)}
 						action={
 							<Button
@@ -108,8 +108,8 @@ export function noMatchCopy(
 	const q = presetSearchText(search);
 	const cutText = cut ? `${CUT_LABEL[cut].toLowerCase()} ` : "";
 	return q === undefined
-		? `There are no ${cutText}presets.`
-		: `No ${cutText}preset's name contains “${q}”.`;
+		? `There are no ${cutText}teams.`
+		: `No ${cutText}team's name contains “${q}”.`;
 }
 
 /**
@@ -143,7 +143,7 @@ export function PresetSearch({
 	return (
 		<div className="relative">
 			<label htmlFor={id} className="sr-only">
-				Search presets
+				Search teams
 			</label>
 			<Search
 				aria-hidden="true"
@@ -231,7 +231,7 @@ function PresetRows({
 
 	return (
 		<ul
-			aria-label="Presets"
+			aria-label="Teams"
 			data-testid="preset-rows"
 			className="flex flex-col gap-0.5"
 			onKeyDown={move}

@@ -231,13 +231,13 @@ function LoadoutWorkspace({
 						roster.status !== "success"
 							? "Reading the roster."
 							: entries.every((e) => !e.active)
-								? "No agent is active: a preset needs at least one."
+								? "No agent is active: a team needs at least one."
 								: undefined
 					}
 					onClick={() => setSaving(true)}
 				>
 					<BookmarkPlus aria-hidden="true" />
-					Save as preset
+					Save as team
 				</Button>
 				<Button
 					size="sm"
@@ -246,7 +246,7 @@ function LoadoutWorkspace({
 					onClick={() => setApplying(true)}
 				>
 					<Rocket aria-hidden="true" />
-					Apply preset
+					Apply team
 				</Button>
 			</div>
 

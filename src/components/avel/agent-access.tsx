@@ -134,7 +134,7 @@ export function AgentTools({
 							data-testid="agent-access-not-on-mission"
 							className="type-small text-text-muted"
 						>
-							{`${agent.name} isn't on mission ${short(mission)}. Showing the template's own access.`}
+							{`${agent.name} isn't on mission ${short(mission)}. Showing its own access, from its roles.`}
 						</p>
 					) : null}
 					{entry ? (
@@ -209,9 +209,7 @@ function ContextPicker({
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
-					<SelectItem value={TEMPLATE}>
-						Template defaults, from roles
-					</SelectItem>
+					<SelectItem value={TEMPLATE}>Its own access, from roles</SelectItem>
 					{entries.map((entry) => (
 						<SelectItem key={entry.entryId} value={entry.missionId}>
 							{entryLabel(entry)}
@@ -235,7 +233,7 @@ function TemplateAccess({ agent }: { agent: AgentTemplate }) {
 			{(access) => (
 				<AccessTable
 					access={access}
-					readOnly="Template defaults come from the agent's roles. Choose a mission to change access there."
+					readOnly="An agent's own access comes from its roles. Choose a mission to change access there."
 					onRowMode={() => {}}
 				/>
 			)}

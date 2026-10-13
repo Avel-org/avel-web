@@ -107,8 +107,8 @@ export function CatalogAgents({
 							data-testid="catalog-agents-empty"
 							compact
 							icon={Bot}
-							title="No agent templates yet"
-							description="A template is an agent as data: the roles it covers, its generated identity and its default waves. Each one is listed here."
+							title="No agents yet"
+							description="An agent is data: the roles it covers, its generated identity and its default waves. Each one is listed here."
 						/>
 					</ViewFrame>
 				}
@@ -189,7 +189,7 @@ function AgentConsole({
 							compact
 							icon={Bot}
 							title="No agents match"
-							description="No template has this side, wave, kind and search together."
+							description="No agent has this side, wave, kind and search together."
 						/>
 					) : view === "table" ? (
 						<>

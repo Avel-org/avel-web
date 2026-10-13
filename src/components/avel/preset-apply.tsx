@@ -34,7 +34,7 @@ import { useOpenGeneration } from "./use-open-generation";
 import { type Change, WhatChanges } from "./what-changes";
 
 const STEPS = ["Mission", "Preview"] as const;
-const PRESET_STEPS = ["Preset", "Preview"] as const;
+const PRESET_STEPS = ["Team", "Preview"] as const;
 
 /** What the preview reads of the mission: its roster, cut and playbook. */
 type ApplyTarget = Pick<MissionListItem, "id" | "cut" | "type">;
@@ -156,7 +156,7 @@ export function ApplyPresetSteps({
 				: occupied && !replace
 					? `This roster already has ${roster.data.length} ${roster.data.length === 1 ? "agent" : "agents"}. Choose to replace them, or go back and pick another mission.`
 					: n === 0
-						? "This preset has no agents to apply."
+						? "This team has no agents to apply."
 						: undefined;
 
 	const changes: Change[] = [
@@ -188,7 +188,7 @@ export function ApplyPresetSteps({
 				onOpenChange(next);
 			}}
 			size="stepper"
-			title="Apply preset"
+			title="Apply team"
 			description={`${preset.name}, v${preset.version}: its agents become the mission's roster entries, a copy the mission can then edit.`}
 			dirty={missionId !== ""}
 			steps={STEPS}
@@ -311,14 +311,14 @@ export function ApplyToMissionSteps({
 	const reason =
 		step === 0 || !preset
 			? presetId === ""
-				? "Pick a preset first."
+				? "Pick a team first."
 				: undefined
 			: roster.status !== "success"
 				? "Reading the mission's roster."
 				: occupied && !replace
-					? `This roster already has ${roster.data.length} ${roster.data.length === 1 ? "agent" : "agents"}. Choose to replace them, or go back and pick another preset.`
+					? `This roster already has ${roster.data.length} ${roster.data.length === 1 ? "agent" : "agents"}. Choose to replace them, or go back and pick another team.`
 					: n === 0
-						? "This preset has no agents to apply."
+						? "This team has no agents to apply."
 						: undefined;
 
 	const changes: Change[] = preset
@@ -352,8 +352,8 @@ export function ApplyToMissionSteps({
 				onOpenChange(next);
 			}}
 			size="stepper"
-			title="Apply preset"
-			description="A preset's agents become this mission's roster entries, a copy the mission can then edit."
+			title="Apply team"
+			description="A team's agents become this mission's roster entries, a copy the mission can then edit."
 			dirty={presetId !== ""}
 			steps={PRESET_STEPS}
 			step={step}
@@ -436,7 +436,7 @@ function PresetPicker({
 				data-testid="loadout-apply-presets-error"
 				className="type-small text-text-muted"
 			>
-				The presets could not be read. Close and try again.
+				The teams could not be read. Close and try again.
 			</p>
 		);
 	}
@@ -457,16 +457,13 @@ function PresetPicker({
 				data-testid="loadout-apply-no-presets"
 				className="type-small text-text-muted"
 			>
-				There are no presets yet. Save this roster as one, or make one in
-				Presets.
+				There are no teams yet. Save this roster as one, or make one in Teams.
 			</p>
 		);
 	}
 	return (
 		<fieldset className="flex flex-col gap-2">
-			<legend className="type-small font-medium text-foreground">
-				Presets
-			</legend>
+			<legend className="type-small font-medium text-foreground">Teams</legend>
 			<RadioGroup
 				data-testid="loadout-apply-presets"
 				value={value}
@@ -525,7 +522,7 @@ function MissionPicker({
 				data-testid="preset-apply-no-missions"
 				className="type-small text-text-muted"
 			>
-				There are no draft missions. A preset applies only to a draft.
+				There are no draft missions. A team applies only to a draft.
 			</p>
 		);
 	}
@@ -653,7 +650,7 @@ export function MissingTemplates({ ids }: { ids: readonly string[] }) {
 	return (
 		<div data-testid="preset-apply-missing" className="flex flex-col gap-1">
 			<p className="type-small text-foreground">
-				{`${ids.length === 1 ? "A template this preset uses isn't" : `${ids.length} templates this preset uses aren't`} in the catalog: ${ids.map(shortId).join(", ")}. The server would refuse this apply.`}
+				{`${ids.length === 1 ? "An agent this team uses isn't" : `${ids.length} agents this team uses aren't`} in All agents: ${ids.map(shortId).join(", ")}. The server would refuse this apply.`}
 			</p>
 			<p className="type-small text-text-muted">{copy.next}</p>
 		</div>
