@@ -451,6 +451,22 @@ export const PRECONDITION_COPY = {
 		next: "Give the agent fewer roles, or shorten the approved role skills it carries, then regenerate.",
 		retry: false,
 	},
+	// src/routes/agent-templates.ts PATCH: a role run by code, or the
+	// operator's foundations mixed with another role. details.issues names each.
+	agent_role_not_assignable: {
+		what: "Some of these roles can't be given to an agent.",
+		written: NOTHING_WRITTEN,
+		next: "Remove the automated roles, and keep Project setup on the operator alone, then save again.",
+		retry: false,
+	},
+	// src/routes/agent-templates.ts PATCH: the roles span more than one side,
+	// so the agent would check its own work. details.sides lists them.
+	agent_roles_cross_sides: {
+		what: "These roles would have this agent checking its own work.",
+		written: NOTHING_WRITTEN,
+		next: "Keep its roles on one side: writing code, writing tests, reviewing, or the independent check. Give the others to another agent.",
+		retry: false,
+	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;
 
 /**
