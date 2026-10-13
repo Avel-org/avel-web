@@ -1,11 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { AgentTemplate } from "avel-server/contract";
 import { Bot, Network, Rows3 } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { loadedRows, type useAgentTemplates } from "@/lib/api/catalog";
 import { AgentGraph } from "./catalog-agent-graph";
-import { AgentPanelSheet } from "./catalog-agent-inspector";
 import { AGENT_MISSING } from "./catalog-agent-placeholders";
 import {
 	AgentFilterRow,
@@ -28,9 +27,9 @@ import { ErrorState, Surface } from "./surface";
 /*
  * Agent templates, /catalog/agents (ROUTES.md), as a spec console: a dense
  * table of templates, or the artifact graph between them, each at the full
- * content width, and a slide-over panel for the one selected (?agent=slug).
- * The templates are live (GET /api/agent-templates; the panel reads the
- * selected one by slug). Read-only throughout: an identity is generated
+ * content width. Opening an agent goes to its page, /catalog/agents/:slug;
+ * nothing slides over the list. The templates are live (GET
+ * /api/agent-templates). Read-only throughout: an identity is generated
  * from roles, so nothing here edits one. The graph's edges, and the table's
  * territory, side, hash and estimate columns, are still labelled samples
  * (AVEL-DESIGN.md rulings 32 and 34): no route serves them yet.
@@ -78,30 +77,21 @@ function ViewFrame({
 }
 
 export function CatalogAgents({
-	selected,
 	query,
 	initialView = "table",
 }: {
-	selected: string | undefined;
 	/** The live list, owned by the route. */
 	query: ReturnType<typeof useAgentTemplates>;
 	initialView?: AgentView;
 }) {
 	const [view, setView] = useState<AgentView>(initialView);
-	const [centreOn, setCentreOn] = useState<string | undefined>();
 
 	return (
 		<div
 			data-testid="catalog-agents"
 			className="flex min-h-0 flex-1 flex-col gap-3"
 		>
-			<ViewToggle
-				view={view}
-				onChange={(next) => {
-					setCentreOn(undefined);
-					setView(next);
-				}}
-			/>
+			<ViewToggle view={view} onChange={setView} />
 			<Surface
 				data-testid="catalog-agents-surface"
 				query={query}
@@ -132,12 +122,6 @@ export function CatalogAgents({
 						loadingMore={query.isFetchingNextPage}
 						onLoadMore={() => query.fetchNextPage()}
 						view={view}
-						centreOn={centreOn}
-						selected={selected}
-						onViewInGraph={(slug) => {
-							setCentreOn(slug);
-							setView("graph");
-						}}
 					/>
 				)}
 			</Surface>
@@ -153,8 +137,8 @@ export function CatalogAgents({
 }
 
 /**
- * The loaded templates: the filter row, the chosen view and its footer, and
- * the panel. Only rendered with data, inside the router, so the list's other
+ * The loaded templates: the filter row, the chosen view and its footer. Only
+ * rendered with data, inside the router, so the list's other
  * states need none.
  */
 function AgentConsole({
@@ -164,9 +148,6 @@ function AgentConsole({
 	loadingMore,
 	onLoadMore,
 	view,
-	centreOn,
-	selected,
-	onViewInGraph,
 }: {
 	agents: readonly AgentTemplate[];
 	/** meta.total from the first page, when the server counted. */
@@ -175,11 +156,8 @@ function AgentConsole({
 	loadingMore: boolean;
 	onLoadMore: () => void;
 	view: AgentView;
-	centreOn: string | undefined;
-	selected: string | undefined;
-	onViewInGraph: (slug: string) => void;
 }) {
-	const navigate = useNavigate({ from: "/catalog/agents" });
+	const navigate = useNavigate();
 	const [filters, setFilters] = useState<AgentFilters>({});
 	const [sort, setSort] = useState<SortState>({
 		column: "wave",
@@ -187,16 +165,11 @@ function AgentConsole({
 	});
 	const [page, setPage] = useState(0);
 
-	const select = (agent: string | undefined) =>
-		navigate({ search: (prev) => ({ ...prev, agent }) });
+	const open = (slug: string) =>
+		navigate({ to: "/catalog/agents/$slug", params: { slug } });
 	const matching = sortAgents(filterAgents(agents, filters), sort);
 	const pages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
 	const shown = matching.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-	// The last slug stays in the sheet while it slides out, so closing
-	// animates instead of emptying first.
-	const last = useRef<string | undefined>(undefined);
-	if (selected !== undefined) last.current = selected;
-	const inSheet = selected ?? last.current;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
@@ -224,7 +197,7 @@ function AgentConsole({
 								agents={shown}
 								sort={sort}
 								onSortChange={setSort}
-								onOpen={select}
+								onOpen={open}
 							/>
 							<AgentTableFooter
 								shown={shown.length}
@@ -235,12 +208,7 @@ function AgentConsole({
 							/>
 						</>
 					) : (
-						<AgentGraph
-							agents={matching}
-							selected={selected}
-							centreOn={centreOn}
-							onOpen={select}
-						/>
+						<AgentGraph agents={matching} onOpen={open} />
 					)}
 				</ViewFrame>
 				<CatalogListFooter
@@ -252,16 +220,6 @@ function AgentConsole({
 					data-testid="catalog-agents-list-footer"
 				/>
 			</div>
-			{inSheet !== undefined ? (
-				<AgentPanelSheet
-					slug={inSheet}
-					agents={agents}
-					onOpen={select}
-					onViewInGraph={onViewInGraph}
-					onClose={() => select(undefined)}
-					open={selected !== undefined}
-				/>
-			) : null}
 		</div>
 	);
 }

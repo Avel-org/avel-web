@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import type { AgentRosterEntry, AgentTemplate } from "avel-server/contract";
 import { History, MessageSquare, Pause, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -268,13 +269,16 @@ function AgentPage({
 /** The edges name agents at the other end, so this tab reads every template. */
 function PerformanceBody({ agent }: { agent: AgentTemplate }) {
 	const all = useAgentTemplates();
+	const navigate = useNavigate();
 	const agents = all.data ? loadedRows(all.data) : [];
 	return (
 		<OverviewTab
 			agent={agent}
 			agents={agents}
 			history={sampleHistory(agent)}
-			onOpen={() => {}}
+			onOpen={(slug) =>
+				navigate({ to: "/catalog/agents/$slug", params: { slug } })
+			}
 		/>
 	);
 }

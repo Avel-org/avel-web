@@ -1,5 +1,5 @@
 import { type AgentTemplate, WAVES, type Wave } from "avel-server/contract";
-import { type KeyboardEvent, useEffect, useRef } from "react";
+import type { KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import {
 	artifactLabel,
@@ -122,24 +122,13 @@ function route(from: Placed, to: Placed) {
 export function AgentGraph({
 	agents,
 	selected,
-	centreOn,
 	onOpen,
 }: {
 	agents: readonly AgentTemplate[];
-	selected: string | undefined;
-	/** Scrolls this agent's node to the middle of the view ("View in graph"). */
-	centreOn?: string;
+	/** The agent whose edges print their artifacts; none on the list. */
+	selected?: string;
 	onOpen: (slug: string) => void;
 }) {
-	const scroller = useRef<HTMLElement>(null);
-	useEffect(() => {
-		if (!centreOn) return;
-		const node = scroller.current?.querySelector<SVGGElement>(
-			`[data-testid="catalog-agent-node-${centreOn}"]`,
-		);
-		node?.scrollIntoView({ block: "center", inline: "center" });
-		node?.focus({ preventScroll: true });
-	}, [centreOn]);
 	const placed = layoutGraph(agents);
 	const at = new Map(placed.map((p) => [p.agent.slug, p]));
 	const edges = sampleEdges(agents);
@@ -159,7 +148,6 @@ export function AgentGraph({
 
 	return (
 		<section
-			ref={scroller}
 			aria-label="Artifact graph: agents by wave, arrows from producer to consumer"
 			className="app-scroll overflow-x-auto"
 		>
@@ -253,7 +241,7 @@ export function AgentGraph({
 							data-selected={isSelected || undefined}
 							role="button"
 							tabIndex={0}
-							aria-label={`${agent.name}, ${lane === "firm" ? "firm, between missions" : `wave ${lane}`}. Open in the inspector`}
+							aria-label={`${agent.name}, ${lane === "firm" ? "firm, between missions" : `wave ${lane}`}. Open its page`}
 							transform={`translate(${x} ${y})`}
 							onClick={() => onOpen(agent.slug)}
 							onKeyDown={open(agent.slug)}

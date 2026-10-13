@@ -1,27 +1,7 @@
-import { Link } from "@tanstack/react-router";
 import type { AgentTemplate } from "avel-server/contract";
-import {
-	ArrowRight,
-	CircleAlert,
-	CircleCheck,
-	Copy,
-	Network,
-	SearchX,
-	X,
-} from "lucide-react";
+import { ArrowRight, CircleAlert, CircleCheck, Copy } from "lucide-react";
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetTitle,
-} from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { isNotFound, useAgentTemplate } from "@/lib/api/catalog";
-import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 import {
 	AGENT_MISSING,
@@ -32,9 +12,7 @@ import {
 	type SampleEdge,
 	type SampleOverview,
 	sampleOverview,
-	territoriesOf,
 } from "./catalog-agent-placeholders";
-import { AgentTile } from "./catalog-agent-table";
 import {
 	CATALOG_MISSING,
 	familiesOf,
@@ -44,7 +22,6 @@ import {
 	type SampleDiscipline,
 	type SampleOrigin,
 	type SampleOutcome,
-	sampleHistory,
 } from "./catalog-placeholders";
 import {
 	inCatalogOrder,
@@ -54,331 +31,16 @@ import {
 } from "./catalog-sample";
 import { CodeView } from "./code-view";
 import { type DataColumn, DataTable } from "./data-table";
-import { EmptyState } from "./empty-state";
 import { StatusPill } from "./status-pill";
-import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
 /*
- * The agent panel: one template, read by its slug (GET
- * /api/agent-templates/by-slug/:slug), in a slide-over from the right at
- * every width, so the table or graph keeps the whole content width.
- * Read-only throughout: an identity is generated from roles, so the only way
- * to change one is to change a role it covers. The template's own fields are
- * live; its measures, edges, versions and allowed actions are labelled
- * samples (catalog-placeholders.ts) until their routes exist.
+ * The parts of an agent's page (ruling 38) that read one template: its
+ * overview, identity, manifest and versions. Read-only throughout: an
+ * identity is generated from roles, so the only way to change one is to
+ * change a role it covers. The template's own fields are live; its measures,
+ * edges, versions and allowed actions are labelled samples
+ * (catalog-placeholders.ts) until their routes exist.
  */
-
-export const PANEL_TABS = [
-	{ id: "overview", label: "Overview" },
-	{ id: "identity", label: "Identity" },
-	{ id: "manifest", label: "Manifest" },
-	{ id: "versions", label: "Versions" },
-] as const;
-
-type PanelProps = {
-	agent: AgentTemplate;
-	/** Every template, so edges can name the agent at the other end. */
-	agents: readonly AgentTemplate[];
-	onOpen: (slug: string) => void;
-	onViewInGraph: (slug: string) => void;
-	onClose: () => void;
-};
-
-/** "scheduling, billing, domain, api-surface": territory, then roles. */
-export function panelSubtitle(agent: AgentTemplate): string {
-	const territories = territoriesOf(agent);
-	return [
-		...(territories.length > 0 ? territories : ["whole project"]),
-		...inCatalogOrder(agent.roles),
-	].join(", ");
-}
-
-/**
- * The slide-over's width: the whole width on a phone, 32rem from sm up. The
- * Sheet primitive's own w-3/4 and sm:max-w-sm give way to these.
- */
-export const PANEL_WIDTH = "w-full sm:w-[32rem] sm:max-w-[32rem]";
-
-/**
- * Where focus goes when the panel closes: the row or node that opened it.
- * Opened from a link (?agent=slug), nothing opened it, and focus is left to
- * the dialog's default.
- */
-export function panelOpener(slug: string): HTMLElement | SVGElement | null {
-	return document.querySelector<HTMLElement | SVGElement>(
-		`[data-testid="catalog-agents-table-row-${slug}"], [data-testid="catalog-agent-node-${slug}"]`,
-	);
-}
-
-/**
- * The panel, sliding in from the right over the page. It closes by its X,
- * Escape or a click outside, each through onOpenChange. The template is read
- * by its slug, so a selection is a link that works whatever the list's
- * filters or paging; a stale slug says so instead of showing nothing.
- */
-export function AgentPanelSheet({
-	open,
-	slug,
-	...props
-}: Omit<PanelProps, "agent"> & {
-	open: boolean;
-	slug: string;
-}) {
-	const query = useAgentTemplate(slug);
-	return (
-		<Sheet
-			open={open}
-			onOpenChange={(next) => {
-				if (!next) props.onClose();
-			}}
-		>
-			<SheetContent
-				side="right"
-				showCloseButton={false}
-				data-testid="catalog-agent-panel-sheet"
-				className={cn("gap-0", PANEL_WIDTH)}
-				onCloseAutoFocus={(event) => {
-					const opener = panelOpener(slug);
-					if (!opener) return;
-					event.preventDefault();
-					opener.focus();
-				}}
-			>
-				<AgentPanelSurface
-					slug={slug}
-					query={query}
-					onClose={props.onClose}
-					inSheet
-				>
-					{(agent) => <PanelBody {...props} agent={agent} inSheet />}
-				</AgentPanelSurface>
-			</SheetContent>
-		</Sheet>
-	);
-}
-
-/** The panel's header while it loads or when its slug finds nothing. */
-function PanelFrame({
-	title,
-	inSheet,
-	onClose,
-	children,
-	"data-testid": testId,
-}: {
-	title: string;
-	inSheet: boolean;
-	onClose: () => void;
-	children: ReactNode;
-	"data-testid": string;
-}) {
-	const Title = inSheet ? SheetTitle : "h2";
-	const Description = inSheet ? SheetDescription : "p";
-	return (
-		<div data-testid={testId} className="flex min-h-0 flex-1 flex-col">
-			<header className="flex items-start gap-3 border-b border-border p-4">
-				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<Title className="type-h2 truncate text-foreground">{title}</Title>
-					<Description className="sr-only">Agent template</Description>
-				</div>
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					aria-label="Close panel"
-					data-testid="catalog-agent-panel-close"
-					onClick={onClose}
-				>
-					<X aria-hidden="true" />
-				</Button>
-			</header>
-			<div className="flex flex-col gap-3 p-4">{children}</div>
-		</div>
-	);
-}
-
-/**
- * The four states of one template read by slug. NOT_FOUND is a stale link,
- * not a failure: it says so, with a way to close. Any other error is the
- * standard error state, with Try again where it can help.
- */
-export function AgentPanelSurface({
-	slug,
-	query,
-	onClose,
-	inSheet = false,
-	children,
-}: {
-	slug: string;
-	query: ReturnType<typeof useAgentTemplate>;
-	onClose: () => void;
-	inSheet?: boolean;
-	children: (agent: AgentTemplate) => ReactNode;
-}) {
-	const failed = ({ error, retry, retrying }: ErrorStateProps<ApiError>) =>
-		isNotFound(error) ? (
-			<PanelFrame
-				title="No agent with this name"
-				inSheet={inSheet}
-				onClose={onClose}
-				data-testid="catalog-agent-panel-not-found"
-			>
-				<EmptyState
-					data-testid="catalog-agent-not-found"
-					compact
-					icon={SearchX}
-					title="No agent with this name"
-					description={`No live template is called “${slug}”. It may have been renamed or removed; choose one from the table.`}
-				/>
-			</PanelFrame>
-		) : (
-			<PanelFrame
-				title="Agent template"
-				inSheet={inSheet}
-				onClose={onClose}
-				data-testid="catalog-agent-panel-error"
-			>
-				<ErrorState error={error} retry={retry} retrying={retrying} />
-			</PanelFrame>
-		);
-	return (
-		<Surface
-			data-testid="catalog-agent-panel-surface"
-			query={query}
-			// One template is never empty: a missing one answers NOT_FOUND.
-			isEmpty={() => false}
-			loading={
-				<PanelFrame
-					title="Loading"
-					inSheet={inSheet}
-					onClose={onClose}
-					data-testid="catalog-agent-panel-loading"
-				>
-					<div
-						data-testid="catalog-agent-panel-skeleton"
-						className="flex flex-col gap-2"
-					>
-						<Skeleton className="h-9 w-full" />
-						<Skeleton className="h-24 w-full" />
-						<Skeleton className="h-24 w-full" />
-					</div>
-				</PanelFrame>
-			}
-			empty={null}
-			error={failed}
-		>
-			{children}
-		</Surface>
-	);
-}
-
-/** The panel's contents. */
-export function PanelBody({
-	agent,
-	agents,
-	onOpen,
-	onViewInGraph,
-	onClose,
-	inSheet = false,
-}: PanelProps & { inSheet?: boolean }) {
-	const history = sampleHistory(agent);
-	// The sheet needs its title and description from the Dialog parts.
-	const Title = inSheet ? SheetTitle : "h2";
-	const Description = inSheet ? SheetDescription : "p";
-	return (
-		<div
-			data-testid="catalog-agent-panel"
-			data-agent={agent.slug}
-			className="flex min-h-0 flex-1 flex-col"
-		>
-			<header className="flex items-start gap-3 border-b border-border p-4">
-				<AgentTile agent={agent} size="lg" />
-				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<div className="flex items-center gap-2">
-						<Title className="type-h2 truncate text-foreground">
-							{agent.name}
-						</Title>
-						<Badge
-							variant="tag"
-							data-testid="catalog-agent-panel-version"
-						>{`v${agent.version}`}</Badge>
-					</div>
-					<Description
-						data-testid="catalog-agent-panel-subtitle"
-						className="type-small text-text-muted"
-					>
-						{panelSubtitle(agent)}
-					</Description>
-				</div>
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					aria-label="Close panel"
-					data-testid="catalog-agent-panel-close"
-					onClick={onClose}
-				>
-					<X aria-hidden="true" />
-				</Button>
-			</header>
-			<Tabs
-				defaultValue="overview"
-				className="flex min-h-0 flex-1 flex-col gap-0"
-			>
-				<div className="border-b border-border px-4">
-					<TabsList aria-label="Agent template">
-						{PANEL_TABS.map((tab) => (
-							<TabsTrigger
-								key={tab.id}
-								value={tab.id}
-								data-testid={`catalog-agent-tab-${tab.id}`}
-							>
-								{tab.label}
-							</TabsTrigger>
-						))}
-					</TabsList>
-				</div>
-				<div className="app-scroll min-h-0 flex-1 overflow-y-auto p-4">
-					<TabsContent value="overview">
-						<OverviewTab
-							agent={agent}
-							agents={agents}
-							history={history}
-							onOpen={onOpen}
-						/>
-					</TabsContent>
-					<TabsContent value="identity">
-						<IdentityTab agent={agent} history={history} />
-					</TabsContent>
-					<TabsContent value="manifest">
-						<ManifestTab agent={agent} />
-					</TabsContent>
-					<TabsContent value="versions">
-						<VersionsTab history={history} />
-					</TabsContent>
-				</div>
-			</Tabs>
-			<footer className="flex flex-col gap-2 border-t border-border p-4">
-				<Button className="w-full" asChild>
-					<Link
-						to="/catalog/agents/$slug"
-						params={{ slug: agent.slug }}
-						data-testid="catalog-agent-open-page"
-					>
-						<ArrowRight aria-hidden="true" />
-						Open agent page
-					</Link>
-				</Button>
-				<Button
-					variant="outline"
-					className="w-full"
-					data-testid="catalog-agent-view-in-graph"
-					onClick={() => onViewInGraph(agent.slug)}
-				>
-					<Network aria-hidden="true" />
-					View in graph
-				</Button>
-			</footer>
-		</div>
-	);
-}
 
 // ---------------------------------------------------------------------------
 // Overview.

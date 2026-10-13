@@ -427,7 +427,7 @@ describe("/catalog/skills, a skill", () => {
 		expect(carriers.length).toBeGreaterThan(0);
 		const carried = element(html, "skill-carried-by");
 		for (const a of carriers) {
-			expect(carried).toContain(`href="/catalog/agents?agent=${a.slug}"`);
+			expect(carried).toContain(`href="/catalog/agents/${a.slug}"`);
 		}
 		expect(carried.match(/catalog-agent-link-/g)).toHaveLength(carriers.length);
 	});
@@ -897,7 +897,7 @@ describe("role attachment", () => {
 		const html = await page("?skill=agreeing-wrong-tests");
 		const carried = element(html, "skill-carried-by");
 		for (const slug of carriers) {
-			expect(carried).toContain(`href="/catalog/agents?agent=${slug}"`);
+			expect(carried).toContain(`href="/catalog/agents/${slug}"`);
 		}
 		expect(tagOf(html, "skill-carried-by-sample")).toContain(
 			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,

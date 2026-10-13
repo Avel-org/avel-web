@@ -189,12 +189,12 @@ export function RoleTag({ role }: { role: string }) {
 const LINK =
 	"rounded-xs text-accent-text underline-offset-4 transition-colors duration-(--duration-micro) ease-avel hover:underline";
 
-/** A link to an agent on /catalog/agents. */
+/** A link to an agent's page. */
 export function AgentLink({ agent }: { agent: AgentTemplate }) {
 	return (
 		<Link
-			to="/catalog/agents"
-			search={{ agent: agent.slug }}
+			to="/catalog/agents/$slug"
+			params={{ slug: agent.slug }}
 			data-testid={`catalog-agent-link-${agent.slug}`}
 			className={cn("type-small", LINK)}
 		>

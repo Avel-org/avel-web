@@ -8,16 +8,11 @@ import { ROLES, WAVES } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { AgentGraph } from "@/components/avel/catalog-agent-graph";
 import {
-	AgentPanelSurface,
 	IdentityTab,
 	ManifestTab,
 	OverviewTab,
-	PANEL_TABS,
-	PANEL_WIDTH,
-	PanelBody,
-	panelOpener,
-	panelSubtitle,
 	VersionsTab,
 } from "@/components/avel/catalog-agent-inspector";
 import {
@@ -50,14 +45,13 @@ import {
 } from "@/components/avel/catalog-placeholders";
 import { CodeView } from "@/components/avel/code-view";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAgentTemplate, useAgentTemplates } from "@/lib/api/catalog";
+import { useAgentTemplates } from "@/lib/api/catalog";
 import { routeTree } from "../src/routeTree.gen";
 import {
 	AGENTS,
 	agent,
 	inProviders,
 	internalError,
-	notFoundError,
 	renderSeeded,
 	seededClient,
 } from "./catalog-fixtures";
@@ -161,7 +155,7 @@ function expectLabelled(html: string, real: string[]) {
 	}
 }
 
-// The panel links to the agent's page, so it renders inside a router.
+// The tabs and the graph link to agents' pages, so they render in a router.
 const tipRouter = createRouter({
 	routeTree,
 	history: createMemoryHistory({ initialEntries: ["/catalog/agents"] }),
@@ -196,33 +190,9 @@ const page = (search = ""): Promise<string> => {
 };
 
 /** The console in a chosen view, with the list it reads seeded. */
-function Console({
-	selected,
-	view,
-}: {
-	selected: string | undefined;
-	view: "table" | "graph";
-}) {
+function Console({ view }: { view: "table" | "graph" }) {
 	const query = useAgentTemplates();
-	return <CatalogAgents selected={selected} query={query} initialView={view} />;
-}
-
-/** The panel's surface over the by-slug query, as the sheet renders it. */
-function Panel({ slug }: { slug: string }) {
-	const query = useAgentTemplate(slug);
-	return (
-		<AgentPanelSurface slug={slug} query={query} onClose={noop}>
-			{(a) => (
-				<PanelBody
-					agent={a}
-					agents={AGENTS}
-					onOpen={noop}
-					onViewInGraph={noop}
-					onClose={noop}
-				/>
-			)}
-		</AgentPanelSurface>
-	);
+	return <CatalogAgents query={query} initialView={view} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -590,147 +560,35 @@ describe("/catalog/agents: the table", () => {
 	});
 
 	it("puts no middle dot in any meta string (ruling 4)", async () => {
-		const html = await page("?agent=atlas");
+		const html = await page();
 		const body = element(html, "catalog-agents");
 		expect(body).not.toContain("·");
-		expect(panelSubtitle(agent("atlas"))).toBe(
-			`${territoriesOf(agent("atlas")).join(", ")}, domain, api-surface`,
-		);
 	});
-});
 
-describe("/catalog/agents: the panel", () => {
-	const atlas = agent("atlas");
-	const history = sampleHistory(atlas);
-	const body = (a = atlas) =>
-		tip(
-			<PanelBody
-				agent={a}
-				agents={AGENTS}
-				onOpen={noop}
-				onViewInGraph={noop}
-				onClose={noop}
-			/>,
-		);
-
-	it("is a slide-over at every width: no aside, the table at full width", async () => {
-		// The sheet portals, and server rendering draws no portal, so the page
-		// itself must hold no panel at all: nothing beside the table.
-		for (const path of ["", "?agent=atlas", "?agent=nobody"]) {
-			const html = await page(path);
-			expect(html, path).not.toContain("catalog-agent-panel");
-			expect(html, path).not.toMatch(/<aside[^>]*agent template/);
-		}
+	it("opens an agent on its own page, never in a panel over the list", async () => {
+		const html = await page();
+		expect(html).not.toContain("catalog-agent-panel");
 		const source = readFileSync(
 			"src/components/avel/catalog-agents.tsx",
 			"utf8",
 		);
-		// The xl switch is gone: one panel, the sheet, whatever the width.
-		expect(source).not.toContain("matchMedia");
-		expect(source).not.toContain("AgentPanelAside");
+		expect(source).toContain('to: "/catalog/agents/$slug"');
+		expect(source).not.toMatch(/Sheet|search: \(prev\)/);
 	});
+});
 
-	it("slides in at 32rem from sm up, and across the whole width on a phone", () => {
-		const classes = PANEL_WIDTH.split(" ");
-		expect(classes).toEqual(
-			expect.arrayContaining(["w-full", "sm:w-[32rem]", "sm:max-w-[32rem]"]),
+describe("an agent page's tabs", () => {
+	const atlas = agent("atlas");
+	const history = sampleHistory(atlas);
+	const body = (a = atlas) =>
+		tip(
+			<OverviewTab
+				agent={a}
+				agents={AGENTS}
+				history={sampleHistory(a)}
+				onOpen={noop}
+			/>,
 		);
-	});
-
-	it("returns focus to the row or node that opened it", () => {
-		const row = { focus: () => {} };
-		const seen: string[] = [];
-		const realDocument = globalThis.document;
-		globalThis.document = {
-			querySelector: (selector: string) => {
-				seen.push(selector);
-				return row;
-			},
-		} as unknown as Document;
-		try {
-			expect(panelOpener("atlas")).toBe(row);
-		} finally {
-			globalThis.document = realDocument;
-		}
-		expect(seen[0]).toContain('[data-testid="catalog-agents-table-row-atlas"]');
-		expect(seen[0]).toContain('[data-testid="catalog-agent-node-atlas"]');
-	});
-
-	it("reads the template by slug: loading, a stale slug, a failure, then the panel", () => {
-		const loading = inProviders(
-			<Panel slug="atlas" />,
-			seededClient(),
-			"/catalog/agents",
-		);
-		expect(tagOf(loading, "catalog-agent-panel-surface")).toContain(
-			'data-state="loading"',
-		);
-		expect(loading).toContain('data-testid="catalog-agent-panel-skeleton"');
-
-		const stale = inProviders(
-			<Panel slug="nobody" />,
-			seededClient({
-				agentBySlug: { nobody: notFoundError(`${PATH}/by-slug/nobody`) },
-			}),
-			"/catalog/agents",
-		);
-		expect(tagOf(stale, "catalog-agent-panel-surface")).toContain(
-			'data-state="error"',
-		);
-		expect(element(stale, "catalog-agent-not-found")).toContain("nobody");
-		expect(stale).not.toContain('data-testid="surface-error"');
-		expect(stale).toContain('data-testid="catalog-agent-panel-close"');
-
-		const failed = inProviders(
-			<Panel slug="atlas" />,
-			seededClient({
-				agentBySlug: { atlas: internalError(`${PATH}/by-slug/atlas`) },
-			}),
-			"/catalog/agents",
-		);
-		expect(failed).toContain('data-testid="surface-error"');
-		expect(failed).not.toContain("catalog-agent-not-found");
-
-		const found = inProviders(
-			<Panel slug="atlas" />,
-			seededClient({ agentBySlug: { atlas } }),
-			"/catalog/agents",
-		);
-		expect(tagOf(found, "catalog-agent-panel-surface")).toContain(
-			'data-state="success"',
-		);
-		expect(tagOf(found, "catalog-agent-panel")).toContain('data-agent="atlas"');
-	});
-
-	it("heads with the tile, the name, territory and roles, and the version", () => {
-		const html = body();
-		expect(html).toContain('data-testid="catalog-agent-tile-atlas"');
-		expect(html).toMatch(/<h2[^>]*>Atlas<\/h2>/);
-		expect(html).toMatch(
-			new RegExp(
-				`data-testid="catalog-agent-panel-subtitle"[^>]*>${panelSubtitle(atlas)}<`,
-			),
-		);
-		expect(html).toMatch(
-			new RegExp(
-				`data-testid="catalog-agent-panel-version"[^>]*>v${atlas.version}<`,
-			),
-		);
-	});
-
-	it("has four tabs, Overview first, and a View in graph footer", () => {
-		const html = body();
-		const triggers = [
-			...html.matchAll(
-				/data-testid="catalog-agent-tab-([a-z]+)"[^>]*>([^<]+)</g,
-			),
-		].map((m) => m[2]);
-		expect(triggers).toEqual(["Overview", "Identity", "Manifest", "Versions"]);
-		expect(PANEL_TABS[0].id).toBe("overview");
-		expect(html).toMatch(
-			/data-testid="catalog-agent-view-in-graph"[\s\S]*?View in graph</,
-		);
-	});
 
 	it("never offers an edit: no field, form or Edit anywhere in it", () => {
 		for (const html of [
@@ -908,10 +766,8 @@ describe("/catalog/agents: the panel", () => {
 		).toHaveLength(1);
 	});
 
-	it("labels every sample region in the panel, and only those", () => {
-		// The panel renders the open tab (Overview); the others are tested alone.
+	it("labels every sample region in the tabs, and only those", () => {
 		const html = body();
-		expectLabelled(html, ["catalog-agent-view-in-graph"]);
 		expect(new Set(regions(html).map((r) => r.missing))).toEqual(
 			new Set([CATALOG_MISSING.measures, AGENT_MISSING.edges]),
 		);
@@ -927,18 +783,24 @@ describe("/catalog/agents: the panel", () => {
 });
 
 describe("/catalog/agents: the artifact graph", () => {
-	const html = inProviders(
-		<Console selected="atlas" view="graph" />,
+	const page = inProviders(
+		<Console view="graph" />,
 		seededClient({ agents: AGENTS }),
 		"/catalog/agents",
 	);
+	// One agent's edges print their artifacts when it is the selected one.
+	const html = tip(
+		<AgentGraph agents={AGENTS} selected="atlas" onOpen={noop} />,
+	);
 
 	it("sits in a region whose pill names the artifact edge graph", () => {
-		expectLabelled(html, ["catalog-agents-read-only"]);
-		expect(tagOf(html, "catalog-agents-graph-region")).toContain(
+		expectLabelled(page, ["catalog-agents-read-only"]);
+		expect(tagOf(page, "catalog-agents-graph-region")).toContain(
 			`data-sample-region="${AGENT_MISSING.edges}"`,
 		);
-		expect(html).not.toContain('data-testid="catalog-agents-table"');
+		expect(page).not.toContain('data-testid="catalog-agents-table"');
+		// On the list nothing is selected, so no node is marked.
+		expect(page).not.toContain("data-selected");
 	});
 
 	it("draws every live agent as a focusable node that names itself", () => {
