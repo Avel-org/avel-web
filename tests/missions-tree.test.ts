@@ -17,7 +17,7 @@ function mission(
 	return missionListItem.parse({
 		id: id(n),
 		origin: "client",
-		type: "full-build",
+		type: "template-booking",
 		sprintN: 1,
 		status: "active",
 		cut: "vertical",

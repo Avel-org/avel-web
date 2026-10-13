@@ -35,8 +35,8 @@ const PRESET = "00000000-0000-4000-8000-000000000301";
 function playbook(n: number, extra: Partial<Playbook> = {}): Playbook {
 	return playbookSchema.parse({
 		id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
-		missionType: "full-build",
-		name: "Full build",
+		missionType: "template-booking",
+		name: "Template booking",
 		wavesApplicable: ["A", "B", "C"],
 		gates: [
 			{ gate: "phase1-close", policy: "mandatory" },
@@ -182,10 +182,10 @@ describe("/playbooks", () => {
 		expect(tagOf(html, "playbooks-view-board")).toContain(
 			'aria-pressed="true"',
 		);
-		expect(tagOf(html, "playbook-card-full-build")).toContain(
-			'href="/playbooks/full-build"',
+		expect(tagOf(html, "playbook-card-template-booking")).toContain(
+			'href="/playbooks/template-booking"',
 		);
-		const strip = element(html, "playbook-card-waves-full-build");
+		const strip = element(html, "playbook-card-waves-template-booking");
 		expect(strip.match(/data-runs="true"/g)).toHaveLength(3);
 		expect(strip.match(/data-runs="false"/g)).toHaveLength(2);
 		expect(text(element(html, "playbook-card-discovery"))).toContain(
@@ -203,13 +203,13 @@ describe("/playbooks", () => {
 		);
 		expect(html).not.toContain('data-testid="playbook-board"');
 		const table = element(html, "playbook-table");
-		expect(tagOf(table, "playbook-row-link-full-build")).toContain(
-			'href="/playbooks/full-build"',
+		expect(tagOf(table, "playbook-row-link-template-booking")).toContain(
+			'href="/playbooks/template-booking"',
 		);
 		expect(tagOf(table, "playbook-row-link-discovery")).toContain(
 			'href="/playbooks/discovery"',
 		);
-		expect(table).toContain(">Full build<");
+		expect(table).toContain(">Template booking<");
 		expect(table).toContain(">Pull request<");
 		expect(table).toContain(">Recommendation<");
 		expect(table).toContain(">A B C<");
@@ -251,11 +251,13 @@ describe("/playbooks", () => {
 });
 
 describe("/playbooks/$missionType, the builder", () => {
-	const PAGE = "/playbooks/full-build";
+	const PAGE = "/playbooks/template-booking";
 
 	it("titles the tab by the mission type, crumbs back, and shows the version", async () => {
 		const html = await render(PAGE, withPlaybook(FULL_BUILD));
-		expect(html).toContain("<title>full-build · Playbooks · AVEL</title>");
+		expect(html).toContain(
+			"<title>template-booking · Playbooks · AVEL</title>",
+		);
 		expect(html).toMatch(/href="\/playbooks"[^>]*>Playbooks</);
 		expect(element(html, "playbook-version-pill")).toContain(">v3<");
 	});
@@ -321,8 +323,12 @@ describe("/playbooks/$missionType, the builder", () => {
 			await render(PAGE, withPlaybook(FULL_BUILD)),
 			"playbook-panel",
 		);
-		expect(tagOf(panel, "playbook-prop-name")).toContain('value="Full build"');
-		expect(element(panel, "playbook-prop-type")).toContain(">full-build<");
+		expect(tagOf(panel, "playbook-prop-name")).toContain(
+			'value="Template booking"',
+		);
+		expect(element(panel, "playbook-prop-type")).toContain(
+			">template-booking<",
+		);
 		expect(tagOf(panel, "playbook-prop-wave-A")).toContain(
 			'aria-checked="true"',
 		);
@@ -363,7 +369,7 @@ describe("/playbooks/$missionType, the builder", () => {
 	it("says pre-flight runs per mission, and links that type's missions", async () => {
 		const html = await render(PAGE, withPlaybook(FULL_BUILD));
 		expect(tagOf(html, "playbook-preflight-missions")).toContain(
-			'href="/missions?q=full-build"',
+			'href="/missions?q=template-booking"',
 		);
 	});
 
@@ -385,7 +391,7 @@ describe("/playbooks/$missionType, the builder", () => {
 	it("offers no way back for a failure that is not NOT_FOUND", async () => {
 		const html = await render(
 			PAGE,
-			failing(queryKeys.playbooks.byType("full-build"), 500, "INTERNAL"),
+			failing(queryKeys.playbooks.byType("template-booking"), 500, "INTERNAL"),
 		);
 		expect(tagOf(html, "playbook-builder")).toContain('data-state="error"');
 		expect(html).not.toContain("playbook-builder-back");
@@ -512,7 +518,7 @@ describe("publishing", () => {
 
 	it("names the version it makes, and shows the body it will send", () => {
 		const html = text(confirm(null));
-		expect(html).toContain(">Publish full-build<");
+		expect(html).toContain(">Publish template-booking<");
 		expect(element(html, "playbook-publish-modal-submit")).toContain(
 			"Publish v4",
 		);
@@ -582,11 +588,14 @@ describe("versions", () => {
 		const client = new QueryClient({
 			defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
 		});
-		client.setQueryData([...queryKeys.playbooks.versions("full-build")], rows);
+		client.setQueryData(
+			[...queryKeys.playbooks.versions("template-booking")],
+			rows,
+		);
 		return renderToString(
 			<ApiOverrideProvider queryClient={client}>
 				<ApiProvider>
-					<PlaybookVersions missionType="full-build" />
+					<PlaybookVersions missionType="template-booking" />
 				</ApiProvider>
 			</ApiOverrideProvider>,
 		);

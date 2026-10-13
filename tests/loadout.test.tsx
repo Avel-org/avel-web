@@ -84,7 +84,7 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
 		id: ID,
 		origin: "internal",
-		type: "full-build",
+		type: "template-booking",
 		sprintN: 1,
 		status: "draft",
 		cut: "vertical",
@@ -101,7 +101,7 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 		cutRationale: null,
 		repoUrl: "https://github.com/example/app",
 		roster: { agents: 2, active: 2 },
-		playbook: { missionType: "full-build", name: "Full build" },
+		playbook: { missionType: "template-booking", name: "Template booking" },
 		recentActivity: [],
 		...extra,
 	});
@@ -110,8 +110,8 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 /** Declares C, A and B: the earliest is A, whatever the order. */
 const PLAYBOOK: Playbook = playbookSchema.parse({
 	id: uuid(1),
-	missionType: "full-build",
-	name: "Full build",
+	missionType: "template-booking",
+	name: "Template booking",
 	wavesApplicable: ["C", "A", "B"],
 	gates: [],
 	deliverable: "pr",

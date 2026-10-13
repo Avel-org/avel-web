@@ -32,8 +32,8 @@ const ISO = "2026-10-01T00:00:00.000Z";
 
 const FULL_BUILD: Playbook = playbookSchema.parse({
 	id: uuid(1),
-	missionType: "full-build",
-	name: "Full build",
+	missionType: "template-booking",
+	name: "Template booking",
 	wavesApplicable: ["A", "B", "C"],
 	gates: [{ gate: "qa", policy: "mandatory" }],
 	deliverable: "pr",
@@ -73,7 +73,7 @@ const refusal = (
 
 describe("the mission type", () => {
 	it("passes the contract's slug rule, and says what the rule is when not", () => {
-		expect(missionTypeProblem("full-build")).toBeNull();
+		expect(missionTypeProblem("template-booking")).toBeNull();
 		expect(missionTypeProblem(" discovery ")).toBeNull();
 		expect(missionTypeProblem("Full Build")).toContain("Lowercase letters");
 		expect(missionTypeProblem("full--build")).toContain("single hyphens");
@@ -197,7 +197,7 @@ describe("the routes", () => {
 			},
 		});
 		queryClient.setQueryData(
-			[...queryKeys.playbooks.byType("full-build")],
+			[...queryKeys.playbooks.byType("template-booking")],
 			FULL_BUILD,
 		);
 		const router = createRouter({
@@ -220,10 +220,13 @@ describe("the routes", () => {
 
 	it("lands on the builder with the highlight only after creating", async () => {
 		expect(
-			tagOf(await render("/playbooks/full-build?landed=true"), "playbook-page"),
+			tagOf(
+				await render("/playbooks/template-booking?landed=true"),
+				"playbook-page",
+			),
 		).toContain("landed");
 		expect(
-			tagOf(await render("/playbooks/full-build"), "playbook-page"),
+			tagOf(await render("/playbooks/template-booking"), "playbook-page"),
 		).not.toContain("landed");
 	});
 });

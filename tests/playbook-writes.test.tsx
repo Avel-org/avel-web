@@ -18,8 +18,8 @@ import {
 const ISO = "2026-10-01T00:00:00.000Z";
 const SAVED: Playbook = playbookSchema.parse({
 	id: "00000000-0000-4000-8000-000000000001",
-	missionType: "full-build",
-	name: "Full build",
+	missionType: "template-booking",
+	name: "Template booking",
 	wavesApplicable: ["A"],
 	gates: [],
 	deliverable: "pr",
@@ -30,7 +30,7 @@ const SAVED: Playbook = playbookSchema.parse({
 	updatedAt: ISO,
 });
 const BODY = {
-	name: "Full build",
+	name: "Template booking",
 	wavesApplicable: ["A" as const],
 	gates: [],
 	deliverable: "pr" as const,
@@ -54,7 +54,7 @@ describe("a write's success, after the modal that sent it unmounts", () => {
 		[
 			"publish",
 			(qc: QueryClient, onSaved: (p: Playbook) => void) =>
-				updatePlaybookOptions(NO_API, qc, "full-build", { onSaved }),
+				updatePlaybookOptions(NO_API, qc, "template-booking", { onSaved }),
 		],
 		[
 			"create",
@@ -92,9 +92,11 @@ describe("what a write refreshes", () => {
 			pages: [],
 			pageParams: [],
 		});
-		await updatePlaybookOptions(NO_API, qc, "full-build").onSuccess(SAVED);
+		await updatePlaybookOptions(NO_API, qc, "template-booking").onSuccess(
+			SAVED,
+		);
 		expect(
-			qc.getQueryData([...queryKeys.playbooks.byType("full-build")]),
+			qc.getQueryData([...queryKeys.playbooks.byType("template-booking")]),
 		).toEqual(SAVED);
 		expect(
 			qc.getQueryState([...queryKeys.playbooks.list(PLAYBOOK_PAGE_SIZE)])

@@ -66,7 +66,7 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
 		id: ID,
 		origin: "internal",
-		type: "full-build",
+		type: "template-booking",
 		sprintN: 1,
 		status: "draft",
 		cut: "horizontal",
@@ -83,7 +83,7 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 		cutRationale: null,
 		repoUrl: "https://github.com/example/app",
 		roster: { agents: 2, active: 1 },
-		playbook: { missionType: "full-build", name: "Full build" },
+		playbook: { missionType: "template-booking", name: "Template booking" },
 		recentActivity: [],
 		...extra,
 	});
@@ -91,8 +91,8 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 
 const PLAYBOOK: Playbook = playbookSchema.parse({
 	id: uuid(1),
-	missionType: "full-build",
-	name: "Full build",
+	missionType: "template-booking",
+	name: "Template booking",
 	wavesApplicable: ["B", "A"],
 	gates: [],
 	deliverable: "pr",
@@ -232,7 +232,10 @@ const page = <T,>(rows: readonly T[]) => ({
 
 const withMission = (m: MissionDetail = mission()) =>
 	set(missionKeys.detail(m.id), m);
-const withPlaybook = set(queryKeys.playbooks.byType("full-build"), PLAYBOOK);
+const withPlaybook = set(
+	queryKeys.playbooks.byType("template-booking"),
+	PLAYBOOK,
+);
 const withRoster = (r: RosterEntry[]) => set(queryKeys.roster.list(ID), r);
 const withTemplates: Seed = (client) => {
 	for (const t of [API, FOUNDATIONS, TESTS])

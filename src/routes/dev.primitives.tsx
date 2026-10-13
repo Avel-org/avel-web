@@ -199,7 +199,7 @@ function PrimitivesPage() {
 				<Badge variant="secondary">Secondary</Badge>
 				<Badge variant="outline">Outline</Badge>
 				<Badge variant="destructive">Blocked</Badge>
-				<Badge variant="tag">full-build</Badge>
+				<Badge variant="tag">template-booking</Badge>
 				<Badge variant="tag">a3f9c21</Badge>
 			</Section>
 
@@ -211,7 +211,7 @@ function PrimitivesPage() {
 						<SelectValue placeholder="Mission type" />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="full-build">full-build</SelectItem>
+						<SelectItem value="template-booking">template-booking</SelectItem>
 						<SelectItem value="slice">slice</SelectItem>
 					</SelectContent>
 				</Select>
@@ -326,7 +326,7 @@ function PrimitivesPage() {
 					<SheetContent>
 						<SheetHeader>
 							<SheetTitle>Mission detail</SheetTitle>
-							<SheetDescription>full-build, sprint 2</SheetDescription>
+							<SheetDescription>template-booking, sprint 2</SheetDescription>
 						</SheetHeader>
 					</SheetContent>
 				</Sheet>

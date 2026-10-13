@@ -59,7 +59,7 @@ function mission(
 	return missionListItem.parse({
 		id: id(n),
 		origin: "client",
-		type: "full-build",
+		type: "template-booking",
 		sprintN: n,
 		status,
 		cut: "vertical",
@@ -110,7 +110,7 @@ const DETAIL: MissionDetail = missionDetail.parse({
 	cutRationale: null,
 	repoUrl: "https://github.com/example/app",
 	roster: { agents: 5, active: 3 },
-	playbook: { missionType: "full-build", name: "Full build" },
+	playbook: { missionType: "template-booking", name: "Template booking" },
 	lastExport: { ...ACTIVE.lastExport, gates: null },
 	recentActivity: [
 		{
@@ -776,7 +776,7 @@ describe("the tree view", () => {
 			`mission-tree-leaf-${ACTIVE.id}`,
 		);
 		expect(leaf).toContain(ACTIVE.id.slice(0, 8));
-		expect(leaf).toContain(">full-build<");
+		expect(leaf).toContain(">template-booking<");
 		expect(leaf).toContain('data-testid="mission-status"');
 		expect(leaf).toContain('data-testid="mission-tree-needs-you"');
 		expect(leaf).toContain("<time");

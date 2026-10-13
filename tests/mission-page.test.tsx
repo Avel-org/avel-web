@@ -42,7 +42,7 @@ function detail(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
 		id: ID,
 		origin: "client",
-		type: "full-build",
+		type: "template-booking",
 		sprintN: 3,
 		status: "active",
 		cut: "vertical",
@@ -62,7 +62,7 @@ function detail(extra: Partial<MissionDetail> = {}): MissionDetail {
 		cutRationale: null,
 		repoUrl: "https://github.com/example/app",
 		roster: { agents: 4, active: 2 },
-		playbook: { missionType: "full-build", name: "Full build" },
+		playbook: { missionType: "template-booking", name: "Template booking" },
 		recentActivity: [
 			{
 				action: "mission.updated",
@@ -191,7 +191,7 @@ describe("the page from the contract", () => {
 		expect(header).toContain('data-testid="mission-page-copy-id"');
 		expect(header).toContain("Meridian");
 		expect(header).toContain("Booking");
-		expect(header).toContain(">full-build<");
+		expect(header).toContain(">template-booking<");
 	});
 
 	it("shows the repository, cut, playbook, brief and activity", async () => {
@@ -200,7 +200,7 @@ describe("the page from the contract", () => {
 			'href="https://github.com/example/app"',
 		);
 		expect(element(html, "mission-section-playbook-page")).toContain(
-			"Full build",
+			"Template booking",
 		);
 		expect(element(html, "mission-section-brief-page")).toContain(
 			"Ship the booking flow",

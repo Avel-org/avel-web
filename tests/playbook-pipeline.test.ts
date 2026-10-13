@@ -13,8 +13,8 @@ import {
 
 const PLAYBOOK: Playbook = playbookSchema.parse({
 	id: "00000000-0000-4000-8000-000000000001",
-	missionType: "full-build",
-	name: "Full build",
+	missionType: "template-booking",
+	name: "Template booking",
 	// Out of order on purpose: the rail is in WAVES order.
 	wavesApplicable: ["C", "A"],
 	gates: [
@@ -168,10 +168,10 @@ describe("the draft", () => {
 	it("shapes the write body from the draft, keeping the stored preset", () => {
 		const edited = draftReducer(start, {
 			type: "setName",
-			name: "  Full build 2 ",
+			name: "  Template booking 2 ",
 		});
 		expect(playbookBodyOf(PLAYBOOK, edited)).toEqual({
-			name: "Full build 2",
+			name: "Template booking 2",
 			wavesApplicable: ["A", "C"],
 			gates: PLAYBOOK.gates,
 			deliverable: "pr",

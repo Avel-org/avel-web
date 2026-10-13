@@ -81,8 +81,8 @@ const NEMI = template(2, {
 
 const PLAYBOOK: Playbook = playbookSchema.parse({
 	id: uuid(1),
-	missionType: "full-build",
-	name: "Full build",
+	missionType: "template-booking",
+	name: "Template booking",
 	wavesApplicable: ["A", "B", "D"],
 	gates: [
 		{ gate: "alignment", policy: "mandatory" },
@@ -123,7 +123,7 @@ const agent = (t: AgentTemplate, waves: Preset["agents"][number]["waves"]) => ({
 const ITEM: MissionListItem = missionListItem.parse({
 	id: uuid(501),
 	origin: "internal",
-	type: "full-build",
+	type: "template-booking",
 	sprintN: 1,
 	status: "draft",
 	cut: "horizontal",
@@ -144,7 +144,7 @@ const DETAIL: MissionDetail = missionDetail.parse({
 	cutRationale: null,
 	repoUrl: "https://github.com/example/app",
 	roster: { agents: 1, active: 1 },
-	playbook: { missionType: "full-build", name: "Full build" },
+	playbook: { missionType: "template-booking", name: "Template booking" },
 	recentActivity: [],
 });
 
@@ -232,8 +232,8 @@ describe("fieldCheck", () => {
 
 describe("ofType", () => {
 	it("keeps exact type matches only, since the search is a substring", () => {
-		const other = { ...ITEM, id: uuid(502), type: "full-build-lite" };
-		expect(ofType([ITEM, other], "full-build").map((m) => m.id)).toEqual([
+		const other = { ...ITEM, id: uuid(502), type: "template-booking-lite" };
+		expect(ofType([ITEM, other], "template-booking").map((m) => m.id)).toEqual([
 			ITEM.id,
 		]);
 	});
@@ -332,7 +332,7 @@ const pages = <T,>(rows: T[]) => ({
 });
 
 const listParams = (origin: "client" | "internal") => ({
-	q: "full-build",
+	q: "template-booking",
 	sort: "lastActivity",
 	includeArchived: false,
 	origin,
@@ -340,7 +340,7 @@ const listParams = (origin: "client" | "internal") => ({
 
 function everything(p: Preset, missions: MissionListItem[] = [ITEM]): Seed[] {
 	return [
-		set(queryKeys.playbooks.byType("full-build"), PLAYBOOK),
+		set(queryKeys.playbooks.byType("template-booking"), PLAYBOOK),
 		set(queryKeys.presets.detail(PLAYBOOK.defaultPresetId), p),
 		set(
 			queryKeys.catalog.agentTemplates(CATALOG_PAGE_SIZE),
@@ -400,7 +400,7 @@ function element(html: string, testid: string): string {
 }
 
 const text = (html: string) => html.replaceAll("<!-- -->", "");
-const PAGE = "/playbooks/full-build";
+const PAGE = "/playbooks/template-booking";
 
 describe("the builder's sections", () => {
 	it("quotes alignment's doc, and marks qa's meaning not built", async () => {

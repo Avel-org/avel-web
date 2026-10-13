@@ -44,7 +44,7 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
 		id: ID,
 		origin: "internal",
-		type: "full-build",
+		type: "template-booking",
 		sprintN: 1,
 		status: "draft",
 		cut: "horizontal",
@@ -61,7 +61,7 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 		cutRationale: null,
 		repoUrl: "https://github.com/example/app",
 		roster: { agents: 2, active: 2 },
-		playbook: { missionType: "full-build", name: "Full build" },
+		playbook: { missionType: "template-booking", name: "Template booking" },
 		recentActivity: [],
 		...extra,
 	});
@@ -69,8 +69,8 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 
 const PLAYBOOK: Playbook = playbookSchema.parse({
 	id: uuid(1),
-	missionType: "full-build",
-	name: "Full build",
+	missionType: "template-booking",
+	name: "Template booking",
 	wavesApplicable: ["C", "A", "B"],
 	gates: [{ gate: "qa", policy: "mandatory" }],
 	deliverable: "pr",
@@ -378,9 +378,11 @@ describe("/missions/$id/playbook", () => {
 
 	it("shows the resolved playbook for the mission's type", async () => {
 		const html = await render(PAGE, ...everything());
-		expect(tagOf(html, "playbook-prop-name")).toContain('value="Full build"');
+		expect(tagOf(html, "playbook-prop-name")).toContain(
+			'value="Template booking"',
+		);
 		expect(tagOf(html, "mission-playbook-open-type")).toContain(
-			'href="/playbooks/full-build"',
+			'href="/playbooks/template-booking"',
 		);
 	});
 

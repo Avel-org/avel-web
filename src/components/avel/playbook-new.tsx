@@ -43,7 +43,7 @@ export function missionTypeProblem(value: string): string | null {
 	const parsed = createPlaybookBody.shape.missionType.safeParse(value.trim());
 	return parsed.success
 		? null
-		: "Lowercase letters, digits and single hyphens, like full-build.";
+		: "Lowercase letters, digits and single hyphens, like template-booking.";
 }
 
 /** Which field a refusal belongs on, beyond its issue paths. */
@@ -217,7 +217,7 @@ export function NewPlaybookForm({
 					<Input
 						{...props}
 						className="type-mono-small"
-						placeholder="full-build"
+						placeholder="template-booking"
 						autoComplete="off"
 						value={missionType}
 						onChange={(e) => setMissionType(e.target.value)}
