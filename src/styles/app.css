@@ -823,3 +823,59 @@ select:focus-visible {
 [cmdk-item]:focus-visible {
 	outline: none;
 }
+
+/*
+ * The notched plate (ruling 44), for agent cards: a `plate` with its top
+ * right corner cut at 45 degrees and a small matching cut at the bottom
+ * left, so a card reads as a machined part. The clip cuts the border too,
+ * so each cut redraws its own edge in the plate's edge token. Clipping also
+ * removes the plate's outer shadow: `plate-notched-lift` on the wrapper
+ * casts the ledge and e1 as drop shadows, which follow the cut shape.
+ */
+@utility plate-notched {
+	--notch: 1.125rem;
+	--notch-foot: 0.5rem;
+	position: relative;
+	clip-path: polygon(
+		0 0,
+		calc(100% - var(--notch)) 0,
+		100% var(--notch),
+		100% 100%,
+		var(--notch-foot) 100%,
+		0 calc(100% - var(--notch-foot))
+	);
+	&::before,
+	&::after {
+		content: "";
+		position: absolute;
+		pointer-events: none;
+		background-image: linear-gradient(
+			to top right,
+			transparent calc(50% - 0.75px),
+			var(--notch-edge, var(--color-border-plate)) calc(50% - 0.75px),
+			var(--notch-edge, var(--color-border-plate)) calc(50% + 0.75px),
+			transparent calc(50% + 0.75px)
+		);
+	}
+	&::before {
+		top: -1px;
+		right: -1px;
+		width: var(--notch);
+		height: var(--notch);
+	}
+	&::after {
+		bottom: -1px;
+		left: -1px;
+		width: var(--notch-foot);
+		height: var(--notch-foot);
+	}
+	&:hover,
+	&:has(:focus-visible) {
+		--notch-edge: var(--color-border-strong);
+	}
+}
+
+@utility plate-notched-lift {
+	filter: drop-shadow(0 1px 0 var(--color-plate-ledge))
+		drop-shadow(var(--shadow-e1));
+}

@@ -5,9 +5,8 @@ import {
 	WAVES,
 	type Wave,
 } from "avel-server/contract";
-import { ChevronLeft, ChevronRight, ListFilter, Search } from "lucide-react";
+import { ListFilter, Search } from "lucide-react";
 import { useId } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,28 +21,33 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
-	AGENT_MISSING,
 	type AgentSide,
 	firstWave,
 	isFirmAgent,
 	SIDES,
 	sideOf,
-	territoriesOf,
 } from "./catalog-agent-placeholders";
-import { inCatalogOrder, inWaveOrder } from "./catalog-sample";
-import { type DataColumn, DataTable, type SortState } from "./data-table";
+import type { SortState } from "./data-table";
+
+/*
+ * The All agents list's pure pieces: filtering, sorting, the side tile and
+ * the filter row. The cards are in catalog-agent-card.tsx and the graph in
+ * catalog-agent-graph.tsx. The file keeps its name because the agent page
+ * imports initialsOf from it.
+ */
+
+/** What people read for each kind: how the agent is used. */
+export const KIND_LABEL = {
+	horizontal: "Shared",
+	feature: "Feature",
+} as const satisfies Record<AgentKind, string>;
 
 /** Side tabs: every side, and Firm for templates with none. */
 export type SideTab = AgentSide | "firm";
 
-/** The table's filters; unset shows all. */
+/** The list's filters; unset shows all. */
 export type AgentFilters = {
 	side?: SideTab;
 	kind?: AgentKind;
@@ -141,178 +145,6 @@ export function AgentTile({
 		>
 			{initialsOf(agent.name)}
 		</span>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// The table.
-
-/**
- * A sample column's name: underlined dashed, as every placeholder is, with a
- * tooltip naming what it waits for. The table region's one pill covers the
- * rows; these say which columns come from somewhere else. The words are in
- * the markup too, for screen readers.
- */
-function SampleHeader({
-	column,
-	missing,
-}: {
-	column: (typeof SAMPLE_COLUMNS)[number]["column"];
-	missing: string;
-}) {
-	const words = `Sample data until avel-server has ${missing}.`;
-	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<span
-					data-testid={`catalog-agents-sample-column-${column}`}
-					data-missing={missing}
-					// relative: the sr-only words are absolute, and must stay inside
-					// the table's scroll box, or a clipped column widens the canvas.
-					className="relative border-b border-dashed border-border-strong"
-				>
-					{column}
-					<span className="sr-only">{`, ${words}`}</span>
-				</span>
-			</TooltipTrigger>
-			<TooltipContent>{words}</TooltipContent>
-		</Tooltip>
-	);
-}
-
-/**
- * Which values are samples from somewhere other than the templates route,
- * each with what it waits for. Their headers are underlined dashed.
- */
-export const SAMPLE_COLUMNS = [
-	{ column: "TERRITORY", missing: AGENT_MISSING.territories },
-	{ column: "SIDE", missing: AGENT_MISSING.sides },
-] as const;
-
-const sampleHeader = (column: (typeof SAMPLE_COLUMNS)[number]["column"]) => (
-	<SampleHeader
-		column={column}
-		missing={SAMPLE_COLUMNS.find((c) => c.column === column)?.missing ?? ""}
-	/>
-);
-
-/** What the WAVES cell says for a firm agent, and why. */
-export const FIRM_WAVES = {
-	text: "—",
-	title: "Firm agents work between missions; the firm roster has no waves",
-} as const;
-
-const COLUMNS: DataColumn<AgentTemplate>[] = [
-	{
-		id: "name",
-		header: <span>AGENT {sampleHeader("TERRITORY")}</span>,
-		sortable: true,
-		cell: (agent) => {
-			const territories = territoriesOf(agent);
-			return (
-				<span className="flex items-center gap-2.5">
-					<AgentTile agent={agent} />
-					<span className="flex min-w-0 flex-col">
-						<span className="type-small font-medium text-foreground">
-							{agent.name}
-						</span>
-						<span
-							data-testid={`catalog-agent-territory-${agent.slug}`}
-							className="type-caption text-text-subtle"
-						>
-							{territories.length > 0
-								? territories.join(", ")
-								: "whole project"}
-						</span>
-					</span>
-				</span>
-			);
-		},
-	},
-	{
-		id: "side",
-		header: sampleHeader("SIDE"),
-		sortable: true,
-		mono: true,
-		cell: (agent) =>
-			sideOf(agent) ?? (
-				<span
-					title="Firm roles run between missions and have no side"
-					className="text-text-subtle"
-				>
-					firm
-				</span>
-			),
-	},
-	{
-		id: "roles",
-		header: "ROLES",
-		cell: (agent) => (
-			<span
-				data-testid={`catalog-agent-roles-${agent.slug}`}
-				className="flex flex-wrap gap-1"
-			>
-				{inCatalogOrder(agent.roles).map((role) => (
-					<Badge key={role} variant="tag" data-testid="catalog-role">
-						{role}
-					</Badge>
-				))}
-			</span>
-		),
-	},
-	{
-		id: "wave",
-		header: "WAVES",
-		sortable: true,
-		mono: true,
-		cell: (agent) =>
-			isFirmAgent(agent) ? (
-				<span
-					data-testid={`catalog-agent-waves-${agent.slug}`}
-					title={FIRM_WAVES.title}
-					className="relative text-text-subtle"
-				>
-					{FIRM_WAVES.text}
-					<span className="sr-only">{`, ${FIRM_WAVES.title}`}</span>
-				</span>
-			) : (
-				inWaveOrder(agent.waveDefaults).join("")
-			),
-	},
-];
-
-export const PAGE_SIZE = 10;
-
-/**
- * The process table: one dense row per template, machine values in mono.
- * A row opens the panel, by pointer or by Enter.
- */
-export function AgentProcessTable({
-	agents,
-	sort,
-	onSortChange,
-	onOpen,
-}: {
-	agents: AgentTemplate[];
-	sort: SortState;
-	onSortChange: (next: SortState) => void;
-	onOpen: (slug: string) => void;
-}) {
-	return (
-		<div className="flex min-w-0 flex-col gap-2">
-			<DataTable
-				label="All agents"
-				data-testid="catalog-agents-table"
-				columns={COLUMNS}
-				rows={agents}
-				getRowId={(agent) => agent.slug}
-				density="compact"
-				stickyHeader={false}
-				sort={sort}
-				onSortChange={onSortChange}
-				onRowClick={(agent) => onOpen(agent.slug)}
-			/>
-		</div>
 	);
 }
 
@@ -432,6 +264,7 @@ export function AgentFilterRow({
 							testId="catalog-agents-filter-kind"
 							value={filters.kind}
 							options={agentKind.options}
+							labels={KIND_LABEL}
 							onChange={(kind) =>
 								onChange({ ...filters, kind: kind as AgentKind | undefined })
 							}
@@ -451,12 +284,15 @@ function FilterSelect({
 	testId,
 	value,
 	options,
+	labels,
 	onChange,
 }: {
 	label: string;
 	testId: string;
 	value: string | undefined;
 	options: readonly string[];
+	/** What each option reads as, when not its value. */
+	labels?: Readonly<Record<string, string>>;
 	onChange: (value: string | undefined) => void;
 }) {
 	const id = useId();
@@ -475,82 +311,19 @@ function FilterSelect({
 					data-testid={testId}
 					className="w-full type-mono-small"
 				>
-					<SelectValue>{value ?? "all"}</SelectValue>
+					<SelectValue>
+						{value === undefined ? "all" : (labels?.[value] ?? value)}
+					</SelectValue>
 				</SelectTrigger>
 				<SelectContent>
 					<SelectItem value={ALL}>all</SelectItem>
 					{options.map((option) => (
 						<SelectItem key={option} value={option}>
-							{option}
+							{labels?.[option] ?? option}
 						</SelectItem>
 					))}
 				</SelectContent>
 			</Select>
-		</div>
-	);
-}
-
-/** "Showing 8 of 8", and page controls when there is more than one page. */
-export function AgentTableFooter({
-	shown,
-	total,
-	page,
-	pages,
-	onPage,
-}: {
-	shown: number;
-	total: number;
-	page: number;
-	pages: number;
-	onPage: (page: number) => void;
-}) {
-	return (
-		<div
-			data-testid="catalog-agents-footer"
-			className="flex items-center justify-between gap-2"
-		>
-			<p
-				data-testid="catalog-agents-showing"
-				className="type-caption text-text-subtle tabular-nums"
-			>
-				{`Showing ${shown} of ${total}`}
-			</p>
-			{pages > 1 ? (
-				<nav aria-label="Pages" className="flex items-center gap-1">
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						aria-label="Previous page"
-						disabled={page === 0}
-						onClick={() => onPage(page - 1)}
-					>
-						<ChevronLeft aria-hidden="true" />
-					</Button>
-					{Array.from({ length: pages }, (_, i) => (
-						<Button
-							// biome-ignore lint/suspicious/noArrayIndexKey: a page is its index
-							key={i}
-							variant={i === page ? "secondary" : "ghost"}
-							size="icon-sm"
-							aria-current={i === page ? "page" : undefined}
-							data-testid={`catalog-agents-page-${i + 1}`}
-							onClick={() => onPage(i)}
-							className="type-mono-small"
-						>
-							{i + 1}
-						</Button>
-					))}
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						aria-label="Next page"
-						disabled={page === pages - 1}
-						onClick={() => onPage(page + 1)}
-					>
-						<ChevronRight aria-hidden="true" />
-					</Button>
-				</nav>
-			) : null}
 		</div>
 	);
 }

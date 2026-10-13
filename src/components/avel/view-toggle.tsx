@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 /*
  * A view switch (ruling 36): pressed-state buttons, one pressed, as on
- * Agents' Table | Graph and the Board | Table pages. The caller keeps the
+ * Agents' Cards | Graph and the Board | Table pages. The caller keeps the
  * view (in the URL, as a rule); this only shows it and reports a change.
  */
 

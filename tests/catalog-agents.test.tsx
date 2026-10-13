@@ -8,6 +8,15 @@ import { ROLES, WAVES } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import {
+	AgentCard,
+	agentDescription,
+	CARD_PATHS,
+	DESCRIPTION_MAX,
+	FIRM_WAVES,
+	identityProse,
+	rolesSentence,
+} from "@/components/avel/catalog-agent-card";
 import { AgentGraph } from "@/components/avel/catalog-agent-graph";
 import {
 	IdentityTab,
@@ -31,10 +40,9 @@ import {
 	territoriesOf,
 } from "@/components/avel/catalog-agent-placeholders";
 import {
-	FIRM_WAVES,
 	filterAgents,
 	initialsOf,
-	SAMPLE_COLUMNS,
+	KIND_LABEL,
 	SIDE_TABS,
 	sortAgents,
 } from "@/components/avel/catalog-agent-table";
@@ -60,8 +68,8 @@ import { renderPage, tagOf } from "./render-page";
 /*
  * /catalog/agents: the templates are live (GET /api/agent-templates, and
  * the panel by slug), rendered through the real router with a seeded
- * QueryClient. The graph's edges and four of the table's columns are still
- * labelled samples (AVEL-DESIGN.md rulings 32 and 34), derived from the live
+ * QueryClient. The graph's edges and each card's territory and side are
+ * still labelled samples (AVEL-DESIGN.md rulings 32 and 34), derived from the live
  * template's own fields.
  */
 
@@ -167,12 +175,6 @@ const tip = (node: ReactNode) =>
 		</RouterContextProvider>,
 	);
 
-/** Text content of the cells of one table row. */
-const cellsOf = (row: string) =>
-	[...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) =>
-		(m[1] ?? "").replace(/<[^>]+>/g, ""),
-	);
-
 const noop = () => {};
 
 const PATH = "/api/agent-templates";
@@ -190,9 +192,9 @@ const page = (search = ""): Promise<string> => {
 };
 
 /** The console in a chosen view, with the list it reads seeded. */
-function Console({ view }: { view: "table" | "graph" }) {
+function Console({ view }: { view: "cards" | "graph" }) {
 	const query = useAgentTemplates();
-	return <CatalogAgents query={query} initialView={view} />;
+	return <CatalogAgents query={query} view={view} onViewChange={noop} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -344,115 +346,344 @@ describe("filtering and sorting", () => {
 	});
 });
 
-describe("/catalog/agents: the table", () => {
+describe("/catalog/agents: the cards", () => {
 	it("renders the same page for the same data on every visit", async () => {
 		const once = () =>
 			renderSeeded("/catalog/agents", seededClient({ agents: AGENTS }));
 		expect(await once()).toBe(await once());
 	});
 
-	it("puts no pill on the live table, and names what each sample column waits for", async () => {
+	it("replaces the table: no table, no pages, Cards | Graph with Cards pressed", async () => {
 		const html = await page();
-		expectLabelled(html, [
-			"catalog-agents-read-only",
-			"catalog-agents-view",
-			"catalog-agents-table",
-		]);
-		// The rows are live: no region, no pill, anywhere in the table view.
-		expect(html).not.toContain("data-sample-region=");
-		expect(html).not.toContain('data-testid="sample-data"');
-		const table = element(html, "catalog-agents-table");
-		for (const c of SAMPLE_COLUMNS) {
-			const header = element(table, `catalog-agents-sample-column-${c.column}`);
-			// In a column header, underlined dashed, naming what it waits for.
-			expect(
-				table.lastIndexOf(
-					"<th",
-					table.indexOf(`catalog-agents-sample-column-${c.column}`),
-				),
-			).toBeGreaterThan(-1);
-			expect(ROUTES.has(c.missing), c.column).toBe(true);
-			expect(fromAttr(header)).toContain(`data-missing="${c.missing}"`);
-			expect(header).toMatch(/class="[^"]*\bborder-dashed\b/);
-			expect(fromAttr(header)).toContain(
-				`, Sample data until avel-server has ${c.missing}.`,
-			);
-		}
-	});
-
-	it("keeps every sr-only reason inside the table's scroll box", async () => {
-		// sr-only text is absolute. Inside a column the table scrolls past, it
-		// must be positioned against its own header or cell, or it stretches
-		// the canvas (it did, by 191px, at 768).
-		const html = await page();
-		for (const id of [
-			...SAMPLE_COLUMNS.map((c) => `catalog-agents-sample-column-${c.column}`),
-			"catalog-agent-waves-canon",
-		]) {
-			const classes = tagOf(html, id)
-				.match(/class="([^"]*)"/)?.[1]
-				?.split(/\s+/);
-			expect(classes, id).toContain("relative");
-		}
-	});
-
-	it("gives a firm agent no waves: a dash, and why", async () => {
-		const html = await page();
-		const canon = element(html, "catalog-agents-table-row-canon");
-		expect(cellsOf(canon)[3]).toBe(`${FIRM_WAVES.text}, ${FIRM_WAVES.title}`);
-		expect(tagOf(canon, "catalog-agent-waves-canon")).toContain(
-			`title="${FIRM_WAVES.title}"`,
-		);
-		// Everyone else keeps their waves.
-		expect(cellsOf(element(html, "catalog-agents-table-row-atlas"))[3]).toBe(
-			"B",
-		);
-		expect(isFirmAgent(agent("canon"))).toBe(true);
-		expect(AGENTS.filter(isFirmAgent).map((a) => a.slug)).toEqual(["canon"]);
-	});
-
-	it("lists one row per live template, in wave order, with these columns", async () => {
-		const html = await page();
-		const table = element(html, "catalog-agents-table");
-		const headers = [...table.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) =>
-			(m[1] ?? "").replace(/<[^>]+>/g, ""),
-		);
-		// Sample headers carry their reason for screen readers; strip it here.
+		expect(html).not.toContain("catalog-agents-table");
+		expect(html).not.toMatch(/<table[\s>]/);
+		expect(html).not.toContain('aria-label="Pages"');
+		const toggle = element(html, "catalog-agents-view");
 		expect(
-			headers.map((h) => h.replace(/, Sample data until[^.]*\./g, "")),
-		).toEqual(["AGENT TERRITORY", "SIDE", "ROLES", "WAVES"]);
+			[...toggle.matchAll(/data-testid="catalog-agents-view-([a-z]+)"/g)].map(
+				(m) => m[1],
+			),
+		).toEqual(["cards", "graph"]);
+		expect(tagOf(html, "catalog-agents-view-cards")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(html).not.toContain("catalog-agents-graph-region");
+	});
+
+	it("keeps the view in the URL: ?view=graph is the graph", async () => {
+		const html = await page("?view=graph");
+		expect(tagOf(html, "catalog-agents-view-graph")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(html).toContain('data-testid="catalog-agents-graph-region"');
+		expect(html).not.toContain('data-testid="catalog-agents-cards"');
+	});
+
+	it("lists one card per live agent, in wave order, each built from its sections", async () => {
+		const html = await page();
+		const grid = element(html, "catalog-agents-cards");
 		const order = [
-			...table.matchAll(/data-testid="catalog-agents-table-row-([a-z]+)"/g),
+			...grid.matchAll(/data-testid="catalog-agent-card-([a-z]+)"/g),
 		].map((m) => m[1]);
 		expect(order).toEqual(
 			sortAgents(AGENTS, { column: "wave", direction: "asc" }).map(
 				(a) => a.slug,
 			),
 		);
+		for (const a of AGENTS) {
+			const card = element(html, `catalog-agent-card-${a.slug}`);
+			expect(
+				[...card.matchAll(/data-section="([a-z]+)"/g)].map((m) => m[1]),
+				a.slug,
+			).toEqual(["identity", "description", "roles", "waves", "paths"]);
+			// The territory sits between waves and paths, as a sample region.
+			const at = (id: string) => card.indexOf(`data-testid="${id}"`);
+			expect(at(`catalog-agent-card-territory-${a.slug}`)).toBeGreaterThan(
+				at(`catalog-agent-card-waves-${a.slug}`),
+			);
+			expect(at(`catalog-agent-card-territory-${a.slug}`)).toBeLessThan(
+				at(`catalog-agent-card-paths-${a.slug}`),
+			);
+		}
 	});
 
-	it("shows a tile, the name over its territory, role chips, and mono machine values", async () => {
+	it("is a notched plate: the shape, its lift, and nothing raw", async () => {
 		const html = await page();
-		const atlas = agent("atlas");
-		const row = element(html, "catalog-agents-table-row-atlas");
-		expect(cellsOf(row)).toEqual([
-			`ATAtlas${territoriesOf(atlas).join(", ")}`,
-			"author",
-			"domainapi-surface",
-			"B",
-		]);
-		const tile = tagOf(row, "catalog-agent-tile-atlas");
+		const card = element(html, "catalog-agent-card-atlas");
+		expect(tagOf(html, "catalog-agent-card-atlas")).toMatch(
+			/class="[^"]*\bplate-notched-lift\b/,
+		);
+		const article = card.match(/<article[^>]*>/)?.[0] ?? "";
+		for (const c of ["plate", "plate-notched", "plate-interactive"]) {
+			expect(article).toMatch(new RegExp(`class="[^"]*\\b${c}(\\s|")`));
+		}
+		const css = readFileSync("src/styles/app.css", "utf8");
+		const utility = css.slice(css.indexOf("@utility plate-notched {"));
+		expect(utility).toContain("clip-path: polygon(");
+		expect(utility.slice(0, utility.indexOf("\n}\n"))).not.toMatch(
+			/#[0-9a-f]{3,8}\b|rgb\(|oklch\(/i,
+		);
+	});
+
+	it("heads each card with its identity: tile, name, slug, kind and version", async () => {
+		const html = await page();
+		const atlas = element(html, "catalog-agent-card-identity-atlas");
+		const tile = tagOf(atlas, "catalog-agent-tile-atlas");
 		expect(tile).toContain('aria-hidden="true"');
 		expect(tile).toContain('data-side="author"');
-		expect(row.match(/data-testid="catalog-role"/g)).toHaveLength(2);
+		expect(atlas).toContain(">AT<");
+		expect(atlas).toMatch(/<h2[^>]*>Atlas<\/h2>/);
+		expect(atlas).toContain(">atlas<");
+		expect(element(atlas, "catalog-agent-version-atlas")).toContain(">v3<");
+		// Kind reads as how the agent is used.
+		expect(element(html, "catalog-agent-kind-atlas")).toContain(">Feature<");
+		expect(element(html, "catalog-agent-kind-nemi")).toContain(">Shared<");
+		expect(KIND_LABEL).toEqual({ horizontal: "Shared", feature: "Feature" });
+		// Version hash and the token estimate are gone from this page.
+		const body = element(html, "catalog-agents");
+		expect(body).not.toContain("catalog-agent-sha-");
+		expect(body).not.toMatch(/estimate|ceiling|\d[\d,.k]* tokens/i);
+	});
+
+	it("describes the agent first, in its own written words", async () => {
+		const html = await page();
+		const written = AGENTS.filter((a) => a.description !== null);
+		// Both card paths are in the fixtures: written, and not written.
+		expect(written.length).toBeGreaterThan(0);
+		expect(written.length).toBeLessThan(AGENTS.length);
+		for (const a of written) {
+			expect(agentDescription(a)).toEqual({
+				text: a.description,
+				source: "written",
+			});
+			const section = element(html, `catalog-agent-card-description-${a.slug}`);
+			expect(section).toContain('data-source="written"');
+			const p = tagOf(section, `catalog-agent-description-${a.slug}`);
+			// The card's main text: body size, foreground, three lines, all of
+			// it on hover.
+			expect(p).toMatch(/class="[^"]*\bline-clamp-3\b/);
+			expect(p).toMatch(/class="[^"]*\btype-body\b/);
+			expect(p).toMatch(/class="[^"]*\btext-foreground\b/);
+			expect(fromAttr(p)).toContain(`title="${a.description}"`);
+			// The server's own words carry no caption.
+			expect(section).not.toContain("catalog-agent-description-source-");
+		}
+		// First, right under the band.
+		const card = element(html, "catalog-agent-card-atlas");
+		expect(
+			[...card.matchAll(/data-section="([a-z]+)"/g)].map((m) => m[1])[1],
+		).toBe("description");
+		// Written text wins over identity prose; long text is cut at a word.
+		const both = {
+			...agent("atlas"),
+			description: "Builds the **server**.",
+			identityMd: "# Atlas\n\nIdentity prose, never shown here.",
+		};
+		expect(agentDescription(both)).toEqual({
+			text: "Builds the server.",
+			source: "written",
+		});
+		const long = agentDescription({
+			...agent("atlas"),
+			description: "word ".repeat(80).trim(),
+		}).text;
+		expect(long.length).toBeLessThanOrEqual(DESCRIPTION_MAX + 1);
+		expect(long).toMatch(/word…$/);
+	});
+
+	it("falls back to its identity's first paragraph when none is written", () => {
+		const prose = [
+			"# Atlas",
+			"",
+			"Generated from roles. Do not edit by hand.",
+			"",
+			"## Who it is",
+			"- a list item, never the description",
+			"Atlas builds the **server** side of a feature: its",
+			"`services` and [routes](https://example.test).",
+			"",
+			"A second paragraph, never shown.",
+		].join("\n");
+		const atlas = { ...agent("atlas"), description: null, identityMd: prose };
+		expect(agentDescription(atlas)).toEqual({
+			text: "Atlas builds the server side of a feature: its services and routes.",
+			source: "identity",
+		});
+		const card = tip(
+			<ul>
+				<AgentCard agent={atlas} />
+			</ul>,
+		);
+		const section = element(card, "catalog-agent-card-description-atlas");
+		expect(section).toContain('data-source="identity"');
+		expect(section).toContain(
+			">Atlas builds the server side of a feature: its services and routes.<",
+		);
+		// The identity is live text, so it needs no caption either.
+		expect(section).not.toContain("catalog-agent-description-source-");
+		const long = identityProse(`# X\n\n${"word ".repeat(80)}`) ?? "";
+		expect(long.length).toBeLessThanOrEqual(DESCRIPTION_MAX + 1);
+		expect(long).toMatch(/word…$/);
+	});
+
+	it("says what its roles do when nothing is written, and says so", async () => {
+		for (const stub of ["# Atlas", "# Atlas\n\n## Boundaries\n- one rule"]) {
+			expect(identityProse(stub)).toBeNull();
+		}
+		expect(rolesSentence(agent("atlas"))).toBe(
+			"A Build agent. Writes services and routes from contract.ts and migrations. Works in wave B.",
+		);
+		expect(rolesSentence(agent("canon"))).toBe(
+			"A Firm agent. Writes brief and scope from client-input and engagement-history. Works between missions.",
+		);
+		// Three inputs at most are named; the rest are counted.
+		expect(rolesSentence(agent("brennan"))).toBe(
+			"A Review agent. Writes findings/spec from brief, services, routes and 2 more. Works in wave D.",
+		);
+		// The fixtures' identities hold only the generator's notice, so an
+		// agent with nothing written says what its roles do.
+		const html = await page();
+		const unwritten = AGENTS.filter((a) => a.description === null);
+		expect(unwritten.map((a) => a.slug)).toEqual(["nemi", "canon"]);
+		for (const a of unwritten) {
+			expect(agentDescription(a)).toEqual({
+				text: rolesSentence(a),
+				source: "roles",
+			});
+			const section = element(html, `catalog-agent-card-description-${a.slug}`);
+			expect(section).toContain('data-source="roles"');
+			expect(section).toContain(`>${rolesSentence(a)}<`);
+			const caption = element(
+				section,
+				`catalog-agent-description-source-${a.slug}`,
+			);
+			expect(caption).toContain(">From its roles<");
+			expect(caption).toMatch(/class="[^"]*\btype-caption\b/);
+		}
+	});
+
+	it("shows role chips in catalog order, and where it works as five waves", async () => {
+		const html = await page();
+		const roles = element(html, "catalog-agent-roles-atlas");
+		expect(
+			[...roles.matchAll(/data-testid="catalog-role"[^>]*>([^<]+)</g)].map(
+				(m) => m[1],
+			),
+		).toEqual(["domain", "api-surface"]);
+		const waves = element(html, "catalog-agent-waves-atlas");
+		expect(
+			[...waves.matchAll(/data-wave="([A-E])" data-runs="(true|false)"/g)].map(
+				(m) => `${m[1]}${m[2] === "true" ? "+" : "-"}`,
+			),
+		).toEqual(["A-", "B+", "C-", "D-", "E-"]);
+		expect(waves).toContain("Runs in waves B.");
+		// The ones it skips are dashed.
+		expect(waves).toMatch(/data-wave="A"[^>]*class="[^"]*\bborder-dashed\b/);
+		expect(waves).not.toMatch(
+			/data-wave="B"[^>]*class="[^"]*\bborder-dashed\b/,
+		);
+	});
+
+	it("gives a firm agent no waves: between missions, and why", async () => {
+		const html = await page();
+		const canon = element(html, "catalog-agent-waves-canon");
+		expect(canon).not.toContain("data-wave=");
+		expect(fromAttr(canon)).toContain(`title="${FIRM_WAVES.title}"`);
+		expect(fromAttr(canon.replace(/<[^>]+>/g, ""))).toBe(
+			`${FIRM_WAVES.text}. ${FIRM_WAVES.title}`,
+		);
+		expect(FIRM_WAVES.text).toBe("Between missions");
+		expect(tagOf(html, "catalog-agent-waves-canon")).toMatch(
+			/class="[^"]*\brelative\b/,
+		);
+		expect(isFirmAgent(agent("canon"))).toBe(true);
+		expect(AGENTS.filter(isFirmAgent).map((a) => a.slug)).toEqual(["canon"]);
+	});
+
+	it("labels each card's territory and side as samples, and nothing else", async () => {
+		const html = await page();
+		expectLabelled(html, [
+			"catalog-agents-read-only",
+			"catalog-agents-view",
+			"catalog-agent-card-identity-atlas",
+			"catalog-agent-card-roles-atlas",
+			"catalog-agent-card-waves-atlas",
+			"catalog-agent-card-paths-atlas",
+			"catalog-agent-card-open-atlas",
+		]);
+		const rs = regions(html);
+		expect(rs).toHaveLength(AGENTS.length);
+		for (const r of rs) expect(r.missing).toBe(AGENT_MISSING.territories);
+		const atlas = agent("atlas");
+		const territory = element(html, "catalog-agent-card-territory-atlas");
+		expect(territory).toContain(`>${territoriesOf(atlas).join(", ")}<`);
 		// A horizontal agent's territory is the whole project.
 		expect(element(html, "catalog-agent-territory-nemi")).toContain(
 			">whole project<",
 		);
-		const tds = [...row.matchAll(/<td[^>]*class="([^"]*)"/g)].map((m) => m[1]);
-		for (const i of [1, 3]) expect(tds[i]).toMatch(/\btype-mono\b/);
-		// Version, hash and the token estimate wait for a page of their own.
-		expect(row).not.toContain("catalog-agent-sha-");
+		// The side is a second sample: dashed, with its reason in words.
+		const words = `Sample data until avel-server has ${AGENT_MISSING.sides}.`;
+		const side = element(territory, "catalog-agent-side-atlas");
+		expect(fromAttr(side)).toContain(`data-missing="${AGENT_MISSING.sides}"`);
+		expect(side).toMatch(/class="[^"]*\bborder-dashed\b/);
+		expect(side).toMatch(/class="[^"]*\brelative\b/);
+		expect(fromAttr(side)).toContain(
+			`>author<span class="sr-only">, ${words}<`,
+		);
+		expect(element(html, "catalog-agent-side-canon")).toContain(">firm<");
+	});
+
+	it("lists writable paths in mono, three at most, then a count", async () => {
+		const html = await page();
+		const leonora = element(html, "catalog-agent-paths-leonora");
+		expect(
+			[...leonora.matchAll(/<li[^>]*type-mono-small[^>]*>([^<]+)</g)].map(
+				(m) => m[1],
+			),
+		).toEqual(agent("leonora").writablePaths);
+		expect(leonora).not.toContain("more");
+		expect(element(html, "catalog-agent-card-paths-canon")).toContain(
+			">Writes no files.<",
+		);
+		const many = {
+			...agent("zane"),
+			writablePaths: ["a/**", "b/**", "c/**", "d/**", "e/**"],
+		};
+		const card = tip(
+			<ul>
+				<AgentCard agent={many} />
+			</ul>,
+		);
+		const paths = element(card, "catalog-agent-paths-zane");
+		expect(paths.match(/type-mono-small/g)).toHaveLength(CARD_PATHS);
+		expect(paths).toMatch(/class="[^"]*\btruncate\b/);
+		expect(element(card, "catalog-agent-paths-more-zane")).toContain(
+			`>+${5 - CARD_PATHS} more<`,
+		);
+		// The section's label counts every glob, not only those shown.
+		expect(element(card, "catalog-agent-card-paths-zane")).toMatch(
+			/Writable paths<\/span><span[^>]*>5</,
+		);
+	});
+
+	it("is one link to the agent's page, stretched over the card, the pill above it", async () => {
+		const html = await page();
+		for (const a of AGENTS) {
+			const card = element(html, `catalog-agent-card-${a.slug}`);
+			const links = card.match(/<a[\s][^>]*>/g) ?? [];
+			expect(links, a.slug).toHaveLength(1);
+			const link = links[0] ?? "";
+			expect(link).toContain(`href="/catalog/agents/${a.slug}"`);
+			expect(link).toContain(`data-testid="catalog-agent-card-open-${a.slug}"`);
+			expect(link).toContain(`aria-label="Open ${a.name}"`);
+			expect(link).toMatch(/class="[^"]*after:absolute[^"]*after:inset-0/);
+			expect(link.replace(/<[^>]+>/g, "")).toBe("");
+			// A button inside a link is invalid, so the pill is the link's sibling.
+			expect(card).not.toMatch(/<a[\s][^>]*>(?:(?!<\/a>)[\s\S])*<button/);
+			expect(tagOf(card, `catalog-agent-card-territory-${a.slug}`)).toMatch(
+				/class="[^"]*\brelative\b[^"]*\bz-10\b/,
+			);
+		}
 	});
 
 	it("gives each side its own tile tone, from tokens only", async () => {
@@ -464,7 +695,7 @@ describe("/catalog/agents: the table", () => {
 			["atlas", "iyo", "brennan", "canon"].map((s) =>
 				tone(s)
 					.replace(
-						/\b(inline-flex|shrink-0|items-center|justify-center|rounded-sm|font-medium|size-8|type-caption)\b/g,
+						/\b(inline-flex|shrink-0|items-center|justify-center|rounded-sm|font-medium|size-11|type-body)\b/g,
 						"",
 					)
 					.trim(),
@@ -473,19 +704,6 @@ describe("/catalog/agents: the table", () => {
 		expect(tones.size).toBe(4);
 		for (const t of tones) expect(t).not.toMatch(/#|rgb|oklch|-\d{3}\b/);
 		expect(initialsOf("Atlas")).toBe("AT");
-	});
-
-	it("opens a row by pointer or keyboard, and sorts by side, wave and name only", async () => {
-		const html = await page();
-		expect(tagOf(html, "catalog-agents-table-row-atlas")).toContain(
-			'tabindex="0"',
-		);
-		const sortable = [
-			...element(html, "catalog-agents-table").matchAll(
-				/<th[^>]*data-column="([a-z]+)"[^>]*aria-sort=/g,
-			),
-		].map((m) => m[1]);
-		expect(sortable.sort()).toEqual(["name", "side", "wave"]);
 	});
 
 	it("tabs by side with counts, then search and a wave and kind filter", async () => {
@@ -515,16 +733,20 @@ describe("/catalog/agents: the table", () => {
 		expect(tagOf(html, "catalog-agents-filter")).toContain(
 			'aria-label="Filter by wave and kind"',
 		);
+		// The filter row sits above the cards.
+		expect(html.indexOf('data-testid="catalog-agents-filters"')).toBeLessThan(
+			html.indexOf('data-testid="catalog-agents-cards"'),
+		);
 	});
 
-	it("says how many it shows, with no pages when they all fit", async () => {
+	it("says how many it shows, once", async () => {
 		const html = await page();
 		expect(html).toMatch(
 			new RegExp(
 				`data-testid="catalog-agents-showing"[^>]*>Showing ${AGENTS.length} of ${AGENTS.length}<`,
 			),
 		);
-		expect(html).not.toContain('aria-label="Pages"');
+		expect(html.match(/>Showing \d+ of \d+</g)).toHaveLength(1);
 	});
 
 	it("counts from meta.total in the top bar, and offers the next page", async () => {
@@ -536,7 +758,7 @@ describe("/catalog/agents: the table", () => {
 			seededClient({ agents: { rows: AGENTS, total: 40, nextCursor: "c2" } }),
 		);
 		expect(element(html, "topbar-subtitle")).toContain(">40 agents<");
-		// One count on the page, the table's, against the server's total.
+		// One count on the page, against the server's total.
 		expect(element(html, "catalog-agents-showing")).toContain(
 			`>Showing ${AGENTS.length} of 40<`,
 		);
@@ -551,10 +773,12 @@ describe("/catalog/agents: the table", () => {
 		expect(element(one, "topbar-subtitle")).toContain(">1 agent<");
 	});
 
-	it("puts no middle dot in any meta string (ruling 4)", async () => {
+	it("puts no middle dot in any meta string (ruling 4), and says agent and team", async () => {
 		const html = await page();
 		const body = element(html, "catalog-agents");
 		expect(body).not.toContain("·");
+		const text = body.replace(/<[^>]+>/g, " ");
+		expect(text).not.toMatch(/template|preset|—/i);
 	});
 
 	it("opens an agent on its own page, never in a panel over the list", async () => {
@@ -790,7 +1014,7 @@ describe("/catalog/agents: the artifact graph", () => {
 		expect(tagOf(page, "catalog-agents-graph-region")).toContain(
 			`data-sample-region="${AGENT_MISSING.edges}"`,
 		);
-		expect(page).not.toContain('data-testid="catalog-agents-table"');
+		expect(page).not.toContain('data-testid="catalog-agents-cards"');
 		// On the list nothing is selected, so no node is marked.
 		expect(page).not.toContain("data-selected");
 	});

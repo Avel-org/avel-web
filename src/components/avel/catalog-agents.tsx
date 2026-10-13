@@ -1,18 +1,15 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { AgentTemplate } from "avel-server/contract";
-import { Bot, Network, Rows3 } from "lucide-react";
+import { Bot, LayoutGrid, Network } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { loadedRows, type useAgentTemplates } from "@/lib/api/catalog";
+import { AgentCardGrid, AgentCardSkeleton } from "./catalog-agent-card";
 import { AgentGraph } from "./catalog-agent-graph";
 import { AGENT_MISSING } from "./catalog-agent-placeholders";
 import {
 	AgentFilterRow,
 	type AgentFilters,
-	AgentProcessTable,
-	AgentTableFooter,
 	filterAgents,
-	PAGE_SIZE,
 	sortAgents,
 } from "./catalog-agent-table";
 import {
@@ -20,28 +17,35 @@ import {
 	CatalogListSkeleton,
 	SampleRegion,
 } from "./catalog-sample";
-import type { SortState } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
+import { type ViewOption, ViewToggle } from "./view-toggle";
 
 /*
- * Agent templates, /catalog/agents (ROUTES.md), as a spec console: a dense
- * table of templates, or the artifact graph between them, each at the full
- * content width. Opening an agent goes to its page, /catalog/agents/:slug;
- * nothing slides over the list. The templates are live (GET
- * /api/agent-templates). Read-only throughout: an identity is generated
- * from roles, so nothing here edits one. The graph's edges, and the table's
- * territory, side, hash and estimate columns, are still labelled samples
- * (AVEL-DESIGN.md rulings 32 and 34): no route serves them yet.
+ * All agents, /catalog/agents (ROUTES.md). The board is a grid of agent
+ * cards (ruling 44), each a notched plate built from sections: identity,
+ * roles, where it works, territory, writable paths. The artifact graph is
+ * the second view (ruling 36). Opening an agent goes to its page,
+ * /catalog/agents/:slug; nothing slides over the list. The agents are live
+ * (GET /api/agent-templates). Read-only throughout: an identity is
+ * generated from roles, so nothing here edits one. The graph's edges and
+ * each card's territory and side are still labelled samples (rulings 32
+ * and 34): no route serves them yet.
  */
 
-export type AgentView = "table" | "graph";
+export type AgentView = "cards" | "graph";
+
+/** Cards first: the board is the page; the graph is for tracing artifacts. */
+const AGENT_VIEWS = [
+	{ id: "cards", label: "Cards", icon: LayoutGrid },
+	{ id: "graph", label: "Graph", icon: Network },
+] as const satisfies readonly ViewOption<AgentView>[];
 
 /**
- * The graph's region: its nodes are the live templates, but every edge is
+ * The graph's region: its nodes are the live agents, but every edge is
  * derived from a client copy of ROLES.md, so the whole drawing is a sample.
- * The table has no region: its rows are live, and each sample column says
- * so in its own header.
+ * The cards have no region of their own: they are live, and each card's
+ * sample section carries its own pill.
  */
 function GraphRegion({ children }: { children: ReactNode }) {
 	return (
@@ -68,8 +72,8 @@ function ViewFrame({
 		<GraphRegion>{children}</GraphRegion>
 	) : (
 		<div
-			data-testid="catalog-agents-table-frame"
-			className="flex min-w-0 flex-col gap-2"
+			data-testid="catalog-agents-cards-frame"
+			className="flex min-w-0 flex-col gap-3"
 		>
 			{children}
 		</div>
@@ -78,27 +82,38 @@ function ViewFrame({
 
 export function CatalogAgents({
 	query,
-	initialView = "table",
+	view,
+	onViewChange,
 }: {
 	/** The live list, owned by the route. */
 	query: ReturnType<typeof useAgentTemplates>;
-	initialView?: AgentView;
+	/** The view, owned by the route: it is in the URL. */
+	view: AgentView;
+	onViewChange: (view: AgentView) => void;
 }) {
-	const [view, setView] = useState<AgentView>(initialView);
-
 	return (
 		<div
 			data-testid="catalog-agents"
 			className="flex min-h-0 flex-1 flex-col gap-3"
 		>
-			<ViewToggle view={view} onChange={setView} />
+			<ViewToggle
+				options={AGENT_VIEWS}
+				view={view}
+				onChange={onViewChange}
+				testIdPrefix="catalog-agents-view"
+				className="self-start"
+			/>
 			<Surface
 				data-testid="catalog-agents-surface"
 				query={query}
 				isEmpty={(data) => loadedRows(data).length === 0}
 				loading={
 					<ViewFrame view={view}>
-						<CatalogListSkeleton data-testid="catalog-agents-skeleton" />
+						{view === "graph" ? (
+							<CatalogListSkeleton data-testid="catalog-agents-skeleton" />
+						) : (
+							<AgentCardSkeleton data-testid="catalog-agents-skeleton" />
+						)}
 					</ViewFrame>
 				}
 				empty={
@@ -137,9 +152,9 @@ export function CatalogAgents({
 }
 
 /**
- * The loaded templates: the filter row, the chosen view and its footer. Only
- * rendered with data, inside the router, so the list's other
- * states need none.
+ * The loaded agents: the filter row, the chosen view and the count. Only
+ * rendered with data, inside the router, so the list's other states need
+ * none.
  */
 function AgentConsole({
 	agents,
@@ -159,60 +174,49 @@ function AgentConsole({
 }) {
 	const navigate = useNavigate();
 	const [filters, setFilters] = useState<AgentFilters>({});
-	const [sort, setSort] = useState<SortState>({
-		column: "wave",
-		direction: "asc",
-	});
-	const [page, setPage] = useState(0);
 
 	const open = (slug: string) =>
 		navigate({ to: "/catalog/agents/$slug", params: { slug } });
-	const matching = sortAgents(filterAgents(agents, filters), sort);
-	const pages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
-	const shown = matching.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+	// Wave order, A to E, then the firm agents: the order a mission runs in.
+	const matching = sortAgents(filterAgents(agents, filters), {
+		column: "wave",
+		direction: "asc",
+	});
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex min-w-0 flex-1 flex-col gap-3">
-				<ViewFrame view={view}>
-					<AgentFilterRow
-						agents={agents}
-						filters={filters}
-						onChange={(next) => {
-							setFilters(next);
-							setPage(0);
-						}}
+		<div className="flex min-w-0 flex-1 flex-col gap-3">
+			<ViewFrame view={view}>
+				<AgentFilterRow
+					agents={agents}
+					filters={filters}
+					onChange={setFilters}
+				/>
+				{matching.length === 0 ? (
+					<EmptyState
+						data-testid="catalog-agents-no-match"
+						compact
+						icon={Bot}
+						title="No agents match"
+						description="No agent has this side, wave, kind and search together."
 					/>
-					{matching.length === 0 ? (
-						<EmptyState
-							data-testid="catalog-agents-no-match"
-							compact
-							icon={Bot}
-							title="No agents match"
-							description="No agent has this side, wave, kind and search together."
-						/>
-					) : view === "table" ? (
-						<>
-							<AgentProcessTable
-								agents={shown}
-								sort={sort}
-								onSortChange={setSort}
-								onOpen={open}
-							/>
-							<AgentTableFooter
-								shown={shown.length}
-								// The server's count when it gave one: one "Showing", here.
-								total={total ?? agents.length}
-								page={page}
-								pages={pages}
-								onPage={setPage}
-							/>
-						</>
-					) : (
-						<AgentGraph agents={matching} onOpen={open} />
-					)}
-				</ViewFrame>
-				{/* Only Load more: the table's footer already says how many. */}
+				) : view === "cards" ? (
+					<AgentCardGrid agents={matching} />
+				) : (
+					<AgentGraph agents={matching} onOpen={open} />
+				)}
+			</ViewFrame>
+			<div
+				data-testid="catalog-agents-footer"
+				className="flex flex-wrap items-center justify-between gap-2"
+			>
+				{/* The one count on the page, against the server's total. */}
+				<p
+					data-testid="catalog-agents-showing"
+					className="type-caption text-text-subtle tabular-nums"
+				>
+					{`Showing ${matching.length} of ${total ?? agents.length}`}
+				</p>
+				{/* Only Load more: the count above already says how many. */}
 				<CatalogListFooter
 					loaded={agents.length}
 					total={undefined}
@@ -223,41 +227,5 @@ function AgentConsole({
 				/>
 			</div>
 		</div>
-	);
-}
-
-/** Table | Graph: two pressed-state buttons, one pressed. */
-function ViewToggle({
-	view,
-	onChange,
-}: {
-	view: AgentView;
-	onChange: (view: AgentView) => void;
-}) {
-	return (
-		<fieldset
-			data-testid="catalog-agents-view"
-			className="inline-flex items-center gap-0.5 self-start rounded-sm border border-border p-0.5"
-		>
-			<legend className="sr-only">View</legend>
-			{(
-				[
-					["table", "Table", Rows3],
-					["graph", "Graph", Network],
-				] as const
-			).map(([id, label, Icon]) => (
-				<Button
-					key={id}
-					size="sm"
-					variant={view === id ? "secondary" : "ghost"}
-					aria-pressed={view === id}
-					data-testid={`catalog-agents-view-${id}`}
-					onClick={() => onChange(id)}
-				>
-					<Icon aria-hidden="true" />
-					{label}
-				</Button>
-			))}
-		</fieldset>
 	);
 }
