@@ -419,6 +419,22 @@ export const PRECONDITION_COPY = {
 		next: "Finish or archive that mission first, then publish again.",
 		retry: false,
 	},
+	// src/routes/roster.ts: an access override names no tool row the agent
+	// has, names a row twice, or widens a mode. details.issues lists each one.
+	access_override_invalid: {
+		what: "Some of these access changes don't apply to this agent.",
+		written: NOTHING_WRITTEN,
+		next: "Access can only be narrowed, once per tool, on tools the agent has. Attach a stack skill first, then try again.",
+		retry: false,
+	},
+	// src/routes/mission-plan.ts: a templated mission's template must be the
+	// one its type names.
+	template_type_mismatch: {
+		what: "This template doesn't match the mission's type.",
+		written: NOTHING_WRITTEN,
+		next: "Choose the template this mission was created from, or clear the template, then save again.",
+		retry: false,
+	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;
 
 /**

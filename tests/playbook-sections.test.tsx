@@ -185,6 +185,7 @@ const ENTRY: RosterEntry = rosterEntrySchema.parse({
 	tokenHardCeiling: null,
 	grain: "default",
 	absorbedBoundaries: [],
+	accessOverrides: null,
 	createdAt: ISO,
 	updatedAt: ISO,
 });

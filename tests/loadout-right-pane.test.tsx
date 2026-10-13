@@ -150,6 +150,7 @@ function entry(
 		tokenHardCeiling: null,
 		grain: "default",
 		absorbedBoundaries: [],
+		accessOverrides: null,
 		createdAt: AT,
 		updatedAt: AT,
 		...extra,

@@ -128,6 +128,7 @@ function entry(
 		tokenHardCeiling: null,
 		grain: "default",
 		absorbedBoundaries: [],
+		accessOverrides: null,
 		createdAt: "2026-10-02T00:00:00.000Z",
 		updatedAt: "2026-10-02T00:00:00.000Z",
 		...extra,
