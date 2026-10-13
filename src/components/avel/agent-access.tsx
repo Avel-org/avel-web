@@ -27,6 +27,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
 	overridesOf,
 	useEntryAccess,
 	useSetAccessOverrides,
@@ -77,16 +82,20 @@ const MODE_TONE: Record<AccessRow["mode"], string> = {
 	send_after_approval: "border-gate-warn-line bg-gate-warn-soft text-gate-warn",
 };
 
-const short = (id: string) => id.slice(0, 8);
+export const short = (id: string) => id.slice(0, 8);
 
-/** "3fcd1ce4 · template-booking · draft", with the territory when it has one. */
+/**
+ * A mission as people read it: "template-booking, sprint 1 (draft)", with
+ * the territory when the entry has one. The short id goes beside it, in
+ * mono, as the secondary text. No route names a mission's client or
+ * engagement by id yet, so neither is named here.
+ */
 export function entryLabel(entry: AgentRosterEntry): string {
-	return [
-		short(entry.missionId),
+	return `${[
 		entry.mission.type,
-		entry.mission.status,
+		`sprint ${entry.mission.sprintN}`,
 		...(entry.territory ? [entry.territory] : []),
-	].join(" · ");
+	].join(", ")} (${entry.mission.status})`;
 }
 
 const TEMPLATE = "template";
@@ -219,7 +228,13 @@ function ContextPicker({
 					<SelectItem value={TEMPLATE}>Its own access, from roles</SelectItem>
 					{entries.map((entry) => (
 						<SelectItem key={entry.entryId} value={entry.missionId}>
-							{entryLabel(entry)}
+							<span className="truncate">{entryLabel(entry)}</span>
+							<span
+								data-testid="agent-access-context-id"
+								className="type-mono-small text-text-subtle"
+							>
+								{short(entry.missionId)}
+							</span>
 						</SelectItem>
 					))}
 				</SelectContent>
@@ -476,6 +491,44 @@ function ScopeCell({ row }: { row: Row }) {
 	);
 }
 
+/** Why the repository and delivery rows have no switch. */
+export const FIXED_REASON = {
+	repository: {
+		short: "Set by paths",
+		why: "Set by its writable paths. Change the paths to change it.",
+	},
+	delivery: {
+		short: "Always",
+		why: "Always on: you deliver, after approving. Agents never send.",
+	},
+} as const;
+
+/**
+ * A lock for a row no switch changes, its reason in a tooltip, and the same
+ * words for screen readers. Focusable, so the tooltip opens from the keyboard.
+ */
+function FixedCell({ kind }: { kind: "repository" | "delivery" }) {
+	const reason = FIXED_REASON[kind];
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				{/* Relative, so its screen-reader text stays inside the table's
+				    scroll frame instead of widening the page. */}
+				<span
+					// biome-ignore lint/a11y/noNoninteractiveTabindex: focus opens the tooltip that says why the row is fixed
+					tabIndex={0}
+					data-testid={`agent-access-fixed-${kind}`}
+					className="focus-inset relative inline-flex size-8 items-center justify-center rounded-sm text-text-subtle"
+				>
+					<Lock aria-hidden="true" className="size-4" />
+					<span className="sr-only">{reason.short}</span>
+				</span>
+			</TooltipTrigger>
+			<TooltipContent>{reason.why}</TooltipContent>
+		</Tooltip>
+	);
+}
+
 function ControlCell({
 	row,
 	readOnly,
@@ -487,12 +540,7 @@ function ControlCell({
 	pending: boolean;
 	onRowMode: (row: GrantRow, mode: GrantRow["mode"]) => void;
 }) {
-	if (row.kind !== "grant")
-		return (
-			<span className="type-caption text-text-subtle">
-				{row.kind === "repository" ? "Set by paths" : "Always"}
-			</span>
-		);
+	if (row.kind !== "grant") return <FixedCell kind={row.kind} />;
 	const on = row.mode !== "none";
 	const label = `${row.system}, ${row.grant}`;
 	return (

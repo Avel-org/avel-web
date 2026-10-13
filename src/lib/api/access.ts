@@ -2,6 +2,7 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import {
 	type AccessOverride,
 	type AgentAccess,
+	type AgentRosterEntry,
 	contract,
 	type GrantRow,
 } from "avel-server/contract";
@@ -48,6 +49,27 @@ export function entryAccessQuery(
 
 export function useEntryAccess(missionId: string, entryId: string) {
 	return useQuery(entryAccessQuery(useApiClient(), missionId, entryId));
+}
+
+/**
+ * The access the Tools tab shows: one roster entry's on its mission when one
+ * is chosen, else the template's own. One read, so the tab's count and its
+ * table never disagree. The other read stays idle.
+ */
+export function useShownAccess(
+	templateId: string,
+	entry: Pick<AgentRosterEntry, "missionId" | "entryId"> | undefined,
+) {
+	const api = useApiClient();
+	const own = useQuery({
+		...templateAccessQuery(api, templateId),
+		enabled: entry === undefined,
+	});
+	const onMission = useQuery({
+		...entryAccessQuery(api, entry?.missionId ?? "", entry?.entryId ?? ""),
+		enabled: entry !== undefined,
+	});
+	return entry === undefined ? own : onMission;
 }
 
 export function templateRosterEntriesQuery(api: ApiClient, templateId: string) {

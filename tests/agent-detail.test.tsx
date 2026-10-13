@@ -124,22 +124,20 @@ describe("the agent banner's words", () => {
 		expect(sinceLabel("2026-03-31T23:59:00.000Z")).toBe("March 2026");
 	});
 
-	it("reads kind, since and version on one line", () => {
-		expect(agentFacts(atlas).endsWith(` · v${atlas.version}`)).toBe(true);
-		expect(agentFacts(atlas)).toMatch(/ agent · since \w+ \d{4} · /);
+	it("reads kind, waves, since and version on one line", () => {
+		expect(agentFacts(atlas)).toBe(
+			`Build agent · wave B · since September 2026 · v${atlas.version}`,
+		);
 	});
 
-	it("is active only while a mission it is on is active", () => {
+	it("says a state word, working only while a mission it is on is active", () => {
 		expect(agentStanding([])).toEqual({
 			label: "Not on a mission",
 			live: false,
 		});
-		expect(agentStanding(["draft"])).toEqual({
-			label: "On 1 mission",
-			live: false,
-		});
+		expect(agentStanding(["draft"])).toEqual({ label: "Idle", live: false });
 		expect(agentStanding(["active", "draft", "active"])).toEqual({
-			label: "Active on 2 missions",
+			label: "Working",
 			live: true,
 		});
 	});
@@ -189,9 +187,12 @@ describe("access overrides, built on the server's rows", () => {
 		expect(entryReadOnlyReason("draft", false)).toMatch(/off the mission/);
 	});
 
-	it("labels a mission choice by short id, type, status and territory", () => {
+	it("labels a mission choice in words: type, sprint, territory and status", () => {
 		expect(entryLabel({ ...entry("draft"), territory: "billing" })).toBe(
-			"3fcd1ce4 · template-booking · draft · billing",
+			"template-booking, sprint 1, billing (draft)",
+		);
+		expect(entryLabel(entry("active"))).toBe(
+			"template-booking, sprint 1 (active)",
 		);
 	});
 });
@@ -205,7 +206,7 @@ describe("/catalog/agents/:slug", () => {
 		expect(html).toContain('data-testid="agent-banner-name"');
 		expect(html).toContain(agentFacts(atlas));
 		expect(tagOf(html, "agent-banner-status")).toContain("data-live");
-		expect(html).toContain("Active on 1 mission");
+		expect(element(html, "agent-banner-status")).toContain("Working");
 		// The numbers are live: missions and running from the roster entries,
 		// tools from its own access, roles from the agent. No sample pill.
 		const stat = (id: string) => element(html, `agent-stat-${id}`);
@@ -221,11 +222,21 @@ describe("/catalog/agents/:slug", () => {
 		expect(tagOf(html, "agent-pause")).toMatch(DISABLED);
 	});
 
-	it("has every tab, with no count where no route supplies one", () => {
+	it("has every tab, counting only Tools and access, from its access rows", () => {
 		const html = render();
 		for (const id of AGENT_TABS)
 			expect(html).toContain(`data-testid="agent-banner-tab-${id}"`);
-		expect(html).not.toContain('-count"');
+		expect(element(html, "agent-banner-tab-tools-count")).toContain(
+			`>${ACCESS.rows.length}<`,
+		);
+		for (const id of ["overview", "performance", "memory"])
+			expect(html).not.toContain(`agent-banner-tab-${id}-count"`);
+		// On a mission it counts that entry's rows, the ones the table shows.
+		const onMission = render({
+			mission: MISSION,
+			entryAccess: { ...ACCESS, rows: [read, migrate] },
+		});
+		expect(element(onMission, "agent-banner-tab-tools-count")).toContain(">2<");
 	});
 
 	it("says so when no agent has the slug", () => {

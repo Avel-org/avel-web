@@ -31,6 +31,7 @@ import {
 } from "./catalog-sample";
 import { CodeView } from "./code-view";
 import { type DataColumn, DataTable } from "./data-table";
+import { InlineExpand } from "./inline-expand";
 import { StatusPill } from "./status-pill";
 
 /*
@@ -341,15 +342,37 @@ export function OverviewTab({
 type WithHistory = { agent: AgentTemplate; history: SampleAgentHistory };
 
 /**
+ * A stub: the generator has written no more than headings, such as
+ * "# Atlas". Anything past a heading is a written identity.
+ */
+export function isIdentityStub(identityMd: string): boolean {
+	return identityMd
+		.split("\n")
+		.map((line) => line.trim())
+		.every((line) => line === "" || line.startsWith("#"));
+}
+
+/**
  * identity.md is the template's own field, live. Its size in tokens is not:
- * no route counts it, so the line against the cap is a labelled sample.
+ * no route counts it, so the line against the cap is a labelled sample. A
+ * stub says it is one, and its text stays in a box only as wide as it.
  */
 export function IdentityTab({ agent, history }: WithHistory) {
+	const stub = isIdentityStub(agent.identityMd);
 	return (
 		<div data-testid="catalog-agent-identity" className="flex flex-col gap-3">
+			{stub ? (
+				<p
+					data-testid="catalog-agent-identity-stub"
+					className="type-small text-text-muted"
+				>
+					{`${agent.name}'s generated identity is still a stub: only its heading so far. The identity generator writes the rest from its roles (module 5).`}
+				</p>
+			) : null}
 			<CodeView
 				text={agent.identityMd}
 				label={`${agent.name}'s identity.md`}
+				className={stub ? "w-fit max-w-full min-w-48" : undefined}
 				data-testid="catalog-agent-identity-code"
 			/>
 			<SampleRegion
@@ -379,17 +402,41 @@ function Line({ k, children }: { k: string; children: ReactNode }) {
 	);
 }
 
-/** The template's own fields, live, then the sample allowed-actions table. */
+/**
+ * The kind in words, beside the machine value: a horizontal agent is shared
+ * across every feature; a feature agent works within one.
+ */
+export const KIND_WORDS = {
+	horizontal: "Shared",
+	feature: "Feature",
+} as const satisfies Record<AgentTemplate["kind"], string>;
+
+/** The longer reading, on hover: one short word fits the narrow column. */
+const KIND_MEANING = {
+	horizontal: "Works across every feature.",
+	feature: "Works within one feature.",
+} as const satisfies Record<AgentTemplate["kind"], string>;
+
+/**
+ * The template's own fields, live, then the sample allowed actions. The
+ * panel around it carries the "Manifest" title, so this has none of its own.
+ */
 export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 	return (
 		<div className="flex flex-col gap-4">
 			<div data-testid="catalog-agent-manifest" className="flex flex-col gap-2">
-				<h3 className="type-panel-title text-foreground">Manifest</h3>
 				<div
 					data-testid="catalog-agent-manifest-text"
 					className="flex flex-col gap-0.5 rounded-xs border border-border bg-app-recessed p-3 type-mono-small"
 				>
-					<Line k="kind">{agent.kind}</Line>
+					<Line k="kind">
+						{agent.kind}
+						<span
+							data-testid="catalog-agent-kind-words"
+							title={KIND_MEANING[agent.kind]}
+							className="text-text-muted"
+						>{` # ${KIND_WORDS[agent.kind]}`}</span>
+					</Line>
 					<Line k="roles">{`[${inCatalogOrder(agent.roles).join(", ")}]`}</Line>
 					<Line k="waveDefaults">{`[${inWaveOrder(agent.waveDefaults).join(", ")}]`}</Line>
 					<Line k="engagementId">
@@ -496,15 +543,20 @@ export function VersionsTab({ history }: { history: SampleAgentHistory }) {
 	);
 }
 
+const ACTION_TERMS = [
+	["read", "Read"],
+	["act", "Act"],
+	["propose", "Propose"],
+] as const;
+
+/**
+ * The allowed actions as a term and description list, one group per
+ * family: the Manifest column is narrow, and a four-column table there wraps
+ * a word to a line.
+ */
 function ActionsRegion({ agent }: { agent: AgentTemplate }) {
 	const covered = new Set(familiesOf(agent.roles));
 	const rows = SAMPLE_FAMILY_TABLE.filter((row) => covered.has(row.family));
-	const columns: DataColumn<(typeof rows)[number]>[] = [
-		{ id: "family", header: "Family", width: "6rem", cell: (r) => r.family },
-		{ id: "read", header: "Read", cell: (r) => <Wrap>{r.read}</Wrap> },
-		{ id: "act", header: "Act", cell: (r) => <Wrap>{r.act}</Wrap> },
-		{ id: "propose", header: "Propose", cell: (r) => <Wrap>{r.propose}</Wrap> },
-	];
 	return (
 		<SampleRegion
 			missing={CATALOG_MISSING.families}
@@ -518,15 +570,33 @@ function ActionsRegion({ agent }: { agent: AgentTemplate }) {
 					Its roles are code, with no agent and no token.
 				</p>
 			) : (
-				<DataTable
-					label="What this agent's families may do through the API"
+				<dl
+					aria-label="What this agent's families may do through the API"
 					data-testid="catalog-agent-actions-table"
-					columns={columns}
-					rows={rows}
-					getRowId={(r) => r.family}
-					density="compact"
-					stickyHeader={false}
-				/>
+					className="flex flex-col divide-y divide-border"
+				>
+					{rows.map((row) => (
+						<div
+							key={row.family}
+							data-testid={`catalog-agent-actions-table-row-${row.family}`}
+							className="flex flex-col gap-1.5 py-2 first:pt-0 last:pb-0"
+						>
+							<dt className="type-small font-medium text-foreground">
+								{row.family}
+							</dt>
+							<dd>
+								<dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1">
+									{ACTION_TERMS.map(([key, term]) => (
+										<div key={key} className="contents">
+											<dt className="type-caption text-text-subtle">{term}</dt>
+											<dd className="type-small text-text-muted">{row[key]}</dd>
+										</div>
+									))}
+								</dl>
+							</dd>
+						</div>
+					))}
+				</dl>
 			)}
 		</SampleRegion>
 	);
@@ -723,6 +793,8 @@ function Reconstructed({ history }: { history: SampleAgentHistory }) {
 	);
 }
 
+const MEASURE_SECTIONS = ["discipline", "outcome"] as const;
+
 export function MeasuresRegion({ history }: { history: SampleAgentHistory }) {
 	return (
 		<SampleRegion
@@ -731,9 +803,24 @@ export function MeasuresRegion({ history }: { history: SampleAgentHistory }) {
 			what="Discipline across all of the agent's work, outcome within one territory and project template, client and internal runs apart, and reconstructed runs set aside."
 			data-testid="catalog-agent-measures"
 		>
+			{/* Folded, so the tab stays short: the four measures and the edges
+			    above say how it is doing; these say why, for whoever opens them. */}
 			<div className="flex flex-col gap-6">
-				<Discipline history={history} />
-				<Outcome history={history} />
+				<InlineExpand
+					data-testid="catalog-agent-measures-more"
+					items={MEASURE_SECTIONS}
+					visible={0}
+					noun="sections"
+					getKey={(id) => id}
+					className="gap-6"
+					render={(id) =>
+						id === "discipline" ? (
+							<Discipline history={history} />
+						) : (
+							<Outcome history={history} />
+						)
+					}
+				/>
 				<Reconstructed history={history} />
 			</div>
 		</SampleRegion>

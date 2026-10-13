@@ -1,10 +1,15 @@
 import { Link } from "@tanstack/react-router";
-import type { AgentTemplate } from "avel-server/contract";
+import type {
+	ActivityEntry,
+	AgentRosterEntry,
+	AgentTemplate,
+} from "avel-server/contract";
 import { History } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplateRosterEntries } from "@/lib/api/access";
 import { useEntriesActivity } from "@/lib/api/activity";
 import { ACTION_COPY } from "./activity-copy";
+import { entryLabel, short } from "./agent-access";
 import { EmptyState } from "./empty-state";
 import { SectionPanel } from "./section-panel";
 import { ErrorState } from "./surface";
@@ -50,22 +55,53 @@ export function AgentActivity({ agent }: { agent: AgentTemplate }) {
 					retrying={entries.isFetching}
 				/>
 			) : (
-				<EntryActivity
-					name={agent.name}
-					entryIds={entries.data.map((e) => e.entryId)}
-				/>
+				<EntryActivity name={agent.name} entries={entries.data} />
 			)}
 		</SectionPanel>
 	);
 }
 
+export type MissionGroup = {
+	missionId: string;
+	/** The roster entry on that mission, when the agent is still on it. */
+	entry: AgentRosterEntry | undefined;
+	rows: ActivityEntry[];
+};
+
+/**
+ * The log's rows grouped by the mission they happened on, in the order the
+ * newest row of each arrives, rows newest first inside each. A row with no
+ * mission on it takes its roster entry's.
+ */
+export function byMission(
+	rows: readonly ActivityEntry[],
+	entries: readonly AgentRosterEntry[],
+): MissionGroup[] {
+	const groups = new Map<string, MissionGroup>();
+	for (const row of rows) {
+		const missionId =
+			row.missionId ??
+			entries.find((e) => e.entryId === row.entityId)?.missionId;
+		if (missionId === undefined) continue;
+		const group = groups.get(missionId) ?? {
+			missionId,
+			entry: entries.find((e) => e.missionId === missionId),
+			rows: [],
+		};
+		group.rows.push(row);
+		groups.set(missionId, group);
+	}
+	return [...groups.values()];
+}
+
 function EntryActivity({
 	name,
-	entryIds,
+	entries,
 }: {
 	name: string;
-	entryIds: string[];
+	entries: readonly AgentRosterEntry[];
 }) {
+	const entryIds = entries.map((e) => e.entryId);
 	const activity = useEntriesActivity(entryIds);
 	if (entryIds.length === 0)
 		return (
@@ -97,8 +133,41 @@ function EntryActivity({
 			/>
 		);
 	return (
-		<ol data-testid="agent-activity-list" className="flex flex-col">
-			{activity.entries.map((entry) => (
+		<div data-testid="agent-activity-list" className="flex flex-col gap-4">
+			{byMission(activity.entries, entries).map((group) => (
+				<section
+					key={group.missionId}
+					aria-labelledby={`agent-activity-${group.missionId}`}
+					data-testid={`agent-activity-group-${group.missionId}`}
+					className="flex flex-col"
+				>
+					<h3
+						id={`agent-activity-${group.missionId}`}
+						className="flex min-w-0 items-baseline gap-2 border-b border-border pb-1.5"
+					>
+						<Link
+							to="/missions/$id"
+							params={{ id: group.missionId }}
+							data-testid={`agent-activity-mission-${group.missionId}`}
+							className="min-w-0 truncate rounded-xs type-small font-medium text-foreground underline-offset-4 hover:underline"
+						>
+							{group.entry ? entryLabel(group.entry) : "A mission it has left"}
+						</Link>
+						<span className="type-mono-small text-text-subtle">
+							{short(group.missionId)}
+						</span>
+					</h3>
+					<ActivityRows rows={group.rows} />
+				</section>
+			))}
+		</div>
+	);
+}
+
+function ActivityRows({ rows }: { rows: readonly ActivityEntry[] }) {
+	return (
+		<ol className="flex flex-col">
+			{rows.map((entry) => (
 				<li
 					key={entry.id}
 					data-testid={`agent-activity-row-${entry.id}`}
