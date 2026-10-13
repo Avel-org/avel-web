@@ -28,7 +28,7 @@ import { AGENTS, SKILLS, SOURCES, source } from "./catalog-fixtures";
 describe("catalog samples", () => {
 	it("name no route avel-server serves: the lists are live", () => {
 		const values = Object.values(CATALOG_MISSING);
-		expect(values).toHaveLength(5);
+		expect(values).toHaveLength(4);
 		for (const missing of values) {
 			expect(missing).not.toMatch(
 				/^GET \/api\/(agent-templates|skills|skill-sources)(\/by-slug)?$/,
@@ -50,23 +50,15 @@ describe("catalog samples", () => {
 		);
 	});
 
-	it("give every version its own hash, in SHA-256's shape, keyed by the live slug", () => {
-		const hashes = AGENTS.flatMap((a) =>
-			sampleHistory(a).versions.map((v) => v.sha256),
-		);
-		for (const hash of hashes) expect(hash).toMatch(/^[0-9a-f]{64}$/);
-		expect(new Set(hashes).size).toBe(hashes.length);
+	it("keep each agent's history fixed by its live slug", () => {
 		for (const a of AGENTS) {
 			expect(sampleHistory(a)).toEqual(sampleHistory({ ...a }));
 		}
 	});
 
-	it("number versions newest first, down to 1, from the live version, ", () => {
+	it("give a horizontal agent the whole project, and a feature agent a territory", () => {
 		for (const a of AGENTS) {
 			const history = sampleHistory(a);
-			expect(history.versions.map((v) => v.version)).toEqual(
-				Array.from({ length: a.version }, (_, i) => a.version - i),
-			);
 			// A horizontal agent works the whole project; a feature agent has a territory.
 			for (const row of history.outcomes) {
 				if (a.kind === "horizontal") expect(row.territory).toBeNull();

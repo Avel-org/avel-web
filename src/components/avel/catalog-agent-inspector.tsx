@@ -1,5 +1,6 @@
 import {
 	type AgentTemplate,
+	IDENTITY_TOKEN_CAP,
 	type IdentityInputField,
 	type IdentityVersion,
 	KIND_LABELS,
@@ -22,7 +23,6 @@ import {
 } from "./catalog-agent-placeholders";
 import {
 	CATALOG_MISSING,
-	IDENTITY_TOKEN_CAP,
 	SAMPLE_TEAM_TABLE,
 	type SampleAgentHistory,
 	type SampleDiscipline,
@@ -596,48 +596,6 @@ export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 			</div>
 			<ActionsRegion agent={agent} />
 		</div>
-	);
-}
-
-export function VersionsTab({ history }: { history: SampleAgentHistory }) {
-	return (
-		<SampleRegion
-			missing={CATALOG_MISSING.versions}
-			title="Versions"
-			what="Every version of the identity, newest first: its hash, number and date, and the role change that made it."
-			data-testid="catalog-agent-versions"
-		>
-			<ol aria-label="Versions" className="flex flex-col type-mono-small">
-				{history.versions.map((version, i) => (
-					<li
-						key={version.version}
-						data-testid="catalog-agent-version"
-						className="flex flex-wrap items-center gap-x-3 py-1"
-					>
-						<ShortHash
-							value={version.sha256}
-							label={`the hash of version ${version.version}`}
-							data-testid={`catalog-agent-version-hash-${version.version}`}
-						/>
-						<span className="text-foreground">{`v${version.version}`}</span>
-						<span className="text-text-subtle">
-							{version.createdAt.slice(0, 10)}
-						</span>
-						{i === 0 ? (
-							<span
-								data-testid="catalog-agent-version-current"
-								className="text-accent-text"
-							>
-								(current)
-							</span>
-						) : null}
-						<span className="basis-full font-sans type-small text-text-muted">
-							{version.change}
-						</span>
-					</li>
-				))}
-			</ol>
-		</SampleRegion>
 	);
 }
 

@@ -95,6 +95,14 @@ export const queryKeys = {
 		 */
 		identityVersion: (id: string, number: number) =>
 			["catalog", "agentTemplates", "identity", id, number] as const,
+		/** contract.agentTemplates.identityVersions: a template's versions, newest first. */
+		identityVersions: (id: string) =>
+			["catalog", "agentTemplates", "identity", id, "list"] as const,
+		/**
+		 * Every template read: lists, by slug, access and identity. A new
+		 * identity version changes the template's identityVersion and its list.
+		 */
+		agentTemplatesAll: () => ["catalog", "agentTemplates"] as const,
 		/**
 		 * contract.skills.list, paged by cursor. `role` keeps skills recommended
 		 * for any of those roles (an agent's skills), as for agentTemplates.

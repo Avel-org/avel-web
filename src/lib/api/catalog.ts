@@ -1,9 +1,12 @@
 import {
 	type InfiniteData,
 	infiniteQueryOptions,
+	type QueryClient,
 	queryOptions,
 	useInfiniteQuery,
+	useMutation,
 	useQuery,
+	useQueryClient,
 } from "@tanstack/react-query";
 import {
 	type AgentTemplate,
@@ -104,6 +107,56 @@ export function identityVersionQuery(
 /** One identity version of a template, with its text; NOT_FOUND when none has it. */
 export function useIdentityVersion(id: string, number: number) {
 	return useQuery(identityVersionQuery(useApiClient(), id, number));
+}
+
+export function identityVersionsQuery(api: ApiClient, id: string) {
+	return queryOptions({
+		queryKey: queryKeys.catalog.identityVersions(id),
+		queryFn: () =>
+			call(contract.agentTemplates.identityVersions, () =>
+				api.agentTemplates.identityVersions({ params: { id } }),
+			),
+	});
+}
+
+/** A template's identity versions, newest first, without their text. */
+export function useIdentityVersions(id: string) {
+	return useQuery(identityVersionsQuery(useApiClient(), id));
+}
+
+/**
+ * Regenerate a template's identity from its current inputs. Only a 201
+ * (created) writes a version and an activity row, so only it refreshes the
+ * template reads and the log; a 200 leaves everything as it was.
+ */
+export function useRegenerateIdentity() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => regenerateIdentityRequest(api, id),
+		onSuccess: (result) => afterRegenerate(queryClient, result),
+	});
+}
+
+/** POST .../identity/regenerate: 201 created, or 200 unchanged or reused. */
+export function regenerateIdentityRequest(api: ApiClient, id: string) {
+	return call(contract.agentTemplates.regenerateIdentity, () =>
+		api.agentTemplates.regenerateIdentity({ params: { id } }),
+	);
+}
+
+/** Refreshes the template reads and the log, only when a version was written. */
+export function afterRegenerate(
+	queryClient: QueryClient,
+	result: { created: boolean },
+) {
+	if (!result.created) return undefined;
+	return Promise.all([
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.catalog.agentTemplatesAll(),
+		}),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
 }
 
 // ---------------------------------------------------------------------------

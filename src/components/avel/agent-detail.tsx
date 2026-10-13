@@ -36,14 +36,15 @@ import {
 	useAgentTemplates,
 } from "@/lib/api/catalog";
 import type { ApiError } from "@/lib/api/errors";
+import { useSessionState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { AgentTools } from "./agent-access";
 import { AgentActivity } from "./agent-activity";
+import { IdentityVersions, RegenerateIdentity } from "./agent-identity";
 import {
 	IdentityTab,
 	ManifestTab,
 	OverviewTab,
-	VersionsTab,
 } from "./catalog-agent-inspector";
 import { isFirmAgent, sideOf } from "./catalog-agent-placeholders";
 import { sampleHistory } from "./catalog-placeholders";
@@ -283,7 +284,8 @@ function AgentPage({
 	onTab: (tab: AgentTabId) => void;
 	onMission: (mission: string | undefined) => void;
 }) {
-	const history = sampleHistory(agent);
+	const session = useSessionState();
+	const me = session.status === "signed-in" ? session.user.id : undefined;
 	const tabs = useTabs(agent, mission);
 	const icon = agentIcon(agent);
 	const banner = useRef<HTMLElement>(null);
@@ -329,6 +331,7 @@ function AgentPage({
 						<SectionPanel
 							title="Identity"
 							description="The instructions this agent works from, written from its roles. To change them, change a role."
+							actions={<RegenerateIdentity agent={agent} />}
 							data-testid="agent-identity-panel"
 						>
 							<IdentityTab agent={agent} />
@@ -358,10 +361,10 @@ function AgentPage({
 					</SectionPanel>
 					<SectionPanel
 						title="Versions"
-						description="Every version of this agent's identity, newest first. Old versions are never deleted."
+						description="Every version of this agent's identity, newest first. Open one to read it, or choose two to compare."
 						data-testid="agent-versions-panel"
 					>
-						<VersionsTab history={history} />
+						<IdentityVersions agent={agent} me={me} />
 					</SectionPanel>
 				</div>
 			</TabsContent>

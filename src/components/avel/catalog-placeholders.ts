@@ -3,14 +3,13 @@
  * (AVEL-DESIGN.md rulings 29 and 32). The templates, skills
  * and sources themselves are live: the pages read GET /api/agent-templates,
  * GET /api/skills and GET /api/skill-sources (module 4). What remains here is
- * what no route serves yet: version history, per-agent measures, the
- * per-team table, a source's skill index and a role skill's attachments.
+ * what no route serves yet: per-agent measures, the per-team table, a source's skill index and a role skill's attachments.
  * Each is keyed off a live record (its slug or id), so a page shows the same
  * samples on every visit; a page that reshuffled on reload would look like
  * live data. Nothing here is sent anywhere, and nothing here is ever written
  * into a real field. Each sample is deleted when its route lands.
  *
- * Version history, per-agent measures and the per-team table have no
+ * Per-agent measures and the per-team table have no
  * contract shape yet, so their types are local. The team table follows
  * ROLES.md, but it is server-enforced policy: shown from a client copy it
  * would be a second copy that drifts, so it is a sample like the rest.
@@ -31,7 +30,6 @@ import {
  * these has a route in avel-server; each is described in words.
  */
 export const CATALOG_MISSING = {
-	versions: "agent version history",
 	measures: "per-agent measures",
 	teams: "the per-team table route",
 	/** What a source offers to import. No doc names a route for it yet. */
@@ -94,10 +92,6 @@ export function sampleUuid(key: string): string {
 		hex.slice(20, 32),
 	].join("-");
 }
-
-/** A fixed instant in 2026, as the contract's ISO datetime. */
-const isoDay = (month: number, day: number) =>
-	`2026-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T12:00:00.000Z`;
 
 // ---------------------------------------------------------------------------
 // Teams (ROLES.md's families). Each role's team and its label are the
@@ -294,14 +288,6 @@ export function sampleRegistry(
 
 export type SampleOrigin = "client" | "internal";
 
-export type SampleVersion = {
-	version: number;
-	sha256: string;
-	createdAt: string;
-	/** The role change the version was generated from. */
-	change: string;
-};
-
 export type SampleDiscipline = {
 	origin: SampleOrigin;
 	runs: number;
@@ -335,17 +321,10 @@ export type SampleReconstructedRun = {
 
 export type SampleAgentHistory = {
 	/** Newest first. The first entry is the template's current version. */
-	versions: SampleVersion[];
 	discipline: SampleDiscipline[];
 	outcomes: SampleOutcome[];
 	reconstructed: SampleReconstructedRun[];
 };
-
-/**
- * The cap the generator holds identity.md and depth.md to, each (migration
- * 0024). It moves to the contract once avel-server exports it.
- */
-export const IDENTITY_TOKEN_CAP = 1200;
 
 const MISSION_TEMPLATES = ["template-booking", "template-fullstack"] as const;
 const ENGAGEMENTS = {
@@ -373,23 +352,6 @@ function sampleTerritories(
 		{ length: count },
 		(_, i) => TERRITORIES[(first + i) % TERRITORIES.length] ?? null,
 	);
-}
-
-function versionsOf(agent: AgentTemplate): SampleVersion[] {
-	const next = sequence(`agent:${agent.slug}:history`);
-	return Array.from({ length: agent.version }, (_, i) => {
-		const version = agent.version - i;
-		const role = agent.roles[Math.floor(next() * agent.roles.length)];
-		return {
-			version,
-			sha256: sampleSha256(`agent:${agent.slug}:v${version}`),
-			createdAt: isoDay(Math.max(1, 10 - i), between(next, 1, 28)),
-			change:
-				version === 1
-					? "First generation"
-					: `The ${role ?? "role"} definition changed`,
-		};
-	});
 }
 
 function disciplineOf(slug: string): SampleDiscipline[] {
@@ -442,7 +404,6 @@ export function sampleHistory(agent: AgentTemplate): SampleAgentHistory {
 	// About half the templates have a run whose version was backfilled.
 	const reconstructed = next() < 0.5;
 	return {
-		versions: versionsOf(agent),
 		discipline: disciplineOf(agent.slug),
 		outcomes: outcomesOf(agent),
 		reconstructed: reconstructed

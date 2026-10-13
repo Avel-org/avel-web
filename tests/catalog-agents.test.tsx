@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import {
 	type AgentTemplate,
+	IDENTITY_TOKEN_CAP,
 	type IdentityVersion,
 	KIND_LABELS,
 	ROLE_LABELS,
@@ -35,7 +36,6 @@ import {
 	ManifestTab,
 	OverviewTab,
 	staleLine,
-	VersionsTab,
 } from "@/components/avel/catalog-agent-inspector";
 import {
 	AGENT_MISSING,
@@ -60,7 +60,6 @@ import {
 import { CatalogAgents } from "@/components/avel/catalog-agents";
 import {
 	CATALOG_MISSING,
-	IDENTITY_TOKEN_CAP,
 	sampleHistory,
 } from "@/components/avel/catalog-placeholders";
 import { inCatalogOrder, RoleTag } from "@/components/avel/catalog-sample";
@@ -840,7 +839,6 @@ describe("an agent page's tabs", () => {
 				/>,
 			),
 			tip(<ManifestTab agent={atlas} />),
-			tip(<VersionsTab history={history} />),
 		]) {
 			expect(html).not.toMatch(/<(textarea|input|form)\b/);
 			expect(html).not.toMatch(/>Edit</);
@@ -1052,25 +1050,6 @@ describe("an agent page's tabs", () => {
 		);
 	});
 
-	it("versions: a log, seven characters of hash, full on hover, Copy", () => {
-		const html = tip(<VersionsTab history={history} />);
-		expect(html.match(/data-testid="catalog-agent-version"/g)).toHaveLength(
-			atlas.version,
-		);
-		for (const v of history.versions) {
-			const hash = element(html, `catalog-agent-version-hash-${v.version}`);
-			expect(hash).toContain(`title="${v.sha256}"`);
-			expect(hash).toContain(`>${v.sha256.slice(0, 7)}<`);
-			expect(hash).toContain(
-				`aria-label="Copy the hash of version ${v.version}"`,
-			);
-			expect(html).toContain(`>${v.createdAt.slice(0, 10)}<`);
-		}
-		expect(
-			html.match(/data-testid="catalog-agent-version-current"/g),
-		).toHaveLength(1);
-	});
-
 	it("labels every sample region in the tabs, and only those", () => {
 		const html = body();
 		expect(new Set(regions(html).map((r) => r.missing))).toEqual(
@@ -1079,10 +1058,9 @@ describe("an agent page's tabs", () => {
 		const tabs = [
 			tip(<IdentityTab agent={atlas} />),
 			tip(<ManifestTab agent={atlas} />),
-			tip(<VersionsTab history={history} />),
 		].join("");
 		expect(new Set(regions(tabs).map((r) => r.missing))).toEqual(
-			new Set([CATALOG_MISSING.versions, CATALOG_MISSING.teams]),
+			new Set([CATALOG_MISSING.teams]),
 		);
 	});
 });
