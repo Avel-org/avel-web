@@ -277,6 +277,29 @@ These supersede the sections they name.
    - Once the banner scrolls away, a pinned banner (`PinnedBanner`: tile, name, tabs as plain buttons) stays under the top bar. It is sticky at zero height, inert while hidden, and raises the canvas's scroll padding while it shows.
    - Keys 1 to 4 open the tabs and Escape returns to All agents, never in a field or while a dialog, menu or list is open. The tabs announce the keys with aria-keyshortcuts.
 47. Templates is a page (operator report, 2026-10-12: "I'm not seeing my project template page"). A template is an AVEL project template (ruling 42): a repository a mission is built from, read by avel-server from its `.avel/template.json` and default branch (`templates.list`, `templates.get`). Templates (`/templates`) joins Library after Playbooks, so the sidebar has thirteen links; this supersedes ruling 40's count.
+48. Templates are project cards (operator direction, 2026-10-12: "we need to have project cards components for the project template. With sections that include a image and be creative with the design"). This amends ruling 47's card and its Missions tab.
+   - **The card.** A template is one project card (`TemplateCard`) on ruling 37's plate with its corners rounded. It is not notched: the notch belongs to agent cards (ruling 44).
+   - **The cover.** A cover heads the card and bleeds to the plate's top and side edges.
+     - **The image.** When the template's manifest names a cover (avel-server 04e85e1: `Template.cover`, `{ url, alt } | null`), the cover is that image, used as served with its own alt text. Its URL is same-origin and carries the commit, so a new cover is a new URL. A named image can still fail to load (the cover route answers 404 for a missing, oversized or non-image file), and a failed load falls back to the drawn art.
+     - **The drawn art.** Otherwise the cover is drawn (`TemplateCover`): an inline SVG whose motif comes from the scope and whose ground comes from the starting state. Greenfield is an open ruled field. Brownfield is an existing hatched skyline the motif is added to. A hash of the slug sets the layout, the lit elements and the glow, so a template always shows the same picture.
+     - The cover is the banner's band (`template-cover`), in banner and accent tokens only. The art is aria-hidden. The scope and starting state sit over the cover as chips.
+     - An unreadable template's cover is recessed and hatched, with an empty dashed slot and a "Not readable" chip.
+   - **The commit tab.** The plate's body rises into the cover's bottom-left corner as a tab (`cover-tab`) carrying the latest commit: 8 mono characters, with the full sha on hover.
+   - **The sections.** Then come the title (name, slug in mono, Readable or Not readable) and the sections, each under a hairline with an engraved label:
+     - Starts as: the starting state in a sentence ("Starts from an empty repository." or "Starts from an existing codebase.") and the scope in one line.
+     - Runs with: the playbook by name with its version and gate count, and the default team, read by its id, or "No default team".
+     - The footer: the mission count and Open.
+   - **Links.** The title link is stretched over the plate. The playbook and team links sit above it and never nest inside it.
+   - **Layout.** Cards fill as many columns as fit, never narrower than 18rem. While the list loads, the skeleton has the cards' shape. The table view scrolls inside its own frame, so the canvas never scrolls sideways.
+   - **The template page.** It opens Overview with the same cover as a wide strip, with what the template starts as written over it.
+   - **The Missions tab** is live: `missions.list` scoped by `templateRef`, one panel per origin (Client, Internal), archived missions included and most recent activity first. Each panel's count is the server's `meta.total`, and each row opens its mission.
+49. Clients and activity read the server's filters (avel-server ed4c9e5, 028ac3c, 7cc7c75). This amends rulings 43 and 45.
+   - **Clients board.** The board's All, Active or Closed filter is sent as `status`. The board reads one list per section, each section counts from that list's `meta.total`, and each has its own Load more. "Among those loaded" is gone.
+   - **Client card.** A card shows its client's missions as a count, from a missions read of one row. Its footer reads Last activity from `lastActivityAt`, or "No activity yet", never `updatedAt`. The table's last column is Last activity.
+   - **Client banner.** The banner's facts end with the last activity, and its numbers lead with missions.
+   - **Missions panel.** Overview's Missions panel lists the client's missions from `missions.list` by `clientId`, most recent activity first, each row with its type, sprint and status and a link to the mission. A status strip from `meta.counts.byStatus` sits over the list.
+   - **Client Activity tab.** It is one paged read of the log by `clientId`: the client, its engagements and their missions, with Load more.
+   - **Agent Recent activity.** It is one read of the log for all of the agent's roster entries at once (`entityType=roster_entry`, every entry id in `entityId`, up to 100). It shows the latest eight, grouped by mission, with Load more while the log has more.
 
    The board:
    - Per ruling 36 the page is a Board of cards by default, with a Board | Table toggle (`?view=table`).
