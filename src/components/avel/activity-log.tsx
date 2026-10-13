@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { loadedActivity, type useActivity } from "@/lib/api/activity";
 import { relativeTime } from "@/lib/api/clients";
 import { ActivityActor } from "./activity-actor";
+import { AgentTarget } from "./activity-agent";
 import { AuditTable, DecisionRecord, RecordLink } from "./activity-audit";
 import { ACTION_COPY, ENTITY_LABEL } from "./activity-copy";
 import { entityNameOf } from "./activity-record";
@@ -172,9 +173,19 @@ export function ActivityRows({
 export function ActivityTarget({
 	entry,
 }: {
-	entry: Pick<ActivityEntry, "id" | "entityType" | "entityId" | "payload">;
+	entry: Pick<
+		ActivityEntry,
+		"id" | "action" | "entityType" | "entityId" | "payload"
+	>;
 }) {
 	const testId = `activity-target-${entry.id}`;
+	// Underlined at rest, faintly, so a link reads apart from the plain text
+	// beside it without hovering; hover brings the line to full strength.
+	const linkClass =
+		"type-small text-text-muted underline decoration-border underline-offset-2 hover:text-foreground hover:decoration-current";
+	// An agent logs only its id: it is named from the catalog.
+	if (entry.entityType === "agent_template")
+		return <AgentTarget entry={entry} testId={testId} linkClass={linkClass} />;
 	const name = entityNameOf(entry);
 	const content = (
 		<span title={entry.entityId}>
@@ -182,10 +193,6 @@ export function ActivityTarget({
 			{name ? ` ${name}` : null}
 		</span>
 	);
-	// Underlined at rest, faintly, so a link reads apart from the plain text
-	// beside it without hovering; hover brings the line to full strength.
-	const linkClass =
-		"type-small text-text-muted underline decoration-border underline-offset-2 hover:text-foreground hover:decoration-current";
 	switch (entry.entityType) {
 		case "mission":
 			return (

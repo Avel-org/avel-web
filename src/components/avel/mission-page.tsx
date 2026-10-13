@@ -4,7 +4,7 @@ import type {
 	MissionDetail,
 	needsYouReason,
 } from "avel-server/contract";
-import { ArrowLeft, ArrowUpRight, Copy } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import type { ReactNode } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import { PlanReadiness } from "./plan-readiness";
 import { UnblockCard } from "./plan-unblock";
 import { SampleData } from "./sample-data";
 import { SectionPanel } from "./section-panel";
+import { HiddenId } from "./short-hash";
 import {
 	exportStatusTone,
 	StatusGlyph,
@@ -335,19 +336,15 @@ function Header({ mission }: { mission: MissionDetail }) {
 			className="plate flex flex-col gap-3 rounded-md p-4"
 		>
 			<div className="flex flex-wrap items-center gap-2">
-				<span className="type-mono text-foreground" title={mission.id}>
-					{mission.id}
-				</span>
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					aria-label="Copy mission id"
-					data-testid="mission-page-copy-id"
-					onClick={() => navigator.clipboard?.writeText(mission.id)}
-				>
-					<Copy aria-hidden="true" />
-				</Button>
 				<MissionStatusPill status={mission.status} />
+				{/* Never shown as text: kept on hover and behind Copy, for support. */}
+				<HiddenId
+					id={mission.id}
+					label="the mission id"
+					data-testid="mission-page-id"
+				>
+					<span className="type-caption text-text-subtle">Mission id</span>
+				</HiddenId>
 			</div>
 			<p className="flex flex-wrap items-center gap-x-2 type-h2 text-foreground">
 				{mission.client ? (

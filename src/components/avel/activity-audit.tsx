@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { relativeTime } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
+import { AgentDid } from "./activity-agent";
 import { ACTION_COPY, ENTITY_LABEL } from "./activity-copy";
 import { ActivityTarget } from "./activity-log";
 import {
@@ -226,10 +227,14 @@ function RecordBody({ entry }: { entry: ActivityEntry }) {
 		<div className="grid gap-5 lg:grid-cols-2">
 			<Part title="What it did" testId="activity-record-did">
 				<p className="type-small text-foreground">
-					<span title={entry.entityId}>
-						{`${ACTION_COPY[entry.action]}: ${ENTITY_LABEL[entry.entityType]}`}
-						{name ? ` ${name}` : null}
-					</span>
+					{entry.entityType === "agent_template" ? (
+						<AgentDid entry={entry} action={ACTION_COPY[entry.action]} />
+					) : (
+						<span title={entry.entityId}>
+							{`${ACTION_COPY[entry.action]}: ${ENTITY_LABEL[entry.entityType]}`}
+							{name ? ` ${name}` : null}
+						</span>
+					)}
 					{`, by ${entry.actor.display}.`}
 				</p>
 				<p className="type-mono-small text-text-subtle">

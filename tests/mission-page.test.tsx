@@ -31,6 +31,7 @@ import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { tagOf } from "./render-page";
+import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 // ---------------------------------------------------------------------------
 // Fixtures, parsed through the contract's own schema.
@@ -184,13 +185,14 @@ describe("the route", () => {
 });
 
 describe("the page from the contract", () => {
-	it("shows the id with a copy button, status, client and engagement", async () => {
+	it("keeps the id behind hover and Copy, never as text; status, client and engagement", async () => {
 		const header = element(
 			await render(`/missions/${ID}`, withMission(detail())),
 			"mission-page-header",
 		);
-		expect(header).toContain(ID);
-		expect(header).toContain('data-testid="mission-page-copy-id"');
+		expect(header).toContain(`title="${ID}"`);
+		expect(header).toContain('data-testid="mission-page-id-copy"');
+		expect(visibleText(header)).not.toMatch(UUID_FRAGMENT);
 		expect(header).toContain("Meridian");
 		expect(header).toContain("Booking");
 		expect(header).toContain(">template-booking<");

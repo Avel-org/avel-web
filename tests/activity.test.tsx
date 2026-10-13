@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import {
 	type ActivityEntry,
+	type AgentTemplate,
 	activityAction,
 	activityActorKind,
 	activityEntityType,
@@ -25,12 +26,14 @@ import {
 	activityQuery,
 	type useActivity,
 } from "@/lib/api/activity";
+import { CATALOG_PAGE_SIZE } from "@/lib/api/catalog";
 import { queryKeys } from "@/lib/api/keys";
 import { SessionSourceProvider } from "@/lib/auth";
 import { describeError } from "@/lib/error-map";
 import { activitySearch, Route } from "../src/routes/activity";
 import { routeTree } from "../src/routeTree.gen";
 import { signedIn } from "./auth-session";
+import { agent } from "./catalog-fixtures";
 import { contractError, fakeApi } from "./clients-fixtures";
 import { tagOf } from "./render-page";
 import { UUID_FRAGMENT, visibleText } from "./visible-text";
@@ -73,7 +76,13 @@ const pageOf = (rows: ActivityEntry[], total = rows.length, next = null) => ({
  */
 async function renderActivity(
 	path: string,
-	seed?: { filters: ActivityFilters; rows: ActivityEntry[]; total?: number },
+	seed?: {
+		filters: ActivityFilters;
+		rows: ActivityEntry[];
+		total?: number;
+		/** The agent catalog, for naming agent_template entries; unread if absent. */
+		catalog?: AgentTemplate[];
+	},
 ) {
 	const queryClient = new QueryClient({
 		defaultOptions: {
@@ -85,6 +94,14 @@ async function renderActivity(
 			queryKeys.activity.list(ACTIVITY_PAGE_SIZE, seed.filters),
 			pageOf(seed.rows, seed.total),
 		);
+		if (seed.catalog)
+			queryClient.setQueryData(
+				queryKeys.catalog.agentTemplates(CATALOG_PAGE_SIZE),
+				{
+					pages: [{ data: seed.catalog, meta: { nextCursor: null } }],
+					pageParams: [undefined],
+				},
+			);
 	}
 	const router = createRouter({
 		routeTree,
@@ -366,6 +383,56 @@ describe("filtering", () => {
 	});
 });
 
+describe("an agent in the log", () => {
+	const atlas = agent("atlas");
+	const SHA = "ab".repeat(32);
+	const regen = entry(1, {
+		action: "agent_template.identity_regenerated",
+		entityType: "agent_template",
+		entityId: atlas.id,
+		payload: { number: 3, sha256: SHA },
+	});
+	const gone = entry(2, {
+		action: "agent_template.updated",
+		entityType: "agent_template",
+		entityId: ID(999),
+		payload: {},
+	});
+	const target = (html: string, row: ActivityEntry) => {
+		const start = html.indexOf(`data-testid="activity-target-${row.id}"`);
+		const rest = html.slice(start);
+		return rest.slice(0, rest.indexOf("</li>"));
+	};
+
+	it("names it from the catalog by its id, with the version it made and its hash", async () => {
+		const html = await renderActivity("/activity", {
+			filters: {},
+			rows: [regen, gone],
+			catalog: [atlas],
+		});
+		const row = target(html, regen);
+		expect(visibleText(row)).toContain("Atlas as atlas@v3");
+		expect(row).toContain(`>${SHA.slice(0, 7)}<`);
+		expect(row).toContain('href="/catalog/agents/atlas"');
+		expect(row).toContain(`title="${atlas.id}"`);
+		expect(visibleText(row)).not.toMatch(UUID_FRAGMENT);
+		// Deleted since: the catalog lacks it, so it is "Agent", never its id.
+		expect(visibleText(target(html, gone)).trim()).toMatch(/^Agent\b/);
+		expect(visibleText(target(html, gone))).not.toMatch(UUID_FRAGMENT);
+	});
+
+	it("says Agent while the catalog loads", async () => {
+		const html = await renderActivity("/activity", {
+			filters: {},
+			rows: [regen],
+		});
+		const row = target(html, regen);
+		expect(visibleText(row).trim()).toMatch(/^Agent\b/);
+		expect(row).not.toContain("atlas@v3");
+		expect(visibleText(row)).not.toMatch(UUID_FRAGMENT);
+	});
+});
+
 describe("which entity", () => {
 	it("underlines a linked entity at rest, so it reads apart from plain text", async () => {
 		const mission = entry(1, { entityType: "mission" });
@@ -387,14 +454,9 @@ describe("which entity", () => {
 	it("names the entity by its type and the name it logged, never its id", async () => {
 		const named = entry(1, { payload: { name: "Meridian Health" } });
 		const unnamed = entry(2, { entityType: "mission" });
-		const agent = entry(3, {
-			action: "agent_template.identity_regenerated",
-			entityType: "agent_template",
-			payload: { slug: "atlas" },
-		});
 		const html = await renderActivity("/activity", {
 			filters: {},
-			rows: [named, unnamed, agent],
+			rows: [named, unnamed],
 		});
 		// The target's own markup, from its opening tag to its closing one.
 		const target = (row: ActivityEntry) => {
@@ -405,9 +467,7 @@ describe("which entity", () => {
 		expect(visibleText(target(named))).toContain("Client Meridian Health");
 		// The id stays on hover, for support, and is never the text.
 		expect(target(named)).toContain(`title="${named.entityId}"`);
-		// An agent template that logs only its slug reads by it.
-		expect(visibleText(target(agent))).toContain("Agent atlas");
-		for (const row of [named, unnamed, agent]) {
+		for (const row of [named, unnamed]) {
 			expect(visibleText(target(row))).not.toMatch(UUID_FRAGMENT);
 		}
 		expect(visibleText(target(unnamed)).trim()).toBe("Mission");
