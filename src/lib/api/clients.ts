@@ -3,7 +3,6 @@ import {
 	queryOptions,
 	useInfiniteQuery,
 	useMutation,
-	useQueries,
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
@@ -20,7 +19,6 @@ import {
 } from "avel-server/contract";
 import type { z } from "zod";
 import type { StatusTone } from "@/components/avel/status-pill";
-import { entityActivityQuery, newestFirst } from "./activity";
 import { type ApiClient, call, callPage } from "./client";
 import { ApiError } from "./errors";
 import { queryKeys } from "./keys";
@@ -55,18 +53,24 @@ export function clientSearchText(text: string | undefined): string | undefined {
 
 /**
  * contract.clients.list, newest first, a page at a time. `q` searches the
- * name and primary contact; meta.total counts the matches.
+ * name and primary contact and `status` keeps one status, both on the
+ * server; meta.total counts what they keep.
  */
-export function clientsQuery(api: ApiClient, search?: string) {
+export function clientsQuery(
+	api: ApiClient,
+	search?: string,
+	status?: ClientStatus,
+) {
 	const q = clientSearchText(search);
 	return infiniteQueryOptions({
-		queryKey: queryKeys.clients.list(CLIENTS_PAGE_SIZE, q),
+		queryKey: queryKeys.clients.list(CLIENTS_PAGE_SIZE, q, status),
 		queryFn: ({ pageParam }) =>
 			callPage(contract.clients.list, () =>
 				api.clients.list({
 					query: {
 						limit: CLIENTS_PAGE_SIZE,
 						...(q === undefined ? {} : { q }),
+						...(status === undefined ? {} : { status }),
 						...(pageParam ? { cursor: pageParam } : {}),
 					},
 				}),
@@ -107,8 +111,19 @@ export function clientEngagementsQuery(
 	});
 }
 
-export function useClients(search?: string) {
-	return useInfiniteQuery(clientsQuery(useApiClient(), search));
+/**
+ * One clients list. `enabled` is false for a list the page does not show,
+ * so the board and the table each read only their own lists.
+ */
+export function useClients(
+	search?: string,
+	status?: ClientStatus,
+	{ enabled = true }: { enabled?: boolean } = {},
+) {
+	return useInfiniteQuery({
+		...clientsQuery(useApiClient(), search, status),
+		enabled,
+	});
 }
 
 export function useClientEngagements(
@@ -256,11 +271,21 @@ export function closedEngagementCopy(revokedConnections: number): string {
 
 /**
  * The count for the top bar: "12 clients", or under a search "3 clients
- * match", since meta.total then counts only the matches.
+ * match", since meta.total then counts only the matches. Under a status
+ * alone it names the status: "2 active clients".
  */
-export function clientCountLabel(total: number, searching: boolean): string {
-	if (!searching) return clientCount(total);
-	return total === 1 ? "1 client matches" : `${total} clients match`;
+export function clientCountLabel(
+	total: number,
+	searching: boolean,
+	status?: ClientStatus,
+): string {
+	if (searching) {
+		return total === 1 ? "1 client matches" : `${total} clients match`;
+	}
+	if (status) {
+		return total === 1 ? `1 ${status} client` : `${total} ${status} clients`;
+	}
+	return clientCount(total);
 }
 
 /** "1 client", "12 clients". */
@@ -415,20 +440,6 @@ export const CLIENT_TABS = [
 
 export type ClientTabId = (typeof CLIENT_TABS)[number];
 
-/**
- * The loaded clients split by status, each keeping the list's order. The
- * contract's list has no status filter, so the board groups and filters the
- * rows it has loaded, and says so when more remain.
- */
-export function byStatus(
-	clients: readonly Client[],
-): Record<ClientStatus, Client[]> {
-	return {
-		active: clients.filter((c) => c.status === "active"),
-		closed: clients.filter((c) => c.status === "closed"),
-	};
-}
-
 /** "AC" for "Acme Corp", "ME" for "Meridian": two letters for a tile. */
 export function clientInitials(name: string): string {
 	// Words that start with a letter or digit: "Halvorsen & Pike" is "HP".
@@ -452,12 +463,32 @@ export function monthLabel(iso: string): string {
 	return MONTH.format(new Date(iso));
 }
 
-/** The banner's facts line: "Client since October 2026 · jane@acme.com · updated 3 days ago". */
+/**
+ * When anything last happened to the client, its engagements or their
+ * missions, from lastActivityAt: "Last activity 3 days ago", or "No activity
+ * yet" when the log has nothing on it. Never updatedAt, which moves only when
+ * the client's own fields change.
+ */
+export function lastActivityLabel(
+	client: Pick<Client, "lastActivityAt">,
+	now: number,
+): string {
+	return client.lastActivityAt === null
+		? "No activity yet"
+		: `Last activity ${relativeTime(client.lastActivityAt, now)}`;
+}
+
+/**
+ * The banner's facts line: "Client since October 2026 · jane@acme.com ·
+ * last activity 3 days ago".
+ */
 export function clientFacts(client: Client, now: number): string {
+	const activity = lastActivityLabel(client, now);
 	return [
 		`Client since ${monthLabel(client.createdAt)}`,
 		client.primaryContact ?? "No primary contact",
-		`updated ${relativeTime(client.updatedAt, now)}`,
+		// Mid-line, so it starts lower case.
+		`${activity[0]?.toLowerCase() ?? ""}${activity.slice(1)}`,
 	].join(" · ");
 }
 
@@ -480,33 +511,57 @@ export function engagementMeter(
 	return { active, closed, more: Math.max(0, total - METER_SEGMENTS) };
 }
 
+// A client's missions (ruling 45, amended): contract.missions.list narrowed
+// to the client with clientId, which meta.total and meta.counts follow.
+
+/** How many of a client's missions its page loads at a time. */
+export const CLIENT_MISSIONS_PAGE_SIZE = 20;
+
 /**
- * One client's recent activity: the log's latest entries for the client and
- * for each of its engagements, merged newest first. The log keys rows by
- * entity, so this reads one small page per entity, as an agent's page does.
+ * contract.missions.list for one client, most recent activity first (the
+ * list's default sort), a page at a time. meta.total is the client's mission
+ * count and meta.counts.byStatus its status strip. Archived missions stay
+ * hidden, as on Missions. `limit` 1 reads only the count.
  */
-export function useClientActivity(
+export function clientMissionsQuery(
+	api: ApiClient,
 	clientId: string,
-	engagementIds: readonly string[],
+	limit = CLIENT_MISSIONS_PAGE_SIZE,
 ) {
-	const api = useApiClient();
-	return useQueries({
-		queries: [
-			entityActivityQuery(api, "client", clientId),
-			...engagementIds.map((id) => entityActivityQuery(api, "engagement", id)),
-		],
-		combine: (results) => ({
-			status: results.some((r) => r.status === "error")
-				? ("error" as const)
-				: results.every((r) => r.status === "success")
-					? ("success" as const)
-					: ("pending" as const),
-			error: results.find((r) => r.error)?.error ?? null,
-			retry: () => {
-				for (const r of results) if (r.status === "error") r.refetch();
-			},
-			retrying: results.some((r) => r.isFetching),
-			entries: newestFirst(results.flatMap((r) => r.data?.data ?? [])),
-		}),
+	return infiniteQueryOptions({
+		queryKey: queryKeys.clientMissions.list(clientId, limit),
+		queryFn: ({ pageParam }) =>
+			callPage(contract.missions.list, () =>
+				api.missions.list({
+					query: {
+						origin: "client",
+						clientId,
+						limit,
+						...(pageParam ? { cursor: pageParam } : {}),
+					},
+				}),
+			),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: (last) => last.meta.nextCursor ?? undefined,
 	});
+}
+
+export function useClientMissions(clientId: string) {
+	return useInfiniteQuery(clientMissionsQuery(useApiClient(), clientId));
+}
+
+/**
+ * A client's mission count alone, for its card on the board: one row
+ * requested, meta.total read. One small read per card.
+ */
+export function useClientMissionCount(clientId: string) {
+	return useInfiniteQuery({
+		...clientMissionsQuery(useApiClient(), clientId, 1),
+		select: (data) => data.pages[0]?.meta.total,
+	});
+}
+
+/** "1 mission", "4 missions". */
+export function missionCount(n: number): string {
+	return n === 1 ? "1 mission" : `${n} missions`;
 }

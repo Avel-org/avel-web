@@ -6,7 +6,6 @@ import {
 	Pencil,
 	Plus,
 	Power,
-	Rocket,
 	RotateCcw,
 	SearchX,
 } from "lucide-react";
@@ -23,10 +22,12 @@ import {
 	isoDate,
 	relativeTime,
 	useClient,
+	useClientMissions,
 } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
 import { ClientActivity } from "./client-activity";
 import { ClientFilesDrive, ClientNotesDrive } from "./client-drive";
+import { ClientMissions } from "./client-missions";
 import type { ClientActions } from "./client-overlays";
 import { EmptyState } from "./empty-state";
 import { EngagementBoard } from "./engagement-board";
@@ -45,9 +46,9 @@ import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
 /*
  * One client's page (ruling 45): the entity banner, then one tab at a time.
- * Everything on it is live from the contract: the client, its engagements
- * and the log. Its Drive tab is ruling 33's samples until the Drive's routes
- * exist, and its missions wait for a client filter on the missions list.
+ * Everything on it is live from the contract: the client, its engagements,
+ * its missions (missions.list by clientId) and the log. Its Drive tab is
+ * ruling 33's samples until the Drive's routes exist.
  */
 
 const TAB_LABEL: Record<ClientTabId, string> = {
@@ -150,6 +151,8 @@ function ClientPage({
 		...(id === "engagements" ? { count: client.engagementCount } : {}),
 	}));
 	const banner = useRef<HTMLElement>(null);
+	// One read for the Missions panel, its status strip and the banner's count.
+	const missions = useClientMissions(client.id);
 	return (
 		<Tabs
 			value={tab}
@@ -183,7 +186,12 @@ function ClientPage({
 					/>
 				}
 				facts={clientFacts(client, now)}
-				stats={<ClientStats client={client} />}
+				stats={
+					<ClientStats
+						client={client}
+						missions={missions.data?.pages[0]?.meta.total}
+					/>
+				}
 				actions={<ClientBannerActions client={client} actions={actions} />}
 				tabs={tabs}
 				tabsLabel={`${client.name}'s page`}
@@ -222,19 +230,10 @@ function ClientPage({
 						</SectionPanel>
 						<SectionPanel
 							title="Missions"
-							description="The work run under this client's engagements."
+							description="The work run under this client's engagements, most recent activity first."
 							data-testid="client-missions-panel"
 						>
-							<Surface
-								data-testid="client-missions"
-								notBuilt={{
-									title: "Missions for this client",
-									what: "The missions list cannot be narrowed to one client yet, so this client's missions are not listed here.",
-									needs: ["a clientId filter on missions.list"],
-									icon: Rocket,
-									compact: true,
-								}}
-							/>
+							<ClientMissions query={missions} clientName={client.name} />
 						</SectionPanel>
 					</div>
 				</div>
@@ -260,11 +259,25 @@ function ClientPage({
 	);
 }
 
-/** The banner's numbers: the client's own counts, live. */
-function ClientStats({ client }: { client: Client }) {
+/**
+ * The banner's numbers: its missions (the missions read's meta.total, a dash
+ * until it arrives) and the client's own engagement counts, all live.
+ */
+function ClientStats({
+	client,
+	missions,
+}: {
+	client: Client;
+	missions: number | undefined;
+}) {
 	const closedCount = client.engagementCount - client.activeEngagementCount;
 	return (
 		<>
+			<BannerStat
+				data-testid="client-stat-missions"
+				value={missions === undefined ? "—" : String(missions)}
+				label={missions === 1 ? "mission" : "missions"}
+			/>
 			<BannerStat
 				data-testid="client-stat-engagements"
 				value={String(client.engagementCount)}

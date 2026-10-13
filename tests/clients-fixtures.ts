@@ -9,6 +9,7 @@ import type {
 	ActivityEntry,
 	Client,
 	Engagement,
+	MissionListItem,
 	PreconditionDetails,
 	ValidationDetails,
 } from "avel-server/contract";
@@ -20,8 +21,9 @@ import {
 	ApiOverrideProvider,
 	createApiClient,
 } from "../src/lib/api";
-import { AGENT_ACTIVITY_LIMIT } from "../src/lib/api/activity";
+import { CLIENT_ACTIVITY_PAGE_SIZE } from "../src/lib/api/activity";
 import {
+	CLIENT_MISSIONS_PAGE_SIZE,
 	CLIENTS_PAGE_SIZE,
 	ENGAGEMENTS_PAGE_SIZE,
 	type Page,
@@ -49,6 +51,8 @@ export function client(n: number, overrides: Partial<Client> = {}): Client {
 		notesMd: null,
 		engagementCount: 3,
 		activeEngagementCount: 1,
+		// Set by default; a test that needs a client with no activity passes null.
+		lastActivityAt: "2026-10-06T12:00:00.000Z",
 		createdAt: "2026-10-01T09:00:00.000Z",
 		updatedAt: "2026-10-05T09:00:00.000Z",
 		...overrides,
@@ -72,6 +76,38 @@ export function engagement(
 		updatedAt: "2026-09-01T00:00:00.000Z",
 		...overrides,
 	};
+}
+
+/** One client mission as missions.list returns it. */
+export function mission(
+	n: number,
+	of: Client,
+	overrides: Partial<MissionListItem> = {},
+): MissionListItem {
+	return {
+		id: ID(3000 + n),
+		origin: "client",
+		type: "template-booking",
+		sprintN: n,
+		status: "active",
+		cut: "vertical",
+		cutSource: "derived",
+		client: { id: of.id, name: of.name },
+		engagement: { id: ID(1001), name: "Engagement 1" },
+		lastExport: null,
+		lastActivityAt: "2026-10-06T12:00:00.000Z",
+		needsYou: null,
+		createdAt: "2026-09-20T09:00:00.000Z",
+		updatedAt: "2026-09-20T09:00:00.000Z",
+		...overrides,
+	};
+}
+
+/** missions.list's counts for these rows: each status counted, zeros included. */
+export function countsOf(rows: readonly MissionListItem[]) {
+	const byStatus = { draft: 0, active: 0, halted: 0, shipped: 0, archived: 0 };
+	for (const row of rows) byStatus[row.status] += 1;
+	return { byStatus, needsYou: rows.filter((r) => r.needsYou).length };
 }
 
 /**
@@ -143,8 +179,10 @@ export function fakeApi(
 
 /** What a rendered Clients route finds already in its cache. */
 export type ClientsSeed = {
-	/** The first page of the clients list, under this search. */
-	list?: { page: Page<Client>; q?: string };
+	/** The first page of the clients list, under this search and status. */
+	list?: { page: Page<Client>; q?: string; status?: Client["status"] };
+	/** More first pages of clients lists: the board reads one per section. */
+	lists?: { page: Page<Client>; q?: string; status?: Client["status"] }[];
 	/** One client by id, or the error its fetch failed with. */
 	detail?: { id: string; value: Client | ApiError };
 	/** A client's engagements, all or one status. */
@@ -153,11 +191,21 @@ export type ClientsSeed = {
 		rows: Engagement[];
 		status?: Engagement["status"];
 	}[];
-	/** One entity's latest log entries. */
-	activity?: {
-		entityType: "client" | "engagement";
-		entityId: string;
+	/** The first page of a client's activity (activity.list by clientId). */
+	clientActivity?: {
+		clientId: string;
 		rows: ActivityEntry[];
+		nextCursor?: string | null;
+		total?: number;
+	};
+	/** The first page of a client's missions (missions.list by clientId). */
+	missions?: {
+		clientId: string;
+		rows: MissionListItem[];
+		/** CLIENT_MISSIONS_PAGE_SIZE for the page's list, 1 for a card's count. */
+		limit?: number;
+		nextCursor?: string | null;
+		total?: number;
 	}[];
 };
 
@@ -184,10 +232,13 @@ export async function renderClientsRoute(
 		pages: [{ data: rows, meta: { nextCursor: null } }],
 		pageParams: [undefined],
 	});
-	if (seed.list) {
+	for (const list of [
+		...(seed.list ? [seed.list] : []),
+		...(seed.lists ?? []),
+	]) {
 		queryClient.setQueryData(
-			queryKeys.clients.list(CLIENTS_PAGE_SIZE, seed.list.q),
-			{ pages: [seed.list.page], pageParams: [undefined] },
+			queryKeys.clients.list(CLIENTS_PAGE_SIZE, list.q, list.status),
+			{ pages: [list.page], pageParams: [undefined] },
 		);
 	}
 	if (seed.detail) {
@@ -211,10 +262,43 @@ export async function renderClientsRoute(
 			paged(e.rows),
 		);
 	}
-	for (const a of seed.activity ?? []) {
+	if (seed.clientActivity) {
+		const a = seed.clientActivity;
 		queryClient.setQueryData(
-			queryKeys.activity.entity(a.entityType, a.entityId, AGENT_ACTIVITY_LIMIT),
-			{ data: a.rows, meta: { nextCursor: null, total: a.rows.length } },
+			queryKeys.activity.client(a.clientId, CLIENT_ACTIVITY_PAGE_SIZE),
+			{
+				pages: [
+					{
+						data: a.rows,
+						meta: {
+							nextCursor: a.nextCursor ?? null,
+							total: a.total ?? a.rows.length,
+						},
+					},
+				],
+				pageParams: [undefined],
+			},
+		);
+	}
+	for (const m of seed.missions ?? []) {
+		queryClient.setQueryData(
+			queryKeys.clientMissions.list(
+				m.clientId,
+				m.limit ?? CLIENT_MISSIONS_PAGE_SIZE,
+			),
+			{
+				pages: [
+					{
+						data: m.rows,
+						meta: {
+							nextCursor: m.nextCursor ?? null,
+							total: m.total ?? m.rows.length,
+							counts: countsOf(m.rows),
+						},
+					},
+				],
+				pageParams: [undefined],
+			},
 		);
 	}
 	const router = createRouter({
@@ -235,10 +319,10 @@ export async function renderClientsRoute(
 	);
 }
 
-/** One activity log row about a client or an engagement. */
+/** One activity log row about a client, an engagement or a mission. */
 export function activityEntry(
 	n: number,
-	entityType: "client" | "engagement",
+	entityType: "client" | "engagement" | "mission",
 	entityId: string,
 	overrides: Partial<ActivityEntry> = {},
 ): ActivityEntry {
@@ -248,10 +332,15 @@ export function activityEntry(
 		actorKind: "operator",
 		actorUserId: ID(1),
 		actorRosterEntryId: null,
-		action: entityType === "client" ? "client.updated" : "engagement.created",
+		action:
+			entityType === "client"
+				? "client.updated"
+				: entityType === "mission"
+					? "mission.created"
+					: "engagement.created",
 		entityType,
 		entityId,
-		missionId: null,
+		missionId: entityType === "mission" ? entityId : null,
 		engagementId: entityType === "engagement" ? entityId : null,
 		requestId: `req_${n}`,
 		payload: {},

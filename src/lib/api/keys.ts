@@ -16,6 +16,29 @@ export const queryKeys = {
 		entity: (entityType: string, entityId: string, limit: number) =>
 			["activity", "entity", entityType, entityId, { limit }] as const,
 		/**
+		 * contract.activity.list for one client, paged by cursor: the rows on the
+		 * client, its engagements and their missions (`clientId`).
+		 */
+		client: (clientId: string, limit: number) =>
+			["activity", "client", clientId, { limit }] as const,
+		/**
+		 * contract.activity.list for several entities of one type, paged by
+		 * cursor (`entityId` as a list). The ids are sorted, so the same set is
+		 * always the same entry.
+		 */
+		entities: (
+			entityType: string,
+			entityIds: readonly string[],
+			limit: number,
+		) =>
+			[
+				"activity",
+				"entities",
+				entityType,
+				[...entityIds].sort(),
+				{ limit },
+			] as const,
+		/**
 		 * contract.activity.list, paged by cursor. Each filter set is its own
 		 * entry: the cursor is not bound to the filters, so a page fetched under
 		 * one set must never continue a list under another. A filter is in the
@@ -99,11 +122,20 @@ export const queryKeys = {
 		/** Everything under contract.clients. */
 		all: () => ["clients"] as const,
 		/**
-		 * contract.clients.list, paged by cursor, optionally searched. Each
-		 * search is its own entry: `q` is in the key only when there is one.
+		 * contract.clients.list, paged by cursor, optionally searched and
+		 * filtered by status. Each search and status is its own entry: `q` and
+		 * `status` are in the key only when set.
 		 */
-		list: (limit: number, q?: string) =>
-			["clients", "list", q === undefined ? { limit } : { limit, q }] as const,
+		list: (limit: number, q?: string, status?: "active" | "closed") =>
+			[
+				"clients",
+				"list",
+				{
+					limit,
+					...(q === undefined ? {} : { q }),
+					...(status === undefined ? {} : { status }),
+				},
+			] as const,
 		/** contract.clients.get: one client, under clients so every change refreshes it. */
 		detail: (id: string) => ["clients", "detail", id] as const,
 	},
@@ -169,6 +201,16 @@ export const queryKeys = {
 		/** contract.playbooks.versions: every version written, newest first. */
 		versions: (missionType: string) =>
 			["playbooks", "versions", missionType] as const,
+	},
+	clientMissions: {
+		/**
+		 * contract.missions.list for one client (origin client, `clientId`),
+		 * paged by cursor. Under "missions", so every mission write refreshes
+		 * it; its params never equal the Missions page's, so the two never
+		 * share an entry.
+		 */
+		list: (clientId: string, limit: number) =>
+			["missions", "list", { origin: "client", clientId, limit }] as const,
 	},
 	missionPlans: {
 		/**

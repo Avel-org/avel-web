@@ -3,7 +3,6 @@ import type { Client, Engagement } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
 import { CARD_ENGAGEMENTS } from "@/components/avel/client-board";
 import {
-	byStatus,
 	clientFacts,
 	clientInitials,
 	engagementMeter,
@@ -15,11 +14,47 @@ import {
 	type ClientsSeed,
 	client,
 	engagement,
+	mission,
 	renderClientsRoute,
 } from "./clients-fixtures";
 import { renderPage, tagOf } from "./render-page";
 
 const render = () => renderPage("/clients");
+
+/**
+ * A page of clients as the board reads it: one list per status, filtered on
+ * the server. Active takes the active rows, the cursor and whatever the
+ * total holds beyond the closed rows, so the two totals sum to the page's.
+ * The page itself is the table's unfiltered list.
+ */
+function bySection(page: Page<Client>, q?: string) {
+	const closed = page.data.filter((c) => c.status === "closed");
+	const total = page.meta.total;
+	return [
+		{
+			status: "active" as const,
+			q,
+			page: {
+				data: page.data.filter((c) => c.status === "active"),
+				meta: {
+					nextCursor: page.meta.nextCursor,
+					...(total === undefined ? {} : { total: total - closed.length }),
+				},
+			},
+		},
+		{
+			status: "closed" as const,
+			q,
+			page: {
+				data: closed,
+				meta: {
+					nextCursor: null,
+					...(total === undefined ? {} : { total: closed.length }),
+				},
+			},
+		},
+	];
+}
 
 const seeded = async (
 	page: Page<Client>,
@@ -28,7 +63,12 @@ const seeded = async (
 		q,
 		...rest
 	}: { path?: string; q?: string } & Omit<ClientsSeed, "list"> = {},
-) => renderClientsRoute(path, { list: { page, q }, ...rest });
+) =>
+	renderClientsRoute(path, {
+		list: { page, q },
+		...rest,
+		lists: [...bySection(page, q), ...(rest.lists ?? [])],
+	});
 
 describe("the Clients page", () => {
 	it("is a construction route, so a phone sees the device boundary", () => {
@@ -211,6 +251,36 @@ const sectionOf = (html: string, status: string) => {
 };
 
 describe("the client board", () => {
+	it("counts each section from its own list's meta.total, not the cards loaded", async () => {
+		const html = await renderClientsRoute("/clients", {
+			lists: [
+				{
+					status: "active",
+					page: { data: [ONE], meta: { nextCursor: "a2", total: 40 } },
+				},
+				{
+					status: "closed",
+					page: { data: [TWO], meta: { nextCursor: null, total: 7 } },
+				},
+			],
+		});
+		expect(html).toMatch(/data-testid="client-section-active-count"[^>]*>40</);
+		expect(html).toMatch(/data-testid="client-section-closed-count"[^>]*>7</);
+		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>47 clients</);
+	});
+
+	it("waits for both sections' lists, so one never shows under the other's skeleton", async () => {
+		const html = await renderClientsRoute("/clients", {
+			lists: [
+				{
+					status: "active",
+					page: { data: [ONE], meta: { nextCursor: null, total: 1 } },
+				},
+			],
+		});
+		expect(tagOf(html, "client-board")).toContain('data-state="loading"');
+	});
+
 	it("puts Active first and Closed after, each counting its cards", async () => {
 		const html = await seeded(THREE);
 		const active = html.indexOf('data-testid="client-section-active"');
@@ -317,8 +387,11 @@ describe("the client board", () => {
 		expect(sectionOf(html, "closed")).not.toContain("client-card-new");
 	});
 
-	it("filters to one status, pressed in the filter", async () => {
-		const html = await seeded(THREE, { path: "/clients?status=closed" });
+	it("filters to one status, pressed in the filter, reading only that list", async () => {
+		// Only Closed is seeded: Active is not read, or the board would wait.
+		const html = await renderClientsRoute("/clients?status=closed", {
+			lists: [bySection(THREE)[1] as NonNullable<ClientsSeed["lists"]>[number]],
+		});
 		expect(html).not.toContain('data-testid="client-section-active"');
 		expect(sectionOf(html, "closed")).toContain(`client-card-${TWO.id}`);
 		expect(tagOf(html, "clients-status-closed")).toContain(
@@ -327,27 +400,84 @@ describe("the client board", () => {
 		expect(tagOf(html, "clients-status-all")).toContain('aria-pressed="false"');
 	});
 
-	it("says a filtered section is empty among those loaded when more remain", async () => {
-		const html = await seeded(
-			{ data: [ONE], meta: { nextCursor: "c1", total: 40 } },
-			{ path: "/clients?status=closed" },
+	it("says plainly when the server has no closed client", async () => {
+		const html = await renderClientsRoute("/clients?status=closed", {
+			lists: [
+				{
+					status: "closed",
+					page: { data: [], meta: { nextCursor: null, total: 0 } },
+				},
+			],
+		});
+		expect(html).toMatch(
+			/data-testid="client-section-closed-none"[^>]*>No closed clients\.</,
 		);
-		expect(html).toContain(
-			"No closed clients among those loaded. Load more to look further.",
-		);
+		expect(html).not.toContain("among those loaded");
+		expect(tagOf(html, "client-section-closed-count")).toBeTruthy();
+		expect(html).toMatch(/data-testid="client-section-closed-count"[^>]*>0</);
 	});
 
-	it("says how many of how many are loaded, and offers more", async () => {
+	it("says how many of a section's total are loaded, and offers more of that section", async () => {
 		const html = await seeded({
 			data: THREE.data,
 			meta: { nextCursor: "c1", total: 120 },
 		});
 		expect(html).toMatch(
-			/data-testid="clients-showing"[^>]*>Showing 3 of 120</,
+			/data-testid="client-section-active-showing"[^>]*>Showing 2 of 119</,
 		);
-		expect(html).toContain('data-testid="clients-load-more"');
+		expect(html).toContain('data-testid="client-section-active-load-more"');
+		expect(html).not.toContain("client-section-closed-load-more");
 		const all = await seeded(THREE);
-		expect(all).not.toContain("clients-load-more");
+		expect(all).not.toContain("load-more");
+	});
+
+	it("tells when each client last saw activity, or that it has none", async () => {
+		const quiet = client(6, { lastActivityAt: null });
+		const html = await seeded({
+			data: [ONE, quiet],
+			meta: { nextCursor: null, total: 2 },
+		});
+		const one = cardOf(html, ONE);
+		expect(one).toMatch(
+			new RegExp(
+				`data-testid="client-card-activity-${ONE.id}"[^>]*>Last activity(<!-- -->)? <time[^>]*dateTime="${ONE.lastActivityAt}"`,
+			),
+		);
+		expect(cardOf(html, quiet)).toMatch(
+			new RegExp(
+				`data-testid="client-card-activity-${quiet.id}"[^>]*>No activity yet<`,
+			),
+		);
+		expect(html).not.toContain("client-card-updated-");
+	});
+
+	it("counts each client's missions from a one-row read of its missions", async () => {
+		const html = await seeded(
+			{ data: [ONE, THREE_C], meta: { nextCursor: null, total: 2 } },
+			{
+				missions: [
+					{
+						clientId: ONE.id,
+						limit: 1,
+						rows: [mission(1, ONE)],
+						total: 4,
+						nextCursor: "m2",
+					},
+				],
+			},
+		);
+		expect(cardOf(html, ONE)).toMatch(
+			new RegExp(
+				`data-testid="client-card-missions-${ONE.id}"[^>]*>4 missions<`,
+			),
+		);
+		// Not read yet: a dash, never a zero it cannot vouch for.
+		const pending = tagOf(
+			cardOf(html, THREE_C),
+			`client-card-missions-${THREE_C.id}`,
+		);
+		expect(pending).toContain('data-state="pending"');
+		expect(cardOf(html, THREE_C)).not.toContain(">0 missions<");
 	});
 
 	it("lays its cards out in columns that shrink to the canvas", async () => {
@@ -355,6 +485,19 @@ describe("the client board", () => {
 		expect(tagOf(html, "client-cards-active")).toContain(
 			"grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))]",
 		);
+	});
+
+	it("shows no first-run onboarding under a status that keeps none", async () => {
+		const html = await renderClientsRoute("/clients?status=active", {
+			lists: [
+				{
+					status: "active",
+					page: { data: [], meta: { nextCursor: null, total: 0 } },
+				},
+			],
+		});
+		expect(html).not.toContain('data-testid="clients-empty"');
+		expect(html).toContain('data-testid="client-card-new"');
 	});
 
 	it("shows onboarding on first run, instead of the board", async () => {
@@ -390,22 +533,46 @@ describe("the Board | Table toggle (ruling 36)", () => {
 		);
 	});
 
-	it("keeps the status filter in the table", async () => {
+	it("reads the table's status from the server's filtered list", async () => {
+		// Only the unfiltered list holds TWO; the table must read Active's.
 		const html = await seeded(THREE, {
 			path: "/clients?view=table&status=active",
 		});
 		expect(html).toContain(`client-row-${ONE.id}`);
 		expect(html).not.toContain(`client-row-${TWO.id}`);
+		expect(html).not.toContain("among those loaded");
+	});
+
+	it("shows each row's last activity, or none", async () => {
+		const quiet = client(6, { lastActivityAt: null });
+		const html = await seeded(
+			{ data: [ONE, quiet], meta: { nextCursor: null, total: 2 } },
+			{ path: "/clients?view=table" },
+		);
+		expect(html).toContain(">Last activity<");
+		expect(tagOf(html, `client-row-activity-${ONE.id}`)).toBeTruthy();
+		expect(html).toMatch(
+			new RegExp(
+				`data-testid="client-row-activity-${quiet.id}"[^>]*>No activity yet<`,
+			),
+		);
+	});
+
+	it("says a status with no client is empty, not a search that matched none", async () => {
+		const html = await renderClientsRoute("/clients?view=table&status=closed", {
+			lists: [
+				{
+					status: "closed",
+					page: { data: [], meta: { nextCursor: null, total: 0 } },
+				},
+			],
+		});
+		expect(html).toContain('data-testid="clients-none-with-status"');
+		expect(html).not.toContain('data-testid="clients-no-match"');
 	});
 });
 
 describe("the board's arithmetic", () => {
-	it("splits by status, keeping the list's order", () => {
-		const groups = byStatus(THREE.data);
-		expect(groups.active.map((c) => c.id)).toEqual([ONE.id, THREE_C.id]);
-		expect(groups.closed.map((c) => c.id)).toEqual([TWO.id]);
-	});
-
 	it("takes two initials from words that start with a letter or digit", () => {
 		expect(clientInitials("Acme Corp")).toBe("AC");
 		expect(clientInitials("Halvorsen & Pike")).toBe("HP");
@@ -432,7 +599,7 @@ describe("the board's arithmetic", () => {
 	it("states the banner's facts in one line", () => {
 		const now = Date.parse("2026-10-08T09:00:00.000Z");
 		expect(clientFacts(ONE, now)).toBe(
-			"Client since October 2026 · contact1@example.com · updated 3 days ago",
+			"Client since October 2026 · contact1@example.com · last activity yesterday",
 		);
 		expect(clientFacts(THREE_C, now)).toContain("No primary contact");
 	});

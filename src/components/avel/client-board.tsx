@@ -11,15 +11,18 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ApiError } from "@/lib/api";
 import {
-	byStatus,
 	engagementMeter,
 	engagementSummary,
 	isoDate,
+	lastActivityLabel,
 	listTotal,
+	missionCount,
 	relativeTime,
 	statusTone,
 	useClientEngagements,
+	useClientMissionCount,
 	type useClients,
 } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
@@ -31,14 +34,20 @@ import {
 } from "./client-list";
 import type { ClientActions } from "./client-overlays";
 import { StatusPill } from "./status-pill";
-import { ErrorState, type ErrorStateProps, Surface } from "./surface";
+import {
+	ErrorState,
+	type ErrorStateProps,
+	Surface,
+	type SurfaceQuery,
+} from "./surface";
 
 /*
  * The client board (ruling 45): the portfolio at a glance. Clients sit in
  * two sections, Active then Closed, each a grid of cards. A card shows the
  * client's shape before it is opened: its tile, name, contact and status, a
- * meter of its engagements from the row's own counts, its latest engagements
- * as a short stack, and when it last changed. The card is a link to the
+ * meter of its engagements from the row's own counts, its mission count, its
+ * latest engagements as a short stack, and when anything last happened to
+ * it. Each section is its own list, filtered by status on the server. The card is a link to the
  * client's page; its menu edits, adds an engagement, and closes or reopens.
  */
 
@@ -50,18 +59,64 @@ const SECTION_LABEL: Record<ClientStatus, string> = {
 	closed: "Closed",
 };
 
+/** One section's list: a status and the clients list the server keeps for it. */
+export type BoardSectionQuery = {
+	status: ClientStatus;
+	query: ReturnType<typeof useClients>;
+};
+
+type LoadedSection = BoardSectionQuery & {
+	clients: Client[];
+	total: number | undefined;
+};
+
+/**
+ * The sections' lists as one query for <Surface>: loading until every list
+ * has its first page, an error as soon as one fails, so the board never
+ * shows one section's cards under another's skeleton.
+ */
+function boardQuery(
+	sections: readonly BoardSectionQuery[],
+): SurfaceQuery<LoadedSection[], ApiError> {
+	for (const { query } of sections) {
+		if (query.status === "error") {
+			return {
+				status: "error",
+				error: query.error,
+				refetch: () => {
+					for (const s of sections) {
+						if (s.query.status === "error") s.query.refetch();
+					}
+				},
+				isFetching: sections.some((s) => s.query.isFetching),
+			};
+		}
+	}
+	const loaded: LoadedSection[] = [];
+	for (const section of sections) {
+		if (section.query.status !== "success") return { status: "pending" };
+		loaded.push({
+			...section,
+			clients: loadedClients(section.query.data),
+			total: listTotal(section.query.data),
+		});
+	}
+	return { status: "success", data: loaded };
+}
+
 export function ClientBoard({
-	query,
+	sections,
 	search,
-	status,
+	filtered,
 	onClearSearch,
 	actions,
 	now,
 }: {
-	query: ReturnType<typeof useClients>;
+	/** Active then Closed, or the one status the filter keeps. */
+	sections: readonly BoardSectionQuery[];
 	search: string | undefined;
-	/** The status filter; undefined shows both sections. */
-	status: ClientStatus | undefined;
+	/** A status filter is set: its section shows even when empty. */
+	filtered: boolean;
 	onClearSearch: () => void;
 	actions: ClientActions;
 	now: number;
@@ -69,64 +124,52 @@ export function ClientBoard({
 	return (
 		<Surface
 			data-testid="client-board"
-			query={query}
-			isEmpty={(data) => loadedClients(data).length === 0}
+			query={boardQuery(sections)}
+			// With no search, an empty board is first run, which the page shows.
+			isEmpty={(loaded) =>
+				search !== undefined && loaded.every((s) => s.clients.length === 0)
+			}
 			loading={<ClientBoardSkeleton />}
 			empty={<ClientsNoMatch search={search} onClearSearch={onClearSearch} />}
 			error={ErrorState}
 		>
-			{(data) => {
-				const clients = loadedClients(data);
-				const groups = byStatus(clients);
-				const more = query.hasNextPage;
-				const shown: ClientStatus[] = status
-					? [status]
-					: // An empty Closed section says nothing worth a heading.
-						groups.closed.length > 0
-						? ["active", "closed"]
-						: ["active"];
-				return (
-					<div className="flex flex-col gap-8">
-						{shown.map((s) => (
+			{(loaded) => (
+				<div className="flex flex-col gap-8">
+					{loaded
+						// An empty Closed section says nothing worth a heading,
+						// unless the filter asked for it.
+						.filter(
+							(s) => filtered || s.status === "active" || s.clients.length > 0,
+						)
+						.map((s) => (
 							<BoardSection
-								key={s}
-								status={s}
-								clients={groups[s]}
-								more={more}
+								key={s.status}
+								section={s}
 								actions={actions}
 								now={now}
 							/>
 						))}
-						<ClientListFooter
-							loaded={clients.length}
-							total={listTotal(data)}
-							hasMore={more}
-							loadingMore={query.isFetchingNextPage}
-							onLoadMore={() => query.fetchNextPage()}
-						/>
-					</div>
-				);
-			}}
+				</div>
+			)}
 		</Surface>
 	);
 }
 
-/** One status's clients, under a ruled heading with their count. */
+/**
+ * One status's clients, under a ruled heading with the server's count for
+ * that status (meta.total), and Load more when the server has more.
+ */
 function BoardSection({
-	status,
-	clients,
-	more,
+	section,
 	actions,
 	now,
 }: {
-	status: ClientStatus;
-	clients: Client[];
-	/** More clients remain unloaded, so "none" means none loaded. */
-	more: boolean;
+	section: LoadedSection;
 	actions: ClientActions;
 	now: number;
 }) {
 	const headingId = useId();
+	const { status, clients, total, query } = section;
 	const label = SECTION_LABEL[status];
 	return (
 		<section
@@ -149,7 +192,7 @@ function BoardSection({
 					data-testid={`client-section-${status}-count`}
 					className="type-mono-small text-text-subtle tabular-nums"
 				>
-					{clients.length}
+					{total ?? clients.length}
 				</span>
 				<span aria-hidden="true" className="h-px flex-1 bg-border" />
 			</header>
@@ -158,9 +201,7 @@ function BoardSection({
 					data-testid="client-section-closed-none"
 					className="type-small text-text-muted"
 				>
-					{more
-						? "No closed clients among those loaded. Load more to look further."
-						: "No closed clients."}
+					No closed clients.
 				</p>
 			) : (
 				<ul
@@ -180,6 +221,16 @@ function BoardSection({
 					) : null}
 				</ul>
 			)}
+			{query.hasNextPage ? (
+				<ClientListFooter
+					testIdPrefix={`client-section-${status}`}
+					loaded={clients.length}
+					total={total}
+					hasMore
+					loadingMore={query.isFetchingNextPage}
+					onLoadMore={() => query.fetchNextPage()}
+				/>
+			) : null}
 		</section>
 	);
 }
@@ -261,19 +312,11 @@ export function ClientCard({
 						)}
 					</div>
 				)}
+				<CardMissions client={client} />
 			</div>
 			<footer className="flex items-center gap-1.5 border-t border-border px-4 py-2 type-caption text-text-subtle">
 				<History aria-hidden="true" className="size-3.5" />
-				<span data-testid={`client-card-updated-${client.id}`}>
-					Updated{" "}
-					<time
-						dateTime={client.updatedAt}
-						title={client.updatedAt}
-						suppressHydrationWarning
-					>
-						{relativeTime(client.updatedAt, now)}
-					</time>
-				</span>
+				<LastActivity client={client} now={now} />
 				<span
 					aria-hidden="true"
 					className="ml-auto inline-flex items-center gap-1 text-text-muted transition-colors duration-(--duration-micro) ease-avel group-hover:text-accent-text"
@@ -283,6 +326,59 @@ export function ClientCard({
 				</span>
 			</footer>
 		</article>
+	);
+}
+
+/**
+ * "Last activity 3 days ago", from lastActivityAt: the newest log row on the
+ * client, its engagements or their missions. "No activity yet" when none.
+ */
+function LastActivity({ client, now }: { client: Client; now: number }) {
+	const testId = `client-card-activity-${client.id}`;
+	if (client.lastActivityAt === null) {
+		return <span data-testid={testId}>{lastActivityLabel(client, now)}</span>;
+	}
+	return (
+		<span data-testid={testId}>
+			Last activity{" "}
+			<time
+				dateTime={client.lastActivityAt}
+				title={client.lastActivityAt}
+				suppressHydrationWarning
+			>
+				{relativeTime(client.lastActivityAt, now)}
+			</time>
+		</span>
+	);
+}
+
+/**
+ * How many missions run under the client, from one missions.list read with
+ * limit 1 (meta.total follows clientId). One small read per card.
+ */
+function CardMissions({ client }: { client: Client }) {
+	const count = useClientMissionCount(client.id);
+	return (
+		// mt-auto: the row sits on the card's floor, level across a row of cards.
+		<div className="mt-auto flex items-baseline justify-between gap-2">
+			<span className="type-caption text-text-subtle">Missions</span>
+			<span
+				data-testid={`client-card-missions-${client.id}`}
+				data-state={count.status}
+				className="type-mono-small text-text-muted tabular-nums"
+			>
+				{count.status === "success" && count.data !== undefined ? (
+					missionCount(count.data)
+				) : count.status === "error" ? (
+					"Not available"
+				) : (
+					<>
+						<span aria-hidden="true">—</span>
+						<span className="sr-only">Counting missions</span>
+					</>
+				)}
+			</span>
+		</div>
 	);
 }
 

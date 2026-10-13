@@ -121,27 +121,29 @@ function render({
 	tab = "overview",
 	entries = [onMission(MISSION, ENTRY)],
 	activity = [] as ActivityEntry[],
+	nextCursor = null as string | null,
 }: {
 	of?: AgentTemplate;
 	tab?: (typeof AGENT_TABS)[number];
 	entries?: AgentRosterEntry[];
 	activity?: ActivityEntry[];
+	nextCursor?: string | null;
 } = {}) {
 	const client = seededClient({ agentBySlug: { [of.slug]: of } });
 	client.setQueryData(queryKeys.roster.byTemplate(of.id), entries);
 	client.setQueryData(queryKeys.catalog.agentAccess(of.id), ACCESS);
-	for (const e of entries)
-		client.setQueryData(
-			queryKeys.activity.entity(
-				"roster_entry",
-				e.entryId,
-				AGENT_ACTIVITY_LIMIT,
-			),
-			{
-				data: activity.filter((a) => a.entityId === e.entryId),
-				meta: { nextCursor: null },
-			},
-		);
+	// One read for every entry: the log's rows for all of them at once.
+	client.setQueryData(
+		queryKeys.activity.entities(
+			"roster_entry",
+			entries.map((e) => e.entryId),
+			AGENT_ACTIVITY_LIMIT,
+		),
+		{
+			pages: [{ data: activity, meta: { nextCursor, total: activity.length } }],
+			pageParams: [undefined],
+		},
+	);
 	return inProviders(
 		<AgentDetail
 			slug={of.slug}
@@ -376,6 +378,17 @@ describe("Recent activity", () => {
 		const left = byMission([...rows, gone], entries).at(-1);
 		expect(left?.missionId).toBe(LEFT);
 		expect(left?.entry).toBeUndefined();
+	});
+
+	it("12. reads every roster entry's rows in one request, and offers more", () => {
+		const html = render({ entries, activity: rows, nextCursor: "a2" });
+		for (const row of rows) {
+			expect(html).toContain(`data-testid="agent-activity-row-${row.id}"`);
+		}
+		expect(html).toContain('data-testid="agent-activity-load-more"');
+		expect(render({ entries, activity: rows })).not.toContain(
+			"agent-activity-load-more",
+		);
 	});
 
 	it("12. heads each group with a link to its mission", () => {

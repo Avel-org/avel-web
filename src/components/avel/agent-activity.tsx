@@ -5,6 +5,7 @@ import type {
 	AgentTemplate,
 } from "avel-server/contract";
 import { History } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplateRosterEntries } from "@/lib/api/access";
 import { useEntriesActivity } from "@/lib/api/activity";
@@ -16,10 +17,11 @@ import { ErrorState } from "./surface";
 
 /*
  * An agent's recent activity, on its Overview: what happened to its places
- * on missions (added, changed, removed), read from the activity log by each
- * of its roster entries. What the agent itself does on a run is logged once
- * dispatch runs agents (module 6); until then these are the operator's and
- * the system's entries about it.
+ * on missions (added, changed, removed), read from the activity log in one
+ * request naming all of its roster entries (entityId, up to 100), the
+ * latest few at a time with Load more. What the agent itself does on a run
+ * is logged once dispatch runs agents (module 6); until then these are the
+ * operator's and the system's entries about it.
  */
 
 /** "12 Oct, 14:05", in UTC, so every viewer reads the same time. */
@@ -103,6 +105,7 @@ function EntryActivity({
 }) {
 	const entryIds = entries.map((e) => e.entryId);
 	const activity = useEntriesActivity(entryIds);
+	const rows = activity.data?.pages.flatMap((page) => page.data) ?? [];
 	if (entryIds.length === 0)
 		return (
 			<EmptyState
@@ -114,15 +117,15 @@ function EntryActivity({
 			/>
 		);
 	if (activity.status === "pending") return <ActivitySkeleton />;
-	if (activity.status === "error" && activity.error)
+	if (activity.status === "error")
 		return (
 			<ErrorState
 				error={activity.error}
-				retry={activity.retry}
-				retrying={activity.retrying}
+				retry={() => activity.refetch()}
+				retrying={activity.isFetching}
 			/>
 		);
-	if (activity.entries.length === 0)
+	if (rows.length === 0)
 		return (
 			<EmptyState
 				data-testid="agent-activity-empty"
@@ -134,7 +137,7 @@ function EntryActivity({
 		);
 	return (
 		<div data-testid="agent-activity-list" className="flex flex-col gap-4">
-			{byMission(activity.entries, entries).map((group) => (
+			{byMission(rows, entries).map((group) => (
 				<section
 					key={group.missionId}
 					aria-labelledby={`agent-activity-${group.missionId}`}
@@ -160,6 +163,18 @@ function EntryActivity({
 					<ActivityRows rows={group.rows} />
 				</section>
 			))}
+			{activity.hasNextPage ? (
+				<Button
+					variant="ghost"
+					size="sm"
+					data-testid="agent-activity-load-more"
+					className="self-start"
+					disabled={activity.isFetchingNextPage}
+					onClick={() => activity.fetchNextPage()}
+				>
+					{activity.isFetchingNextPage ? "Loading" : "Load more"}
+				</Button>
+			) : null}
 		</div>
 	);
 }

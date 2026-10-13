@@ -1,9 +1,7 @@
 import {
 	type InfiniteData,
 	infiniteQueryOptions,
-	queryOptions,
 	useInfiniteQuery,
-	useQueries,
 } from "@tanstack/react-query";
 import {
 	type ActivityActorKind,
@@ -69,65 +67,86 @@ export function useActivity(filters: ActivityFilters) {
 	return useInfiniteQuery(activityQuery(useApiClient(), filters));
 }
 
-/** How many of an agent's latest entries its page shows. */
+/** How many of an agent's latest entries its page shows, and loads at a time. */
 export const AGENT_ACTIVITY_LIMIT = 8;
 
-/** One entity's latest entries, newest first: one page, no cursor. */
-export function entityActivityQuery(
+/** How many entries a client's Activity tab loads at a time. */
+export const CLIENT_ACTIVITY_PAGE_SIZE = 20;
+
+/** The most ids one `entityId` filter takes (the contract's limit). */
+export const MAX_ENTITY_IDS = 100;
+
+/** The next page's cursor, or undefined at the end of the list. */
+const nextCursor = (last: { meta: { nextCursor?: string | null } }) =>
+	last.meta.nextCursor ?? undefined;
+
+/**
+ * contract.activity.list for several entities of one type, newest first, a
+ * page at a time: one request for all of them, `entityId` sent as a list
+ * (ts-rest writes it indexed, entityId[0]=…&entityId[1]=…, which the server
+ * reads as the repeated form). The ids are sorted, so the key and the
+ * request read the same list, and capped at the contract's 100.
+ */
+export function entitiesActivityQuery(
 	api: ApiClient,
 	entityType: ActivityEntityType,
-	entityId: string,
+	entityIds: readonly string[],
+	limit = AGENT_ACTIVITY_LIMIT,
 ) {
-	return queryOptions({
-		queryKey: queryKeys.activity.entity(
-			entityType,
-			entityId,
-			AGENT_ACTIVITY_LIMIT,
-		),
-		queryFn: () =>
+	const ids = [...entityIds].sort().slice(0, MAX_ENTITY_IDS);
+	return infiniteQueryOptions({
+		queryKey: queryKeys.activity.entities(entityType, ids, limit),
+		queryFn: ({ pageParam }) =>
 			callPage(contract.activity.list, () =>
 				api.activity.list({
-					query: { limit: AGENT_ACTIVITY_LIMIT, entityType, entityId },
+					query: {
+						limit,
+						entityType,
+						entityId: ids,
+						...(pageParam ? { cursor: pageParam } : {}),
+					},
 				}),
 			),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: nextCursor,
+		// No ids, no rows: an empty list is not sent, since the server would
+		// read it as no filter at all.
+		enabled: ids.length > 0,
 	});
+}
+
+/** An agent's roster entries' activity, one read for all of them. */
+export function useEntriesActivity(entryIds: readonly string[]) {
+	return useInfiniteQuery(
+		entitiesActivityQuery(useApiClient(), "roster_entry", entryIds),
+	);
 }
 
 /**
- * What happened to an agent's places on missions: the latest entries of each
- * of its roster entries, merged newest first. The log keys rows by entity,
- * not by template, so this reads one small page per entry.
+ * contract.activity.list for one client, newest first, a page at a time:
+ * the rows on the client, its engagements and their missions, the same rows
+ * Client.lastActivityAt reads.
  */
-export function useEntriesActivity(entryIds: readonly string[]) {
-	const api = useApiClient();
-	return useQueries({
-		queries: entryIds.map((id) => entityActivityQuery(api, "roster_entry", id)),
-		combine: (results) => ({
-			status: results.some((r) => r.status === "error")
-				? ("error" as const)
-				: results.every((r) => r.status === "success")
-					? ("success" as const)
-					: ("pending" as const),
-			error: results.find((r) => r.error)?.error ?? null,
-			retry: () => {
-				for (const r of results) if (r.status === "error") r.refetch();
-			},
-			retrying: results.some((r) => r.isFetching),
-			entries: newestFirst(results.flatMap((r) => r.data?.data ?? [])).slice(
-				0,
-				AGENT_ACTIVITY_LIMIT,
+export function clientActivityQuery(api: ApiClient, clientId: string) {
+	return infiniteQueryOptions({
+		queryKey: queryKeys.activity.client(clientId, CLIENT_ACTIVITY_PAGE_SIZE),
+		queryFn: ({ pageParam }) =>
+			callPage(contract.activity.list, () =>
+				api.activity.list({
+					query: {
+						limit: CLIENT_ACTIVITY_PAGE_SIZE,
+						clientId,
+						...(pageParam ? { cursor: pageParam } : {}),
+					},
+				}),
 			),
-		}),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: nextCursor,
 	});
 }
 
-/** Newest first, by time then id, as the log orders itself. */
-export function newestFirst(
-	entries: readonly ActivityEntry[],
-): ActivityEntry[] {
-	return [...entries].sort((a, b) =>
-		a.at === b.at ? b.id.localeCompare(a.id) : b.at.localeCompare(a.at),
-	);
+export function useClientActivity(clientId: string) {
+	return useInfiniteQuery(clientActivityQuery(useApiClient(), clientId));
 }
 
 /** Every entry loaded so far, across the pages fetched. */

@@ -33,14 +33,6 @@ export function loadedClients(data: InfiniteData<Page<Client>>): Client[] {
 	return data.pages.flatMap((page) => page.data);
 }
 
-/** The loaded clients a status filter keeps; no filter keeps them all. */
-export function filtered(
-	clients: Client[],
-	status: ClientStatus | undefined,
-): Client[] {
-	return status ? clients.filter((c) => c.status === status) : clients;
-}
-
 /**
  * The Table view (ruling 36): every loaded client as one row, for reading
  * across. Each name is a link to the client's page. The board is the page's
@@ -65,11 +57,17 @@ export function ClientTable({
 			query={query}
 			isEmpty={(data) => loadedClients(data).length === 0}
 			loading={<ClientListSkeleton />}
-			empty={<ClientsNoMatch search={search} onClearSearch={onClearSearch} />}
+			empty={
+				search === undefined && status !== undefined ? (
+					<NoClientsWithStatus status={status} />
+				) : (
+					<ClientsNoMatch search={search} onClearSearch={onClearSearch} />
+				)
+			}
 			error={ErrorState}
 		>
 			{(data) => {
-				const rows = filtered(loadedClients(data), status);
+				const rows = loadedClients(data);
 				return (
 					<div className="flex flex-col gap-3">
 						<div className="plate overflow-hidden rounded-md border">
@@ -82,7 +80,9 @@ export function ClientTable({
 										<TableHead className="hidden lg:table-cell">
 											Since
 										</TableHead>
-										<TableHead className="pr-4 text-right">Updated</TableHead>
+										<TableHead className="pr-4 text-right">
+											Last activity
+										</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody data-testid="client-rows">
@@ -91,17 +91,9 @@ export function ClientTable({
 									))}
 								</TableBody>
 							</Table>
-							{rows.length === 0 ? (
-								<p
-									data-testid="client-table-none"
-									className="type-small px-4 py-3 text-text-muted"
-								>
-									{`No ${status} clients among those loaded.`}
-								</p>
-							) : null}
 						</div>
 						<ClientListFooter
-							loaded={loadedClients(data).length}
+							loaded={rows.length}
 							total={listTotal(data)}
 							hasMore={query.hasNextPage}
 							loadingMore={query.isFetchingNextPage}
@@ -154,14 +146,21 @@ function ClientRow({ client, now }: { client: Client; now: number }) {
 			<TableCell className="type-mono-small hidden text-text-muted lg:table-cell">
 				<time dateTime={client.createdAt}>{isoDate(client.createdAt)}</time>
 			</TableCell>
-			<TableCell className="type-caption pr-4 text-right text-text-subtle">
-				<time
-					dateTime={client.updatedAt}
-					title={client.updatedAt}
-					suppressHydrationWarning
-				>
-					{relativeTime(client.updatedAt, now)}
-				</time>
+			<TableCell
+				data-testid={`client-row-activity-${client.id}`}
+				className="type-caption pr-4 text-right text-text-subtle"
+			>
+				{client.lastActivityAt === null ? (
+					"No activity yet"
+				) : (
+					<time
+						dateTime={client.lastActivityAt}
+						title={client.lastActivityAt}
+						suppressHydrationWarning
+					>
+						{relativeTime(client.lastActivityAt, now)}
+					</time>
+				)}
 			</TableCell>
 		</TableRow>
 	);
@@ -227,14 +226,34 @@ export function ClientsNoMatch({
 	);
 }
 
+/** A status filter that keeps no client, with no search to blame. */
+function NoClientsWithStatus({ status }: { status: ClientStatus }) {
+	return (
+		<EmptyState
+			data-testid="clients-none-with-status"
+			compact
+			icon={SearchX}
+			title={status === "active" ? "No active clients" : "No closed clients"}
+			description={
+				status === "active"
+					? "Every client is closed. Reopen one, or add a new client."
+					: "No client has been closed."
+			}
+		/>
+	);
+}
+
 /** How much of the list is loaded, and a way to load the rest. */
 export function ClientListFooter({
+	testIdPrefix = "clients",
 	loaded,
 	total,
 	hasMore,
 	loadingMore,
 	onLoadMore,
 }: {
+	/** Each list on a page names its own footer: "clients" for the table. */
+	testIdPrefix?: string;
 	loaded: number;
 	total: number | undefined;
 	hasMore: boolean;
@@ -248,7 +267,7 @@ export function ClientListFooter({
 				<span />
 			) : (
 				<p
-					data-testid="clients-showing"
+					data-testid={`${testIdPrefix}-showing`}
 					className="type-caption text-text-subtle tabular-nums"
 				>
 					{`Showing ${loaded} of ${total}`}
@@ -258,7 +277,7 @@ export function ClientListFooter({
 				<Button
 					variant="ghost"
 					size="sm"
-					data-testid="clients-load-more"
+					data-testid={`${testIdPrefix}-load-more`}
 					disabled={loadingMore}
 					onClick={onLoadMore}
 				>

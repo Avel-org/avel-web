@@ -1,19 +1,23 @@
 import { Link } from "@tanstack/react-router";
 import type { ActivityEntry, Client } from "avel-server/contract";
 import { History } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useClientActivity, useClientEngagements } from "@/lib/api/clients";
+import { useClientActivity } from "@/lib/api/activity";
+import { useClientEngagements, useClientMissions } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
 import { ACTION_COPY } from "./activity-copy";
 import { whenLabel } from "./agent-activity";
 import { EmptyState } from "./empty-state";
 import { SectionPanel } from "./section-panel";
-import { ErrorState } from "./surface";
+import { ErrorState, Surface } from "./surface";
 
 /*
- * A client's Activity tab: the log's latest entries for the client itself
- * and for each of its engagements, merged newest first, as a timeline. Each
- * entry names what it was about and links to its decision record.
+ * A client's Activity tab: the log's entries for the client, its engagements
+ * and their missions, newest first, as a timeline. One paged read
+ * (activity.list by clientId, the rows Client.lastActivityAt reads), with
+ * Load more. Each entry names what it was about and links to its decision
+ * record.
  */
 
 /** A dot's tone from what happened: made, changed, or ended. */
@@ -24,72 +28,112 @@ function toneOf(entry: ActivityEntry): string {
 }
 
 export function ClientActivity({ client }: { client: Client }) {
-	// The same cache entry the Overview's board reads, so this is usually warm.
-	const engagements = useClientEngagements(client.id);
+	const activity = useClientActivity(client.id);
+	const names = useSubjectNames(client.id);
 	return (
 		<SectionPanel
 			title="Activity"
-			description="The latest entries for this client and each of its engagements, newest first."
+			description="Everything logged on this client, its engagements and their missions, newest first."
 			data-testid="client-activity"
 		>
-			{engagements.status === "pending" ? (
-				<ActivitySkeleton />
-			) : engagements.status === "error" ? (
-				<ErrorState
-					error={engagements.error}
-					retry={() => engagements.refetch()}
-					retrying={engagements.isFetching}
-				/>
-			) : (
-				<Timeline
-					client={client}
-					names={
-						new Map(
-							engagements.data.pages
-								.flatMap((page) => page.data)
-								.map((e) => [e.id, e.name] as const),
-						)
-					}
-				/>
-			)}
+			<Surface
+				data-testid="client-activity-surface"
+				query={activity}
+				isEmpty={(data) => data.pages.every((page) => page.data.length === 0)}
+				loading={<ActivitySkeleton />}
+				empty={
+					<EmptyState
+						data-testid="client-activity-empty"
+						compact
+						icon={History}
+						title="Nothing logged yet"
+						description={`No change to ${client.name}, its engagements or their missions has been logged. Editing it, or adding or closing an engagement, writes here.`}
+					/>
+				}
+				error={ErrorState}
+			>
+				{(data) => {
+					const entries = data.pages.flatMap((page) => page.data);
+					const total = data.pages[0]?.meta.total ?? entries.length;
+					return (
+						<div className="flex flex-col gap-3">
+							<Timeline entries={entries} names={names} />
+							{activity.hasNextPage ? (
+								<div className="flex items-center justify-between gap-2">
+									<p
+										data-testid="client-activity-showing"
+										className="type-caption text-text-subtle tabular-nums"
+									>
+										{`Showing ${entries.length} of ${total}`}
+									</p>
+									<Button
+										variant="ghost"
+										size="sm"
+										data-testid="client-activity-load-more"
+										disabled={activity.isFetchingNextPage}
+										onClick={() => activity.fetchNextPage()}
+									>
+										{activity.isFetchingNextPage ? "Loading" : "Load more"}
+									</Button>
+								</div>
+							) : null}
+						</div>
+					);
+				}}
+			</Surface>
 		</SectionPanel>
 	);
 }
 
+/**
+ * Names for the ids the log keys rows by: the client's engagements, and its
+ * missions as "type, sprint n". Both are the Overview's own reads, so they
+ * are usually in the cache; until they arrive a row simply names nothing.
+ */
+function useSubjectNames(clientId: string) {
+	const engagements = useClientEngagements(clientId);
+	const missions = useClientMissions(clientId);
+	return {
+		engagements: new Map(
+			(engagements.data?.pages ?? [])
+				.flatMap((page) => page.data)
+				.map((e) => [e.id, e.name] as const),
+		),
+		missions: new Map(
+			(missions.data?.pages ?? [])
+				.flatMap((page) => page.data)
+				.map((m) => [m.id, `${m.type}, sprint ${m.sprintN}`] as const),
+		),
+	};
+}
+
+type SubjectNames = ReturnType<typeof useSubjectNames>;
+
+/** What a row was about, after its action: an engagement or a mission. */
+function subjectOf(entry: ActivityEntry, names: SubjectNames): string {
+	if (entry.entityType === "engagement") {
+		return `: ${names.engagements.get(entry.entityId) ?? "an engagement"}`;
+	}
+	if (entry.missionId !== null) {
+		const mission = names.missions.get(entry.missionId);
+		return mission ? `: ${mission}` : "";
+	}
+	return "";
+}
+
 function Timeline({
-	client,
+	entries,
 	names,
 }: {
-	client: Client;
-	/** Engagement names by id: the subjects the log keys by id. */
-	names: Map<string, string>;
+	entries: readonly ActivityEntry[];
+	names: SubjectNames;
 }) {
-	const activity = useClientActivity(client.id, [...names.keys()]);
-	if (activity.status === "pending") return <ActivitySkeleton />;
-	if (activity.status === "error" && activity.error)
-		return (
-			<ErrorState
-				error={activity.error}
-				retry={activity.retry}
-				retrying={activity.retrying}
-			/>
-		);
-	if (activity.entries.length === 0)
-		return (
-			<EmptyState
-				data-testid="client-activity-empty"
-				compact
-				icon={History}
-				title="Nothing logged yet"
-				description={`No change to ${client.name} or its engagements has been logged. Editing it, or adding or closing an engagement, writes here.`}
-			/>
-		);
 	return (
 		<ol
 			data-testid="client-activity-list"
 			className="relative ml-1.5 flex flex-col border-l border-border"
 		>
-			{activity.entries.map((entry) => (
+			{entries.map((entry) => (
 				<li
 					key={entry.id}
 					data-testid={`client-activity-row-${entry.id}`}
@@ -114,9 +158,7 @@ function Timeline({
 							data-testid={`client-activity-subject-${entry.id}`}
 							className="text-text-muted"
 						>
-							{entry.entityType === "engagement"
-								? `: ${names.get(entry.entityId) ?? "an engagement"}`
-								: ""}
+							{subjectOf(entry, names)}
 						</span>
 						<span className="text-text-subtle">{` by ${entry.actor.display}`}</span>
 					</span>

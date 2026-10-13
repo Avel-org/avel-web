@@ -8,9 +8,19 @@ import {
 	client,
 	contractError,
 	engagement,
+	mission,
 	renderClientsRoute,
 } from "./clients-fixtures";
 import { tagOf } from "./render-page";
+
+/** The markup of one element by test id, to its first closing tag of that name. */
+const blockOf = (html: string, testId: string, tag = "section") => {
+	const start = html.lastIndexOf(
+		`<${tag}`,
+		html.indexOf(`data-testid="${testId}"`),
+	);
+	return html.slice(start, html.indexOf(`</${tag}>`, start));
+};
 
 /*
  * A client's own page, /clients/:id (ruling 45): the entity banner, then
@@ -90,7 +100,7 @@ describe("the client's banner", () => {
 	it("states its facts in one line", async () => {
 		const html = await open(ONE);
 		expect(html).toMatch(
-			/data-testid="client-banner-facts"[^>]*>Client since October 2026 · contact1@example.com · updated /,
+			/data-testid="client-banner-facts"[^>]*>Client since October 2026 · contact1@example.com · last activity /,
 		);
 	});
 
@@ -103,6 +113,34 @@ describe("the client's banner", () => {
 		expect(stat("engagements")).toBe("3");
 		expect(stat("active")).toBe("1");
 		expect(stat("closed")).toBe("2");
+	});
+
+	it("ends its facts with no activity yet when the log has nothing on it", async () => {
+		const quiet = client(3, { lastActivityAt: null });
+		const html = await open(quiet);
+		expect(html).toMatch(
+			/data-testid="client-banner-facts"[^>]*>[^<]*· no activity yet</,
+		);
+	});
+
+	it("counts its missions from the missions read's meta.total, a dash until then", async () => {
+		const stat = (html: string) =>
+			html.match(
+				/data-testid="client-stat-missions".*?<dd[^>]*>([^<]+)</s,
+			)?.[1];
+		const html = await open(ONE, "", {
+			missions: [
+				{
+					clientId: ONE.id,
+					rows: [mission(1, ONE)],
+					total: 12,
+					nextCursor: "m2",
+				},
+			],
+		});
+		expect(stat(html)).toBe("12");
+		expect(html).toMatch(/data-testid="client-stat-missions".*?>missions</s);
+		expect(stat(await open(ONE))).toBe("—");
 	});
 
 	it("acts with real buttons: New engagement, Edit and Close client", async () => {
@@ -192,10 +230,73 @@ describe("the Overview", () => {
 		expect(none).toMatch(/data-testid="client-detail-notes"[^>]*>None set\.</);
 	});
 
-	it("says missions are not built, naming the filter they wait for", async () => {
-		const html = await open(ONE);
-		expect(tagOf(html, "client-missions")).toContain('data-state="not-built"');
-		expect(html).toContain("a clientId filter on missions.list");
+	it("lists the client's missions, each linking to its page with type, sprint and status", async () => {
+		const live = mission(2, ONE, { status: "active" });
+		const halted = mission(1, ONE, { status: "halted", type: "audit" });
+		const html = await open(ONE, "", {
+			missions: [{ clientId: ONE.id, rows: [live, halted] }],
+		});
+		expect(tagOf(html, "client-missions")).toContain('data-state="success"');
+		expect(html).not.toContain('data-state="not-built"');
+		const order = [
+			...html.matchAll(/data-testid="client-mission-([0-9a-f-]{36})"/g),
+		].map((m) => m[1]);
+		expect(order).toEqual([live.id, halted.id]);
+		expect(tagOf(html, `client-mission-${live.id}`)).toContain(
+			`href="/missions/${live.id}"`,
+		);
+		expect(html).toMatch(
+			new RegExp(`data-testid="client-mission-type-${halted.id}"[^>]*>audit<`),
+		);
+		expect(blockOf(html, `client-mission-${halted.id}`, "a")).toContain(
+			"Sprint 1",
+		);
+		expect(tagOf(html, `client-mission-status-${halted.id}`)).toContain(
+			'data-tone="block"',
+		);
+	});
+
+	it("strips the missions by status from meta.counts, archived only when counted", async () => {
+		const rows = [
+			mission(1, ONE, { status: "active" }),
+			mission(2, ONE, { status: "active" }),
+			mission(3, ONE, { status: "shipped" }),
+		];
+		const html = await open(ONE, "", {
+			missions: [{ clientId: ONE.id, rows }],
+		});
+		const count = (status: string) =>
+			tagOf(html, `client-missions-strip-${status}`).match(
+				/data-count="(\d+)"/,
+			)?.[1];
+		expect(count("active")).toBe("2");
+		expect(count("shipped")).toBe("1");
+		expect(count("draft")).toBe("0");
+		expect(html).not.toContain("client-missions-strip-archived");
+	});
+
+	it("offers more of the client's missions when the server has more", async () => {
+		const html = await open(ONE, "", {
+			missions: [
+				{
+					clientId: ONE.id,
+					rows: [mission(1, ONE)],
+					total: 30,
+					nextCursor: "m2",
+				},
+			],
+		});
+		expect(html).toMatch(
+			/data-testid="client-missions-showing"[^>]*>Showing 1 of 30</,
+		);
+		expect(html).toContain('data-testid="client-missions-load-more"');
+	});
+
+	it("says when the client has no missions yet", async () => {
+		const html = await open(ONE, "", {
+			missions: [{ clientId: ONE.id, rows: [] }],
+		});
+		expect(html).toContain('data-testid="client-missions-empty"');
 	});
 });
 
@@ -219,26 +320,27 @@ describe("the Engagements tab", () => {
 });
 
 describe("the Activity tab", () => {
-	it("merges the client's entries and its engagements', newest first, naming each engagement", async () => {
-		const older = activityEntry(1, "client", ONE.id);
+	it("shows the client's one activity read in the server's order, naming engagements and missions", async () => {
+		const run = mission(1, ONE, { type: "template-booking", sprintN: 2 });
 		const newer = activityEntry(3, "engagement", LIVE.id);
-		const middle = activityEntry(2, "engagement", ENDED.id, {
-			action: "engagement.closed",
-		});
+		const onMission = activityEntry(2, "mission", run.id);
+		const older = activityEntry(1, "client", ONE.id);
 		const html = await open(ONE, "?tab=activity", {
-			activity: [
-				{ entityType: "client", entityId: ONE.id, rows: [older] },
-				{ entityType: "engagement", entityId: LIVE.id, rows: [newer] },
-				{ entityType: "engagement", entityId: ENDED.id, rows: [middle] },
-			],
+			clientActivity: { clientId: ONE.id, rows: [newer, onMission, older] },
+			missions: [{ clientId: ONE.id, rows: [run] }],
 		});
 		const order = [
 			...html.matchAll(/data-testid="client-activity-row-([^"]+)"/g),
 		].map((m) => m[1]);
-		expect(order).toEqual([newer.id, middle.id, older.id]);
+		expect(order).toEqual([newer.id, onMission.id, older.id]);
 		expect(html).toMatch(
 			new RegExp(
 				`data-testid="client-activity-subject-${newer.id}"[^>]*>: Booking app<`,
+			),
+		);
+		expect(html).toMatch(
+			new RegExp(
+				`data-testid="client-activity-subject-${onMission.id}"[^>]*>: template-booking, sprint 2<`,
 			),
 		);
 		expect(tagOf(html, `client-activity-open-${older.id}`)).toContain(
@@ -246,21 +348,31 @@ describe("the Activity tab", () => {
 		);
 	});
 
-	it("says nothing is logged yet when the log has nothing", async () => {
+	it("offers Load more while the server has more, saying how many of the total", async () => {
 		const html = await open(ONE, "?tab=activity", {
-			activity: [
-				{ entityType: "client", entityId: ONE.id, rows: [] },
-				{ entityType: "engagement", entityId: LIVE.id, rows: [] },
-				{ entityType: "engagement", entityId: ENDED.id, rows: [] },
-			],
+			clientActivity: {
+				clientId: ONE.id,
+				rows: [activityEntry(1, "client", ONE.id)],
+				nextCursor: "a2",
+				total: 41,
+			},
 		});
-		expect(html).toContain('data-testid="client-activity-empty"');
+		expect(html).toMatch(
+			/data-testid="client-activity-showing"[^>]*>Showing 1 of 41</,
+		);
+		expect(html).toContain('data-testid="client-activity-load-more"');
 	});
 
-	it("waits for every entity before showing any, so the order never jumps", async () => {
+	it("says nothing is logged yet when the log has nothing", async () => {
 		const html = await open(ONE, "?tab=activity", {
-			activity: [{ entityType: "client", entityId: ONE.id, rows: [] }],
+			clientActivity: { clientId: ONE.id, rows: [] },
 		});
+		expect(html).toContain('data-testid="client-activity-empty"');
+		expect(html).not.toContain("client-activity-load-more");
+	});
+
+	it("loads in the timeline's shape until its one read arrives", async () => {
+		const html = await open(ONE, "?tab=activity");
 		expect(html).toContain('data-testid="client-activity-skeleton"');
 	});
 });

@@ -3,8 +3,11 @@ import { type ClientStatus, clientStatus } from "avel-server/contract";
 import { LayoutGrid, Plus, Rows3 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { z } from "zod";
-import { ClientBoard } from "@/components/avel/client-board";
-import { ClientTable, loadedClients } from "@/components/avel/client-list";
+import {
+	type BoardSectionQuery,
+	ClientBoard,
+} from "@/components/avel/client-board";
+import { ClientTable } from "@/components/avel/client-list";
 import { useClientOverlays } from "@/components/avel/client-overlays";
 import { ClientSearch } from "@/components/avel/client-search";
 import { EmptyState } from "@/components/avel/empty-state";
@@ -74,7 +77,24 @@ const CLIENT_VIEWS: readonly ViewOption<View>[] = [
 function ClientsPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/clients" });
-	const clients = useClients(search.q);
+	const view: View = search.view === "table" ? "table" : "board";
+	const board = view === "board";
+	// The board reads one list per section, each filtered on the server, so
+	// every section's count is its meta.total. The table reads one list,
+	// filtered by `status` when one is set. A list the view does not show is
+	// not read; Active in the table and the board's Active section are the
+	// same cache entry.
+	const active = useClients(search.q, "active", {
+		enabled: board && search.status !== "closed",
+	});
+	const closed = useClients(search.q, "closed", {
+		enabled: board && search.status !== "active",
+	});
+	const table = useClients(search.q, search.status, { enabled: !board });
+	const sections: BoardSectionQuery[] = [
+		{ status: "active" as const, query: active },
+		{ status: "closed" as const, query: closed },
+	].filter((s) => search.status === undefined || s.status === search.status);
 	// Fixed at mount, so relative times render once and do not churn.
 	const [now] = useState(() => Date.now());
 	const { actions, modals } = useClientOverlays({
@@ -86,7 +106,6 @@ function ClientsPage() {
 				search: { tab: "engagements", active: true },
 			}),
 	});
-	const view: View = search.view === "table" ? "table" : "board";
 
 	useEffect(() => {
 		if (!search.new) return;
@@ -101,15 +120,16 @@ function ClientsPage() {
 		navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
 	const setQuery = (text: string) => setSearch({ q: clientSearchText(text) });
 
-	const total = listTotal(clients.data);
-	const searching = search.q !== undefined;
+	const total = board
+		? sumOf(sections.map((s) => listTotal(s.query.data)))
+		: listTotal(table.data);
+	const narrowed = search.q !== undefined || search.status !== undefined;
 	const subtitle =
-		total === undefined ? undefined : clientCountLabel(total, searching);
-	// First run: no clients at all, not a search that matched none.
-	const firstRun =
-		clients.status === "success" &&
-		!searching &&
-		loadedClients(clients.data).length === 0;
+		total === undefined
+			? undefined
+			: clientCountLabel(total, search.q !== undefined, search.status);
+	// First run: no clients at all, not a search or a status that kept none.
+	const firstRun = !narrowed && total === 0;
 
 	return (
 		<Page
@@ -171,7 +191,7 @@ function ClientsPage() {
 					</div>
 					{view === "table" ? (
 						<ClientTable
-							query={clients}
+							query={table}
 							search={search.q}
 							status={search.status}
 							onClearSearch={() => setQuery("")}
@@ -179,9 +199,9 @@ function ClientsPage() {
 						/>
 					) : (
 						<ClientBoard
-							query={clients}
+							sections={sections}
 							search={search.q}
-							status={search.status}
+							filtered={search.status !== undefined}
 							onClearSearch={() => setQuery("")}
 							actions={actions}
 							now={now}
@@ -200,9 +220,19 @@ const STATUS_OPTIONS: { id: ClientStatus | undefined; label: string }[] = [
 	{ id: "closed", label: "Closed" },
 ];
 
+/** The sum of the lists' totals, or undefined until every one is known. */
+function sumOf(totals: (number | undefined)[]): number | undefined {
+	let sum = 0;
+	for (const total of totals) {
+		if (total === undefined) return undefined;
+		sum += total;
+	}
+	return sum;
+}
+
 /**
- * All, Active or Closed, as pressed-state buttons. The contract's list has
- * no status filter, so this narrows the clients loaded, not the request.
+ * All, Active or Closed, as pressed-state buttons. The choice is sent as the
+ * list's `status`, so the server filters and counts.
  */
 function StatusFilter({
 	value,
