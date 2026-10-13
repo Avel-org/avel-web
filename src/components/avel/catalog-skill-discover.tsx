@@ -10,13 +10,10 @@ import {
 	type SampleRegistryEntry,
 	sampleRegistry,
 } from "./catalog-placeholders";
-import {
-	CatalogListSkeleton,
-	SampleHash,
-	SampleRegion,
-} from "./catalog-sample";
+import { CatalogListSkeleton, SampleRegion } from "./catalog-sample";
 import { SKILL_WRITE_REASON } from "./catalog-skill-inspector";
 import { EmptyState } from "./empty-state";
+import { ShortHash } from "./short-hash";
 import { ErrorState, Surface } from "./surface";
 
 /*
@@ -181,7 +178,7 @@ function RegistryEntryRow({ entry }: { entry: SampleRegistryEntry }) {
 					{entry.description}
 				</span>
 			</div>
-			<SampleHash
+			<ShortHash
 				value={entry.contentSha256}
 				label={`the hash of ${entry.name}`}
 				data-testid={`skill-discover-hash-${entry.id}`}

@@ -13,11 +13,9 @@ import { cn } from "@/lib/utils";
 import {
 	LastActivity,
 	MISSION_ROW,
-	MISSION_ROW_ID,
 	MISSION_ROW_SUBJECT,
 	MISSION_ROW_TIME,
 	MISSION_STATUS_TONE,
-	MissionId,
 	MissionStatusPill,
 } from "./mission-columns";
 import {
@@ -524,9 +522,6 @@ function Tree({
 						: "border-transparent hover:bg-state-hover",
 				)}
 			>
-				<span className={MISSION_ROW_ID}>
-					<MissionId id={mission.id} />
-				</span>
 				<span className={MISSION_ROW_SUBJECT}>{mission.type}</span>
 				<span className="shrink-0 type-mono-small text-text-muted">
 					sprint {mission.sprintN}

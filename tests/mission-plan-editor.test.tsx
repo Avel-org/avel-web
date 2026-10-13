@@ -309,7 +309,7 @@ describe("the template, picked from templates.list", () => {
 			[BOOKING],
 		);
 		expect(html).toContain('data-testid="plan-template-use-latest"');
-		expect(region(html, "plan-template-latest")).toContain(">aaaaaaaa<");
+		expect(region(html, "plan-template-latest")).toContain(">aaaaaaa<");
 		const pinned = renderWith(
 			plan({
 				templateRef: "template-booking",

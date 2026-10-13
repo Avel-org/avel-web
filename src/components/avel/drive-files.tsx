@@ -1,6 +1,4 @@
 import {
-	Check,
-	Copy,
 	FileArchive,
 	FileImage,
 	FileSpreadsheet,
@@ -11,7 +9,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { type DataColumn, DataTable } from "./data-table";
 import {
@@ -22,6 +19,7 @@ import {
 	scopePath,
 	sizeLabel,
 } from "./drive-placeholders";
+import { ShortHash } from "./short-hash";
 
 /*
  * The Drive's shared pieces, used by /drive and by a client's Notes and Files
@@ -135,53 +133,6 @@ export function Uploader({ login }: { login: string }) {
 	);
 }
 
-/** A sha256: eight characters in mono, the full value on hover, and Copy. */
-export function ShortSha({
-	sha,
-	copyable = false,
-	"data-testid": testId,
-}: {
-	sha: string;
-	copyable?: boolean;
-	"data-testid"?: string;
-}) {
-	const { status, copy } = useCopy();
-	return (
-		<span data-testid={testId} className="inline-flex items-center gap-1">
-			<code
-				title={sha}
-				data-full={sha}
-				className="type-mono-small text-text-muted"
-			>
-				{sha.slice(0, 8)}
-			</code>
-			{copyable ? (
-				<>
-					<Button
-						variant="ghost"
-						size="icon-xs"
-						aria-label="Copy the SHA-256"
-						data-testid={testId ? `${testId}-copy` : undefined}
-						onClick={(event) => {
-							event.stopPropagation();
-							void copy(sha);
-						}}
-					>
-						{status === "Copied" ? (
-							<Check aria-hidden="true" />
-						) : (
-							<Copy aria-hidden="true" />
-						)}
-					</Button>
-					<span aria-live="polite" className="sr-only">
-						{status}
-					</span>
-				</>
-			) : null}
-		</span>
-	);
-}
-
 /** "2026-03-14", the date part only. */
 export const dateLabel = (iso: string) => iso.slice(0, 10);
 
@@ -276,7 +227,7 @@ const listColumns = (
 		width: "7rem",
 		cell: (file) => (
 			<span className={cn(dimIfPurged(file))}>
-				<ShortSha sha={file.sha256} />
+				<ShortHash value={file.sha256} label="the SHA-256" />
 			</span>
 		),
 	},

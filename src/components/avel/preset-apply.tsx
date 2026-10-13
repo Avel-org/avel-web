@@ -19,7 +19,6 @@ import {
 	applyLabel,
 	loadedPresets,
 	missingTemplateIds,
-	shortId,
 	useApplyPreset,
 	usePresets,
 } from "@/lib/api/presets";
@@ -551,9 +550,6 @@ function MissionPicker({
 						<span className="type-small min-w-0 flex-1 truncate text-foreground">
 							{missionLabel(m)}
 						</span>
-						<span className="type-mono-small text-text-subtle">
-							{shortId(m.id)}
-						</span>
 					</label>
 				))}
 			</RadioGroup>
@@ -650,7 +646,7 @@ export function MissingTemplates({ ids }: { ids: readonly string[] }) {
 	return (
 		<div data-testid="preset-apply-missing" className="flex flex-col gap-1">
 			<p className="type-small text-foreground">
-				{`${ids.length === 1 ? "An agent this team uses isn't" : `${ids.length} agents this team uses aren't`} in All agents: ${ids.map(shortId).join(", ")}. The server would refuse this apply.`}
+				{`${ids.length === 1 ? "An agent this team uses isn't" : `${ids.length} agents this team uses aren't`} in All agents. The server would refuse this apply.`}
 			</p>
 			<p className="type-small text-text-muted">{copy.next}</p>
 		</div>

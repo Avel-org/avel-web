@@ -27,6 +27,7 @@ import {
 import { missionPlanQuery } from "@/lib/api/mission-plans";
 import { usePreset } from "@/lib/api/presets";
 import { cn } from "@/lib/utils";
+import { missionLabel } from "@/shell/command-search";
 import { DetailModal } from "./action-modal";
 import { MissionStatusPill } from "./mission-columns";
 import { missionDetailQuery, rowsOf, useMissionList } from "./mission-data";
@@ -565,9 +566,9 @@ function MissionRow({
 				<Link
 					to="/missions/$id/playbook"
 					params={{ id: item.id }}
-					className="type-mono-small text-accent-text underline-offset-4 hover:underline"
+					className="type-small text-accent-text underline-offset-4 hover:underline"
 				>
-					{item.id.slice(0, 8)}
+					{missionLabel(item)}
 				</Link>
 			</td>
 			<td className="py-2">

@@ -29,7 +29,6 @@ import {
 	presetDraftOf,
 	presetIssueCopy,
 	presetProblems,
-	shortId,
 	useCreatePreset,
 	useUpdatePreset,
 } from "@/lib/api/presets";
@@ -542,9 +541,7 @@ function TemplateField({
 					</SelectTrigger>
 					<SelectContent>
 						{value !== "" && !offered ? (
-							<SelectItem value={value}>
-								{`Unknown agent · ${shortId(value)}`}
-							</SelectItem>
+							<SelectItem value={value}>Unknown agent</SelectItem>
 						) : null}
 						{choices.map((t) => (
 							<SelectItem key={t.id} value={t.id}>

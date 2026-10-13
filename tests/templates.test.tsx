@@ -34,6 +34,7 @@ import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { preset } from "./presets-fixtures";
 import { tagOf } from "./render-page";
+import { visibleText } from "./visible-text";
 
 // ---------------------------------------------------------------------------
 // Fixtures, parsed through the contract's own schemas.
@@ -291,9 +292,10 @@ describe("/templates, the board", () => {
 			text(element(html, "template-card-status-template-booking")),
 		).toContain("Readable");
 		const tab = text(element(html, "template-card-tab-template-booking"));
-		expect(tab).toContain(`>${SHA.slice(0, 8)}<`);
+		expect(tab).toContain(`>${SHA.slice(0, 7)}<`);
 		expect(tab).toContain(`title="${SHA}"`);
-		expect(tab).not.toContain(`>${SHA}<`);
+		expect(tab).toContain('aria-label="Copy the latest commit"');
+		expect(visibleText(tab)).not.toContain(SHA);
 		// Starts as: the starting state in a sentence, then the scope.
 		expect(
 			text(element(html, "template-card-state-sentence-template-booking")),
@@ -425,7 +427,7 @@ describe("/templates?view=table", () => {
 			'href="/templates/template-booking"',
 		);
 		expect(table).toContain(">Full stack<");
-		expect(table).toContain(`>${SHA.slice(0, 8)}<`);
+		expect(table).toContain(`>${SHA.slice(0, 7)}<`);
 		expect(table).toContain(">3<");
 		expect(table).toContain(
 			'data-testid="template-row-unreadable-template-legacy"',

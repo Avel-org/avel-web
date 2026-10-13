@@ -9,10 +9,10 @@ import {
 	SCOPE_SUMMARY,
 	STARTING_STATE_LABEL,
 	STARTING_STATE_SENTENCE,
-	shortSha,
 	templateName,
 } from "@/lib/api/templates";
 import { cn } from "@/lib/utils";
+import { ShortHash } from "./short-hash";
 import { TemplateCover } from "./template-cover";
 import {
 	PlaybookLink,
@@ -170,14 +170,13 @@ export function TemplateCard({
 							className="size-3.5 text-accent-text"
 						/>
 						{template.latestSha ? (
-							<span
+							// Above the card's stretched link, so Copy is its own control.
+							<ShortHash
+								value={template.latestSha}
+								label="the latest commit"
 								data-testid="template-card-sha"
-								title={template.latestSha}
-								className="tabular-nums"
-							>
-								<span className="sr-only">Latest commit </span>
-								{shortSha(template.latestSha)}
-							</span>
+								className="relative z-10"
+							/>
 						) : (
 							<span className="font-sans type-caption text-text-subtle">
 								Commit unknown

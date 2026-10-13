@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ancestorPaths, buildCrumbs } from "../src/shell/breadcrumbs";
+import { renderPage } from "./render-page";
 
 describe("breadcrumbs", () => {
 	it("a top-level page has no ancestors, so no trail", () => {
@@ -35,7 +36,7 @@ describe("breadcrumbs", () => {
 
 describe("crumbLabel against the real router", async () => {
 	const { getRouter } = await import("../src/router");
-	const { crumbLabel } = await import("../src/shell/breadcrumbs");
+	const { crumbLabel, crumbName } = await import("../src/shell/breadcrumbs");
 	const router = getRouter();
 
 	it("labels a sidebar path from the sidebar", () => {
@@ -49,10 +50,32 @@ describe("crumbLabel against the real router", async () => {
 		expect(crumbLabel(router, "/nowhere")).toBeUndefined();
 	});
 
-	it("labels a mission by its short id, from the route's crumb", () => {
+	it("labels a mission as Mission, never by its id, from the route's crumb", () => {
 		expect(
 			crumbLabel(router, "/missions/0a1b2c3d-0000-4000-8000-000000000001"),
-		).toBe("0a1b2c3d");
+		).toBe("Mission");
+	});
+
+	it("names a mission or a client from data, with the route's params; never a sidebar path", () => {
+		const id = "0a1b2c3d-0000-4000-8000-000000000001";
+		for (const path of [`/missions/${id}`, `/clients/${id}`]) {
+			const name = crumbName(router, path);
+			expect(name?.useName).toBeTypeOf("function");
+			expect(name?.params.id).toBe(id);
+		}
+		expect(crumbName(router, "/missions")).toBeUndefined();
+		expect(crumbName(router, "/missions/abc/nowhere")).toBeUndefined();
+	});
+
+	it("shows Mission while the mission is unread, never its id", async () => {
+		const id = "0a1b2c3d-0000-4000-8000-000000000001";
+		// Server rendering never fetches, so the mission stays unread.
+		const html = await renderPage(`/missions/${id}/playbook`);
+		const crumbs = html.slice(html.indexOf('data-testid="breadcrumbs"'));
+		expect(crumbs).toMatch(new RegExp(`href="/missions/${id}"[^>]*>Mission<`));
+		expect(crumbs.slice(0, crumbs.indexOf("</nav>"))).not.toContain(
+			"0a1b2c3d<",
+		);
 	});
 
 	it("leaves out a real route that declares no crumb", () => {

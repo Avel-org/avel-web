@@ -15,9 +15,16 @@ import { relativeTime } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
 import { ACTION_COPY, ENTITY_LABEL } from "./activity-copy";
 import { ActivityTarget } from "./activity-log";
-import { INVERSE, payloadFacts, resultOf } from "./activity-record";
+import {
+	entityNameOf,
+	INVERSE,
+	type PayloadFact,
+	payloadFacts,
+	resultOf,
+} from "./activity-record";
 import { CodeView } from "./code-view";
 import { SectionPanel } from "./section-panel";
+import { HiddenId, ShortHash } from "./short-hash";
 import { Surface } from "./surface";
 
 /*
@@ -196,24 +203,46 @@ function Part({
 	);
 }
 
+/** A fact's value: its text, or its id hidden, or its hash short, with Copy. */
+function FactValue({ fact }: { fact: PayloadFact }) {
+	if (fact.ref?.kind === "hash")
+		return <ShortHash value={fact.ref.full} label={fact.label.toLowerCase()} />;
+	if (fact.ref?.kind === "id")
+		return (
+			<HiddenId id={fact.ref.full} label={fact.label.toLowerCase()}>
+				<span className="text-text-subtle">{fact.value}</span>
+			</HiddenId>
+		);
+	return <>{fact.value}</>;
+}
+
 function RecordBody({ entry }: { entry: ActivityEntry }) {
 	const inverse = INVERSE[entry.action];
 	const facts = payloadFacts(entry.payload);
+	const name = entityNameOf(entry);
 	const [raw, setRaw] = useState(false);
 	const rawId = useId();
 	return (
 		<div className="grid gap-5 lg:grid-cols-2">
 			<Part title="What it did" testId="activity-record-did">
 				<p className="type-small text-foreground">
-					{`${ACTION_COPY[entry.action]}: ${ENTITY_LABEL[entry.entityType]} `}
-					<span className="type-mono-small">{entry.entityId.slice(0, 8)}</span>
+					<span title={entry.entityId}>
+						{`${ACTION_COPY[entry.action]}: ${ENTITY_LABEL[entry.entityType]}`}
+						{name ? ` ${name}` : null}
+					</span>
 					{`, by ${entry.actor.display}.`}
 				</p>
 				<p className="type-mono-small text-text-subtle">
 					<time dateTime={entry.at}>{entry.at}</time>
 				</p>
 				<p className="type-caption text-text-subtle">
-					Request <span className="type-mono-small">{entry.requestId}</span>
+					<HiddenId
+						id={entry.requestId}
+						label="the request reference"
+						data-testid="activity-record-request"
+					>
+						Request reference
+					</HiddenId>
 				</p>
 			</Part>
 			<Part title="What it looked at" testId="activity-record-looked">
@@ -234,7 +263,7 @@ function RecordBody({ entry }: { entry: ActivityEntry }) {
 											: "type-small text-foreground",
 									)}
 								>
-									{fact.value}
+									<FactValue fact={fact} />
 								</dd>
 							</div>
 						))}

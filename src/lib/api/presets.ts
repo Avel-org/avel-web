@@ -122,20 +122,15 @@ export const CUT_LABEL: Record<PresetCut, string> = {
 	vertical: "By feature",
 };
 
-/** The first group of a uuid: enough to tell rows apart, never the whole id. */
-export function shortId(id: string): string {
-	return id.slice(0, 8);
-}
-
 /**
  * What a preset agent's template is called. A PresetAgent carries only the
  * template's id, so the name comes from the catalog. An id the catalog does
  * not hold (a template removed since the preset was saved) is "Unknown
- * template" with its short id, never a bare uuid.
+ * agent", with its id kept behind Copy, never shown.
  */
 export type TemplateLabel =
 	| { known: true; name: string; slug: string }
-	| { known: false; shortId: string };
+	| { known: false; id: string };
 
 export function templateLabel(
 	id: string,
@@ -144,7 +139,7 @@ export function templateLabel(
 	const template = templates.get(id);
 	return template
 		? { known: true, name: template.name, slug: template.slug }
-		: { known: false, shortId: shortId(id) };
+		: { known: false, id };
 }
 
 // ---------------------------------------------------------------------------

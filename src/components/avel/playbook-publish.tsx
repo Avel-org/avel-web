@@ -7,6 +7,7 @@ import { useUpdatePlaybook } from "@/lib/api/playbooks";
 import { ActionModal, useFieldIssues } from "./action-modal";
 import { DELIVERABLE_LABEL, POLICY_LABEL } from "./playbook-list";
 import { type PlaybookDraft, playbookBodyOf } from "./playbook-pipeline";
+import { TeamName } from "./template-links";
 import { type Change, WhatChanges } from "./what-changes";
 
 /*
@@ -128,8 +129,8 @@ export function PublishConfirm({
 					</span>
 				</BodyRow>
 				<BodyRow name="defaultPresetId" label="Default team">
-					<span className="type-mono-small" title={body.defaultPresetId}>
-						{body.defaultPresetId.slice(0, 8)}
+					<span title={body.defaultPresetId}>
+						<TeamName id={body.defaultPresetId} />
 					</span>
 				</BodyRow>
 			</dl>

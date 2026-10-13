@@ -2,17 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { MissionPlanPage } from "@/components/avel/plan-page";
 import { Page } from "../shell/page";
 
-/** The first eight characters of a mission id: its short name everywhere. */
-const short = (id: string) => id.slice(0, 8);
-
 // Beside the mission page, not inside it (both trailing underscores): the
 // mission page has no outlet. Breadcrumbs lead Missions → the mission → here.
 export const Route = createFileRoute("/missions_/$id_/plan")({
 	// Planning is construction: modules and requirements are built at a desk.
 	staticData: { device: "construction", crumb: "Plan" },
-	head: ({ params }) => ({
-		meta: [{ title: `Plan · ${short(params.id)} · Missions · AVEL` }],
-	}),
+	head: () => ({ meta: [{ title: "Plan · Mission · Missions · AVEL" }] }),
 	component: MissionPlanRoute,
 });
 

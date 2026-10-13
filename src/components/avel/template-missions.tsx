@@ -12,10 +12,8 @@ import { EmptyState } from "./empty-state";
 import {
 	LastActivity,
 	MISSION_ROW,
-	MISSION_ROW_ID,
 	MISSION_ROW_SUBJECT,
 	MISSION_ROW_TIME,
-	MissionId,
 	MissionStatusPill,
 } from "./mission-columns";
 import { asSurface, type MissionList, totalOf } from "./mission-data";
@@ -142,9 +140,6 @@ function MissionRows({
 						data-testid={`template-mission-${mission.id}`}
 						className={`${MISSION_ROW} focus-inset px-4 transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover lg:px-5`}
 					>
-						<span className={MISSION_ROW_ID}>
-							<MissionId id={mission.id} />
-						</span>
 						<span className={MISSION_ROW_SUBJECT}>
 							{subjectOf(mission)}
 							<span className="ml-2 type-mono-small text-text-subtle">

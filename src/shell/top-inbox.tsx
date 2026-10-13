@@ -2,7 +2,6 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { MissionListItem } from "avel-server/contract";
 import { Inbox as InboxIcon } from "lucide-react";
-import { MissionId } from "@/components/avel/mission-columns";
 import {
 	type MissionList,
 	missionListQuery,
@@ -26,6 +25,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useApiClient } from "@/lib/api";
+import { missionLabel } from "./command-search";
 
 /** At most this many missions per origin in the popover. */
 export const INBOX_PER_ORIGIN = 5;
@@ -240,9 +240,8 @@ function InboxSection({
 								data-testid={`global-inbox-mission-${mission.id}`}
 								className="flex items-center gap-2 rounded-sm px-1 py-1.5 hover:bg-state-hover"
 							>
-								<MissionId id={mission.id} />
 								<span className="type-small min-w-0 flex-1 truncate text-foreground">
-									{mission.client?.name ?? mission.type}
+									{missionLabel(mission)}
 								</span>
 								<span className="type-caption shrink-0 text-gate-warn">
 									{mission.needsYou

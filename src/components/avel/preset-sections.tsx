@@ -20,7 +20,6 @@ import {
 	agentCount,
 	CUT_LABEL,
 	presetAgentKey,
-	shortId,
 	staleSince,
 	usePresetActivity,
 	usePresetApplications,
@@ -30,6 +29,7 @@ import { InlineExpand } from "./inline-expand";
 import { CoherenceView } from "./playbook-coherence";
 import { agentName, fieldText } from "./preset-compare";
 import { type Names, useAllTemplates } from "./preset-detail";
+import { HiddenId } from "./short-hash";
 import { ErrorState, Surface } from "./surface";
 
 /*
@@ -468,9 +468,14 @@ function UsedBy({ preset }: { preset: Preset }) {
 													{`${app.mission.type} · ${app.mission.status}`}
 												</Link>
 											) : (
-												<span className="text-text-muted">
-													{`Deleted mission · ${shortId(app.missionId)}`}
-												</span>
+												<HiddenId
+													id={app.missionId}
+													label="the deleted mission's id"
+												>
+													<span className="text-text-muted">
+														Deleted mission
+													</span>
+												</HiddenId>
 											)}
 										</span>
 										<span className="type-mono-small text-foreground">

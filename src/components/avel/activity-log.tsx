@@ -8,11 +8,9 @@ import { relativeTime } from "@/lib/api/clients";
 import { ActivityActor } from "./activity-actor";
 import { AuditTable, DecisionRecord, RecordLink } from "./activity-audit";
 import { ACTION_COPY, ENTITY_LABEL } from "./activity-copy";
+import { entityNameOf } from "./activity-record";
 import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
-
-/** The first eight characters of an id: a mission's short name everywhere. */
-const short = (id: string) => id.slice(0, 8);
 
 /**
  * The log, newest first, a page at a time, through <Surface>. The route owns
@@ -165,22 +163,24 @@ export function ActivityRows({
 }
 
 /**
- * Which entity the entry is about: its type and short id, a link where the
- * app has a page for it. A mission opens its own page; a client opens
+ * Which entity the entry is about: its type, then its name when the entry
+ * carries one, a link where the app has a page for it. Its id is never
+ * shown; it stays on hover for support. A mission opens its own page; a client opens
  * selected on the Clients page. Other types have no page yet, so they are
  * plain text.
  */
 export function ActivityTarget({
 	entry,
 }: {
-	entry: Pick<ActivityEntry, "id" | "entityType" | "entityId">;
+	entry: Pick<ActivityEntry, "id" | "entityType" | "entityId" | "payload">;
 }) {
 	const testId = `activity-target-${entry.id}`;
+	const name = entityNameOf(entry);
 	const content = (
-		<>
-			{ENTITY_LABEL[entry.entityType]}{" "}
-			<span className="type-mono-small">{short(entry.entityId)}</span>
-		</>
+		<span title={entry.entityId}>
+			{ENTITY_LABEL[entry.entityType]}
+			{name ? ` ${name}` : null}
+		</span>
 	);
 	// Underlined at rest, faintly, so a link reads apart from the plain text
 	// beside it without hovering; hover brings the line to full strength.

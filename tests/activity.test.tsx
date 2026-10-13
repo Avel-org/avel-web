@@ -33,6 +33,7 @@ import { routeTree } from "../src/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { contractError, fakeApi } from "./clients-fixtures";
 import { tagOf } from "./render-page";
+import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 const ID = (n: number) =>
 	`00000000-0000-4000-8000-${String(5000 + n).padStart(12, "0")}`;
@@ -381,5 +382,34 @@ describe("which entity", () => {
 		const plain = tagOf(html, `activity-target-${export_.id}`);
 		expect(plain).toMatch(/^<span/);
 		expect(plain).not.toMatch(/underline|decoration-/);
+	});
+
+	it("names the entity by its type and the name it logged, never its id", async () => {
+		const named = entry(1, { payload: { name: "Meridian Health" } });
+		const unnamed = entry(2, { entityType: "mission" });
+		const agent = entry(3, {
+			action: "agent_template.identity_regenerated",
+			entityType: "agent_template",
+			payload: { slug: "atlas" },
+		});
+		const html = await renderActivity("/activity", {
+			filters: {},
+			rows: [named, unnamed, agent],
+		});
+		// The target's own markup, from its opening tag to its closing one.
+		const target = (row: ActivityEntry) => {
+			const start = html.indexOf(`data-testid="activity-target-${row.id}"`);
+			const rest = html.slice(start);
+			return rest.slice(0, rest.search(/<\/(?:a|span)>\s*<\/(?:a|span)>/));
+		};
+		expect(visibleText(target(named))).toContain("Client Meridian Health");
+		// The id stays on hover, for support, and is never the text.
+		expect(target(named)).toContain(`title="${named.entityId}"`);
+		// An agent template that logs only its slug reads by it.
+		expect(visibleText(target(agent))).toContain("Agent atlas");
+		for (const row of [named, unnamed, agent]) {
+			expect(visibleText(target(row))).not.toMatch(UUID_FRAGMENT);
+		}
+		expect(visibleText(target(unnamed)).trim()).toBe("Mission");
 	});
 });

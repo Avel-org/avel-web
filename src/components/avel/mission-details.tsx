@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { relativeTime } from "@/lib/api/clients";
 import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
-import { ClientName, MissionId, MissionStatusPill } from "./mission-columns";
+import { ClientName, MissionStatusPill } from "./mission-columns";
 import { NEEDS_YOU_COPY, useMission } from "./mission-data";
 import { exportStatusTone, StatusGlyph, StatusPill } from "./status-pill";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
@@ -190,7 +190,6 @@ function DetailsContent({
 				className="flex flex-col gap-2 border-b border-border px-4 py-4"
 			>
 				<div className="flex items-center gap-2">
-					<MissionId id={mission.id} />
 					<MissionStatusPill status={mission.status} />
 					{mission.needsYou ? (
 						<StatusPill

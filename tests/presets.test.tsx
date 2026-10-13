@@ -32,6 +32,7 @@ import {
 	unreachable,
 } from "./presets-fixtures";
 import { renderPage, tagOf } from "./render-page";
+import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 type Seed = {
 	path?: string;
@@ -270,7 +271,7 @@ describe("the selected preset", () => {
 		expect(html).not.toContain('data-testid="preset-template-unknown"');
 	});
 
-	it("names a template the catalog lacks by its short id, never the whole uuid", async () => {
+	it("names a template the catalog lacks in words, its id only on hover and Copy", async () => {
 		const missing = TEMPLATE(9);
 		const html = await selected(
 			preset(1, {
@@ -289,8 +290,10 @@ describe("the selected preset", () => {
 			html.indexOf('data-testid="preset-template-unknown"'),
 		);
 		expect(cell).toContain(">Unknown agent<");
-		expect(cell).toContain(`>${missing.slice(0, 8)}<`);
-		expect(html).not.toContain(missing);
+		expect(cell).toContain(`title="${missing}"`);
+		expect(cell).toContain('aria-label="Copy the agent&#x27;s id"');
+		expect(visibleText(html)).not.toContain(missing.slice(0, 8));
+		expect(visibleText(cell)).not.toMatch(UUID_FRAGMENT);
 	});
 
 	it("says when names could not load, rather than calling every template unknown", async () => {
@@ -299,7 +302,7 @@ describe("the selected preset", () => {
 		});
 		expect(html).toContain('data-testid="preset-names-error"');
 		expect(html).not.toContain(">Unknown agent<");
-		expect(html).not.toContain(TEMPLATE(1));
+		expect(visibleText(html)).not.toContain(TEMPLATE(1).slice(0, 8));
 	});
 
 	it("shows unset fields in words, and the estimate as a default", async () => {
@@ -457,7 +460,7 @@ describe("the Presets URL and copy", () => {
 		);
 	});
 
-	it("labels a known template by name and an unknown one by short id", () => {
+	it("labels a known template by name and an unknown one by its id, for Copy", () => {
 		const byId = new Map([[TEMPLATE(1), { name: "Lead", slug: "lead" }]]);
 		expect(templateLabel(TEMPLATE(1), byId)).toEqual({
 			known: true,
@@ -466,7 +469,7 @@ describe("the Presets URL and copy", () => {
 		});
 		expect(templateLabel(TEMPLATE(3), byId)).toEqual({
 			known: false,
-			shortId: "aaaaaaa3",
+			id: TEMPLATE(3),
 		});
 	});
 });

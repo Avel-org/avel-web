@@ -26,6 +26,7 @@ import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { tagOf } from "./render-page";
+import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 // ---------------------------------------------------------------------------
 // Fixtures, parsed through the contract's own schema.
@@ -495,26 +496,48 @@ describe("the builder with a draft", () => {
 });
 
 describe("publishing", () => {
+	// The default team is named by its id (GET /api/presets/:id), seeded here.
+	const named = () => {
+		const client = new QueryClient({
+			defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+		});
+		client.setQueryData([...queryKeys.presets.detail(PRESET)], {
+			id: PRESET,
+			name: "Booking squad",
+		});
+		return client;
+	};
 	const confirm = (error: ApiError | null) =>
 		renderToString(
-			<TooltipProvider>
-				<InlineModals>
-					<PublishConfirm
-						open
-						onOpenChange={() => {}}
-						playbook={FULL_BUILD}
-						draft={draftReducer(draftOf(FULL_BUILD), {
-							type: "toggleWave",
-							wave: "D",
-						})}
-						changes={[]}
-						pending={false}
-						error={error}
-						onSubmit={() => {}}
-					/>
-				</InlineModals>
-			</TooltipProvider>,
+			<ApiOverrideProvider queryClient={named()}>
+				<ApiProvider>
+					<TooltipProvider>
+						<InlineModals>
+							<PublishConfirm
+								open
+								onOpenChange={() => {}}
+								playbook={FULL_BUILD}
+								draft={draftReducer(draftOf(FULL_BUILD), {
+									type: "toggleWave",
+									wave: "D",
+								})}
+								changes={[]}
+								pending={false}
+								error={error}
+								onSubmit={() => {}}
+							/>
+						</InlineModals>
+					</TooltipProvider>
+				</ApiProvider>
+			</ApiOverrideProvider>,
 		);
+
+	it("names the default team, never its id", () => {
+		const row = element(confirm(null), "playbook-publish-row-defaultPresetId");
+		expect(row).toContain(">Booking squad<");
+		expect(row).toContain(`title="${PRESET}"`);
+		expect(visibleText(row)).not.toMatch(UUID_FRAGMENT);
+	});
 
 	it("names the version it makes, and shows the body it will send", () => {
 		const html = text(confirm(null));

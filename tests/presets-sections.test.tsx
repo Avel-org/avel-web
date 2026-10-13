@@ -31,6 +31,7 @@ import { staleSince } from "@/lib/api/presets";
 import { fakeApi } from "./clients-fixtures";
 import { ID, preset, TEMPLATE, template } from "./presets-fixtures";
 import { tagOf } from "./render-page";
+import { visibleText } from "./visible-text";
 
 const names: Names = {
 	status: "success",
@@ -215,7 +216,9 @@ describe("a preset's used-by", () => {
 				`data-testid="preset-application-stale-${ID(102)}"[^>]*>now v3<`,
 			),
 		);
-		expect(html).toContain(`>Deleted mission · ${ID(103).slice(0, 8)}<`);
+		expect(html).toContain(">Deleted mission<");
+		expect(html).toContain(`title="${ID(103)}"`);
+		expect(visibleText(html)).not.toContain(ID(103).slice(0, 8));
 		expect(html).not.toContain(`preset-application-link-${ID(103)}`);
 		expect(html).toContain("+4 −1");
 	});

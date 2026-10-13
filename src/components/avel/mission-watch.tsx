@@ -12,10 +12,8 @@ import { DataPanel } from "./data-panel";
 import {
 	ClientName,
 	MISSION_ROW,
-	MISSION_ROW_ID,
 	MISSION_ROW_SUBJECT,
 	MISSION_ROW_TIME,
-	MissionId,
 } from "./mission-columns";
 import {
 	type MissionList,
@@ -177,9 +175,6 @@ function WatchStrip({
 											"px-4 text-left transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-state-hover",
 										)}
 									>
-										<span className={MISSION_ROW_ID}>
-											<MissionId id={mission.id} />
-										</span>
 										<span className={MISSION_ROW_SUBJECT}>
 											<ClientName mission={mission} />
 										</span>

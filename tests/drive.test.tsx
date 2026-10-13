@@ -489,7 +489,7 @@ describe("/drive", () => {
 		expect(browse({ q: "brand" })).not.toContain('data-testid="drive-recent"');
 	});
 
-	it("lists each file: tile, name over its scope, uploader, size, date, short hash", async () => {
+	it("lists each file: tile, name over its scope, uploader, size, date, seven-character hash", async () => {
 		const html = browse();
 		const row = element(html, `drive-file-list-row-${pdf.id}`);
 		expect(row).toContain('data-testid="drive-file-tile"');
@@ -499,7 +499,8 @@ describe("/drive", () => {
 		expect(text(row)).toContain(sizeLabel(pdf.bytes));
 		expect(text(row)).toContain(pdf.createdAt.slice(0, 10));
 		expect(row).toContain(`title="${pdf.sha256}"`);
-		expect(row).toContain(`>${pdf.sha256.slice(0, 8)}<`);
+		expect(row).toContain(`>${pdf.sha256.slice(0, 7)}<`);
+		expect(row).toContain('aria-label="Copy the SHA-256"');
 		expect(row).toContain('tabindex="0"');
 	});
 

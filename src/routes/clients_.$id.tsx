@@ -15,18 +15,19 @@ export const clientPageSearch = z.object({
 	active: z.boolean().optional().catch(undefined),
 });
 
-/** The first eight characters of an id, for a crumb or a tab title. */
-const short = (id: string) => id.slice(0, 8);
-
 // Not nested under /clients (the trailing underscore): the board renders a
 // whole page with no outlet, and this page replaces it. Breadcrumbs still
 // lead back to Clients, its sidebar ancestor.
 export const Route = createFileRoute("/clients_/$id")({
-	staticData: { device: "construction", crumb: ({ id }) => short(id ?? "") },
+	// Its id is never shown: the tab says "Client", and the crumb and the
+	// page's title name it once it is read.
+	staticData: {
+		device: "construction",
+		crumb: "Client",
+		useCrumbName: ({ id }) => useClient(id ?? "").data?.name,
+	},
 	validateSearch: clientPageSearch,
-	head: ({ params }) => ({
-		meta: [{ title: `Client ${short(params.id)} · Clients · AVEL` }],
-	}),
+	head: () => ({ meta: [{ title: "Client · Clients · AVEL" }] }),
 	component: ClientRoute,
 });
 

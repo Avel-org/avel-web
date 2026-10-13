@@ -6,9 +6,6 @@ import {
 } from "@/components/avel/loadout-page";
 import { Page } from "../shell/page";
 
-/** The first eight characters of a mission id: its short name everywhere. */
-const short = (id: string) => id.slice(0, 8);
-
 /**
  * The page's state in the URL.
  * - `view` is "table" for the table; absent is the board.
@@ -31,9 +28,7 @@ export const Route = createFileRoute("/missions_/$id_/roster")({
 	// ROUTES.md marks the loadout desktop: a squad is assembled at a desk.
 	staticData: { device: "construction", crumb: "Loadout" },
 	validateSearch: loadoutSearch,
-	head: ({ params }) => ({
-		meta: [{ title: `Loadout · ${short(params.id)} · Missions · AVEL` }],
-	}),
+	head: () => ({ meta: [{ title: "Loadout · Mission · Missions · AVEL" }] }),
 	component: MissionLoadoutRoute,
 });
 

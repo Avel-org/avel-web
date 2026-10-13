@@ -28,15 +28,6 @@ function Absent({ reason }: { reason: string }) {
 	);
 }
 
-/** The first eight characters of a mission id, with the whole id on hover. */
-export function MissionId({ id }: { id: string }) {
-	return (
-		<span title={id} data-testid="mission-id" className="type-mono-small">
-			{id.slice(0, 8)}
-		</span>
-	);
-}
-
 export function ClientName({ mission }: { mission: MissionListItem }) {
 	// Internal missions belong to no client or engagement.
 	return mission.client ? (
@@ -81,12 +72,12 @@ export function LastActivity({ at, now }: { at: string | null; now: number }) {
 }
 
 /**
- * Every column a mission row can show, ROUTES.md's row: id, client, type,
- * sprint, status, last export, last activity. Three sort, each by the
- * contract's key of the same name.
+ * Every column a mission row can show, ROUTES.md's row: client, type,
+ * sprint, status, last export, last activity. A mission has no name of its
+ * own; its client, type and sprint say which it is, never its uuid. Three
+ * sort, each by the contract's key of the same name.
  */
 export type MissionColumnId =
-	| "id"
 	| "client"
 	| "type"
 	| "sprint"
@@ -95,7 +86,6 @@ export type MissionColumnId =
 	| "lastActivity";
 
 export const MISSION_COLUMN_LABEL: Record<MissionColumnId, string> = {
-	id: "Mission",
 	client: "Client",
 	type: "Type",
 	sprint: "Sprint",
@@ -106,13 +96,6 @@ export const MISSION_COLUMN_LABEL: Record<MissionColumnId, string> = {
 
 export function missionColumns(now: number): DataColumn<MissionListItem>[] {
 	return [
-		{
-			id: "id",
-			header: MISSION_COLUMN_LABEL.id,
-			cell: (m) => <MissionId id={m.id} />,
-			mono: true,
-			width: "6.5rem",
-		},
 		{
 			id: "client",
 			header: MISSION_COLUMN_LABEL.client,
@@ -189,7 +172,6 @@ export function MissionCard({
 				<MissionStatusPill status={mission.status} />
 			</div>
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-small text-text-muted">
-				<MissionId id={mission.id} />
 				<span>{mission.type}</span>
 				<span className="type-mono-small">sprint {mission.sprintN}</span>
 				<LastExport mission={mission} />
@@ -201,13 +183,11 @@ export function MissionCard({
 
 /*
  * One mission row's geometry, shared by the watch strips and the tree's
- * leaves so they read as one column (ruling 30): 36px rows, a fixed id
- * column, the row's subject, its badges, and a fixed, right-aligned time
- * column. The tree indents its leaves; their right-hand columns still land
+ * leaves so they read as one column (ruling 30): 36px rows, the row's
+ * subject, its badges, and a fixed, right-aligned time column. The tree indents its leaves; their right-hand columns still land
  * on the strips' because both end 16px in from the panel's edge.
  */
 export const MISSION_ROW = "flex h-9 w-full min-w-0 items-center gap-3";
-export const MISSION_ROW_ID = "w-24 shrink-0";
 export const MISSION_ROW_SUBJECT =
 	"min-w-0 flex-1 truncate type-small text-foreground";
 export const MISSION_ROW_TIME =

@@ -91,7 +91,7 @@ describe("the payload", () => {
 		expect(labelOf("check_passed")).toBe("Check passed");
 	});
 
-	it("shortens ids, joins plain lists, counts the rest, and says None or Yes/No", () => {
+	it("hides ids, shortens hashes, joins plain lists, counts the rest, and says None or Yes/No", () => {
 		expect(
 			payloadFacts({
 				presetId: ID(1),
@@ -100,14 +100,21 @@ describe("the payload", () => {
 				removed: [],
 				checkPassed: false,
 				version: 4,
-			}).map((f) => [f.label, f.value, f.mono]),
+				contentSha256: "a".repeat(64),
+			}).map((f) => [f.label, f.value, f.mono, f.ref]),
 		).toEqual([
-			["Preset id", ID(1).slice(0, 8), true],
-			["Added", `${ID(2).slice(0, 8)}, ${ID(3).slice(0, 8)}`, true],
-			["Rows", "2 items", false],
-			["Removed", "None", false],
-			["Check passed", "No", false],
-			["Version", "4", true],
+			["Preset id", "Hidden", false, { kind: "id", full: ID(1) }],
+			[
+				"Added",
+				"2 ids, hidden",
+				false,
+				{ kind: "id", full: `${ID(2)}, ${ID(3)}` },
+			],
+			["Rows", "2 items", false, undefined],
+			["Removed", "None", false, undefined],
+			["Check passed", "No", false, undefined],
+			["Version", "4", true, undefined],
+			["Content sha256", "", true, { kind: "hash", full: "a".repeat(64) }],
 		]);
 	});
 

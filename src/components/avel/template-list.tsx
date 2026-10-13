@@ -4,13 +4,13 @@ import { Rows3, SquareKanban } from "lucide-react";
 import {
 	SCOPE_LABEL,
 	STARTING_STATE_LABEL,
-	shortSha,
 	templateName,
 	type useTemplates,
 } from "@/lib/api/templates";
 import { linkFor } from "@/shell/nav";
 import { type DataColumn, DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
+import { ShortHash } from "./short-hash";
 import { ErrorState, Surface } from "./surface";
 import { TemplateBoard, TemplateCardSkeleton } from "./template-card";
 import {
@@ -129,7 +129,12 @@ function columns(links: TemplateLinks): DataColumn<Template>[] {
 			header: "Commit",
 			width: "7rem",
 			mono: true,
-			cell: (row) => (row.latestSha ? shortSha(row.latestSha) : unknown),
+			cell: (row) =>
+				row.latestSha ? (
+					<ShortHash value={row.latestSha} label="the latest commit" />
+				) : (
+					unknown
+				),
 		},
 		{
 			id: "missions",

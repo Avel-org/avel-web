@@ -53,11 +53,11 @@ const open = (c: Client, query = "", seed: Omit<ClientsSeed, "detail"> = {}) =>
 	});
 
 describe("the client page's route", () => {
-	it("is a construction route with a crumb, so breadcrumbs can label it", () => {
+	it("is a construction route with a crumb that names no id", () => {
 		expect(Route.options.staticData?.device).toBe("construction");
 		const crumb = Route.options.staticData?.crumb;
 		expect(typeof crumb === "function" ? crumb({ id: ONE.id }) : crumb).toBe(
-			ONE.id.slice(0, 8),
+			"Client",
 		);
 	});
 

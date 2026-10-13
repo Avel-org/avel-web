@@ -42,6 +42,7 @@ import { Route } from "@/routes/missions";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { tagOf } from "./render-page";
+import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 // ---------------------------------------------------------------------------
 // Fixtures, parsed through the contract's own schemas so they cannot drift
@@ -481,7 +482,7 @@ describe("collapsing a strip hides it, and keeps its rows", () => {
 });
 
 describe("strips and the tree share one row geometry", () => {
-	it("gives strip rows and tree leaves the same height, id and time columns", async () => {
+	it("gives strip rows and tree leaves the same height and time column, and no id column", async () => {
 		const seed = (client: QueryClient) => {
 			seeded(client);
 			client.setQueryData(
@@ -506,7 +507,8 @@ describe("strips and the tree share one row geometry", () => {
 		const strips = region(html, "missions-watch-in-flight");
 		const tree = region(html, `mission-tree-leaf-${ACTIVE.id}`);
 		for (const part of [strips, tree]) {
-			expect(part).toContain('class="w-24 shrink-0"');
+			expect(part).not.toContain('class="w-24 shrink-0"');
+			expect(visibleText(part)).not.toMatch(UUID_FRAGMENT);
 			expect(part).toContain(
 				"w-40 shrink-0 truncate text-right type-caption text-text-muted",
 			);
@@ -770,12 +772,12 @@ describe("the tree view", () => {
 		expect(node).not.toContain("·");
 	});
 
-	it("shows a mission's id, type, sprint, status, needs-you and last activity", async () => {
+	it("shows a mission's type, sprint, status, needs-you and last activity, never its id", async () => {
 		const leaf = region(
 			await render("/missions?view=tree"),
 			`mission-tree-leaf-${ACTIVE.id}`,
 		);
-		expect(leaf).toContain(ACTIVE.id.slice(0, 8));
+		expect(visibleText(leaf)).not.toMatch(UUID_FRAGMENT);
 		expect(leaf).toContain(">template-booking<");
 		expect(leaf).toContain('data-testid="mission-status"');
 		expect(leaf).toContain('data-testid="mission-tree-needs-you"');
@@ -913,7 +915,7 @@ describe("the details panel", () => {
 		const html = await render(`/missions?mission=${ACTIVE.id}`, withDetail);
 		expect(html).toContain('data-testid="mission-details"');
 		const header = region(html, "mission-details-header");
-		expect(header).toContain(ACTIVE.id.slice(0, 8));
+		expect(visibleText(header)).not.toMatch(UUID_FRAGMENT);
 		expect(header).toContain("Client 1");
 		expect(header).toContain('data-testid="mission-status"');
 	});

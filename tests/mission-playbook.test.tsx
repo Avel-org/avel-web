@@ -31,6 +31,7 @@ import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { tagOf } from "./render-page";
+import { visibleText } from "./visible-text";
 
 // ---------------------------------------------------------------------------
 // Fixtures, parsed through the contract's own schemas.
@@ -94,8 +95,11 @@ function template(
 		roles: ["api-surface"],
 		engagementId: null,
 		waveDefaults: ["A"],
-		identityMd: "",
-		depthMd: "",
+		title: "Frontend engineer",
+		identityVersion: null,
+		identitySha256: null,
+		identityStale: false,
+		staleInputs: [],
 		writablePaths: [`src/agent-${n}/**`],
 		version: 1,
 		createdAt: "2026-10-01T00:00:00.000Z",
@@ -363,11 +367,15 @@ describe("/missions/$id/playbook", () => {
 	it("titles the tab and crumbs back through the mission to Missions", async () => {
 		const html = await render(PAGE, ...everything());
 		expect(html).toContain(
-			"<title>Playbook · 0a1b2c3d · Missions · AVEL</title>",
+			"<title>Playbook · Mission · Missions · AVEL</title>",
 		);
 		const crumbs = element(html, "breadcrumbs");
 		expect(crumbs).toMatch(/href="\/missions"[^>]*>Missions</);
-		expect(crumbs).toMatch(new RegExp(`href="/missions/${ID}"[^>]*>0a1b2c3d<`));
+		// Named from the mission once it is read: an internal one by type and sprint.
+		expect(crumbs).toMatch(
+			new RegExp(`href="/missions/${ID}"[^>]*>template-booking, sprint 1<`),
+		);
+		expect(visibleText(crumbs)).not.toContain("0a1b2c3d");
 	});
 
 	it("is linked from the mission page, with or without a playbook", async () => {

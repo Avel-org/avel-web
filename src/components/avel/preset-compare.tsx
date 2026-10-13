@@ -6,7 +6,6 @@ import {
 	type DiffField,
 	presetAgentKey,
 	presetDiff,
-	shortId,
 	templateLabel,
 } from "@/lib/api/presets";
 import { cn } from "@/lib/utils";
@@ -35,11 +34,18 @@ export function fieldText(agent: PresetAgent, field: DiffField): string {
 	}
 }
 
-/** An agent's name, or its short id while names load or when the catalog lacks it. */
+/**
+ * An agent as a roster names it: "Atlas · scheduling", name then territory.
+ * "Agent" while names load, "Unknown agent" when the catalog lacks it; its
+ * id is never the name.
+ */
 export function agentName(agent: PresetAgent, names: Names): string {
-	if (names.status !== "success") return shortId(agent.agentTemplateId);
-	const label = templateLabel(agent.agentTemplateId, names.byId);
-	const name = label.known ? label.name : `Unknown · ${label.shortId}`;
+	const label =
+		names.status === "success"
+			? templateLabel(agent.agentTemplateId, names.byId)
+			: null;
+	const name =
+		label === null ? "Agent" : label.known ? label.name : "Unknown agent";
 	return agent.territory ? `${name} · ${agent.territory}` : name;
 }
 

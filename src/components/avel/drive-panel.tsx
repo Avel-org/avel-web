@@ -18,7 +18,6 @@ import {
 	FileIconTile,
 	KIND,
 	PURGED_REASON,
-	ShortSha,
 	Uploader,
 } from "./drive-files";
 import {
@@ -31,6 +30,7 @@ import {
 	scopePath,
 	sizeLabel,
 } from "./drive-placeholders";
+import { ShortHash } from "./short-hash";
 
 /*
  * The file panel: one file, beside the list at xl and up, an overlay sheet
@@ -276,9 +276,9 @@ export function DetailsTab({ file }: { file: SampleFile }) {
 					<span className="type-mono-small">{sizeLabel(file.bytes)}</span>
 				</Fact>
 				<Fact label="SHA-256">
-					<ShortSha
-						sha={file.sha256}
-						copyable
+					<ShortHash
+						value={file.sha256}
+						label="the SHA-256"
 						data-testid="drive-details-sha"
 					/>
 				</Fact>

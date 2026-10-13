@@ -142,9 +142,11 @@ const pills = (html: string) =>
 // ---------------------------------------------------------------------------
 
 describe("the route", () => {
-	it("titles the tab by the short id, and crumbs back to Missions", async () => {
+	it("titles the page by client, type and sprint, never its id, and crumbs back to Missions", async () => {
 		const html = await render(`/missions/${ID}`, withMission(detail()));
-		expect(html).toContain("<title>0a1b2c3d · Missions · AVEL</title>");
+		expect(html).toContain("<title>Mission · Missions · AVEL</title>");
+		expect(html).toMatch(/<h1[^>]*>Meridian, template-booking, sprint 3<\/h1>/);
+		expect(html).not.toContain("0a1b2c3d<");
 		const crumbs = element(html, "breadcrumbs");
 		expect(crumbs).toContain('href="/missions"');
 		expect(crumbs).toContain(">Missions<");

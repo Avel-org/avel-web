@@ -8,7 +8,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { shortSha, templateName, useTemplates } from "@/lib/api/templates";
+import { templateName, useTemplates } from "@/lib/api/templates";
+import { ShortHash } from "./short-hash";
 
 /*
  * The plan's template, chosen from the templates avel-server allows
@@ -155,9 +156,7 @@ export function LatestCommit({
 				{"Latest on "}
 				<span className="type-mono-small">{templateRef}</span>
 				{": "}
-				<span className="type-mono-small" title={latest}>
-					{shortSha(latest)}
-				</span>
+				<ShortHash value={latest} label="the latest commit" />
 			</span>
 			{readOnly ? null : (
 				<Button

@@ -38,6 +38,7 @@ import { PlaybookSections } from "./playbook-sections";
 import { PlaybookVersions } from "./playbook-versions";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
+import { TeamName } from "./template-links";
 import { WhatChanges } from "./what-changes";
 
 /*
@@ -778,10 +779,11 @@ function PlaybookProperties({
 			<Row label="Default team">
 				<div className="flex flex-wrap items-center gap-2">
 					<span
-						className="type-mono-small text-text-muted"
+						data-testid="playbook-preset-name"
+						className="type-small text-foreground"
 						title={playbook.defaultPresetId}
 					>
-						{playbook.defaultPresetId.slice(0, 8)}
+						<TeamName id={playbook.defaultPresetId} />
 					</span>
 					<Button asChild variant="outline" size="sm">
 						<Link

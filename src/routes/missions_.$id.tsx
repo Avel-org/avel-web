@@ -1,27 +1,35 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMission } from "@/components/avel/mission-data";
 import { MissionPage } from "@/components/avel/mission-page";
+import { missionLabel } from "@/shell/command-search";
 import { Page } from "../shell/page";
-
-/** The first eight characters of a mission id: its short name everywhere. */
-const short = (id: string) => id.slice(0, 8);
 
 // Not nested under /missions (the trailing underscore): the list renders a
 // whole page with no outlet, and this page replaces it rather than sitting
 // inside it. Breadcrumbs still lead back to Missions, its sidebar ancestor.
 export const Route = createFileRoute("/missions_/$id")({
 	// ROUTES.md: the overview works on a phone; its actions are links.
-	staticData: { device: "capture", crumb: ({ id }) => short(id ?? "") },
-	head: ({ params }) => ({
-		meta: [{ title: `${short(params.id)} · Missions · AVEL` }],
-	}),
+	// A mission has no name and its id is never shown: the tab says
+	// "Mission", and the crumb and the title name it once it is read.
+	staticData: {
+		device: "capture",
+		crumb: "Mission",
+		useCrumbName: ({ id }) => {
+			const mission = useMission(id ?? "");
+			return mission.data ? missionLabel(mission.data) : undefined;
+		},
+	},
+	head: () => ({ meta: [{ title: "Mission · Missions · AVEL" }] }),
 	component: MissionRoute,
 });
 
 function MissionRoute() {
 	const { id } = Route.useParams();
+	// MissionPage reads the same mission, so this shares its request.
+	const mission = useMission(id);
 	return (
 		<Page
-			title={short(id)}
+			title={mission.data ? missionLabel(mission.data) : "Mission"}
 			definition="One mission: where it stands, what it shipped, and who is on it."
 		>
 			<MissionPage id={id} />

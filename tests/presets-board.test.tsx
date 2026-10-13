@@ -47,6 +47,7 @@ import { PRECONDITION_COPY } from "@/lib/error-map";
 import { contractError, fakeApi } from "./clients-fixtures";
 import { ID, preset, TEMPLATE, template } from "./presets-fixtures";
 import { tagOf, tagWithId, textOfId } from "./render-page";
+import { visibleText } from "./visible-text";
 
 const names: Names = {
 	status: "success",
@@ -453,7 +454,8 @@ describe("applying with a template the catalog lacks", () => {
 			},
 		);
 		expect(html).toContain('data-testid="preset-apply-missing"');
-		expect(html).toContain(TEMPLATE(9).slice(0, 8));
+		expect(html).toContain("An agent this team uses isn&#x27;t in All agents.");
+		expect(visibleText(html)).not.toContain(TEMPLATE(9).slice(0, 8));
 		expect(html).not.toContain('data-testid="preset-apply-coherence-after"');
 		const solo = render(<MissingTemplates ids={[TEMPLATE(9)]} />);
 		expect(solo).toContain("The server would refuse this apply.");

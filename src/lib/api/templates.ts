@@ -66,11 +66,6 @@ export const STARTING_STATE_LABEL = {
 	brownfield: "Brownfield",
 } as const satisfies Record<StartingState, string>;
 
-/** A commit as the board shows it: its first eight characters. */
-export function shortSha(sha: string): string {
-	return sha.slice(0, 8);
-}
-
 /** The template's own name, or its slug when the manifest could not be read. */
 export function templateName(template: Pick<Template, "name" | "slug">) {
 	return template.name ?? template.slug;

@@ -24,6 +24,7 @@ import {
 	usePreset,
 } from "@/lib/api/presets";
 import { Wrap } from "./catalog-sample";
+import { HiddenId } from "./short-hash";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
 /**
@@ -322,12 +323,15 @@ function TemplateCell({ id, names }: { id: string; names: Names }) {
 		);
 	}
 	return (
-		<span data-testid="preset-template-unknown" className="flex flex-col">
+		<HiddenId
+			id={label.id}
+			label="the agent's id"
+			data-testid="preset-template-unknown"
+		>
 			<span className="type-body text-text-muted">
 				{names.status === "error" ? "Agent" : "Unknown agent"}
 			</span>
-			<span className="type-mono-small text-text-subtle">{label.shortId}</span>
-		</span>
+		</HiddenId>
 	);
 }
 
