@@ -317,12 +317,7 @@ describe("the selected preset", () => {
 			}),
 		);
 		const row = html.slice(html.indexOf('data-testid="preset-agent-0"'));
-		for (const text of [
-			"None",
-			"Whole project",
-			"Agent&#x27;s",
-			"Not set",
-		]) {
+		for (const text of ["None", "Whole project", "Agent&#x27;s", "Not set"]) {
 			expect(row).toContain(`>${text}<`);
 		}
 		expect(html).toContain(">No description<");

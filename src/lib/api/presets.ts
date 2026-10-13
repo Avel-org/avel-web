@@ -106,10 +106,9 @@ export function loadedPresets(data: InfiniteData<PresetPage>): Preset[] {
 	return data.pages.flatMap((page) => page.data);
 }
 
-/** "1 preset", "12 presets", or as matches while a search or filter is set. */
+/** "1 team", "12 teams", or as matches while a search or filter is set. */
 export function presetCountLabel(total: number, filtered: boolean): string {
-	if (filtered)
-		return total === 1 ? "1 team matches" : `${total} teams match`;
+	if (filtered) return total === 1 ? "1 team matches" : `${total} teams match`;
 	return total === 1 ? "1 team" : `${total} teams`;
 }
 
