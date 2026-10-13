@@ -51,8 +51,8 @@ function GraphRegion({ children }: { children: ReactNode }) {
 	return (
 		<SampleRegion
 			missing={AGENT_MISSING.edges}
-			title="Artifact graph"
-			what="Agents in wave columns, with an arrow from each producer to each consumer, labelled with the artifact and its hash."
+			title="Handoff graph"
+			what="Agents in wave columns. An arrow runs from each agent that makes a file to each agent that reads it, labelled with the file and its hash."
 			data-testid="catalog-agents-graph-region"
 		>
 			{children}
@@ -123,7 +123,7 @@ export function CatalogAgents({
 							compact
 							icon={Bot}
 							title="No agents yet"
-							description="An agent is data: the roles it covers, its generated identity and its default waves. Each one is listed here."
+							description="Each agent is a set of roles, the identity written from them, and the waves it works in. Every agent is listed here."
 						/>
 					</ViewFrame>
 				}
@@ -144,8 +144,8 @@ export function CatalogAgents({
 				data-testid="catalog-agents-read-only"
 				className="type-caption text-text-subtle"
 			>
-				Identities are generated from roles, so nothing here is edited by hand.
-				To change an agent, change a role it covers.
+				Each agent's identity is written from its roles, so it can't be edited
+				here. To change an agent, change one of its roles.
 			</p>
 		</div>
 	);
@@ -197,7 +197,7 @@ function AgentConsole({
 						compact
 						icon={Bot}
 						title="No agents match"
-						description="No agent has this side, wave, kind and search together."
+						description="No agent matches every filter and search set here. Clear one to see more."
 					/>
 				) : view === "cards" ? (
 					<AgentCardGrid agents={matching} />

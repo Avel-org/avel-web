@@ -1,7 +1,14 @@
-import type { AgentTemplate } from "avel-server/contract";
-import { ArrowRight, CircleAlert, CircleCheck, Copy } from "lucide-react";
+import {
+	type AgentTemplate,
+	type IdentityInputField,
+	type IdentityVersion,
+	KIND_LABELS,
+	TEAM_LABELS,
+} from "avel-server/contract";
+import { ArrowRight, CircleAlert, CircleCheck } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useIdentityVersion } from "@/lib/api/catalog";
 import { cn } from "@/lib/utils";
 import {
 	AGENT_MISSING,
@@ -15,9 +22,8 @@ import {
 } from "./catalog-agent-placeholders";
 import {
 	CATALOG_MISSING,
-	familiesOf,
 	IDENTITY_TOKEN_CAP,
-	SAMPLE_FAMILY_TABLE,
+	SAMPLE_TEAM_TABLE,
 	type SampleAgentHistory,
 	type SampleDiscipline,
 	type SampleOrigin,
@@ -27,12 +33,15 @@ import {
 	inCatalogOrder,
 	inWaveOrder,
 	SampleRegion,
+	teamsOf,
 	Wrap,
 } from "./catalog-sample";
 import { CodeView } from "./code-view";
 import { type DataColumn, DataTable } from "./data-table";
 import { InlineExpand } from "./inline-expand";
+import { ShortHash } from "./short-hash";
 import { StatusPill } from "./status-pill";
+import { ErrorState, Surface } from "./surface";
 
 /*
  * The parts of an agent's page (ruling 38) that read one template: its
@@ -54,14 +63,28 @@ const TONE_CLASS: Record<Tone, string> = {
 	same: "text-text-subtle",
 };
 
+/**
+ * AVEL's names for its measures are kept; these plain readings go beside
+ * them on hover, for anyone the names mean nothing to.
+ */
+export const MEASURE_MEANING = {
+	boundaryViolations: "Times it changed a file it wasn't allowed to",
+	blockersAbsorbed: "Problems it worked around instead of reporting",
+	edgeHashMismatches:
+		"Times it read an out-of-date version of another agent's file",
+} as const;
+
 /** One metric card: its value and its change since the previous version. */
 function Metric({
 	label,
+	meaning,
 	value,
 	change,
 	"data-testid": testId,
 }: {
 	label: string;
+	/** The plain reading of the label, on hover. */
+	meaning?: string;
 	value: string;
 	change: { text: string; tone: Tone } | null;
 	"data-testid": string;
@@ -71,7 +94,9 @@ function Metric({
 			data-testid={testId}
 			className="flex flex-col gap-1 rounded-sm border border-border bg-app-raised p-3"
 		>
-			<span className="type-caption text-text-subtle">{label}</span>
+			<span title={meaning} className="type-caption text-text-subtle">
+				{label}
+			</span>
 			<span className="type-h2 text-foreground tabular-nums">{value}</span>
 			<span
 				data-testid={`${testId}-change`}
@@ -80,7 +105,7 @@ function Metric({
 					change ? TONE_CLASS[change.tone] : "text-text-subtle",
 				)}
 			>
-				{change?.text ?? "first version"}
+				{change?.text ?? "no earlier version"}
 			</span>
 		</div>
 	);
@@ -124,25 +149,26 @@ function Metrics({
 		<SampleRegion
 			missing={CATALOG_MISSING.measures}
 			title="Overview measures"
-			what="Four measures on client runs of the current version, each against the previous version."
+			what="Four numbers from client work on this version, each compared with the version before it."
 			data-testid="catalog-agent-metrics"
 		>
 			<p className="type-caption text-text-subtle">{`Client runs on v${version}`}</p>
 			<div className="grid grid-cols-2 gap-2">
 				<Metric
-					label="First-pass gate rate"
+					label="Passed the gate first time"
 					value={`${pct(current.firstPassGateRate)}%`}
 					change={was((o) => pct(o.firstPassGateRate), false, " pts")}
 					data-testid="catalog-agent-metric-gate"
 				/>
 				<Metric
-					label="Tokens, actual of estimate"
+					label="Tokens used of estimate"
 					value={`${kTokens(current.tokensActual)} of ${kTokens(current.tokensEstimate)}`}
 					change={was((o) => Math.round(o.tokensActual / 1000), true, "k")}
 					data-testid="catalog-agent-metric-tokens"
 				/>
 				<Metric
 					label="Boundary violations"
+					meaning={MEASURE_MEANING.boundaryViolations}
 					value={String(current.boundaryViolations)}
 					change={was((o) => o.boundaryViolations, true)}
 					data-testid="catalog-agent-metric-violations"
@@ -190,7 +216,7 @@ function StatusBox({ overview }: { overview: SampleOverview }) {
 				</p>
 				<p className="type-caption text-text-muted">
 					{status.ok
-						? "No boundary violations and no runs halted at a ceiling."
+						? "It wrote only where it may, and no run stopped at its token limit."
 						: `${status.problems.join(" and ")}.`}
 				</p>
 			</div>
@@ -250,7 +276,7 @@ function EdgeRow({
 	);
 }
 
-function Edges({
+function Handoffs({
 	agent,
 	agents,
 	onOpen,
@@ -264,14 +290,18 @@ function Edges({
 	return (
 		<SampleRegion
 			missing={AGENT_MISSING.edges}
-			title="Edges"
-			what="What this agent reads, from whom, and what it writes, to whom, each artifact with its hash."
+			title="Handoffs"
+			what="Which agents hand this one files, and which agents it hands files to, each file with its hash."
 			data-testid="catalog-agent-edges"
 		>
-			<h3 className="type-panel-title text-foreground">Edges</h3>
+			<h3 className="type-panel-title text-foreground">Handoffs</h3>
+			<p className="type-caption text-text-subtle">
+				The files this agent reads from other agents, and the files it writes
+				for them.
+			</p>
 			{incoming.length === 0 && outgoing.length === 0 ? (
 				<p className="type-small text-text-subtle">
-					No other agent here writes what it reads, or reads what it writes.
+					No other agent here hands it a file or reads a file it writes.
 				</p>
 			) : (
 				<div className="flex flex-col gap-2">
@@ -330,7 +360,7 @@ export function OverviewTab({
 	return (
 		<div data-testid="catalog-agent-overview" className="flex flex-col gap-4">
 			<Metrics current={current} previous={previous} version={agent.version} />
-			<Edges agent={agent} agents={agents} onOpen={onOpen} />
+			<Handoffs agent={agent} agents={agents} onOpen={onOpen} />
 			<MeasuresRegion history={history} />
 		</div>
 	);
@@ -338,8 +368,6 @@ export function OverviewTab({
 
 // ---------------------------------------------------------------------------
 // Identity, manifest, versions.
-
-type WithHistory = { agent: AgentTemplate; history: SampleAgentHistory };
 
 /**
  * A stub: the generator has written no more than headings, such as
@@ -352,42 +380,154 @@ export function isIdentityStub(identityMd: string): boolean {
 		.every((line) => line === "" || line.startsWith("#"));
 }
 
+/** Each identity input in plain words, for the stale banner. */
+export const INPUT_WORDS = {
+	generatorVersion: "the generator",
+	slug: "its slug",
+	name: "its name",
+	kind: "its kind",
+	roles: "its roles",
+	writablePaths: "the files it may change",
+	definitionsSha256: "the role definitions",
+	skills: "its skills",
+} as const satisfies Record<IdentityInputField, string>;
+
+/** "a, b and c". */
+const andList = (items: readonly string[]) =>
+	items.length <= 1
+		? (items[0] ?? "")
+		: `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+
+/** "Inputs changed since atlas@v3: its roles and its skills." */
+export function staleLine(ref: string, inputs: readonly IdentityInputField[]) {
+	return `Inputs changed since ${ref}: ${andList(inputs.map((i) => INPUT_WORDS[i]))}.`;
+}
+
 /**
- * identity.md is the template's own field, live. Its size in tokens is not:
- * no route counts it, so the line against the cap is a labelled sample. A
- * stub says it is one, and its text stays in a box only as wide as it.
+ * The identity version in force, read by number with its text: identity.md
+ * and depth.md, the server's token counts, and its hash and ref. A template
+ * with no version says so and asks for nothing.
  */
-export function IdentityTab({ agent, history }: WithHistory) {
-	const stub = isIdentityStub(agent.identityMd);
+export function IdentityTab({ agent }: { agent: AgentTemplate }) {
+	if (agent.identityVersion === null)
+		return (
+			<p
+				data-testid="catalog-agent-identity-none"
+				className="type-small text-text-muted"
+			>
+				This agent's identity hasn't been generated yet. It's written from its
+				roles when the operator regenerates it.
+			</p>
+		);
+	return <IdentityRead agent={agent} number={agent.identityVersion} />;
+}
+
+/** The version read; only mounted when there is a version to read. */
+function IdentityRead({
+	agent,
+	number,
+}: {
+	agent: AgentTemplate;
+	number: number;
+}) {
+	const query = useIdentityVersion(agent.id, number);
+	return (
+		<Surface
+			data-testid="catalog-agent-identity-surface"
+			query={query}
+			isEmpty={() => false}
+			loading={
+				<div
+					data-testid="catalog-agent-identity-skeleton"
+					className="flex flex-col gap-2"
+				>
+					<Skeleton className="h-4 w-1/3" />
+					<Skeleton className="h-40 w-full rounded-sm" />
+				</div>
+			}
+			empty={null}
+			error={ErrorState}
+		>
+			{(version) => <IdentityText agent={agent} version={version} />}
+		</Surface>
+	);
+}
+
+export function IdentityText({
+	agent,
+	version,
+}: {
+	agent: Pick<AgentTemplate, "name" | "identityStale" | "staleInputs">;
+	version: IdentityVersion;
+}) {
+	const stub = isIdentityStub(version.identityMd);
+	const over = version.identityTokens > IDENTITY_TOKEN_CAP;
 	return (
 		<div data-testid="catalog-agent-identity" className="flex flex-col gap-3">
+			{agent.identityStale ? (
+				<p
+					data-testid="catalog-agent-identity-stale"
+					className="flex items-start gap-2 rounded-sm border border-gate-warn-line bg-gate-warn-soft px-3 py-2 type-small text-foreground"
+				>
+					<CircleAlert
+						aria-hidden="true"
+						className="mt-0.5 size-4 shrink-0 text-gate-warn"
+					/>
+					{staleLine(version.ref, agent.staleInputs)}
+				</p>
+			) : null}
+			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-mono-small text-text-muted">
+				<span
+					data-testid="catalog-agent-identity-ref"
+					className="text-foreground"
+				>
+					{version.ref}
+				</span>
+				<ShortHash
+					value={version.sha256}
+					label="the identity's SHA-256"
+					data-testid="catalog-agent-identity-sha"
+				/>
+			</div>
 			{stub ? (
 				<p
 					data-testid="catalog-agent-identity-stub"
 					className="type-small text-text-muted"
 				>
-					{`${agent.name}'s generated identity is still a stub: only its heading so far. The identity generator writes the rest from its roles (module 5).`}
+					{`${agent.name}'s identity is still a stub: it has only a heading so far. The identity generator will write the rest from its roles (module 5).`}
 				</p>
 			) : null}
 			<CodeView
-				text={agent.identityMd}
+				text={version.identityMd}
 				label={`${agent.name}'s identity.md`}
 				className={stub ? "w-fit max-w-full min-w-48" : undefined}
 				data-testid="catalog-agent-identity-code"
 			/>
-			<SampleRegion
-				missing={CATALOG_MISSING.versions}
-				title="Identity size"
-				what="The identity's size in tokens against the 800-token cap."
-				data-testid="catalog-agent-identity-size"
+			<p
+				data-testid="catalog-agent-identity-tokens"
+				data-over={over || undefined}
+				className={cn(
+					"type-mono-small tabular-nums",
+					over ? "text-gate-block" : "text-text-muted",
+				)}
 			>
-				<p
-					data-testid="catalog-agent-identity-tokens"
-					className="type-mono-small text-text-muted tabular-nums"
-				>
-					{`${history.identityTokens} / ${IDENTITY_TOKEN_CAP} tokens`}
-				</p>
-			</SampleRegion>
+				{`identity.md: ${version.identityTokens} / ${IDENTITY_TOKEN_CAP} tokens`}
+			</p>
+			{version.depthMd.trim() === "" ? null : (
+				<>
+					<CodeView
+						text={version.depthMd}
+						label={`${agent.name}'s depth.md`}
+						data-testid="catalog-agent-depth-code"
+					/>
+					<p
+						data-testid="catalog-agent-depth-tokens"
+						className="type-mono-small text-text-muted tabular-nums"
+					>
+						{`depth.md: ${version.depthTokens} / ${IDENTITY_TOKEN_CAP} tokens`}
+					</p>
+				</>
+			)}
 		</div>
 	);
 }
@@ -402,19 +542,10 @@ function Line({ k, children }: { k: string; children: ReactNode }) {
 	);
 }
 
-/**
- * The kind in words, beside the machine value: a horizontal agent is shared
- * across every feature; a feature agent works within one.
- */
-export const KIND_WORDS = {
-	horizontal: "Shared",
-	feature: "Feature",
-} as const satisfies Record<AgentTemplate["kind"], string>;
-
-/** The longer reading, on hover: one short word fits the narrow column. */
+/** The longer reading of KIND_LABELS, on hover. */
 const KIND_MEANING = {
-	horizontal: "Works across every feature.",
-	feature: "Works within one feature.",
+	horizontal: "Owns one layer of the app, across every feature.",
+	feature: "Owns one feature, from data to screen.",
 } as const satisfies Record<AgentTemplate["kind"], string>;
 
 /**
@@ -435,13 +566,13 @@ export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 							data-testid="catalog-agent-kind-words"
 							title={KIND_MEANING[agent.kind]}
 							className="text-text-muted"
-						>{` # ${KIND_WORDS[agent.kind]}`}</span>
+						>{` # ${KIND_LABELS[agent.kind]}`}</span>
 					</Line>
 					<Line k="roles">{`[${inCatalogOrder(agent.roles).join(", ")}]`}</Line>
 					<Line k="waveDefaults">{`[${inWaveOrder(agent.waveDefaults).join(", ")}]`}</Line>
 					<Line k="engagementId">
 						{agent.engagementId ?? (
-							<span className="text-text-muted"># shared identity</span>
+							<span className="text-text-muted"># used for every client</span>
 						)}
 					</Line>
 					<span className="text-text-subtle">writablePaths:</span>
@@ -468,45 +599,12 @@ export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 	);
 }
 
-/** A hash's first eight characters, the full value on hover, and Copy. */
-function ShortHash({
-	value,
-	label,
-	"data-testid": testId,
-}: {
-	value: string;
-	label: string;
-	"data-testid": string;
-}) {
-	return (
-		<span data-testid={testId} className="inline-flex items-center gap-1">
-			<code
-				title={value}
-				data-full={value}
-				className="type-mono-small text-accent-text"
-			>
-				<span aria-hidden="true">{value.slice(0, 8)}</span>
-				<span className="sr-only">{value}</span>
-			</code>
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				aria-label={`Copy ${label}`}
-				data-testid={`${testId}-copy`}
-				onClick={() => navigator.clipboard?.writeText(value)}
-			>
-				<Copy aria-hidden="true" />
-			</Button>
-		</span>
-	);
-}
-
 export function VersionsTab({ history }: { history: SampleAgentHistory }) {
 	return (
 		<SampleRegion
 			missing={CATALOG_MISSING.versions}
 			title="Versions"
-			what="Every generated version, newest first, as a log: hash, version, date and the role change behind it."
+			what="Every version of the identity, newest first: its hash, number and date, and the role change that made it."
 			data-testid="catalog-agent-versions"
 		>
 			<ol aria-label="Versions" className="flex flex-col type-mono-small">
@@ -530,7 +628,7 @@ export function VersionsTab({ history }: { history: SampleAgentHistory }) {
 								data-testid="catalog-agent-version-current"
 								className="text-accent-text"
 							>
-								(HEAD)
+								(current)
 							</span>
 						) : null}
 						<span className="basis-full font-sans type-small text-text-muted">
@@ -555,34 +653,34 @@ const ACTION_TERMS = [
  * a word to a line.
  */
 function ActionsRegion({ agent }: { agent: AgentTemplate }) {
-	const covered = new Set(familiesOf(agent.roles));
-	const rows = SAMPLE_FAMILY_TABLE.filter((row) => covered.has(row.family));
+	const covered = new Set(teamsOf(agent.roles));
+	const rows = SAMPLE_TEAM_TABLE.filter((row) => covered.has(row.team));
 	return (
 		<SampleRegion
-			missing={CATALOG_MISSING.families}
+			missing={CATALOG_MISSING.teams}
 			title="Allowed actions"
-			what="The rows of the per-family table for this agent's families: what it may read, act on and propose through AVEL's API."
+			what="What this agent may read, do and suggest through AVEL's API, set by the family each of its roles belongs to."
 			data-testid="catalog-agent-actions"
 		>
 			<h3 className="type-panel-title text-foreground">Allowed actions</h3>
 			{rows.length === 0 ? (
 				<p className="type-small text-text-subtle">
-					Its roles are code, with no agent and no token.
+					Its roles are run by code, not by a model, so it has no API access.
 				</p>
 			) : (
 				<dl
-					aria-label="What this agent's families may do through the API"
+					aria-label="What this agent's teams may do through the API"
 					data-testid="catalog-agent-actions-table"
 					className="flex flex-col divide-y divide-border"
 				>
 					{rows.map((row) => (
 						<div
-							key={row.family}
-							data-testid={`catalog-agent-actions-table-row-${row.family}`}
+							key={row.team}
+							data-testid={`catalog-agent-actions-table-row-${row.team}`}
 							className="flex flex-col gap-1.5 py-2 first:pt-0 last:pb-0"
 						>
 							<dt className="type-small font-medium text-foreground">
-								{row.family}
+								{TEAM_LABELS[row.team].label}
 							</dt>
 							<dd>
 								<dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1">
@@ -616,12 +714,17 @@ type DisciplineRow = {
 	label: string;
 };
 
+const meaningOf = (id: DisciplineRow["id"]): string | undefined =>
+	id in MEASURE_MEANING
+		? MEASURE_MEANING[id as keyof typeof MEASURE_MEANING]
+		: undefined;
+
 const DISCIPLINE_ROWS: DisciplineRow[] = [
 	{ id: "runs", label: "Runs" },
 	{ id: "boundaryViolations", label: "Boundary violations" },
 	{ id: "blockersFiled", label: "Blockers filed" },
 	{ id: "blockersAbsorbed", label: "Blockers absorbed" },
-	{ id: "edgeHashMismatches", label: "Edge hash mismatches" },
+	{ id: "edgeHashMismatches", label: "Handoff hash mismatches" },
 	{ id: "testWritesCaught", label: "Test-file writes caught" },
 ];
 
@@ -629,7 +732,11 @@ function Discipline({ history }: { history: SampleAgentHistory }) {
 	const byOrigin = (origin: SampleOrigin) =>
 		history.discipline.find((row) => row.origin === origin);
 	const columns: DataColumn<DisciplineRow>[] = [
-		{ id: "measure", header: "Measure", cell: (row) => row.label },
+		{
+			id: "measure",
+			header: "Measure",
+			cell: (row) => <span title={meaningOf(row.id)}>{row.label}</span>,
+		},
 		...(["client", "internal"] as const).map(
 			(origin): DataColumn<DisciplineRow> => ({
 				id: origin,
@@ -645,8 +752,8 @@ function Discipline({ history }: { history: SampleAgentHistory }) {
 		<div data-testid="catalog-agent-discipline" className="flex flex-col gap-2">
 			<h3 className="type-panel-title text-foreground">Discipline</h3>
 			<p className="type-caption text-text-subtle">
-				How the agent behaves, across every territory and engagement under its
-				name, with client and internal runs in separate columns.
+				How well the agent keeps to its rules, across all of its work. Client
+				and internal runs are counted separately.
 			</p>
 			<DataTable
 				label="Discipline measures, client and internal"
@@ -717,8 +824,8 @@ function Outcome({ history }: { history: SampleAgentHistory }) {
 		<div data-testid="catalog-agent-outcome" className="flex flex-col gap-2">
 			<h3 className="type-panel-title text-foreground">Outcome</h3>
 			<p className="type-caption text-text-subtle">
-				How hard the work was. Each row is its own comparison: one territory on
-				one template. Rows are never added together.
+				What the work cost and how it went, for one territory on one mission
+				template per row. Each row stands alone; rows are never added up.
 			</p>
 			{(["client", "internal"] as const).map((origin) => {
 				const rows = history.outcomes.filter((row) => row.origin === origin);
@@ -762,8 +869,9 @@ function Reconstructed({ history }: { history: SampleAgentHistory }) {
 		>
 			<h3 className="type-panel-title text-foreground">Reconstructed runs</h3>
 			<p className="type-caption text-text-subtle">
-				Their version was backfilled from git history, not recorded at dispatch.
-				Their findings stand; they are left out of every measure above.
+				Their version was worked out later from git history, not recorded when
+				they ran. Their findings still count, but they are left out of every
+				measure above.
 			</p>
 			<ul className="flex flex-col divide-y divide-border">
 				{history.reconstructed.map((run) => (
@@ -800,7 +908,7 @@ export function MeasuresRegion({ history }: { history: SampleAgentHistory }) {
 		<SampleRegion
 			missing={CATALOG_MISSING.measures}
 			title="Measures"
-			what="Discipline across all of the agent's work, outcome within one territory and project template, client and internal runs apart, and reconstructed runs set aside."
+			what="How well it keeps to its rules across all its work, and how each territory and mission template went. Client and internal runs are kept apart, and reconstructed runs are set aside."
 			data-testid="catalog-agent-measures"
 		>
 			{/* Folded, so the tab stays short: the four measures and the edges

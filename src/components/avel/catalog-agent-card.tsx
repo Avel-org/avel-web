@@ -1,5 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { type AgentTemplate, WAVES } from "avel-server/contract";
+import {
+	type AgentTemplate,
+	KIND_LABELS,
+	SIDE_LABELS,
+	TEAM_LABELS,
+	TEAMS,
+	type Team,
+	WAVES,
+} from "avel-server/contract";
 import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +20,15 @@ import {
 	sideOf,
 	territoriesOf,
 } from "./catalog-agent-placeholders";
-import { AgentTile, KIND_LABEL } from "./catalog-agent-table";
-import { familiesOf } from "./catalog-placeholders";
-import { inCatalogOrder, inWaveOrder, SampleRegion } from "./catalog-sample";
+import { AgentTile } from "./catalog-agent-table";
+import {
+	inCatalogOrder,
+	inWaveOrder,
+	RoleTag,
+	SampleRegion,
+	teamOf,
+	teamsOf,
+} from "./catalog-sample";
 
 /*
  * All agents as cards (ruling 44): one notched plate per agent, built from
@@ -29,8 +43,27 @@ import { inCatalogOrder, inWaveOrder, SampleRegion } from "./catalog-sample";
 /** What a firm agent's waves section says, and why. */
 export const FIRM_WAVES = {
 	text: "Between missions",
-	title: "Firm agents work between missions. The firm roster has no waves.",
+	title:
+		"Firm agents work for the agency between missions, so they never join a mission's waves.",
 } as const;
+
+/**
+ * A card's sections, top to bottom. Every card renders all of them, in this
+ * order, an empty one saying so in words: each is a row of the grid's
+ * subgrid, so a section's top lines up across every card in a grid row.
+ * The span below is this list's length; Tailwind needs it as a literal.
+ */
+export const CARD_SECTIONS = [
+	"identity",
+	"description",
+	"roles",
+	"waves",
+	"territory",
+	"paths",
+	"footer",
+] as const;
+
+const CARD_SPAN = "row-span-7";
 
 /** How many globs and roles a card lists before it counts the rest. */
 export const CARD_PATHS = 3;
@@ -38,15 +71,11 @@ export const CARD_ROLES = 4;
 
 // ---------------------------------------------------------------------------
 // The description. The agent's own written description first; when it has
-// none (null), the first paragraph of its identity; when that has no prose,
-// what its roles do, from the client copy of ROLES.md. Only that last one is
-// not the server's words, so only it says where it came from.
+// none (null), what its roles do, from the client copy of ROLES.md. Only
+// that one is not the server's words, so only it says where it came from.
 
 /** How long a description runs before it is cut at a word. */
 export const DESCRIPTION_MAX = 220;
-
-/** The generator's own notice in an identity: not a description. */
-const GENERATOR_NOTICE = /^generated from roles\b/i;
 
 /** Inline markdown down to its words: links, code, emphasis. */
 const plain = (line: string) =>
@@ -64,34 +93,6 @@ function cap(text: string, max = DESCRIPTION_MAX): string {
 	return `${(word > 0 ? cut.slice(0, word) : cut).replace(/[\s,;:.]+$/, "")}…`;
 }
 
-/**
- * The first prose paragraph of an identity: headings, list items, quotes,
- * rules, fences and the generator's notice are skipped. Null when there is
- * no prose, as in a stub identity ("# Atlas").
- */
-export function identityProse(identityMd: string): string | null {
-	const paragraphs: string[][] = [[]];
-	let fenced = false;
-	for (const raw of identityMd.split("\n")) {
-		const line = raw.trim();
-		if (line.startsWith("```")) {
-			fenced = !fenced;
-			paragraphs.push([]);
-			continue;
-		}
-		const skip =
-			fenced ||
-			line === "" ||
-			/^(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|---|\*\*\*|<)/.test(line);
-		if (skip) paragraphs.push([]);
-		else paragraphs.at(-1)?.push(plain(line));
-	}
-	const prose = paragraphs
-		.map((lines) => lines.join(" ").trim())
-		.find((text) => text !== "" && !GENERATOR_NOTICE.test(text));
-	return prose === undefined ? null : cap(prose);
-}
-
 /** "a, b and c". */
 const listOf = (items: readonly string[]) =>
 	items.length <= 1
@@ -102,13 +103,11 @@ const listOf = (items: readonly string[]) =>
 const READS_NAMED = 3;
 
 /**
- * One plain account of an agent from its roles: its family, what it
- * writes and from what, and where it works.
+ * One plain account of an agent from its roles: its team, what it writes
+ * and from what, and where it works.
  */
 export function rolesSentence(agent: AgentTemplate): string {
-	const families = familiesOf(agent.roles);
-	const family = listOf(families);
-	const article = /^[AEIOU]/.test(family) ? "An" : "A";
+	const teams = teamsOf(agent.roles).map((team) => TEAM_LABELS[team].label);
 	// In catalog order, so the sentence never follows the data's order.
 	const { writes, reads } = artifactsOf({ roles: inCatalogOrder(agent.roles) });
 	const named = reads.slice(0, READS_NAMED).map((r) => r.name);
@@ -124,7 +123,9 @@ export function rolesSentence(agent: AgentTemplate): string {
 			? "Joins no wave by default."
 			: `Works in wave${waves.length > 1 ? "s" : ""} ${listOf(waves)}.`;
 	return [
-		families.length > 0 ? `${article} ${family} agent.` : "",
+		teams.length > 0
+			? `On the ${listOf(teams)} ${teams.length > 1 ? "teams" : "team"}.`
+			: "",
 		writes.length > 0
 			? `Writes ${listOf(writes.map((w) => w.name))}${from}.`
 			: "",
@@ -136,23 +137,26 @@ export function rolesSentence(agent: AgentTemplate): string {
 
 export type AgentDescription = {
 	text: string;
-	/**
-	 * Where the words came from: the agent's written description, the first
-	 * paragraph of its identity, or its roles.
-	 */
-	source: "written" | "identity" | "roles";
+	/** Where the words came from: the agent's written description, or its roles. */
+	source: "written" | "roles";
 };
 
 /** What a card says the agent is, from the first source that has words. */
 export function agentDescription(agent: AgentTemplate): AgentDescription {
 	// The contract never sends "": null means not written. Trimmed anyway, so
-	// blank text never wins over the identity.
+	// blank text never wins over the roles.
 	const written = plain(agent.description ?? "");
-	if (written !== "") return { text: cap(written), source: "written" };
-	const prose = identityProse(agent.identityMd);
-	return prose === null
-		? { text: cap(rolesSentence(agent)), source: "roles" }
-		: { text: prose, source: "identity" };
+	return written !== ""
+		? { text: cap(written), source: "written" }
+		: { text: cap(rolesSentence(agent)), source: "roles" };
+}
+
+/** "Identity v3", "Identity v3, out of date", or not generated yet. */
+export function identityCue(
+	agent: Pick<AgentTemplate, "identityVersion" | "identityStale">,
+): string {
+	if (agent.identityVersion === null) return "Identity not generated yet";
+	return `Identity v${agent.identityVersion}${agent.identityStale ? ", out of date" : ""}`;
 }
 
 /** The first section: what the agent is, in prose, with the most room. */
@@ -172,15 +176,25 @@ function DescriptionSection({ agent }: { agent: AgentTemplate }) {
 			>
 				{text}
 			</p>
-			{source === "roles" ? (
+			<span className="flex flex-wrap items-baseline gap-x-3 type-caption text-text-subtle">
+				{source === "roles" ? (
+					<span
+						data-testid={`catalog-agent-description-source-${agent.slug}`}
+						title="Summed up from its roles, because no description has been written yet."
+						className="type-caption"
+					>
+						From its roles
+					</span>
+				) : null}
 				<span
-					data-testid={`catalog-agent-description-source-${agent.slug}`}
-					title="Said from a client copy of ROLES.md, because its identity has no prose yet."
-					className="type-caption text-text-subtle"
+					data-testid={`catalog-agent-identity-cue-${agent.slug}`}
+					data-generated={agent.identityVersion !== null}
+					data-stale={agent.identityStale || undefined}
+					className={cn(agent.identityStale && "text-gate-warn")}
 				>
-					From its roles
+					{identityCue(agent)}
 				</span>
-			) : null}
+			</span>
 		</div>
 	);
 }
@@ -281,26 +295,42 @@ function WaveStrip({ agent }: { agent: AgentTemplate }) {
 	);
 }
 
+/** What an agent's side reads as; none for Firm and code agents. */
+export const sideLabel = (agent: Pick<AgentTemplate, "roles">) => {
+	const side = sideOf(agent);
+	return side === null ? "No side" : SIDE_LABELS[side];
+};
+
 /**
- * Territory and side: samples from the roster, in a region of their own
- * whose pill names the territories. The side is a second sample, so it
- * carries its own dashed underline and its reason in words.
+ * Side, live from the contract's ROLE_SIDE, then the territory: a sample
+ * from the roster, in a region of its own whose pill names the territories.
  */
 function TerritorySection({ agent }: { agent: AgentTemplate }) {
 	const territories = territoriesOf(agent);
-	const side = sideOf(agent);
-	const sideWords = `Sample data until avel-server has ${AGENT_MISSING.sides}.`;
 	return (
-		<div className="border-t border-border px-4 py-3">
+		<div
+			data-section="territory"
+			className="flex flex-col gap-2 border-t border-border px-4 py-3"
+		>
+			<dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3">
+				<dt className="type-caption text-text-subtle">Side</dt>
+				<dd
+					data-testid={`catalog-agent-side-${agent.slug}`}
+					data-side={sideOf(agent) ?? "none"}
+					className="type-small text-foreground"
+				>
+					{sideLabel(agent)}
+				</dd>
+			</dl>
 			<SampleRegion
 				missing={AGENT_MISSING.territories}
 				title="Territory"
-				what="The part of the project this agent works in, and its side."
+				what="The part of the project this agent works in."
 				data-testid={`catalog-agent-card-territory-${agent.slug}`}
 				// Above the stretched link, so the pill's tooltip can be reached.
 				className="relative z-10 gap-1.5"
 			>
-				<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
+				<dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3">
 					<dt className="type-caption text-text-subtle">Territory</dt>
 					<dd
 						data-testid={`catalog-agent-territory-${agent.slug}`}
@@ -308,16 +338,6 @@ function TerritorySection({ agent }: { agent: AgentTemplate }) {
 						title={territories.join(", ") || "whole project"}
 					>
 						{territories.length > 0 ? territories.join(", ") : "whole project"}
-					</dd>
-					<dt className="type-caption text-text-subtle">Side</dt>
-					<dd
-						data-testid={`catalog-agent-side-${agent.slug}`}
-						data-missing={AGENT_MISSING.sides}
-						title={sideWords}
-						className="relative justify-self-start border-b border-dashed border-border-strong type-mono-small text-text-muted"
-					>
-						{side ?? "firm"}
-						<span className="sr-only">{`, ${sideWords}`}</span>
 					</dd>
 				</dl>
 			</SampleRegion>
@@ -330,14 +350,22 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 	const paths = agent.writablePaths;
 	const nameId = `catalog-agent-card-name-${agent.slug}`;
 	return (
+		// The li and the article both take the grid's rows as a subgrid, so
+		// each section is one row shared with the cards beside it.
 		<li
 			data-testid={`catalog-agent-card-${agent.slug}`}
-			className="plate-notched-lift min-w-0"
+			className={cn(
+				"plate-notched-lift grid min-w-0 grid-rows-subgrid gap-y-0",
+				CARD_SPAN,
+			)}
 		>
 			<article
 				aria-labelledby={nameId}
-				data-side={sideOf(agent) ?? "firm"}
-				className="plate plate-interactive plate-notched flex h-full min-w-0 flex-col rounded-md border has-[a:focus-visible]:-translate-y-px has-[a:focus-visible]:border-border-strong"
+				data-side={sideOf(agent) ?? "none"}
+				className={cn(
+					"plate plate-interactive plate-notched grid min-w-0 grid-rows-subgrid gap-y-0 rounded-md border has-[a:focus-visible]:-translate-y-px has-[a:focus-visible]:border-border-strong",
+					CARD_SPAN,
+				)}
 			>
 				{/* Identity: the band at the top of the plate. */}
 				<div
@@ -347,29 +375,39 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 				>
 					<AgentTile agent={agent} size="lg" />
 					<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-						<h2
-							id={nameId}
-							className="engraved truncate type-body font-medium text-foreground"
-						>
-							{agent.name}
-						</h2>
-						<span className="truncate type-mono-small text-text-subtle">
-							{agent.slug}
+						{/* The name, then the kind on the same baseline. */}
+						<span className="flex min-w-0 items-baseline justify-between gap-2">
+							<h3
+								id={nameId}
+								className="engraved truncate type-body font-medium text-foreground"
+							>
+								{agent.name}
+							</h3>
+							<Badge
+								variant="outline"
+								data-testid={`catalog-agent-kind-${agent.slug}`}
+								data-kind={agent.kind}
+								className="shrink-0"
+							>
+								{KIND_LABELS[agent.kind]}
+							</Badge>
 						</span>
-					</span>
-					<span className="flex shrink-0 flex-col items-end gap-1">
-						<Badge
-							variant="outline"
-							data-testid={`catalog-agent-kind-${agent.slug}`}
-							data-kind={agent.kind}
-						>
-							{KIND_LABEL[agent.kind]}
-						</Badge>
-						<span
-							data-testid={`catalog-agent-version-${agent.slug}`}
-							className="type-mono-small text-text-subtle"
-						>
-							{`v${agent.version}`}
+						{agent.title === null ? null : (
+							<span
+								data-testid={`catalog-agent-title-${agent.slug}`}
+								className="truncate type-small text-text-muted"
+							>
+								{agent.title}
+							</span>
+						)}
+						<span className="flex min-w-0 items-baseline gap-1.5 type-mono-small text-text-subtle">
+							<span className="truncate">{agent.slug}</span>
+							<span
+								data-testid={`catalog-agent-version-${agent.slug}`}
+								className="shrink-0"
+							>
+								{`v${agent.version}`}
+							</span>
 						</span>
 					</span>
 				</div>
@@ -387,9 +425,7 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 						className="flex flex-wrap gap-1"
 					>
 						{roles.slice(0, CARD_ROLES).map((role) => (
-							<Badge key={role} variant="tag" data-testid="catalog-role">
-								{role}
-							</Badge>
+							<RoleTag key={role} role={role} />
 						))}
 						{roles.length > CARD_ROLES ? (
 							<span className="self-center type-caption text-text-subtle">
@@ -399,21 +435,21 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 					</span>
 				</CardSection>
 
-				<CardSection label="Where it works" section="waves" slug={agent.slug}>
+				<CardSection label="Waves" section="waves" slug={agent.slug}>
 					<WaveStrip agent={agent} />
 				</CardSection>
 
 				<TerritorySection agent={agent} />
 
 				<CardSection
-					label="Writable paths"
+					label="Files it may change"
 					count={paths.length}
 					section="paths"
 					slug={agent.slug}
 				>
 					{paths.length === 0 ? (
 						<span className="type-caption text-text-subtle">
-							Writes no files.
+							Changes no files.
 						</span>
 					) : (
 						<ul
@@ -441,7 +477,10 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 					)}
 				</CardSection>
 
-				<div className="mt-auto flex items-center justify-end border-t border-border px-4 py-2.5">
+				<div
+					data-section="footer"
+					className="flex items-end justify-end border-t border-border px-4 py-2.5"
+				>
 					<Link
 						to="/catalog/agents/$slug"
 						params={{ slug: agent.slug }}
@@ -463,21 +502,54 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 const GRID =
 	"grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,17.5rem),1fr))]";
 
+/** The agents in sections by team, in team order; empty teams are left out. */
+export function byTeam(
+	agents: readonly AgentTemplate[],
+): { team: Team; agents: AgentTemplate[] }[] {
+	return TEAMS.map((team) => ({
+		team,
+		agents: agents.filter((agent) => teamOf(agent) === team),
+	})).filter((section) => section.agents.length > 0);
+}
+
+/** One section per team, named by its label, its meaning on hover and below. */
 export function AgentCardGrid({
 	agents,
 }: {
 	agents: readonly AgentTemplate[];
 }) {
 	return (
-		<ul
-			aria-label="All agents"
-			data-testid="catalog-agents-cards"
-			className={GRID}
-		>
-			{agents.map((agent) => (
-				<AgentCard key={agent.slug} agent={agent} />
-			))}
-		</ul>
+		<div data-testid="catalog-agents-cards" className="flex flex-col gap-6">
+			{byTeam(agents).map(({ team, agents: members }) => {
+				const headingId = `catalog-agents-team-${team}`;
+				return (
+					<section
+						key={team}
+						aria-labelledby={headingId}
+						data-testid={`catalog-agents-team-${team}`}
+						className="flex min-w-0 flex-col gap-3"
+					>
+						<div className="flex flex-wrap items-baseline gap-x-2">
+							<h2
+								id={headingId}
+								title={TEAM_LABELS[team].meaning}
+								className="type-panel-title text-foreground"
+							>
+								{TEAM_LABELS[team].label}
+							</h2>
+							<p className="type-caption text-text-subtle">
+								{TEAM_LABELS[team].meaning}
+							</p>
+						</div>
+						<ul aria-labelledby={headingId} className={GRID}>
+							{members.map((agent) => (
+								<AgentCard key={agent.slug} agent={agent} />
+							))}
+						</ul>
+					</section>
+				);
+			})}
+		</div>
 	);
 }
 

@@ -1,25 +1,21 @@
 /**
- * Agent-only samples for /catalog/agents' spec console: each role's side,
- * what each role produces and reads, the artifact edges between agents, and
- * dispatch token estimates. None of these has a contract shape; the side and
- * the produce/consume pairs are client copies of design data in avel-server's
- * docs (ROSTER-V2.md, ROLES.md), so they are samples behind a pill like the
- * rest, never presented as live. Every value here derives from a live
- * template's own fields (its slug, roles and waveDefaults). Shared catalog
- * samples (versions, measures, families) stay in catalog-placeholders.ts.
+ * Agent-only samples for /catalog/agents' spec console: what each role
+ * produces and reads, the artifact edges between agents, and dispatch token
+ * estimates. None of these has a contract shape; the produce/consume pairs
+ * are client copies of design data in avel-server's docs (ROLES.md), so they
+ * are samples behind a pill like the rest, never presented as live. Every
+ * value here derives from a live template's own fields (its slug, roles and
+ * waveDefaults). An agent's side and team are the contract's (ROLE_SIDE,
+ * ROLE_TEAM), so they are live. Shared catalog samples (versions, measures,
+ * the team table) stay in catalog-placeholders.ts.
  */
-import type { AgentTemplate, Role, Wave } from "avel-server/contract";
-import { WAVES } from "avel-server/contract";
-import {
-	SAMPLE_ROLE_FAMILY,
-	sampleHistory,
-	sampleSha256,
-} from "./catalog-placeholders";
+import type { AgentTemplate, Role, Side, Wave } from "avel-server/contract";
+import { ROLE_SIDE, ROLE_TEAM, WAVES } from "avel-server/contract";
+import { sampleHistory, sampleSha256 } from "./catalog-placeholders";
 
 /** The source each agent-only sample stands in for, named in its pill. */
 export const AGENT_MISSING = {
-	sides: "each role's side",
-	edges: "the artifact edge graph",
+	edges: "the handoff graph",
 	dispatch: "dispatch token estimates",
 	territories: "the roster's territories",
 } as const;
@@ -29,48 +25,19 @@ export type AgentMissing = (typeof AGENT_MISSING)[keyof typeof AGENT_MISSING];
 // ---------------------------------------------------------------------------
 // Sides (ROSTER-V2.md, Merging roles into agents).
 
-export type AgentSide = "author" | "tester" | "judge" | "fixture";
-
 /**
- * A role's side, from its family: Foundation and Build author source, Verify
- * tests it, Review and incident-response judge it, and the fixture stands
- * alone. Operate's code roles, Firm and Platform have no side: they never
- * merge into a mission agent.
+ * An agent's side: the one side its roles share (ROLE_SIDE). Roles never
+ * merge across a side, so a well-formed template has at most one; null when
+ * none of its roles has a side (Canon's Firm roles, or code roles).
  */
-export function sideOfRole(role: Role): AgentSide | null {
-	if (role === "fixture") return "fixture";
-	if (role === "incident-response") return "judge";
-	switch (SAMPLE_ROLE_FAMILY[role]) {
-		case "Foundation":
-		case "Build":
-			return "author";
-		case "Verify":
-			return "tester";
-		case "Review":
-			return "judge";
-		default:
-			return null;
-	}
-}
-
-/**
- * An agent's side: the one side its roles share. Roles never merge across a
- * side, so a well-formed template has at most one; null when its roles have
- * none (Canon's Firm roles).
- */
-export function sideOf(agent: Pick<AgentTemplate, "roles">): AgentSide | null {
+export function sideOf(agent: Pick<AgentTemplate, "roles">): Side | null {
 	const sides = new Set(
-		agent.roles.map(sideOfRole).filter((s): s is AgentSide => s !== null),
+		agent.roles
+			.map((role: Role) => ROLE_SIDE[role])
+			.filter((s): s is Side => s !== null),
 	);
 	return sides.size === 1 ? ([...sides][0] ?? null) : null;
 }
-
-export const SIDES: readonly AgentSide[] = [
-	"author",
-	"tester",
-	"judge",
-	"fixture",
-];
 
 // ---------------------------------------------------------------------------
 // Artifacts (ROLES.md, The catalog: Produces and Consumes).
@@ -224,14 +191,14 @@ export function sampleEdges(agents: readonly AgentTemplate[]): SampleEdge[] {
 
 /**
  * A firm agent works for the agency between missions (Canon, Trace, Uno):
- * every role it covers is in the Firm family. Its firm roster entry has no
+ * every role it covers is on the Firm team. Its firm roster entry has no
  * waves (DATA-CONTRACTS-V2.md, RosterEntry), so it never joins a mission's
  * wave columns, whatever its template's waveDefaults say.
  */
 export function isFirmAgent(agent: Pick<AgentTemplate, "roles">): boolean {
 	return (
 		agent.roles.length > 0 &&
-		agent.roles.every((role) => SAMPLE_ROLE_FAMILY[role] === "Firm")
+		agent.roles.every((role) => ROLE_TEAM[role] === "firm")
 	);
 }
 
@@ -346,7 +313,7 @@ export function agentStatus(o: SampleOverview): {
 			? `${o.boundaryViolations} boundary ${o.boundaryViolations === 1 ? "violation" : "violations"}`
 			: null,
 		o.halts > 0
-			? `${o.halts} ${o.halts === 1 ? "run" : "runs"} halted at a ceiling`
+			? `${o.halts} ${o.halts === 1 ? "run" : "runs"} stopped at the token limit`
 			: null,
 	].filter((p): p is string => p !== null);
 	return { ok: problems.length === 0, problems };

@@ -135,8 +135,11 @@ function template(
 		roles: ["api-surface"],
 		engagementId: null,
 		waveDefaults: ["A"],
-		identityMd: "",
-		depthMd: "",
+		title: "Frontend engineer",
+		identityVersion: null,
+		identitySha256: null,
+		identityStale: false,
+		staleInputs: [],
 		writablePaths: [`src/agent-${n}/**`],
 		version: 1,
 		createdAt: "2026-10-01T00:00:00.000Z",
@@ -333,7 +336,7 @@ describe("the loadout board", () => {
 		// Active of all, per wave: Nemi is idle.
 		expect(text(b)).toContain(">0/1<");
 		expect(text(a)).toContain(">1/1<");
-		expect(text(element(html, "loadout-wave-A"))).toContain("Foundations");
+		expect(text(element(html, "loadout-wave-A"))).toContain("Setup");
 	});
 
 	it("shows each entry's active state on its switch", async () => {

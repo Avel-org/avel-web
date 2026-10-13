@@ -90,6 +90,12 @@ export const queryKeys = {
 		agentAccess: (id: string) =>
 			["catalog", "agentTemplates", "access", id] as const,
 		/**
+		 * contract.agentTemplates.identityVersion: one identity version with
+		 * its text. Versions never change, so the number names the text.
+		 */
+		identityVersion: (id: string, number: number) =>
+			["catalog", "agentTemplates", "identity", id, number] as const,
+		/**
 		 * contract.skills.list, paged by cursor. `role` keeps skills recommended
 		 * for any of those roles (an agent's skills), as for agentTemplates.
 		 */

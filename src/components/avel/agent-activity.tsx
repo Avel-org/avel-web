@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplateRosterEntries } from "@/lib/api/access";
 import { useEntriesActivity } from "@/lib/api/activity";
 import { ACTION_COPY } from "./activity-copy";
-import { entryLabel, short } from "./agent-access";
+import { entryLabel } from "./agent-access";
 import { EmptyState } from "./empty-state";
 import { SectionPanel } from "./section-panel";
 import { ErrorState } from "./surface";
@@ -45,7 +45,7 @@ export function AgentActivity({ agent }: { agent: AgentTemplate }) {
 	return (
 		<SectionPanel
 			title="Recent activity"
-			description={`Changes to ${agent.name}'s places on missions. Its own work is logged once dispatch runs it (module 6).`}
+			description={`When ${agent.name} was added to, changed on or removed from a mission. Its own work shows here once agents run (module 6).`}
 			data-testid="agent-activity"
 		>
 			{entries.status === "pending" ? (
@@ -113,7 +113,7 @@ function EntryActivity({
 				compact
 				icon={History}
 				title="Not on a mission"
-				description={`${name} has not been put on a mission, so the log has nothing about it.`}
+				description={`${name} hasn't been added to a mission yet, so there's no activity to show.`}
 			/>
 		);
 	if (activity.status === "pending") return <ActivitySkeleton />;
@@ -132,7 +132,7 @@ function EntryActivity({
 				compact
 				icon={History}
 				title="Nothing logged yet"
-				description={`No change to ${name}'s places on missions has been logged. Adding, changing or removing it on a mission writes here.`}
+				description={`Nothing has been logged for ${name} yet. Adding it to a mission, changing it there or removing it shows here.`}
 			/>
 		);
 	return (
@@ -156,9 +156,6 @@ function EntryActivity({
 						>
 							{group.entry ? entryLabel(group.entry) : "A mission it has left"}
 						</Link>
-						<span className="type-mono-small text-text-subtle">
-							{short(group.missionId)}
-						</span>
 					</h3>
 					<ActivityRows rows={group.rows} />
 				</section>

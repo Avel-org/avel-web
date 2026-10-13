@@ -57,11 +57,11 @@ import { ErrorState, Surface, type SurfaceQuery } from "./surface";
  * enforced until rooms land in module 7, and the panel says so.
  */
 
-/** The words for each mode, as the operator's reference names them. */
+/** The words for each mode, short enough for a chip. */
 export const MODE_LABEL = {
 	none: "No access",
 	read: "Read",
-	write_held: "Write holds",
+	write_held: "Writes held",
 	send_after_approval: "Send after approval",
 } as const satisfies Record<AccessRow["mode"], string>;
 
@@ -82,13 +82,11 @@ const MODE_TONE: Record<AccessRow["mode"], string> = {
 	send_after_approval: "border-gate-warn-line bg-gate-warn-soft text-gate-warn",
 };
 
-export const short = (id: string) => id.slice(0, 8);
-
 /**
  * A mission as people read it: "template-booking, sprint 1 (draft)", with
- * the territory when the entry has one. The short id goes beside it, in
- * mono, as the secondary text. No route names a mission's client or
- * engagement by id yet, so neither is named here.
+ * the territory when the entry has one. Its id is never shown. No route
+ * names a mission's client or engagement by id yet, so neither is named
+ * here.
  */
 export function entryLabel(entry: AgentRosterEntry): string {
 	return `${[
@@ -128,7 +126,7 @@ export function AgentTools({
 					data-testid="agent-access-not-on-mission"
 					className="type-small text-text-muted"
 				>
-					{`${agent.name} isn't on mission ${short(mission)}. Showing its own access, from its roles.`}
+					{`${agent.name} isn't on the mission this link names. Showing its default access, from its roles.`}
 				</p>
 			) : null}
 		</>
@@ -160,7 +158,7 @@ function ToolsLayout({
 		<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 min-[90rem]:grid-cols-[minmax(0,1fr)_minmax(0,19rem)]">
 			<SectionPanel
 				title={`Tools ${agent.name} can use`}
-				description="Each row is worked out by avel-server from the agent's skills, paths and the gate."
+				description="avel-server works out each row from the agent's skills, the files it may change, and the gate."
 				actions={
 					<StatusPill
 						tone="pending"
@@ -175,10 +173,9 @@ function ToolsLayout({
 					{head}
 					<AccessSurface query={query}>{children}</AccessSurface>
 					<p className="type-caption text-text-subtle">
-						Nothing here is enforced until each agent works in its own room
-						(module 7). Until then it is the record of what the agent may do.
-						When each tool was last used comes with completion reports (module
-						8).
+						These limits are recorded but not yet enforced. Enforcement starts
+						when each agent works in its own room (module 7). When each tool was
+						last used arrives with completion reports (module 8).
 					</p>
 				</div>
 			</SectionPanel>
@@ -225,16 +222,12 @@ function ContextPicker({
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
-					<SelectItem value={TEMPLATE}>Its own access, from roles</SelectItem>
+					<SelectItem value={TEMPLATE}>
+						Default access, from its roles
+					</SelectItem>
 					{entries.map((entry) => (
 						<SelectItem key={entry.entryId} value={entry.missionId}>
 							<span className="truncate">{entryLabel(entry)}</span>
-							<span
-								data-testid="agent-access-context-id"
-								className="type-mono-small text-text-subtle"
-							>
-								{short(entry.missionId)}
-							</span>
 						</SelectItem>
 					))}
 				</SelectContent>
@@ -261,7 +254,7 @@ function TemplateAccess({
 			{(access) => (
 				<AccessTable
 					access={access}
-					readOnly="An agent's own access comes from its roles. Choose a mission to change access there."
+					readOnly="Default access comes from the agent's roles and can't be changed here. Choose a mission to limit access on that mission."
 					onRowMode={() => {}}
 				/>
 			)}
@@ -319,7 +312,7 @@ export function entryReadOnlyReason(
 	const notDraft = rosterReadOnlyReason(status);
 	if (notDraft) return notDraft;
 	if (!active)
-		return "This entry is off the mission. Turn it on in the loadout first.";
+		return "This agent is turned off on the mission. Turn it on in the loadout first.";
 	return null;
 }
 
@@ -376,8 +369,8 @@ function StaleOverrides({
 			/>
 			<p className="min-w-0 flex-1 type-small text-foreground">
 				{count === 1
-					? `One limit set on ${agent.name} no longer matches a tool. Its skill left the mission, or its grant was renamed, so it limits nothing.`
-					: `${count} limits set on ${agent.name} no longer match a tool. Their skills left the mission, or their grants were renamed, so they limit nothing.`}
+					? `One limit set on ${agent.name} no longer matches a tool, so it has no effect. Its skill was taken off the mission, or the permission was renamed.`
+					: `${count} limits set on ${agent.name} no longer match a tool, so they have no effect. Their skills were taken off the mission, or the permissions were renamed.`}
 			</p>
 			<Button
 				size="sm"
@@ -494,8 +487,8 @@ function ScopeCell({ row }: { row: Row }) {
 /** Why the repository and delivery rows have no switch. */
 export const FIXED_REASON = {
 	repository: {
-		short: "Set by paths",
-		why: "Set by its writable paths. Change the paths to change it.",
+		short: "Set by its files",
+		why: "Set by the files this agent may change. Change those paths to change it.",
 	},
 	delivery: {
 		short: "Always",
@@ -696,7 +689,7 @@ function Credentials({ access }: { access: AgentAccess | undefined }) {
 	return (
 		<SectionPanel
 			title="Credentials"
-			description="Scoped tokens, one per run, never shown."
+			description="Each run gets its own short-lived access token. Tokens are never shown."
 			data-testid="agent-credentials"
 		>
 			{access === undefined ? (
@@ -715,8 +708,8 @@ function Credentials({ access }: { access: AgentAccess | undefined }) {
 						))}
 					</ul>
 					<p className="type-caption text-text-subtle">
-						Tokens are issued when dispatch runs agents (module 6). Delivery
-						needs none: you deliver.
+						Tokens are issued once agents run (module 6). Delivery needs no
+						token, because you deliver, not the agent.
 					</p>
 				</div>
 			)}
@@ -746,7 +739,7 @@ function CannotSee({
 	return (
 		<SectionPanel
 			title={`What ${agent.name} cannot see`}
-			description="Kept from it, even where a tool has the data."
+			description="Data kept from this agent, even when a tool it uses holds it."
 			data-testid="agent-cannot-see"
 		>
 			{access === undefined ? (
@@ -771,8 +764,8 @@ function CannotSee({
 						</p>
 					)}
 					<p className="type-caption text-text-subtle">
-						What each room leaves out, such as the render kept from the
-						fixture's author, comes with rooms (module 7).
+						What each room hides arrives with rooms (module 7). For example, the
+						agent that writes a test fixture never sees the expected output.
 					</p>
 				</div>
 			)}

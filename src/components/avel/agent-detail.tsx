@@ -2,6 +2,10 @@ import { useNavigate } from "@tanstack/react-router";
 import {
 	type AgentRosterEntry,
 	type AgentTemplate,
+	KIND_LABELS,
+	SIDE_LABELS,
+	type Side,
+	TEAM_LABELS,
 	WAVES,
 } from "avel-server/contract";
 import {
@@ -41,12 +45,9 @@ import {
 	OverviewTab,
 	VersionsTab,
 } from "./catalog-agent-inspector";
-import {
-	type AgentSide,
-	isFirmAgent,
-	sideOf,
-} from "./catalog-agent-placeholders";
-import { familiesOf, sampleHistory } from "./catalog-placeholders";
+import { isFirmAgent, sideOf } from "./catalog-agent-placeholders";
+import { sampleHistory } from "./catalog-placeholders";
+import { teamsOf } from "./catalog-sample";
 import { EmptyState } from "./empty-state";
 import {
 	BANNER_BUTTON,
@@ -84,27 +85,6 @@ const TAB_LABEL: Record<AgentTabId, string> = {
 	memory: "Memory",
 };
 
-/** "March 2026", in the operator's locale-free month names. */
-const MONTHS = [
-	"January",
-	"February",
-	"March",
-	"April",
-	"May",
-	"June",
-	"July",
-	"August",
-	"September",
-	"October",
-	"November",
-	"December",
-] as const;
-
-export function sinceLabel(iso: string): string {
-	const date = new Date(iso);
-	return `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-}
-
 /** "A and B", "A, B and C". */
 function andList(items: readonly string[]): string {
 	if (items.length <= 1) return items.join("");
@@ -124,21 +104,27 @@ export function wavesLabel(
 	return `${waves.length === 1 ? "wave" : "waves"} ${andList(waves)}`;
 }
 
-/** "Foundation agent · wave A · since September 2026 · v1". */
+/**
+ * "Build team · Writes code · Owns one feature · Wave B · v3": its team, its
+ * side when it has one, its kind, when it works and its version.
+ */
 export function agentFacts(agent: AgentTemplate): string {
-	const families = familiesOf(agent.roles);
-	const kind = families.length > 0 ? families.join(" and ") : "Code";
+	const teams = teamsOf(agent.roles).map((team) => TEAM_LABELS[team].label);
+	const side = sideOf(agent);
 	const waves = wavesLabel(agent);
 	return [
-		`${kind} agent`,
-		...(waves ? [waves] : []),
-		`since ${sinceLabel(agent.createdAt)}`,
+		...(teams.length > 0
+			? [`${andList(teams)} ${teams.length > 1 ? "teams" : "team"}`]
+			: []),
+		...(side ? [SIDE_LABELS[side]] : []),
+		KIND_LABELS[agent.kind],
+		...(waves ? [waves.charAt(0).toUpperCase() + waves.slice(1)] : []),
 		`v${agent.version}`,
 	].join(" · ");
 }
 
 /** The tile's icon: what the agent does, by its side, or the firm's building. */
-const SIDE_ICON: Record<AgentSide | "firm" | "mixed", LucideIcon> = {
+const SIDE_ICON: Record<Side | "firm" | "mixed", LucideIcon> = {
 	author: Hammer,
 	tester: FlaskConical,
 	judge: Scale,
@@ -221,8 +207,8 @@ export function AgentDetail({
 			<EmptyState
 				data-testid="agent-detail-not-found"
 				icon={SearchX}
-				title="No agent with this name"
-				description={`No agent is called “${slug}”. It may have been renamed or removed; choose one from All agents.`}
+				title="Agent not found"
+				description={`There is no agent “${slug}”. It may have been renamed or removed. Choose one from All agents.`}
 			/>
 		) : (
 			<ErrorState error={error} retry={retry} retrying={retrying} />
@@ -342,16 +328,16 @@ function AgentPage({
 					<div className="flex min-w-0 flex-col gap-6">
 						<SectionPanel
 							title="Identity"
-							description="Generated from its roles. Change a role to change it."
+							description="The instructions this agent works from, written from its roles. To change them, change a role."
 							data-testid="agent-identity-panel"
 						>
-							<IdentityTab agent={agent} history={history} />
+							<IdentityTab agent={agent} />
 						</SectionPanel>
 						<AgentActivity agent={agent} />
 					</div>
 					<SectionPanel
 						title="Manifest"
-						description="The agent's own fields."
+						description="This agent's settings, exactly as stored."
 						data-testid="agent-manifest-panel"
 					>
 						<ManifestTab agent={agent} />
@@ -365,14 +351,14 @@ function AgentPage({
 				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
 					<SectionPanel
 						title="Performance"
-						description="Client runs of the current version, against the previous one."
+						description="How this version has done on client work, compared with the version before it."
 						data-testid="agent-performance-panel"
 					>
 						<PerformanceBody agent={agent} />
 					</SectionPanel>
 					<SectionPanel
 						title="Versions"
-						description="Every identity this agent has had. None is ever deleted."
+						description="Every version of this agent's identity, newest first. Old versions are never deleted."
 						data-testid="agent-versions-panel"
 					>
 						<VersionsTab history={history} />
@@ -384,7 +370,7 @@ function AgentPage({
 					data-testid="agent-memory"
 					notBuilt={{
 						title: `What ${agent.name} remembers`,
-						what: "Knowledge this agent keeps between missions. Write-back waits until about ten missions have run.",
+						what: "What this agent learns on one mission and carries into the next. Saving what it learns starts after about ten missions have run.",
 						needs: ["knowledge entries by agent (module 12)"],
 					}}
 				/>
@@ -466,7 +452,7 @@ function AgentActions({ agent }: { agent: AgentTemplate }) {
 				size="sm"
 				className={cn(BANNER_BUTTON)}
 				data-testid="agent-ask"
-				disabledReason="Talking to an agent comes with Canon's chat, module 14."
+				disabledReason="You can ask an agent questions once Canon's chat is built (module 14)."
 			>
 				<MessageSquare aria-hidden="true" />
 				{`Ask ${agent.name}`}
@@ -475,7 +461,7 @@ function AgentActions({ agent }: { agent: AgentTemplate }) {
 				size="sm"
 				className={cn(BANNER_BUTTON)}
 				data-testid="agent-pause"
-				disabledReason="An agent pauses when its dispatch halts, which comes with the runner in module 6."
+				disabledReason="Pausing needs the runner that starts and stops agents (module 6)."
 			>
 				<Pause aria-hidden="true" />
 				Pause

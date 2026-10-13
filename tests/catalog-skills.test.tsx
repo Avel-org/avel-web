@@ -1,12 +1,16 @@
-import { ROLES, type Skill, skillSchema } from "avel-server/contract";
+import {
+	ROLE_TEAM,
+	ROLES,
+	type Skill,
+	skillSchema,
+} from "avel-server/contract";
 import { describe, expect, it } from "vitest";
 import {
 	agentsOfSkill,
 	CATALOG_MISSING,
 	carryingRoles,
-	SAMPLE_FAMILY_TABLE,
 	SAMPLE_ROLE_ATTACHMENTS,
-	SAMPLE_ROLE_FAMILY,
+	SAMPLE_TEAM_TABLE,
 	sampleRegistry,
 	sampleRoleAttachments,
 	skillsNeedingReview,
@@ -573,13 +577,13 @@ describe("the live list's four states", () => {
 });
 
 describe("attaching", () => {
-	it("gives a role skill one disabled switch per role, grouped by family, from its sample attachments", async () => {
+	it("gives a role skill one disabled switch per role, grouped by team, from its sample attachments", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
 		const s = skill(ROLE_SKILL);
 		const panel = element(html, "skill-attach-panel");
-		for (const { family } of SAMPLE_FAMILY_TABLE) {
-			const card = element(panel, `skill-family-${family}`);
-			const roles = ROLES.filter((role) => SAMPLE_ROLE_FAMILY[role] === family);
+		for (const { team } of SAMPLE_TEAM_TABLE) {
+			const card = element(panel, `skill-team-${team}`);
+			const roles = ROLES.filter((role) => ROLE_TEAM[role] === team);
 			for (const role of roles) {
 				expect(card, role).toContain(`data-testid="skill-role-${role}"`);
 				const sw = tagOf(card, `skill-role-${role}`);
@@ -593,7 +597,7 @@ describe("attaching", () => {
 			}
 		}
 		expect(html).toContain(SKILL_WRITE_REASON.attach.replaceAll("'", "&#x27;"));
-		// Platform roles are code: no family card, no switch.
+		// Platform roles are code: no team card, no switch.
 		expect(panel).not.toContain('data-testid="skill-role-render"');
 		expect(tagOf(html, "skill-attach-sample")).toContain(
 			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
@@ -863,7 +867,7 @@ describe("role attachment", () => {
 			// Attached to backend-tests, though not recommended for it.
 			{ slug: ROLE_SKILL, on: "backend-tests" },
 		] as const;
-		const roles = ROLES.filter((r) => SAMPLE_ROLE_FAMILY[r] !== "Platform");
+		const roles = ROLES.filter((r) => ROLE_TEAM[r] !== "platform");
 		for (const c of cases) {
 			const s = skill(c.slug);
 			const states = switchStates(inspector(s));
@@ -962,13 +966,13 @@ describe("Attaches to, polished", () => {
 		);
 	});
 
-	it("counts the attached roles in each family's header", async () => {
+	it("counts the attached roles in each team's header", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
 		const on = carryingRoles(skill(ROLE_SKILL));
-		for (const { family } of SAMPLE_FAMILY_TABLE) {
-			const roles = ROLES.filter((r) => SAMPLE_ROLE_FAMILY[r] === family);
+		for (const { team } of SAMPLE_TEAM_TABLE) {
+			const roles = ROLES.filter((r) => ROLE_TEAM[r] === team);
 			const n = roles.filter((r) => on.includes(r)).length;
-			expect(element(html, `skill-family-${family}-count`)).toContain(
+			expect(element(html, `skill-team-${team}-count`)).toContain(
 				`>${n} of ${roles.length} attached<`,
 			);
 		}
@@ -979,7 +983,7 @@ describe("Attaches to, polished", () => {
 
 	it("marks the Firm roles, and only them, without blocking them", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
-		const firm = ROLES.filter((r) => SAMPLE_ROLE_FAMILY[r] === "Firm");
+		const firm = ROLES.filter((r) => ROLE_TEAM[r] === "firm");
 		expect(firm).toEqual(["intake", "strategy", "research", "client-ops"]);
 		for (const role of firm) {
 			expect(html).toContain(`data-testid="skill-role-${role}-firm"`);
@@ -987,8 +991,8 @@ describe("Attaches to, polished", () => {
 		expect(html.match(/data-testid="skill-role-[a-z-]+-firm"/g)).toHaveLength(
 			firm.length,
 		);
-		expect(tagOf(html, "skill-family-Firm")).toContain('data-firm="true"');
-		expect(element(html, "skill-family-Firm-note")).toContain(
+		expect(tagOf(html, "skill-team-firm")).toContain('data-firm="true"');
+		expect(element(html, "skill-team-firm-note")).toContain(
 			"never on a mission roster",
 		);
 	});

@@ -1,6 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	type AgentTemplate,
+	KIND_LABELS,
+	ROLE_LABELS,
 	type Role,
 	type RosterEntry,
 	WAVES,
@@ -699,10 +701,14 @@ function TemplatePreview({ template }: { template: AgentTemplate }) {
 			<p className="type-small font-medium text-foreground">{template.name}</p>
 			<p className="type-mono-small text-text-subtle">{template.slug}</p>
 			<p className="type-caption text-text-muted">
-				{`${template.kind} · ${template.roles.join(", ") || "no roles"}`}
+				{KIND_LABELS[template.kind]}
 			</p>
 			<p className="type-caption text-text-muted">
-				{`Default waves: ${template.waveDefaults.join(" · ") || "none"}`}
+				{template.roles.map((role) => ROLE_LABELS[role]).join(", ") ||
+					"No roles"}
+			</p>
+			<p className="type-caption text-text-muted">
+				{`Default waves: ${template.waveDefaults.join(", ") || "none"}`}
 			</p>
 		</div>
 	);

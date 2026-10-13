@@ -3,7 +3,9 @@ import type {
 	AgentAccess,
 	AgentRosterEntry,
 	AgentTemplate,
+	IdentityVersion,
 } from "avel-server/contract";
+import { KIND_LABELS } from "avel-server/contract";
 import { Building2, FlaskConical, Hammer, Scale } from "lucide-react";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
@@ -18,9 +20,8 @@ import {
 	wavesLabel,
 } from "@/components/avel/agent-detail";
 import {
-	IdentityTab,
+	IdentityText,
 	isIdentityStub,
-	KIND_WORDS,
 	ManifestTab,
 	MeasuresRegion,
 } from "@/components/avel/catalog-agent-inspector";
@@ -157,6 +158,36 @@ function render({
 	);
 }
 
+/** One generated identity version for `a`: the server's shape, built here. */
+function versionOf(
+	a: AgentTemplate,
+	identityMd: string,
+	depthMd = "## Depth\n\nMore on how it works.\n",
+): IdentityVersion {
+	return {
+		ref: `${a.slug}@v3`,
+		number: 3,
+		sha256: "ab".repeat(32),
+		identityTokens: 412,
+		depthTokens: 120,
+		generatedBy: null,
+		createdAt: "2026-10-13T12:00:00.000Z",
+		agentTemplateId: a.id,
+		identityMd,
+		depthMd,
+		inputs: {
+			generatorVersion: "1",
+			slug: a.slug,
+			name: a.name,
+			kind: a.kind,
+			roles: a.roles,
+			writablePaths: a.writablePaths,
+			definitionsSha256: "cd".repeat(32),
+			skills: [],
+		},
+	};
+}
+
 describe("an agent's Overview", () => {
 	it("1. names the Manifest once, in its panel's title", () => {
 		const html = render();
@@ -166,10 +197,9 @@ describe("an agent's Overview", () => {
 
 	it("2. says plainly when the generated identity is still a stub", () => {
 		expect(isIdentityStub("# Atlas\n")).toBe(true);
-		expect(isIdentityStub(atlas.identityMd)).toBe(false);
-		const stub = { ...atlas, identityMd: "# Atlas\n" };
+		expect(isIdentityStub("# Atlas\n\nIt builds.\n")).toBe(false);
 		const html = tip(
-			<IdentityTab agent={stub} history={sampleHistory(stub)} />,
+			<IdentityText agent={atlas} version={versionOf(atlas, "# Atlas\n")} />,
 		);
 		expect(element(html, "catalog-agent-identity-stub")).toContain(
 			"still a stub",
@@ -177,7 +207,12 @@ describe("an agent's Overview", () => {
 		// The text still shows, in a box only as wide as it.
 		expect(tagOf(html, "catalog-agent-identity-code")).toContain("w-fit");
 		expect(
-			tip(<IdentityTab agent={atlas} history={sampleHistory(atlas)} />),
+			tip(
+				<IdentityText
+					agent={atlas}
+					version={versionOf(atlas, "# Atlas\n\nIt builds.\n")}
+				/>,
+			),
 		).not.toContain("catalog-agent-identity-stub");
 	});
 
@@ -191,22 +226,20 @@ describe("an agent's Overview", () => {
 	});
 
 	it("4. says the kind in words beside the machine value", () => {
-		expect(KIND_WORDS.horizontal).toMatch(/^Shared/);
-		expect(KIND_WORDS.feature).toMatch(/^Feature/);
 		const feature = text(
 			element(
 				tip(<ManifestTab agent={atlas} />),
 				"catalog-agent-manifest-text",
 			),
 		);
-		expect(feature).toContain(`kind:feature # ${KIND_WORDS.feature}`);
+		expect(feature).toContain(`kind:feature # ${KIND_LABELS.feature}`);
 		const shared = text(
 			element(
 				tip(<ManifestTab agent={agent("leonora")} />),
 				"catalog-agent-manifest-text",
 			),
 		);
-		expect(shared).toContain(`kind:horizontal # ${KIND_WORDS.horizontal}`);
+		expect(shared).toContain(`kind:horizontal # ${KIND_LABELS.horizontal}`);
 	});
 });
 
@@ -247,7 +280,7 @@ describe("the agent banner", () => {
 		expect(wavesLabel(agent("canon"))).toBe("between missions");
 		expect(
 			element(render({ of: agent("canon") }), "agent-banner-facts"),
-		).toContain(" · between missions · ");
+		).toContain(" · Between missions · ");
 	});
 
 	it("14. pins a compact banner under the top bar, hidden and inert until it scrolls away", () => {

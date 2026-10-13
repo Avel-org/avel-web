@@ -85,6 +85,27 @@ export function useAgentTemplate(slug: string) {
 	return useQuery(agentTemplateQuery(useApiClient(), slug));
 }
 
+export function identityVersionQuery(
+	api: ApiClient,
+	id: string,
+	number: number,
+) {
+	return queryOptions({
+		queryKey: queryKeys.catalog.identityVersion(id, number),
+		queryFn: () =>
+			call(contract.agentTemplates.identityVersion, () =>
+				api.agentTemplates.identityVersion({ params: { id, number } }),
+			),
+		// A version is never changed, so its text never goes stale.
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+}
+
+/** One identity version of a template, with its text; NOT_FOUND when none has it. */
+export function useIdentityVersion(id: string, number: number) {
+	return useQuery(identityVersionQuery(useApiClient(), id, number));
+}
+
 // ---------------------------------------------------------------------------
 // Skills.
 

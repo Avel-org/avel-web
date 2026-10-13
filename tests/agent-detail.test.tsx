@@ -18,7 +18,6 @@ import {
 	AgentDetail,
 	agentFacts,
 	agentStanding,
-	sinceLabel,
 } from "@/components/avel/agent-detail";
 import { overridesOf, withRowMode } from "@/lib/api/access";
 import { queryKeys } from "@/lib/api/keys";
@@ -120,13 +119,9 @@ function render({
 }
 
 describe("the agent banner's words", () => {
-	it("names the month an agent was made, from UTC", () => {
-		expect(sinceLabel("2026-03-31T23:59:00.000Z")).toBe("March 2026");
-	});
-
-	it("reads kind, waves, since and version on one line", () => {
+	it("reads team, side, kind, waves and version on one line", () => {
 		expect(agentFacts(atlas)).toBe(
-			`Build agent · wave B · since September 2026 · v${atlas.version}`,
+			`Build team · Writes code · Owns one feature · Wave B · v${atlas.version}`,
 		);
 	});
 
@@ -184,7 +179,9 @@ describe("access overrides, built on the server's rows", () => {
 	it("allows changes only on an active entry of a draft mission", () => {
 		expect(entryReadOnlyReason("draft", true)).toBeNull();
 		expect(entryReadOnlyReason("active", true)).not.toBeNull();
-		expect(entryReadOnlyReason("draft", false)).toMatch(/off the mission/);
+		expect(entryReadOnlyReason("draft", false)).toMatch(
+			/turned off on the mission/,
+		);
 	});
 
 	it("labels a mission choice in words: type, sprint, territory and status", () => {
@@ -311,7 +308,7 @@ describe("/catalog/agents/:slug", () => {
 			seededClient(),
 			"/catalog/agents/atlas",
 		);
-		expect(html).toContain("limited from Write holds");
+		expect(html).toContain("limited from Writes held");
 	});
 
 	it("names the module behind each region it can't show yet", () => {

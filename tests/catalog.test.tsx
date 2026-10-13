@@ -1,4 +1,4 @@
-import { ROLES } from "avel-server/contract";
+import { ROLE_TEAM, ROLES } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
 import {
 	agentsOfSkill,
@@ -7,7 +7,6 @@ import {
 	carryingRoles,
 	enforcementBadge,
 	SAMPLE_ROLE_ATTACHMENTS,
-	SAMPLE_ROLE_FAMILY,
 	sampleHistory,
 	sampleRegistry,
 	sampleRoleAttachments,
@@ -62,13 +61,12 @@ describe("catalog samples", () => {
 		}
 	});
 
-	it("number versions newest first, down to 1, from the live version, under the token cap", () => {
+	it("number versions newest first, down to 1, from the live version, ", () => {
 		for (const a of AGENTS) {
 			const history = sampleHistory(a);
 			expect(history.versions.map((v) => v.version)).toEqual(
 				Array.from({ length: a.version }, (_, i) => a.version - i),
 			);
-			expect(history.identityTokens).toBeLessThanOrEqual(800);
 			// A horizontal agent works the whole project; a feature agent has a territory.
 			for (const row of history.outcomes) {
 				if (a.kind === "horizontal") expect(row.territory).toBeNull();
@@ -131,7 +129,7 @@ describe("catalog samples", () => {
 		for (const role of picked) {
 			expect(ROLES).toContain(role);
 			// Platform roles are code: nothing attaches to them.
-			expect(SAMPLE_ROLE_FAMILY[role]).not.toBe("Platform");
+			expect(ROLE_TEAM[role]).not.toBe("platform");
 		}
 		expect(sampleRoleAttachments("another-slug")).not.toEqual(picked);
 		// A stack or domain skill's carriers are live: its recommendedFor.

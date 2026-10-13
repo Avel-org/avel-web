@@ -31,7 +31,7 @@ function AgentRoute() {
 	return (
 		<Page
 			title={agent.data?.name ?? slug}
-			definition="One agent: who it is, what it may touch, and how it has done."
+			definition="One agent: what it does, what it can access, and how well it has worked."
 		>
 			<AgentDetail
 				slug={slug}

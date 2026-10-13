@@ -83,7 +83,7 @@ export const NAV: NavGroup[] = [
 						to: "/catalog/agents",
 						icon: Bot,
 						purpose:
-							"Agents and their generated identities. Read-only; every version is kept.",
+							"Every agent and what it does. Agents are built from their roles, so this list is read-only.",
 					},
 					{
 						label: "Skills",

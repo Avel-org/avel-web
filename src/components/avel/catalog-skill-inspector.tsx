@@ -1,8 +1,11 @@
 import {
 	type AgentTemplate,
+	ROLE_TEAM,
 	ROLES,
 	type Role,
 	type Skill,
+	TEAM_LABELS,
+	type Team,
 } from "avel-server/contract";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,21 +17,20 @@ import {
 	CATALOG_MISSING,
 	carryingRoles,
 	enforcementBadge,
-	SAMPLE_FAMILY_TABLE,
-	SAMPLE_ROLE_FAMILY,
 	SAMPLE_ROOMS_ENFORCING,
+	SAMPLE_TEAM_TABLE,
 } from "./catalog-placeholders";
 import {
 	AgentLink,
 	CatalogField,
 	CatalogListSkeleton,
 	RoleTag,
-	SampleHash,
 	SampleRegion,
 	SkillStatusPill,
 } from "./catalog-sample";
 import { type CodeTone, CodeView } from "./code-view";
 import { SectionPanel } from "./section-panel";
+import { ShortHash } from "./short-hash";
 import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
@@ -205,7 +207,7 @@ function Facts({ skill }: { skill: Skill }) {
 				</dl>
 				<div className="flex flex-col gap-1">
 					<span className="type-caption text-text-subtle">Content hash</span>
-					<SampleHash
+					<ShortHash
 						value={skill.contentSha256}
 						label="the content hash"
 						data-testid="skill-hash"
@@ -266,14 +268,14 @@ function Facts({ skill }: { skill: Skill }) {
 	);
 }
 
-/** The roles of each family, in the contract's catalog order. */
-function rolesOf(family: string): Role[] {
-	return ROLES.filter((role) => SAMPLE_ROLE_FAMILY[role] === family);
+/** The roles of each team, in the contract's catalog order. */
+function rolesOf(team: Team): Role[] {
+	return ROLES.filter((role) => ROLE_TEAM[role] === team);
 }
 
 /**
  * Where a skill attaches. A role skill attaches to roles, so it shows one
- * toggle per role, grouped by family. A stack or domain skill is given at
+ * toggle per role, grouped by team. A stack or domain skill is given at
  * dispatch to missions, never toggled per role, so it says so in words.
  */
 function Attach({ skill }: { skill: Skill }) {
@@ -324,15 +326,15 @@ function Attach({ skill }: { skill: Skill }) {
 				<SampleRegion
 					missing={CATALOG_MISSING.roleAttachments}
 					title="Attaches to"
-					what="One switch per role, grouped by family, on where the skill is attached."
+					what="One switch per role, grouped by team, on where the skill is attached."
 					data-testid="skill-attach-sample"
 				>
 					<div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
-						{SAMPLE_FAMILY_TABLE.map(({ family }) => (
+						{SAMPLE_TEAM_TABLE.map(({ team }) => (
 							<RoleToggleCard
-								key={family}
-								family={family}
-								roles={rolesOf(family)}
+								key={team}
+								team={team}
+								roles={rolesOf(team)}
 								on={attached}
 							/>
 						))}
@@ -343,7 +345,7 @@ function Attach({ skill }: { skill: Skill }) {
 	);
 }
 
-/** "2 of 5 attached": a family's count, for its card header. */
+/** "2 of 5 attached": a team's count, for its card header. */
 export function attachedCount(
 	roles: readonly Role[],
 	on: readonly Role[],
@@ -352,33 +354,36 @@ export function attachedCount(
 }
 
 /**
- * One family's roles, each with a switch showing whether the skill is
+ * One team's roles, each with a switch showing whether the skill is
  * attached to it. Every switch is disabled with its reason until the write
  * routes exist. Firm roles are marked: firm agents work between missions and
  * never sit on a mission roster, but they can still carry a role skill, so
  * it is a label, not a block.
  */
 export function RoleToggleCard({
-	family,
+	team,
 	roles,
 	on,
 }: {
-	family: string;
+	team: Team;
 	roles: readonly Role[];
 	on: readonly Role[];
 }) {
-	const firm = family === "Firm";
+	const firm = team === "firm";
+	const { label, meaning } = TEAM_LABELS[team];
 	return (
 		<section
-			aria-label={family}
-			data-testid={`skill-family-${family}`}
+			aria-label={label}
+			data-testid={`skill-team-${team}`}
 			data-firm={firm || undefined}
 			className="surface-steel flex flex-col gap-2 rounded-sm border border-border bg-app-band p-3"
 		>
 			<header className="flex items-baseline justify-between gap-2 border-b border-border pb-1.5">
-				<h3 className="type-small font-medium text-foreground">{family}</h3>
+				<h3 title={meaning} className="type-small font-medium text-foreground">
+					{label}
+				</h3>
 				<span
-					data-testid={`skill-family-${family}-count`}
+					data-testid={`skill-team-${team}-count`}
 					className="type-caption text-text-subtle tabular-nums"
 				>
 					{attachedCount(roles, on)}
@@ -386,7 +391,7 @@ export function RoleToggleCard({
 			</header>
 			{firm ? (
 				<p
-					data-testid="skill-family-Firm-note"
+					data-testid="skill-team-firm-note"
 					className="type-caption text-text-subtle"
 				>
 					Firm roles work between missions, never on a mission roster. A firm

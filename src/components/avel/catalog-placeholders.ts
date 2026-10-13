@@ -4,23 +4,25 @@
  * and sources themselves are live: the pages read GET /api/agent-templates,
  * GET /api/skills and GET /api/skill-sources (module 4). What remains here is
  * what no route serves yet: version history, per-agent measures, the
- * per-family table, a source's skill index and a role skill's attachments.
+ * per-team table, a source's skill index and a role skill's attachments.
  * Each is keyed off a live record (its slug or id), so a page shows the same
  * samples on every visit; a page that reshuffled on reload would look like
  * live data. Nothing here is sent anywhere, and nothing here is ever written
  * into a real field. Each sample is deleted when its route lands.
  *
- * Version history, per-agent measures and the per-family table have no
- * contract shape yet, so their types are local. The family table follows
+ * Version history, per-agent measures and the per-team table have no
+ * contract shape yet, so their types are local. The team table follows
  * ROLES.md, but it is server-enforced policy: shown from a client copy it
  * would be a second copy that drifts, so it is a sample like the rest.
  */
 import {
 	type AgentTemplate,
+	ROLE_TEAM,
 	ROLES,
 	type Role,
 	type SkillListItem,
 	type SkillSource,
+	type Team,
 } from "avel-server/contract";
 
 /**
@@ -31,7 +33,7 @@ import {
 export const CATALOG_MISSING = {
 	versions: "agent version history",
 	measures: "per-agent measures",
-	families: "the per-family table route",
+	teams: "the per-team table route",
 	/** What a source offers to import. No doc names a route for it yet. */
 	registry: "a source's skill index",
 	/** Which roles a role skill is attached to (role_skills, module 5). */
@@ -98,119 +100,59 @@ const isoDay = (month: number, day: number) =>
 	`2026-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T12:00:00.000Z`;
 
 // ---------------------------------------------------------------------------
-// Roles and families (ROLES.md, as samples).
+// Teams (ROLES.md's families). Each role's team and its label are the
+// contract's (ROLE_TEAM, TEAM_LABELS); only the table below is a sample.
 
-export type SampleFamily =
-	| "Foundation"
-	| "Build"
-	| "Verify"
-	| "Review"
-	| "Operate"
-	| "Firm"
-	| "Platform";
-
-/**
- * Each role's family. Keyed on the contract's Role union with `satisfies`,
- * so a role the server adds or removes fails this build until it is placed.
- */
-export const SAMPLE_ROLE_FAMILY = {
-	foundations: "Foundation",
-	schema: "Foundation",
-	contract: "Foundation",
-	"design-system": "Foundation",
-	fixture: "Foundation",
-	domain: "Build",
-	"api-surface": "Build",
-	integration: "Build",
-	realtime: "Build",
-	auth: "Build",
-	state: "Build",
-	interface: "Build",
-	"backend-tests": "Verify",
-	"frontend-tests": "Verify",
-	"property-tests": "Verify",
-	accessibility: "Verify",
-	performance: "Verify",
-	"spec-check": "Review",
-	"spec-judgment": "Review",
-	"security-review": "Review",
-	"compliance-review": "Review",
-	adversarial: "Review",
-	reconciliation: "Review",
-	concurrency: "Review",
-	deploy: "Operate",
-	recovery: "Operate",
-	observability: "Operate",
-	"incident-response": "Operate",
-	intake: "Firm",
-	strategy: "Firm",
-	research: "Firm",
-	"client-ops": "Firm",
-	knowledge: "Platform",
-	render: "Platform",
-	"ship-decision": "Platform",
-} as const satisfies Record<Role, SampleFamily>;
-
-export type SampleFamilyRow = {
-	family: Exclude<SampleFamily, "Platform">;
+export type SampleTeamRow = {
+	team: Exclude<Team, "platform">;
 	read: string;
 	act: string;
 	propose: string;
 };
 
 /**
- * What each family may do through the API: read, act, propose. Platform has
+ * What each team may do through the API: read, act, propose. Platform has
  * no row: its roles are code, with no agent and no token.
  */
-export const SAMPLE_FAMILY_TABLE: readonly SampleFamilyRow[] = [
+export const SAMPLE_TEAM_TABLE: readonly SampleTeamRow[] = [
 	{
-		family: "Foundation",
+		team: "foundation",
 		read: "Its own dispatch: brief, identity, conventions, boundaries",
 		act: "Its own completion report",
 		propose: "Nothing",
 	},
 	{
-		family: "Build",
+		team: "build",
 		read: "Its own dispatch",
 		act: "Its own completion report",
 		propose: "Nothing",
 	},
 	{
-		family: "Verify",
+		team: "verify",
 		read: "Its own dispatch",
 		act: "Its own completion report",
 		propose: "Nothing",
 	},
 	{
-		family: "Review",
+		team: "review",
 		read: "Its own dispatch",
 		act: "Its own completion report, and an open finding on its own mission",
 		propose: "Nothing",
 	},
 	{
-		family: "Operate",
+		team: "operate",
 		read: "The delivered mission: exports, findings, activity",
 		act: "Its own completion report",
 		propose: "A follow-up",
 	},
 	{
-		family: "Firm",
+		team: "firm",
 		read: "Across missions: clients, missions, engagements, exports, activity. Never connections, repo policies or credentials",
 		act: "intake only: intake drafts",
 		propose:
 			"intake: questions. strategy: chat suggestions and next missions. client-ops: a client message",
 	},
 ];
-
-/** The families an agent's roles fall in, in table order. */
-export function familiesOf(roles: readonly Role[]): SampleFamily[] {
-	const covered = new Set<SampleFamily>(
-		roles.map((role) => SAMPLE_ROLE_FAMILY[role]),
-	);
-	return SAMPLE_FAMILY_TABLE.map((row) => row.family).filter((family) =>
-		covered.has(family),
-	);
-}
 
 // ---------------------------------------------------------------------------
 // Skills: rules on the live list.
@@ -394,14 +336,16 @@ export type SampleReconstructedRun = {
 export type SampleAgentHistory = {
 	/** Newest first. The first entry is the template's current version. */
 	versions: SampleVersion[];
-	identityTokens: number;
 	discipline: SampleDiscipline[];
 	outcomes: SampleOutcome[];
 	reconstructed: SampleReconstructedRun[];
 };
 
-/** The cap the generator's output is held to (DATA-CONTRACTS-V2.md). */
-export const IDENTITY_TOKEN_CAP = 800;
+/**
+ * The cap the generator holds identity.md and depth.md to, each (migration
+ * 0024). It moves to the contract once avel-server exports it.
+ */
+export const IDENTITY_TOKEN_CAP = 1200;
 
 const MISSION_TEMPLATES = ["template-booking", "template-fullstack"] as const;
 const ENGAGEMENTS = {
@@ -499,7 +443,6 @@ export function sampleHistory(agent: AgentTemplate): SampleAgentHistory {
 	const reconstructed = next() < 0.5;
 	return {
 		versions: versionsOf(agent),
-		identityTokens: between(next, 240, 760),
 		discipline: disciplineOf(agent.slug),
 		outcomes: outcomesOf(agent),
 		reconstructed: reconstructed
@@ -540,7 +483,7 @@ export const SAMPLE_ROLE_ATTACHMENTS: Readonly<
 
 /** The roles an agent can hold: everything but Platform, whose roles are code. */
 const ATTACHABLE_ROLES: readonly Role[] = ROLES.filter(
-	(role) => SAMPLE_ROLE_FAMILY[role] !== "Platform",
+	(role) => ROLE_TEAM[role] !== "platform",
 );
 
 /**

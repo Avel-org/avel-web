@@ -1,19 +1,24 @@
 import { Link } from "@tanstack/react-router";
 import {
 	type AgentTemplate,
+	ROLE_LABELS,
+	ROLE_RUNNER,
+	ROLE_TEAM,
 	ROLES,
 	type Role,
+	RUNNER_LABELS,
 	type SkillStatus,
+	TEAMS,
+	type Team,
 	WAVES,
 	type Wave,
 } from "avel-server/contract";
-import { ArrowLeft, Check, Copy } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiError } from "@/lib/api/errors";
-import { useCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { SampleData } from "./sample-data";
 import { StatusPill, type StatusTone } from "./status-pill";
@@ -64,60 +69,6 @@ export function SampleRegion({
 			<SampleData missing={missing} />
 			{children}
 		</section>
-	);
-}
-
-/**
- * A hash: the first twelve characters in mono, the full value on hover and
- * to screen readers, and a copy button that copies the full value
- * (AVEL-DESIGN.md section 12).
- */
-export function SampleHash({
-	value,
-	label,
-	"data-testid": testId,
-}: {
-	value: string;
-	/** What the hash is of, for the copy button's name. */
-	label: string;
-	"data-testid": string;
-}) {
-	const { status, copy } = useCopy();
-	return (
-		<span data-testid={testId} className="inline-flex items-center gap-1">
-			<code
-				title={value}
-				data-full={value}
-				className="type-mono-small text-text-muted"
-			>
-				{/* Not selectable, so a hand copy takes only the full value. */}
-				<span aria-hidden="true" className="select-none">
-					{value.slice(0, 12)}
-				</span>
-				<span className="sr-only">{value}</span>
-			</code>
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				aria-label={`Copy ${label}`}
-				data-testid={`${testId}-copy`}
-				onClick={() => copy(value)}
-			>
-				{status === "Copied" ? (
-					<Check aria-hidden="true" />
-				) : (
-					<Copy aria-hidden="true" />
-				)}
-			</Button>
-			{/* Says whether the copy worked: the clipboard can refuse. */}
-			<span
-				aria-live="polite"
-				data-testid={`${testId}-copy-status`}
-				className="sr-only"
-			>
-				{status}
-			</span>
-		</span>
 	);
 }
 
@@ -177,11 +128,30 @@ export function CatalogBack({
 	);
 }
 
-/** A role, as machine text. */
-export function RoleTag({ role }: { role: string }) {
+/**
+ * A role in plain words first ("API endpoints"), its slug small and second
+ * for technical readers. A role run by code, not a model, says Automated.
+ */
+export function RoleTag({ role }: { role: Role }) {
+	const automated = ROLE_RUNNER[role] === "code";
 	return (
-		<Badge variant="tag" data-testid="catalog-role">
-			{role}
+		<Badge
+			variant="outline"
+			data-testid="catalog-role"
+			data-role={role}
+			data-runner={ROLE_RUNNER[role]}
+			className="gap-1.5"
+		>
+			<span data-testid="catalog-role-label">{ROLE_LABELS[role]}</span>
+			<span className="type-mono-small text-text-subtle">{role}</span>
+			{automated ? (
+				<span
+					data-testid="catalog-role-automated"
+					className="type-caption text-text-subtle"
+				>
+					{RUNNER_LABELS.code}
+				</span>
+			) : null}
 		</Badge>
 	);
 }
@@ -285,6 +255,16 @@ export function CatalogListFooter({
 export function inCatalogOrder(roles: readonly Role[]): Role[] {
 	return [...roles].sort((a, b) => ROLES.indexOf(a) - ROLES.indexOf(b));
 }
+
+/** The teams an agent's roles fall in, in the contract's team order. */
+export function teamsOf(roles: readonly Role[]): Team[] {
+	const covered = new Set<Team>(roles.map((role) => ROLE_TEAM[role]));
+	return TEAMS.filter((team) => covered.has(team));
+}
+
+/** An agent's team: its first, so every agent sits in one section. */
+export const teamOf = (agent: Pick<AgentTemplate, "roles">): Team =>
+	teamsOf(agent.roles)[0] ?? "platform";
 
 /** Waves in the contract's order, A to E. */
 export function inWaveOrder(waves: readonly Wave[]): Wave[] {

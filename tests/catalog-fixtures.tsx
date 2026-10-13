@@ -151,18 +151,31 @@ const AGENT_SEEDS: readonly AgentSeed[] = [
 	},
 ];
 
+/**
+ * Each agent's written title. Canon has none yet: a title is written, never
+ * derived, and null until it is.
+ */
+const TITLES: Record<string, string | null> = {
+	atlas: "Full-stack lead",
+	leonora: "Database and contract engineer",
+	leon: "Frontend engineer",
+	nemi: "Frontend tester",
+	iyo: "Backend tester",
+	brennan: "Spec reviewer",
+	zane: "Security and compliance reviewer",
+	canon: null,
+};
+
 export const AGENTS: readonly AgentTemplate[] = AGENT_SEEDS.map((seed, i) => ({
 	id: ID(100 + i),
 	engagementId: null,
-	identityMd: [
-		`# ${seed.name}`,
-		"",
-		"Generated from roles. Do not edit by hand.",
-		"",
-		"## Boundaries",
-		"- Write only inside the mount for these roles.",
-	].join("\n"),
-	depthMd: "",
+	title: TITLES[seed.slug] ?? null,
+	// No identity generated yet: the contract's reading before the generator
+	// runs. A test that needs a version sets these.
+	identityVersion: null,
+	identitySha256: null,
+	identityStale: false,
+	staleInputs: [],
 	createdAt: AT,
 	updatedAt: AT,
 	...seed,

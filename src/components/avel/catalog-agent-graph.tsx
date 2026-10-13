@@ -133,7 +133,7 @@ export function AgentGraph({
 	const at = new Map(placed.map((p) => [p.agent.slug, p]));
 	const edges = sampleEdges(agents);
 	const hasFirm = placed.some((p) => p.lane === "firm");
-	// E's label, "wave E, operate, set apart", is wider than a node.
+	// E's label, "wave E, after launch", is wider than a node.
 	const width = columnX("E") + E_LABEL_W + PAD;
 	const height = hasFirm
 		? firmTop(agents) + NODE_H + PAD
@@ -148,7 +148,7 @@ export function AgentGraph({
 
 	return (
 		<section
-			aria-label="Artifact graph: agents by wave, arrows from producer to consumer"
+			aria-label="Handoff graph: agents by wave, with an arrow from each agent that makes a file to each agent that reads it"
 			className="app-scroll overflow-x-auto"
 		>
 			{/* It scales to its column, down to MIN_SCALE; past that it scrolls,
@@ -164,7 +164,7 @@ export function AgentGraph({
 				}}
 				className="type-mono-small"
 			>
-				<title>Artifact graph</title>
+				<title>Handoff graph</title>
 				<defs>
 					<marker
 						id={markerId}
@@ -188,7 +188,7 @@ export function AgentGraph({
 						y={PAD + 12}
 						className="fill-text-subtle"
 					>
-						{wave === "E" ? "wave E, operate, set apart" : `wave ${wave}`}
+						{wave === "E" ? "wave E, after launch" : `wave ${wave}`}
 					</text>
 				))}
 				{hasFirm ? (
@@ -207,7 +207,7 @@ export function AgentGraph({
 							y={firmTop(agents) - 12}
 							className="fill-text-subtle"
 						>
-							firm, between missions
+							firm agents, between missions
 						</text>
 					</g>
 				) : null}
@@ -241,7 +241,7 @@ export function AgentGraph({
 							data-selected={isSelected || undefined}
 							role="button"
 							tabIndex={0}
-							aria-label={`${agent.name}, ${lane === "firm" ? "firm, between missions" : `wave ${lane}`}. Open its page`}
+							aria-label={`${agent.name}, ${lane === "firm" ? "firm agent, between missions" : `wave ${lane}`}. Open its page`}
 							transform={`translate(${x} ${y})`}
 							onClick={() => onOpen(agent.slug)}
 							onKeyDown={open(agent.slug)}

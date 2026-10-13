@@ -11,6 +11,8 @@ import {
 	type MissionStatus,
 	type RosterEntry,
 	rosterEntryProblems,
+	TEAM_LABELS,
+	type Team,
 	type UpdateRosterEntryBody,
 	updateRosterEntryBody,
 	type Wave,
@@ -37,16 +39,28 @@ import { useApiClient } from "./provider";
  * mission_not_editable).
  */
 
-/** The global phases (contract WAVES; E is Operate), named for the board. */
+/**
+ * The team each wave belongs to (ROLES.md): one team per wave, so a wave is
+ * named by its team and the board and the catalog use the same words.
+ */
+const WAVE_TEAM = {
+	A: "foundation",
+	B: "build",
+	C: "verify",
+	D: "review",
+	E: "operate",
+} as const satisfies Record<Wave, Team>;
+
+/** The global phases (contract WAVES), named for the board by their team. */
 export const WAVE_NAME: Record<Wave, string> = {
-	A: "Foundations",
-	B: "Builders",
-	C: "Verification",
-	D: "Quality",
-	E: "Operate",
+	A: TEAM_LABELS[WAVE_TEAM.A].label,
+	B: TEAM_LABELS[WAVE_TEAM.B].label,
+	C: TEAM_LABELS[WAVE_TEAM.C].label,
+	D: TEAM_LABELS[WAVE_TEAM.D].label,
+	E: TEAM_LABELS[WAVE_TEAM.E].label,
 };
 
-/** "A · Foundations". */
+/** "A · Setup". */
 export const waveTitle = (wave: Wave) => `${wave} · ${WAVE_NAME[wave]}`;
 
 /** The mission's live roster, oldest first: coherence's own cache entry. */

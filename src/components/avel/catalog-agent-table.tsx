@@ -2,6 +2,12 @@ import {
 	type AgentKind,
 	type AgentTemplate,
 	agentKind,
+	KIND_LABELS,
+	ROLE_LABELS,
+	SIDE_LABELS,
+	SIDES,
+	type Side,
+	TEAMS,
 	WAVES,
 	type Wave,
 } from "avel-server/contract";
@@ -22,13 +28,8 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-	type AgentSide,
-	firstWave,
-	isFirmAgent,
-	SIDES,
-	sideOf,
-} from "./catalog-agent-placeholders";
+import { firstWave, isFirmAgent, sideOf } from "./catalog-agent-placeholders";
+import { teamOf } from "./catalog-sample";
 import type { SortState } from "./data-table";
 
 /*
@@ -38,25 +39,19 @@ import type { SortState } from "./data-table";
  * imports initialsOf from it.
  */
 
-/** What people read for each kind: how the agent is used. */
-export const KIND_LABEL = {
-	horizontal: "Shared",
-	feature: "Feature",
-} as const satisfies Record<AgentKind, string>;
-
-/** Side tabs: every side, and Firm for templates with none. */
-export type SideTab = AgentSide | "firm";
+/** Side tabs: every side, and Other for templates with none (Firm, code). */
+export type SideTab = Side | "none";
 
 /** The list's filters; unset shows all. */
 export type AgentFilters = {
 	side?: SideTab;
 	kind?: AgentKind;
 	wave?: Wave;
-	/** Matched against the name, slug and roles, ignoring case. */
+	/** Matched against the name, slug, role slugs and role labels, ignoring case. */
 	q?: string;
 };
 
-const sideTabOf = (agent: AgentTemplate): SideTab => sideOf(agent) ?? "firm";
+const sideTabOf = (agent: AgentTemplate): SideTab => sideOf(agent) ?? "none";
 
 /** Rows that pass every filter set. */
 export function filterAgents(
@@ -73,17 +68,23 @@ export function filterAgents(
 			(q === "" ||
 				agent.name.toLowerCase().includes(q) ||
 				agent.slug.includes(q) ||
-				agent.roles.some((role) => role.includes(q))),
+				agent.roles.some(
+					(role) =>
+						role.includes(q) || ROLE_LABELS[role].toLowerCase().includes(q),
+				)),
 	);
 }
 
 const sideRank = (agent: AgentTemplate) => {
 	const side = sideOf(agent);
-	// No side (Firm) sorts after every side.
+	// No side (Firm, code) sorts after every side.
 	return side === null ? SIDES.length : SIDES.indexOf(side);
 };
 
-/** Rows in the chosen order; ties break by wave, then name, so order is stable. */
+/**
+ * Rows in the chosen order; ties break by wave, then name, so order is
+ * stable. "team" sorts by team (the cards' sections), then wave within one.
+ */
 export function sortAgents(
 	agents: readonly AgentTemplate[],
 	sort: SortState,
@@ -97,9 +98,17 @@ export function sortAgents(
 		waveRank(a) - waveRank(b);
 	const bySide = (a: AgentTemplate, b: AgentTemplate) =>
 		sideRank(a) - sideRank(b);
+	const byTeam = (a: AgentTemplate, b: AgentTemplate) =>
+		TEAMS.indexOf(teamOf(a)) - TEAMS.indexOf(teamOf(b));
 	const column = sort?.column ?? "wave";
 	const primary =
-		column === "name" ? byName : column === "side" ? bySide : byWave;
+		column === "name"
+			? byName
+			: column === "side"
+				? bySide
+				: column === "team"
+					? byTeam
+					: byWave;
 	const sign = sort?.direction === "desc" ? -1 : 1;
 	return [...agents].sort(
 		(a, b) => sign * primary(a, b) || byWave(a, b) || byName(a, b),
@@ -119,7 +128,7 @@ const SIDE_TONE: Record<SideTab, string> = {
 	tester: "bg-gate-pending-soft text-gate-pending",
 	judge: "bg-gate-warn-soft text-gate-warn",
 	fixture: "bg-diff-preserve/15 text-diff-preserve",
-	firm: "bg-muted text-text-muted",
+	none: "bg-muted text-text-muted",
 };
 
 /** Two letters from the name: "AT" for Atlas. */
@@ -154,11 +163,8 @@ export function AgentTile({
 export const SIDE_TABS: readonly { id: SideTab | undefined; label: string }[] =
 	[
 		{ id: undefined, label: "All" },
-		{ id: "author", label: "Authors" },
-		{ id: "tester", label: "Testers" },
-		{ id: "judge", label: "Judges" },
-		{ id: "fixture", label: "Fixture" },
-		{ id: "firm", label: "Firm" },
+		...SIDES.map((side) => ({ id: side, label: SIDE_LABELS[side] })),
+		{ id: "none", label: "Other" },
 	];
 
 export function AgentFilterRow({
@@ -223,7 +229,7 @@ export function AgentFilterRow({
 						id={searchId}
 						type="search"
 						data-testid="catalog-agents-search"
-						placeholder="Search agents"
+						placeholder="Search by name or role"
 						value={filters.q ?? ""}
 						onChange={(event) =>
 							onChange({ ...filters, q: event.target.value })
@@ -264,7 +270,7 @@ export function AgentFilterRow({
 							testId="catalog-agents-filter-kind"
 							value={filters.kind}
 							options={agentKind.options}
-							labels={KIND_LABEL}
+							labels={KIND_LABELS}
 							onChange={(kind) =>
 								onChange({ ...filters, kind: kind as AgentKind | undefined })
 							}
@@ -312,11 +318,11 @@ function FilterSelect({
 					className="w-full type-mono-small"
 				>
 					<SelectValue>
-						{value === undefined ? "all" : (labels?.[value] ?? value)}
+						{value === undefined ? "All" : (labels?.[value] ?? value)}
 					</SelectValue>
 				</SelectTrigger>
 				<SelectContent>
-					<SelectItem value={ALL}>all</SelectItem>
+					<SelectItem value={ALL}>All</SelectItem>
 					{options.map((option) => (
 						<SelectItem key={option} value={option}>
 							{labels?.[option] ?? option}
