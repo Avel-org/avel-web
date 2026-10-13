@@ -55,7 +55,7 @@ const CONTENT = cn("w-full max-w-(--content-max)", PAGE_GUTTER);
 
 /**
  * A route's browser title, named from the sidebar for every page: "Missions
- * · AVEL", "Canon · AVEL". Use as `head: pageHead("/missions")`.
+ * · AVEL", "Home · AVEL". Use as `head: pageHead("/missions")`.
  */
 export function pageHead(to: string) {
 	const title = `${linkFor(to).label} · AVEL`;

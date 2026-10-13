@@ -119,7 +119,7 @@ export function AgentDetail({
 				data-testid="agent-detail-not-found"
 				icon={SearchX}
 				title="No agent with this name"
-				description={`No live template is called “${slug}”. It may have been renamed or removed; choose one from Agent templates.`}
+				description={`No live template is called “${slug}”. It may have been renamed or removed; choose one from All agents.`}
 			/>
 		) : (
 			<ErrorState error={error} retry={retry} retrying={retrying} />

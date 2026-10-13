@@ -12,12 +12,12 @@ export const agentDetailSearch = z.object({
 
 // Not nested under /catalog/agents (the trailing underscore): the list renders
 // a whole page with no outlet, and this page replaces it. Breadcrumbs still
-// lead back to Agent templates, its sidebar ancestor.
+// lead back to All agents, its sidebar ancestor.
 export const Route = createFileRoute("/catalog/agents_/$slug")({
 	staticData: { device: "construction", crumb: ({ slug }) => slug ?? "" },
 	validateSearch: agentDetailSearch,
 	head: ({ params }) => ({
-		meta: [{ title: `${params.slug} · Agent templates · AVEL` }],
+		meta: [{ title: `${params.slug} · All agents · AVEL` }],
 	}),
 	component: AgentRoute,
 });

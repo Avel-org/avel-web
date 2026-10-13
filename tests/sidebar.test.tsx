@@ -172,15 +172,15 @@ describe("the current page", () => {
 describe("parents (ruling 13)", () => {
 	it("opens the parent of the current page, and marks the child", async () => {
 		const html = sidebar(await app("/catalog/skills"));
-		expect(tag(html, "nav-catalog")).toMatch(
+		expect(tag(html, "nav-agents")).toMatch(
 			/^<button[^>]*aria-expanded="true"/,
 		);
-		expect(tag(html, "nav-catalog-children")).toContain("data-expanded");
+		expect(tag(html, "nav-agents-children")).toContain("data-expanded");
 		expect(element(html, "nav-skills")).toContain(
 			'data-testid="nav-active-mark"',
 		);
 		// Open, the parent itself does not repeat the mark.
-		expect(element(html, "nav-catalog", "</button>")).not.toContain(
+		expect(element(html, "nav-agents", "</button>")).not.toContain(
 			"nav-active-mark",
 		);
 	});
@@ -208,7 +208,7 @@ describe("parents (ruling 13)", () => {
 	it("hangs children off a ruler, without icons", async () => {
 		const html = sidebar(await app("/catalog/skills"));
 		// Ruling 30: a 1px line under the parent's icon, at the strong hairline.
-		expect(tag(html, "nav-catalog-ruler")).toMatch(
+		expect(tag(html, "nav-agents-ruler")).toMatch(
 			/class="[^"]*ml-5[^"]*border-l border-border-strong/,
 		);
 		expect(element(html, "nav-skills")).not.toContain("<svg");
@@ -219,7 +219,7 @@ describe("parents (ruling 13)", () => {
 		const ruler = decoded(
 			element(
 				sidebar(await app("/catalog/skills")),
-				"nav-catalog-ruler",
+				"nav-agents-ruler",
 				"</ul>",
 			),
 		);
@@ -287,7 +287,7 @@ describe("type and rhythm", () => {
 
 	it("keeps every top-level row 36px", async () => {
 		const html = sidebar(await app("/catalog/skills"));
-		for (const id of ["nav-missions", "nav-catalog"]) {
+		for (const id of ["nav-missions", "nav-agents"]) {
 			expect(tag(html, id)).toMatch(/\bh-9\b/);
 		}
 	});
@@ -296,7 +296,7 @@ describe("type and rhythm", () => {
 		// Parent label: 12px padding + 16px icon + 10px gap = 38px. Nested: the
 		// guide line at 20px (ml-5), 1px wide, then 17px of padding = 38px.
 		const html = sidebar(await app("/catalog/skills"));
-		expect(tag(html, "nav-catalog")).toMatch(/\bgap-2\.5\b[^"]*\bpx-3\b/);
+		expect(tag(html, "nav-agents")).toMatch(/\bgap-2\.5\b[^"]*\bpx-3\b/);
 		expect(tag(html, "nav-skills")).toContain("pl-[17px]");
 	});
 
@@ -311,7 +311,7 @@ describe("type and rhythm", () => {
 	it("rotates the chevron over the state duration", async () => {
 		const parent = element(
 			sidebar(await app("/missions")),
-			"nav-catalog",
+			"nav-agents",
 			"</button>",
 		);
 		expect(parent).toMatch(

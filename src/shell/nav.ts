@@ -1,6 +1,6 @@
 /**
  * The sidebar: thirteen links in three groups, as specified in
- * design/AVEL-DESIGN.md (section 6, ruling 3; ruling 33 adds Drive). Catalog and Settings are
+ * design/AVEL-DESIGN.md (section 6, ruling 3; ruling 33 adds Drive). Agents and Settings are
  * parents that group links without being pages themselves; no /catalog or
  * /settings route exists. tests/nav.test.ts fails if any link here has no
  * route, or any route is missing from here.
@@ -48,8 +48,9 @@ export const NAV: NavGroup[] = [
 		label: "Work",
 		items: [
 			{
-				// Canon is the owner's agent who runs the Command Center.
-				label: "Canon",
+				// Home is where the owner talks to Canon, the agent who runs the
+				// Command Center.
+				label: "Home",
 				to: "/",
 				icon: BotMessageSquare,
 				purpose:
@@ -73,11 +74,11 @@ export const NAV: NavGroup[] = [
 		label: "Library",
 		items: [
 			{
-				label: "Catalog",
+				label: "Agents",
 				icon: Library,
 				children: [
 					{
-						label: "Agent templates",
+						label: "All agents",
 						to: "/catalog/agents",
 						icon: Bot,
 						purpose:
@@ -99,10 +100,11 @@ export const NAV: NavGroup[] = [
 				],
 			},
 			{
-				label: "Presets",
+				label: "Teams",
 				to: "/presets",
 				icon: Layers,
-				purpose: "Saved rosters you can apply to a mission.",
+				purpose:
+					"Saved squads, called presets, that you can apply to a mission.",
 			},
 			{
 				label: "Playbooks",
@@ -120,7 +122,7 @@ export const NAV: NavGroup[] = [
 		],
 	},
 	{
-		label: "System",
+		label: "Control",
 		items: [
 			{
 				label: "Activity",

@@ -341,7 +341,7 @@ describe("go to, create and actions", () => {
 			(e) => e.link.to === "/settings/repositories",
 		);
 		expect(repositories?.words).toContain("Settings");
-		expect(repositories?.words).toContain("System");
+		expect(repositories?.words).toContain("Control");
 	});
 
 	it("create a client, and say why a mission cannot be created", () => {

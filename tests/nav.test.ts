@@ -49,10 +49,10 @@ function orphans(routes: { path: string; crumb?: unknown }[]): string[] {
 		.map(({ path }) => path);
 }
 
-describe("Canon, the owner's agent", () => {
+describe("Home, where the owner talks to Canon", () => {
 	it("is the first link, at /, with its own purpose and icon", () => {
 		const canon = ALL_LINKS[0];
-		expect(canon?.label).toBe("Canon");
+		expect(canon?.label).toBe("Home");
 		expect(canon?.to).toBe("/");
 		expect(canon?.purpose).toBe(
 			"Ask Canon about your missions, plan the next one, and see what needs you.",
@@ -98,7 +98,7 @@ describe("the sidebar and the route tree agree", () => {
 	});
 
 	it("has thirteen links in three groups, as AVEL-DESIGN.md specifies (ruling 33)", () => {
-		expect(NAV.map((g) => g.label)).toEqual(["Work", "Library", "System"]);
+		expect(NAV.map((g) => g.label)).toEqual(["Work", "Library", "Control"]);
 		expect(ALL_LINKS).toHaveLength(13);
 		expect(new Set(ALL_LINKS.map((l) => l.to)).size).toBe(13);
 	});
@@ -113,31 +113,29 @@ const outline = (items: NavItem[]) =>
 	);
 
 describe("the sidebar's nesting (ruling 13)", () => {
-	it("nests Catalog and Settings, and nothing else", () => {
+	it("nests Agents and Settings, and nothing else", () => {
 		expect(NAV.map((group) => [group.label, outline(group.items)])).toEqual([
-			["Work", ["Canon", "Missions", "Clients"]],
+			["Work", ["Home", "Missions", "Clients"]],
 			[
 				"Library",
-				[
-					"Catalog (Agent templates, Skills, Sources)",
-					"Presets",
-					"Playbooks",
-					"Drive",
-				],
+				["Agents (All agents, Skills, Sources)", "Teams", "Playbooks", "Drive"],
 			],
-			["System", ["Activity", "Settings (Repositories, Connections, Account)"]],
+			[
+				"Control",
+				["Activity", "Settings (Repositories, Connections, Account)"],
+			],
 		]);
 	});
 
 	it("keeps the thirteen leaf links in sidebar order, parents excluded", () => {
 		expect(ALL_LINKS.map((l) => l.label)).toEqual([
-			"Canon",
+			"Home",
 			"Missions",
 			"Clients",
-			"Agent templates",
+			"All agents",
 			"Skills",
 			"Sources",
-			"Presets",
+			"Teams",
 			"Playbooks",
 			"Drive",
 			"Activity",
@@ -149,7 +147,7 @@ describe("the sidebar's nesting (ruling 13)", () => {
 
 	it("a parent is not a page: it has no route and no path of its own", () => {
 		const parents = NAV.flatMap((g) => g.items).filter(isParent);
-		expect(parents.map((p) => p.label)).toEqual(["Catalog", "Settings"]);
+		expect(parents.map((p) => p.label)).toEqual(["Agents", "Settings"]);
 		for (const parent of parents) {
 			expect(parent).not.toHaveProperty("to");
 			expect(parent.children.length).toBeGreaterThan(0);
@@ -161,8 +159,8 @@ describe("the sidebar's nesting (ruling 13)", () => {
 	});
 
 	it("finds the parent that opens for the current page", () => {
-		expect(parentFor("/catalog/skills")?.label).toBe("Catalog");
-		expect(parentFor("/catalog/skills/some-skill")?.label).toBe("Catalog");
+		expect(parentFor("/catalog/skills")?.label).toBe("Agents");
+		expect(parentFor("/catalog/skills/some-skill")?.label).toBe("Agents");
 		expect(parentFor("/settings/account")?.label).toBe("Settings");
 		expect(parentFor("/missions")).toBeUndefined();
 		expect(parentFor("/")).toBeUndefined();

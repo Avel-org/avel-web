@@ -157,7 +157,7 @@ export function SidebarBody({
 	);
 }
 
-/** "Agent templates" → "agent-templates", for data-testid. */
+/** "All agents" → "all-agents", for data-testid. */
 const slug = (label: string) => label.toLowerCase().replace(/\W+/g, "-");
 
 /**

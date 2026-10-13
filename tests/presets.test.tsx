@@ -113,7 +113,7 @@ describe("the Presets page", () => {
 
 	it("is titled from the sidebar and prints no heading of its own", async () => {
 		const html = await renderPage("/presets");
-		expect(html).toContain("<title>Presets · AVEL</title>");
+		expect(html).toContain("<title>Teams · AVEL</title>");
 		expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
 	});
 

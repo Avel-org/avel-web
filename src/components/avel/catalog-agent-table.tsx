@@ -344,7 +344,7 @@ export function AgentProcessTable({
 	return (
 		<div className="flex min-w-0 flex-col gap-2">
 			<DataTable
-				label="Agent templates"
+				label="All agents"
 				data-testid="catalog-agents-table"
 				columns={COLUMNS}
 				rows={agents}
