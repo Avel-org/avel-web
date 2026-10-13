@@ -16,6 +16,7 @@ import {
 	type SkillListItem,
 	type SkillSource,
 	type SkillSourceKind,
+	type UpdateAgentTemplateBody,
 } from "avel-server/contract";
 import { type ApiClient, call, callPage } from "./client";
 import type { ApiError } from "./errors";
@@ -242,4 +243,43 @@ export function catalogCountLabel(
 	many: string,
 ): string {
 	return total === 1 ? `1 ${one}` : `${total} ${many}`;
+}
+
+// ---------------------------------------------------------------------------
+// Editing an agent (module 5, step 6).
+
+/**
+ * PATCH /api/agent-templates/:id: any subset of title, description, roles,
+ * waveDefaults and writablePaths. The answer is the updated template, so a
+ * roles or paths change comes back with identityStale set.
+ */
+export function useUpdateAgentTemplate() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			id,
+			patch,
+		}: {
+			id: string;
+			patch: UpdateAgentTemplateBody;
+		}) =>
+			call(contract.agentTemplates.update, () =>
+				api.agentTemplates.update({ params: { id }, body: patch }),
+			),
+		onSuccess: () => afterAgentUpdate(queryClient),
+	});
+}
+
+/**
+ * Every update writes a version and an activity row, so the template reads
+ * (lists, by slug, by id, access, identity versions) and the log refresh.
+ */
+export function afterAgentUpdate(queryClient: QueryClient) {
+	return Promise.all([
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.catalog.agentTemplatesAll(),
+		}),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
 }

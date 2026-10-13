@@ -78,10 +78,23 @@ export type SignedIn = { user: SessionUser; signOut: () => Promise<void> };
 
 const SignedInContext = createContext<SignedIn | null>(null);
 
+/** The gate's context, for rendering one component as signed in or preview in a test. */
+export const SignedInProvider = SignedInContext.Provider;
+
 export function useSignedIn(): SignedIn {
 	const signedIn = useContext(SignedInContext);
 	if (!signedIn) throw new Error("useSignedIn must be used inside <AuthGate>");
 	return signedIn;
+}
+
+/**
+ * True for the development preview, which has no session: avel-server
+ * refuses its writes, so an edit control says "Sign in to edit" instead.
+ * False outside the gate too (a component rendered on its own in a test),
+ * where nothing is known to refuse.
+ */
+export function useIsPreview(): boolean {
+	return useContext(SignedInContext)?.user.id === PREVIEW_USER.id;
 }
 
 /**
