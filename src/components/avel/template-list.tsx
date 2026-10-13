@@ -3,7 +3,7 @@ import type { Playbook, Template } from "avel-server/contract";
 import { Rows3, SquareKanban } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadedPlaybooks, usePlaybooks } from "@/lib/api/playbooks";
-import { loadedPresets, usePresets } from "@/lib/api/presets";
+import { usePreset } from "@/lib/api/presets";
 import {
 	missionCountLabel,
 	SCOPE_LABEL,
@@ -40,38 +40,39 @@ export const UNREADABLE_COPY =
 	"AVEL could not read this repository or its manifest, so its name, scope, starting state and commit are unknown.";
 
 /**
- * What the board needs beside each template: the playbook keyed by its slug
- * and the names of the teams those playbooks start from. `ready` is false
- * until the playbooks are read, so a card never says "No playbook" early.
+ * What the board needs beside each template: the playbook keyed by its
+ * slug. `ready` is false until the playbooks are read, so a card never says
+ * "No playbook" early. A team's name is read by its id (TeamName).
  */
 export type TemplateLinks = {
 	ready: boolean;
 	failed: boolean;
 	playbookFor: (slug: string) => Playbook | undefined;
-	teamName: (id: string) => string | undefined;
 };
 
 export function useTemplateLinks(): TemplateLinks {
 	const playbooks = usePlaybooks();
-	const presets = usePresets();
 	const bySlug = new Map(
 		(playbooks.data ? loadedPlaybooks(playbooks.data) : []).map((p) => [
 			p.missionType,
 			p,
 		]),
 	);
-	const names = new Map(
-		(presets.data ? loadedPresets(presets.data) : []).map((p) => [
-			p.id,
-			p.name,
-		]),
-	);
 	return {
 		ready: playbooks.status === "success",
 		failed: playbooks.status === "error",
 		playbookFor: (slug) => bySlug.get(slug),
-		teamName: (id) => names.get(id),
 	};
+}
+
+/**
+ * A team's name, read by its id (GET /api/presets/:id). "Default team"
+ * while it loads, and when the team is gone or can't be read: the link
+ * still opens it on Teams, which says so.
+ */
+export function TeamName({ id }: { id: string }) {
+	const team = usePreset(id);
+	return <>{team.data?.name ?? "Default team"}</>;
 }
 
 /** The list. The route owns the query; this renders it. */
@@ -194,11 +195,7 @@ export function TemplateBoard({
 						)}
 						<span className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border pt-3 type-small">
 							<PlaybookLink slug={template.slug} links={links} />
-							<TeamLink
-								slug={template.slug}
-								template={template}
-								links={links}
-							/>
+							<TeamLink slug={template.slug} template={template} />
 						</span>
 					</article>
 				</li>
@@ -290,11 +287,9 @@ export function PlaybookLink({
 export function TeamLink({
 	slug,
 	template,
-	links,
 }: {
 	slug: string;
 	template: Pick<Template, "defaultPresetId">;
-	links: TemplateLinks;
 }) {
 	const id = template.defaultPresetId;
 	if (id === null) return null;
@@ -305,7 +300,7 @@ export function TeamLink({
 			data-testid={`template-team-${slug}`}
 			className={cn(LINK, "text-text-muted")}
 		>
-			{links.teamName(id) ?? "Default team"}
+			<TeamName id={id} />
 		</Link>
 	);
 }
@@ -380,7 +375,7 @@ function columns(links: TemplateLinks): DataColumn<Template>[] {
 				row.defaultPresetId === null ? (
 					<span className="text-text-subtle">None</span>
 				) : (
-					<TeamLink slug={row.slug} template={row} links={links} />
+					<TeamLink slug={row.slug} template={row} />
 				),
 		},
 	];

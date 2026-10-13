@@ -14,7 +14,6 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ApiError, ApiOverrideProvider, queryKeys } from "@/lib/api";
 import { PLAYBOOK_PAGE_SIZE } from "@/lib/api/playbooks";
-import { PRESETS_PAGE_SIZE } from "@/lib/api/presets";
 import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
@@ -130,12 +129,8 @@ const withLinks: Seed = (client) => {
 		queryKeys.playbooks.list(PLAYBOOK_PAGE_SIZE).slice(),
 		page([PLAYBOOK]),
 	);
-	client.setQueryData(
-		queryKeys.presets
-			.list(PRESETS_PAGE_SIZE, { q: undefined, cut: undefined })
-			.slice(),
-		page([TEAM]),
-	);
+	// The team is read by its id, as the cards and the banner read it.
+	client.setQueryData(queryKeys.presets.detail(TEAM.id).slice(), TEAM);
 };
 
 const failing =

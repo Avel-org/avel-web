@@ -29,6 +29,7 @@ import { DELIVERABLE_LABEL, gateSummary } from "./playbook-list";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 import {
+	TeamName,
 	type TemplateLinks,
 	UNREADABLE_COPY,
 	useTemplateLinks,
@@ -203,8 +204,7 @@ function TemplatePage({
 											data-testid="template-uses-team"
 											className="text-foreground underline-offset-4 hover:underline"
 										>
-											{links.teamName(template.defaultPresetId) ??
-												"Default team"}
+											<TeamName id={template.defaultPresetId} />
 										</Link>
 									),
 								],
