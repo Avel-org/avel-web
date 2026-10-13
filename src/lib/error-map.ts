@@ -435,6 +435,22 @@ export const PRECONDITION_COPY = {
 		next: "Choose the template this mission was created from, or clear the template, then save again.",
 		retry: false,
 	},
+	// src/routes/agent-templates.ts regenerate: the operator is a person, so
+	// it has no identity file to write.
+	identity_role_unsupported: {
+		what: "The operator is a person, so it has no identity to generate.",
+		written: NOTHING_WRITTEN,
+		next: "Regenerate an agent instead. The operator's choices are made by you, not written down for a model.",
+		retry: false,
+	},
+	// src/routes/agent-templates.ts regenerate: a generated file is over the
+	// token cap (details.cap). details.file names it and details.tokens gives its size.
+	identity_over_token_cap: {
+		what: "This agent's identity is longer than its token limit.",
+		written: NOTHING_WRITTEN,
+		next: "Give the agent fewer roles, or shorten the approved role skills it carries, then regenerate.",
+		retry: false,
+	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;
 
 /**
