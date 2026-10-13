@@ -1,4 +1,9 @@
 import { readFileSync } from "node:fs";
+import {
+	createMemoryHistory,
+	createRouter,
+	RouterContextProvider,
+} from "@tanstack/react-router";
 import { ROLES, WAVES } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
@@ -46,6 +51,7 @@ import {
 import { CodeView } from "@/components/avel/code-view";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAgentTemplate, useAgentTemplates } from "@/lib/api/catalog";
+import { routeTree } from "../src/routeTree.gen";
 import {
 	AGENTS,
 	agent,
@@ -155,8 +161,17 @@ function expectLabelled(html: string, real: string[]) {
 	}
 }
 
+// The panel links to the agent's page, so it renders inside a router.
+const tipRouter = createRouter({
+	routeTree,
+	history: createMemoryHistory({ initialEntries: ["/catalog/agents"] }),
+});
 const tip = (node: ReactNode) =>
-	renderToString(<TooltipProvider>{node}</TooltipProvider>);
+	renderToString(
+		<RouterContextProvider router={tipRouter}>
+			<TooltipProvider>{node}</TooltipProvider>
+		</RouterContextProvider>,
+	);
 
 /** Text content of the cells of one table row. */
 const cellsOf = (row: string) =>

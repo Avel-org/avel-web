@@ -58,6 +58,12 @@ export const queryKeys = {
 		agentTemplate: (slug: string) =>
 			["catalog", "agentTemplates", "bySlug", slug] as const,
 		/**
+		 * contract.agentTemplates.access: accessFor outside any mission, from
+		 * the template's roles alone.
+		 */
+		agentAccess: (id: string) =>
+			["catalog", "agentTemplates", "access", id] as const,
+		/**
 		 * contract.skills.list, paged by cursor. `role` keeps skills recommended
 		 * for any of those roles (an agent's skills), as for agentTemplates.
 		 */
@@ -189,6 +195,18 @@ export const queryKeys = {
 		 * "missions", as the plan is.
 		 */
 		list: (missionId: string) => ["missions", "roster", missionId] as const,
+		/**
+		 * contract.roster.access: one entry's access on its mission, overrides
+		 * applied. Under the roster's key, so every roster write reads it again.
+		 */
+		access: (missionId: string, entryId: string) =>
+			["missions", "roster", missionId, "access", entryId] as const,
+		/**
+		 * contract.agentTemplates.rosterEntries: where one template sits, across
+		 * missions. Under "missions", so a mission write reads it again.
+		 */
+		byTemplate: (templateId: string) =>
+			["missions", "rosterByTemplate", templateId] as const,
 		/**
 		 * contract.agentTemplates.get: a template by id, deleted ones included,
 		 * for the paths a roster entry inherits. Under "catalog", with the

@@ -76,6 +76,16 @@
 	--color-plate-ledge: rgb(0 0 0 / 0.55);
 	--color-plate-sheen: rgb(255 255 255 / 0.05);
 
+	/* The entity banner (ruling 38): the one deep band at the head of an
+	   entity's page, under its name, stats and tabs. It stays dark in both
+	   themes, so its own text tokens never follow .light's. */
+	--color-banner: #0c0f12;
+	--color-banner-line: rgb(200 215 230 / 0.12);
+	--color-banner-raised: rgb(200 215 230 / 0.07);
+	--color-banner-text: #e8ecf0;
+	--color-banner-muted: #aab3bd;
+	--color-banner-live: #22c55e;
+
 	/* One chromatic colour; nothing else is cyan or blue. */
 	--color-accent-text: #47afdb;
 	--color-accent-soft: rgb(0 146 202 / 0.12);
@@ -215,6 +225,14 @@
 	--color-plate-shade: rgb(20 28 38 / 0.06);
 	--color-plate-ledge: rgb(20 28 38 / 0.16);
 	--color-plate-sheen: rgb(255 255 255 / 0.4);
+
+	/* Still a deep band on polished steel, as on dark. */
+	--color-banner: #1a2027;
+	--color-banner-line: rgb(200 215 230 / 0.14);
+	--color-banner-raised: rgb(200 215 230 / 0.09);
+	--color-banner-text: #eef1f4;
+	--color-banner-muted: #b4bcc6;
+	--color-banner-live: #2fd16c;
 
 	--color-accent-text: #005b82;
 	--color-accent-soft: rgb(0 146 202 / 0.1);

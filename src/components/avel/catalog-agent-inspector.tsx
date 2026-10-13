@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { AgentTemplate } from "avel-server/contract";
 import {
 	ArrowRight,
@@ -354,7 +355,17 @@ export function PanelBody({
 					</TabsContent>
 				</div>
 			</Tabs>
-			<footer className="border-t border-border p-4">
+			<footer className="flex flex-col gap-2 border-t border-border p-4">
+				<Button className="w-full" asChild>
+					<Link
+						to="/catalog/agents/$slug"
+						params={{ slug: agent.slug }}
+						data-testid="catalog-agent-open-page"
+					>
+						<ArrowRight aria-hidden="true" />
+						Open agent page
+					</Link>
+				</Button>
 				<Button
 					variant="outline"
 					className="w-full"
