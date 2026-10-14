@@ -54,6 +54,7 @@ export const ACTION_COPY = {
 	"dispatch.halted": "Dispatch halted",
 	"dispatch.closed": "Dispatch closed",
 	"completion_report.filed": "Report filed",
+	"finding.opened": "Finding opened",
 } as const satisfies Record<ActivityAction, string>;
 
 /** The name of each entity type, singular, as a filter option and a row's "which". */
@@ -73,6 +74,7 @@ export const ENTITY_LABEL = {
 	agent_template: "Agent",
 	dispatch: "Dispatch",
 	completion_report: "Report",
+	finding: "Finding",
 } as const satisfies Record<ActivityEntityType, string>;
 
 /**

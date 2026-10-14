@@ -112,6 +112,8 @@ export const INVERSE = {
 	"dispatch.halted": null,
 	"dispatch.closed": null,
 	"completion_report.filed": null,
+	// A judge files a finding once; the gate decides it, nothing undoes it.
+	"finding.opened": null,
 } as const satisfies Record<ActivityAction, Inverse | null>;
 
 /** Every entry is Applied while avel-server logs no refusals (ruling 36). */
