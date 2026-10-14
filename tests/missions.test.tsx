@@ -15,6 +15,7 @@ import {
 } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { actionLabel } from "@/components/avel/activity-copy";
 import { DataPanel } from "@/components/avel/data-panel";
 import { MISSION_STATUS_TONE } from "@/components/avel/mission-columns";
 import {
@@ -974,6 +975,19 @@ describe("the details panel", () => {
 		);
 		expect(activity).toContain(">System<");
 		expect(activity).toContain(">ada<");
+	});
+
+	it("words each action as the Activity page does, and an unknown one as sent", async () => {
+		const activity = region(
+			await render(`/missions?mission=${ACTIVE.id}`, withDetail),
+			"mission-activity",
+		);
+		expect(activity).toContain(">Export created<");
+		expect(activity).not.toContain(">export.created<");
+		// missionActivity.action is any string; one with no copy reads as sent.
+		expect(activity).toContain(">mission.updated<");
+		expect(actionLabel("completion_report.filed")).toBe("Report filed");
+		expect(actionLabel("toString")).toBe("toString");
 	});
 
 	it("says how long the last export has been in its status, from statusChangedAt", async () => {

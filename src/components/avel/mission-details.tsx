@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { relativeTime } from "@/lib/api/clients";
 import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
+import { actionLabel } from "./activity-copy";
 import { ClientName, MissionStatusPill } from "./mission-columns";
 import { NEEDS_YOU_COPY, useMission } from "./mission-data";
 import { exportStatusTone, StatusGlyph, StatusPill } from "./status-pill";
@@ -654,8 +655,8 @@ export function RecentActivity({
 					className="flex items-baseline justify-between gap-3"
 				>
 					<span className="flex min-w-0 flex-col">
-						<span className="truncate type-mono-small text-foreground">
-							{entry.action}
+						<span className="truncate type-small text-foreground">
+							{actionLabel(entry.action)}
 						</span>
 						<span className="type-caption text-text-subtle">
 							{entry.actor.display ?? ACTOR_KIND[entry.actor.kind]}

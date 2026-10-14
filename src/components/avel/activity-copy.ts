@@ -86,3 +86,10 @@ export const ACTOR_KIND_LABEL = {
 	system: "System",
 	agent: "Agent",
 } as const satisfies Record<ActivityActorKind, string>;
+
+/** An action in words, for a row whose action is typed as any string. */
+export function actionLabel(action: string): string {
+	return Object.hasOwn(ACTION_COPY, action)
+		? ACTION_COPY[action as ActivityAction]
+		: action;
+}
