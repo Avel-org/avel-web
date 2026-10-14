@@ -99,11 +99,12 @@ export function planIssueText(
 			return `${name} lists a requirement that isn't in the plan, or lists one twice.`;
 		return `${name} needs fixing.`;
 	}
-	// Two checks share this path: a requirement in no module or several, and
-	// one with no acceptance criterion. Until avel-server tells them apart,
-	// the line names what the requirement needs for both to pass.
-	if (head === "requirements" && typeof i === "number" && field === undefined)
-		return `${itemName(brief, "requirements", i)} needs exactly one module and at least one acceptance criterion.`;
+	if (head === "requirements" && typeof i === "number") {
+		const name = itemName(brief, "requirements", i);
+		if (field === "acceptanceCriteria")
+			return `${name} has no acceptance criterion.`;
+		if (field === undefined) return `${name} must be in exactly one module.`;
+	}
 	return PLAN_ISSUE_FALLBACK;
 }
 
