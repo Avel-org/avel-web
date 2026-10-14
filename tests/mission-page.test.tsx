@@ -9,9 +9,11 @@ import {
 	type MissionDetail,
 	missionDetail,
 } from "avel-server/contract";
+import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { missionKeys } from "@/components/avel/mission-data";
+import { RecentActivity } from "@/components/avel/mission-details";
 import {
 	DELIVERY_STAGES,
 	deliveryStages,
@@ -211,6 +213,23 @@ describe("the page from the contract", () => {
 		);
 		expect(element(html, "mission-section-activity-page")).toContain("ada");
 		expect(tagOf(html, "mission-activity-full-log")).toMatch(/disabled/);
+	});
+
+	it("keys activity entries that share a time and an action apart", () => {
+		// renderToString never checks keys, so read them off the element tree.
+		const queued = {
+			action: "dispatch.created",
+			entityType: "dispatch",
+			at: "2026-10-06T07:00:00.000Z",
+			actor: { kind: "system", userId: null, display: null },
+		} as const;
+		const list = RecentActivity({
+			mission: detail({ recentActivity: [queued, queued] }),
+			now: NOW,
+		}) as ReactElement<{ children: ReactElement[] }>;
+		const keys = list.props.children.map((li) => li.key);
+		expect(keys).toHaveLength(2);
+		expect(new Set(keys).size).toBe(2);
 	});
 
 	it("shows a brief in the contract's shape by requirement, as the side panel does", async () => {

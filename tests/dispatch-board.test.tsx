@@ -430,12 +430,18 @@ describe("the mission's spend bar", () => {
 			<MissionSpendBar spentUsd={spentUsd} spendCeilingUsd={spendCeilingUsd} />,
 		);
 
-	it("shows spent against the ceiling, warning past 90% and blocking at it", () => {
+	it("shows spent against the ceiling, warning from 80% and blocking at it", () => {
 		const half = bar(25, 50);
 		expect(text(half)).toBe("$25.00 of $50.00 spent");
 		expect(tagOf(half, "mission-spend-bar")).toContain('data-tone="ok"');
 		expect(tagOf(half, "mission-spend-fill")).toContain("width:50%");
-		expect(tagOf(bar(46, 50), "mission-spend-bar")).toContain(
+		expect(tagOf(bar(39.99, 50), "mission-spend-bar")).toContain(
+			'data-tone="ok"',
+		);
+		expect(tagOf(bar(40, 50), "mission-spend-bar")).toContain(
+			'data-tone="warn"',
+		);
+		expect(tagOf(bar(35.6, 40), "mission-spend-bar")).toContain(
 			'data-tone="warn"',
 		);
 		const over = bar(52, 50);

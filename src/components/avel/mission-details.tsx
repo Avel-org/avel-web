@@ -645,9 +645,12 @@ export function RecentActivity({
 	}
 	return (
 		<ol data-testid="mission-activity" className="flex flex-col gap-2">
-			{mission.recentActivity.map((entry) => (
+			{mission.recentActivity.map((entry, i) => (
 				<li
-					key={`${entry.at}-${entry.action}`}
+					// Entries carry no id, and two can share a time and an action
+					// (dispatches queued together): the position tells them apart.
+					// biome-ignore lint/suspicious/noArrayIndexKey: entries can repeat, so the index completes the key
+					key={`${entry.at}-${entry.action}-${i}`}
 					className="flex items-baseline justify-between gap-3"
 				>
 					<span className="flex min-w-0 flex-col">

@@ -67,11 +67,21 @@ function itemName(
 	return id ? `${noun} ${id}` : `${noun} ${ordinal(i)}`;
 }
 
+/** The brief's lists and fields a plan can lack outright, by their words. */
+const PLAN_PARTS: Record<string, string> = {
+	summary: "summary",
+	requirements: "requirements",
+	acceptanceCriteria: "acceptance criteria",
+	modules: "modules",
+};
+
 /**
  * One plan check issue as a sentence of our own, from its path alone (the
  * server's message is for logs). checkPlan reports under "brief": no
- * modules, a module id used twice, a module listing a requirement that
- * isn't one (or twice), and a requirement in no module or in several.
+ * brief at all, a part missing or empty (summary, requirements,
+ * acceptance criteria, modules), a module id used twice, a module listing
+ * a requirement that isn't one (or twice), and a requirement in no module
+ * or in several.
  */
 export function planIssueText(
 	path: readonly (string | number)[],
@@ -79,7 +89,9 @@ export function planIssueText(
 ): string {
 	const at = path[0] === "brief" ? path.slice(1) : path;
 	const [head, i, field] = at;
-	if (head === "modules" && i === undefined) return "The plan has no modules.";
+	if (head === undefined) return "The mission has no plan yet.";
+	const part = PLAN_PARTS[String(head)];
+	if (i === undefined && part) return `The plan has no ${part}.`;
 	if (head === "modules" && typeof i === "number") {
 		const name = itemName(brief, "modules", i);
 		if (field === "id") return `${name} has an id another module also uses.`;
@@ -87,9 +99,31 @@ export function planIssueText(
 			return `${name} lists a requirement that isn't in the plan, or lists one twice.`;
 		return `${name} needs fixing.`;
 	}
-	if (head === "requirements" && typeof i === "number")
+	if (head === "requirements" && typeof i === "number" && field === undefined)
 		return `${itemName(brief, "requirements", i)} must be in exactly one module.`;
-	return "The plan has an issue to fix.";
+	return PLAN_ISSUE_FALLBACK;
+}
+
+/** The line for a plan issue whose path names nothing we have words for. */
+export const PLAN_ISSUE_FALLBACK = "The plan has an issue to fix.";
+
+/**
+ * One line per distinct sentence: issues that read the same (two the
+ * fallback covers, or one module listing two stray requirements) show
+ * once, the fallback with how many it stands for. The first keeps its link.
+ */
+export function collapseLines(lines: readonly DetailLine[]): DetailLine[] {
+	const byText = new Map<string, { line: DetailLine; count: number }>();
+	for (const line of lines) {
+		const seen = byText.get(line.text);
+		if (seen) seen.count += 1;
+		else byText.set(line.text, { line, count: 1 });
+	}
+	return [...byText.values()].map(({ line, count }) =>
+		count > 1 && line.text === PLAN_ISSUE_FALLBACK
+			? { ...line, text: `The plan has ${count} issues to fix.` }
+			: line,
+	);
 }
 
 function isReadinessReason(
@@ -116,17 +150,19 @@ export function blockerDetails(
 ): DetailLine[] {
 	switch (blocker.reason) {
 		case "plan_check_failed":
-			return (blocker.issues ?? []).map(({ path }, i) => {
-				const target = issueTarget(path, brief ?? null);
-				return {
-					key: `issue-${i}`,
-					text: planIssueText(path, brief),
-					link: {
-						to: "/missions/$id/plan",
-						...(target === null ? {} : { hash: planAnchor(target) }),
-					},
-				};
-			});
+			return collapseLines(
+				(blocker.issues ?? []).map(({ path }, i) => {
+					const target = issueTarget(path, brief ?? null);
+					return {
+						key: `issue-${i}`,
+						text: planIssueText(path, brief),
+						link: {
+							to: "/missions/$id/plan",
+							...(target === null ? {} : { hash: planAnchor(target) }),
+						},
+					};
+				}),
+			);
 		case "coherence_blocked": {
 			const playbook = (blocker.issues ?? []).some(
 				({ path }) => path[0] === "playbook",

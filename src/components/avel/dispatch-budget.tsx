@@ -243,9 +243,13 @@ export function DispatchTokenSplit({ dispatch }: { dispatch: Dispatch }) {
 
 /**
  * The mission's spend against its ceiling. Spent comes in as a prop until
- * the mission carries it (Mission.spentUsd, module 6 step 4). Past 90% the
- * bar warns; at the ceiling it blocks, as the runner halts there.
+ * the mission carries it (Mission.spentUsd, module 6 step 4). From 80% the
+ * bar warns, early enough to act; at the ceiling it blocks, as the runner
+ * halts there.
  */
+/** The share of its ceiling a mission has spent when its bar starts to warn. */
+export const SPEND_WARN_SHARE = 0.8;
+
 export function MissionSpendBar({
 	spentUsd,
 	spendCeilingUsd,
@@ -262,7 +266,7 @@ export function MissionSpendBar({
 			? "ok"
 			: share >= 1
 				? "halted"
-				: share >= 0.9
+				: share >= SPEND_WARN_SHARE
 					? "warn"
 					: "ok";
 	return (
@@ -297,7 +301,7 @@ export function MissionSpendBar({
 						aria-label="Mission spend against its ceiling"
 						min={0}
 						max={1}
-						high={0.9}
+						high={SPEND_WARN_SHARE}
 						optimum={0}
 						value={share}
 					/>

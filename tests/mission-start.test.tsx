@@ -173,11 +173,28 @@ describe("planIssueText", () => {
 		);
 	});
 
+	it("says which part of the plan is missing or empty, or that there is no plan", () => {
+		expect(planIssueText(["brief", "requirements"], null)).toBe(
+			"The plan has no requirements.",
+		);
+		expect(planIssueText(["brief", "acceptanceCriteria"], null)).toBe(
+			"The plan has no acceptance criteria.",
+		);
+		expect(planIssueText(["brief", "summary"], null)).toBe(
+			"The plan has no summary.",
+		);
+		expect(planIssueText(["brief"], null)).toBe("The mission has no plan yet.");
+	});
+
 	it("falls back to position without the brief, and to a plain line for the unknown", () => {
 		expect(planIssueText(["brief", "requirements", 1], null)).toBe(
 			"Requirement 2 must be in exactly one module.",
 		);
-		expect(planIssueText(["brief", "summary"], BRIEF)).toBe(
+		expect(planIssueText(["brief", "goal"], BRIEF)).toBe(
+			"The plan has an issue to fix.",
+		);
+		// A requirement's own field is a shape issue, not its module.
+		expect(planIssueText(["brief", "requirements", 0, "text"], BRIEF)).toBe(
 			"The plan has an issue to fix.",
 		);
 	});
@@ -212,6 +229,33 @@ describe("blockerDetails", () => {
 			{ roster: ROSTER },
 		);
 		expect(lines.map((l) => l.text)).toEqual(["Leon has no token estimate."]);
+	});
+
+	it("collapses plan issues that read the same, counting the plain ones", () => {
+		const lines = blockerDetails(
+			{
+				reason: "plan_check_failed",
+				issues: [
+					{ path: ["brief", "requirements", 0, "text"], message: "x" },
+					{ path: ["brief", "modules", 0, "requirementIds", 0], message: "x" },
+					{ path: ["brief", "goal"], message: "x" },
+					{ path: ["brief", "modules", 0, "requirementIds", 1], message: "x" },
+					{ path: ["brief", "requirements", 1], message: "x" },
+				],
+			},
+			{ brief: BRIEF },
+		);
+		expect(lines.map((l) => l.text)).toEqual([
+			"The plan has 2 issues to fix.",
+			"Module M1 lists a requirement that isn't in the plan, or lists one twice.",
+			"Requirement R2 must be in exactly one module.",
+		]);
+		expect(new Set(lines.map((l) => l.key)).size).toBe(3);
+		const [one] = blockerDetails({
+			reason: "plan_check_failed",
+			issues: [{ path: ["brief", "goal"], message: "x" }],
+		});
+		expect(one?.text).toBe("The plan has an issue to fix.");
 	});
 
 	it("says which wave has no agent, by its team", () => {
