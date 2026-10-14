@@ -279,9 +279,10 @@ export const PRECONDITION_COPY = {
 		next: "Reload the client and choose an existing engagement.",
 		retry: false,
 	},
-	// src/routes/intake.ts: a new intake for an engagement that is not active.
+	// src/routes/intake.ts, connections.ts and mission-lifecycle.ts: a new
+	// intake, connection or mission start under an engagement that is closed.
 	engagement_closed: {
-		what: "This engagement is closed, so it cannot take a new intake.",
+		what: "This engagement is closed, so it can't take new work.",
 		written: NOTHING_WRITTEN,
 		next: "Choose an active engagement, or start a new one for this work.",
 		retry: false,
