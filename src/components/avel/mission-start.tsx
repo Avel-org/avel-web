@@ -80,8 +80,8 @@ const PLAN_PARTS: Record<string, string> = {
  * server's message is for logs). checkPlan reports under "brief": no
  * brief at all, a part missing or empty (summary, requirements,
  * acceptance criteria, modules), a module id used twice, a module listing
- * a requirement that isn't one (or twice), and a requirement in no module
- * or in several.
+ * a requirement that isn't one (or twice), and a requirement in no module,
+ * in several, or with no acceptance criterion.
  */
 export function planIssueText(
 	path: readonly (string | number)[],
@@ -99,8 +99,11 @@ export function planIssueText(
 			return `${name} lists a requirement that isn't in the plan, or lists one twice.`;
 		return `${name} needs fixing.`;
 	}
+	// Two checks share this path: a requirement in no module or several, and
+	// one with no acceptance criterion. Until avel-server tells them apart,
+	// the line names what the requirement needs for both to pass.
 	if (head === "requirements" && typeof i === "number" && field === undefined)
-		return `${itemName(brief, "requirements", i)} must be in exactly one module.`;
+		return `${itemName(brief, "requirements", i)} needs exactly one module and at least one acceptance criterion.`;
 	return PLAN_ISSUE_FALLBACK;
 }
 

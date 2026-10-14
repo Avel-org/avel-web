@@ -169,7 +169,7 @@ describe("planIssueText", () => {
 			"Module M1 lists a requirement that isn't in the plan, or lists one twice.",
 		);
 		expect(planIssueText(["brief", "requirements", 1], BRIEF)).toBe(
-			"Requirement R2 must be in exactly one module.",
+			"Requirement R2 needs exactly one module and at least one acceptance criterion.",
 		);
 	});
 
@@ -188,7 +188,7 @@ describe("planIssueText", () => {
 
 	it("falls back to position without the brief, and to a plain line for the unknown", () => {
 		expect(planIssueText(["brief", "requirements", 1], null)).toBe(
-			"Requirement 2 must be in exactly one module.",
+			"Requirement 2 needs exactly one module and at least one acceptance criterion.",
 		);
 		expect(planIssueText(["brief", "goal"], BRIEF)).toBe(
 			"The plan has an issue to fix.",
@@ -248,7 +248,7 @@ describe("blockerDetails", () => {
 		expect(lines.map((l) => l.text)).toEqual([
 			"The plan has 2 issues to fix.",
 			"Module M1 lists a requirement that isn't in the plan, or lists one twice.",
-			"Requirement R2 must be in exactly one module.",
+			"Requirement R2 needs exactly one module and at least one acceptance criterion.",
 		]);
 		expect(new Set(lines.map((l) => l.key)).size).toBe(3);
 		const [one] = blockerDetails({
@@ -370,7 +370,7 @@ describe("MissionStart", () => {
 			PRECONDITION_COPY.mission_not_draft.what,
 		);
 		expect(region(html, "mission-readiness-2-lines-0")).toMatch(
-			/^ ?Requirement R2 must be in exactly one module\. Open the plan/,
+			/^ ?Requirement R2 needs exactly one module and at least one acceptance criterion\. Open the plan/,
 		);
 		expect(html).toContain(
 			`href="/missions/${MISSION_ID}/plan#plan-requirement-R2"`,
