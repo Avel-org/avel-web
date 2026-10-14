@@ -344,7 +344,13 @@ export function activityEntry(
 		engagementId: entityType === "engagement" ? entityId : null,
 		requestId: `req_${n}`,
 		payload: {},
-		actor: { kind: "operator", display: "ada" },
+		actor: {
+			kind: "operator",
+			userId: "00000000-0000-4000-8000-000000000900",
+			rosterEntryId: null,
+			display: "ada",
+			agent: null,
+		},
 		...overrides,
 	};
 }

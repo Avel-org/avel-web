@@ -114,7 +114,13 @@ const logged = (
 	engagementId: null,
 	requestId: "req",
 	payload: {},
-	actor: { kind: "operator", display: "javaris" },
+	actor: {
+		kind: "operator",
+		userId: "00000000-0000-4000-8000-000000000900",
+		rosterEntryId: null,
+		display: "javaris",
+		agent: null,
+	},
 });
 
 function render({

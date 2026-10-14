@@ -72,7 +72,13 @@ function detail(extra: Partial<MissionDetail> = {}): MissionDetail {
 				action: "mission.updated",
 				entityType: "mission",
 				at: "2026-10-06T07:00:00.000Z",
-				actor: { kind: "operator", userId: null, display: "ada" },
+				actor: {
+					kind: "operator",
+					userId: "00000000-0000-4000-8000-000000000900",
+					rosterEntryId: null,
+					display: "ada",
+					agent: null,
+				},
 			},
 		],
 		...extra,
@@ -261,7 +267,13 @@ describe("the page from the contract", () => {
 			action: "dispatch.created",
 			entityType: "dispatch",
 			at: "2026-10-06T07:00:00.000Z",
-			actor: { kind: "system", userId: null, display: null },
+			actor: {
+				kind: "system",
+				userId: null,
+				rosterEntryId: null,
+				display: "AVEL runner",
+				agent: null,
+			},
 		} as const;
 		const list = RecentActivity({
 			mission: detail({ recentActivity: [queued, queued] }),

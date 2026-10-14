@@ -58,7 +58,13 @@ function entry(
 		engagementId: null,
 		requestId: `req-${n}`,
 		payload: {},
-		actor: { kind: "operator", display: "octo-operator" },
+		actor: {
+			kind: "operator",
+			userId: ID(900),
+			rosterEntryId: null,
+			display: "octo-operator",
+			agent: null,
+		},
 		...overrides,
 	};
 }
@@ -200,7 +206,13 @@ describe("the Activity page", () => {
 			entityType: "engagement",
 			actorKind: "system",
 			actorUserId: null,
-			actor: { kind: "system", display: "System" },
+			actor: {
+				kind: "system",
+				userId: null,
+				rosterEntryId: null,
+				display: "AVEL runner",
+				agent: null,
+			},
 		});
 		const html = await renderActivity("/activity", {
 			filters: {},
@@ -239,18 +251,41 @@ describe("who acted", () => {
 	it("shows the server's display for each kind and never shows an id as a name", async () => {
 		const operator = entry(1, {
 			actorUserId: ID(901),
-			actor: { kind: "operator", display: "javaris500" },
+			actor: {
+				kind: "operator",
+				userId: ID(901),
+				rosterEntryId: null,
+				display: "javaris500",
+				agent: null,
+			},
 		});
 		const agent = entry(2, {
 			actorKind: "agent",
 			actorUserId: null,
 			actorRosterEntryId: ID(902),
-			actor: { kind: "agent", display: "Atlas · scheduling" },
+			actor: {
+				kind: "agent",
+				userId: null,
+				rosterEntryId: ID(902),
+				display: "Atlas · scheduling",
+				agent: {
+					templateId: ID(903),
+					slug: "atlas",
+					name: "Atlas",
+					territory: "scheduling",
+				},
+			},
 		});
 		const system = entry(3, {
 			actorKind: "system",
 			actorUserId: null,
-			actor: { kind: "system", display: "System" },
+			actor: {
+				kind: "system",
+				userId: null,
+				rosterEntryId: null,
+				display: "AVEL runner",
+				agent: null,
+			},
 		});
 		const html = await renderActivity("/activity", {
 			filters: {},
@@ -259,7 +294,7 @@ describe("who acted", () => {
 		for (const [row, display] of [
 			[operator, "javaris500"],
 			[agent, "Atlas · scheduling"],
-			[system, "System"],
+			[system, "AVEL runner"],
 		] as const) {
 			expect(html).toMatch(
 				new RegExp(`data-testid="activity-actor-${row.id}"[^>]*>${display}<`),

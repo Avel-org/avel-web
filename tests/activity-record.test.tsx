@@ -45,7 +45,13 @@ function entry(
 		engagementId: null,
 		requestId: `req-${n}`,
 		payload: {},
-		actor: { kind: "operator", display: "octo-operator" },
+		actor: {
+			kind: "operator",
+			userId: ID(900),
+			rosterEntryId: null,
+			display: "octo-operator",
+			agent: null,
+		},
 		...overrides,
 	};
 }
@@ -55,7 +61,19 @@ const ADDED = entry(1, {
 	entityType: "roster_entry",
 	actorKind: "agent",
 	actorUserId: null,
-	actor: { kind: "agent", display: "Atlas" },
+	actorRosterEntryId: ID(501),
+	actor: {
+		kind: "agent",
+		userId: null,
+		rosterEntryId: ID(501),
+		display: "Atlas",
+		agent: {
+			templateId: ID(520),
+			slug: "atlas",
+			name: "Atlas",
+			territory: null,
+		},
+	},
 	payload: { agentTemplateId: ID(500), waves: ["A", "B"], active: true },
 });
 const CREATED = entry(2);

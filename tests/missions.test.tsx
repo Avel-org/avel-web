@@ -120,13 +120,25 @@ const DETAIL: MissionDetail = missionDetail.parse({
 			action: "export.created",
 			entityType: "export",
 			at: "2026-10-06T08:00:00.000Z",
-			actor: { kind: "system", userId: null, display: null },
+			actor: {
+				kind: "system",
+				userId: null,
+				rosterEntryId: null,
+				display: null,
+				agent: null,
+			},
 		},
 		{
 			action: "mission.updated",
 			entityType: "mission",
 			at: "2026-10-06T07:00:00.000Z",
-			actor: { kind: "operator", userId: id(7), display: "ada" },
+			actor: {
+				kind: "operator",
+				userId: id(7),
+				rosterEntryId: null,
+				display: "ada",
+				agent: null,
+			},
 		},
 	],
 });
