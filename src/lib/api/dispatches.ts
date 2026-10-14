@@ -220,3 +220,58 @@ export function useCreateDispatch(missionId: string) {
 		onSuccess: () => afterDispatchCreated(queryClient, missionId),
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Starting and halting a dispatch.
+
+/** POST start: queued to running, or refused with the first check that failed. */
+export function startDispatchRequest(api: ApiClient, id: string) {
+	return call(contract.dispatches.start, () =>
+		api.dispatches.start({ params: { id } }),
+	);
+}
+
+/** POST halt: running to halted, by the operator; the system files its report. */
+export function haltDispatchRequest(api: ApiClient, id: string) {
+	return call(contract.dispatches.halt, () =>
+		api.dispatches.halt({ params: { id } }),
+	);
+}
+
+/**
+ * A started or halted dispatch changes lanes, moves the mission's spend,
+ * files a report (a halt) and logs an activity row: the mission's detail
+ * (its dispatches and reports under it), the one dispatch and the log read
+ * again.
+ */
+export function afterDispatchMoved(
+	queryClient: QueryClient,
+	missionId: string,
+	id: string,
+) {
+	return Promise.all([
+		queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) }),
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.dispatches.detail(id),
+		}),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
+}
+
+export function useStartDispatch(missionId: string) {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => startDispatchRequest(api, id),
+		onSuccess: (_, id) => afterDispatchMoved(queryClient, missionId, id),
+	});
+}
+
+export function useHaltDispatch(missionId: string) {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => haltDispatchRequest(api, id),
+		onSuccess: (_, id) => afterDispatchMoved(queryClient, missionId, id),
+	});
+}

@@ -19,6 +19,11 @@ import {
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { InlineModals } from "@/components/avel/action-modal";
+import { DispatchCard } from "@/components/avel/dispatch-board";
+import {
+	DispatchControls,
+	dispatchRefusalLine,
+} from "@/components/avel/dispatch-controls";
 import {
 	bodyOf,
 	dispatchFieldOf,
@@ -35,13 +40,17 @@ import {
 	reportsById,
 	showsDispatches,
 } from "@/components/avel/mission-dispatches";
+import { haltNote } from "@/components/avel/mission-start";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError, ApiOverrideProvider, createApiClient } from "@/lib/api";
 import {
+	afterDispatchMoved,
 	attemptFor,
 	createDispatchRequest,
 	DISPATCH_POLL_MS,
+	haltDispatchRequest,
 	missionDispatchesQuery,
+	startDispatchRequest,
 } from "@/lib/api/dispatches";
 import { queryKeys } from "@/lib/api/keys";
 import { SessionSourceProvider } from "@/lib/auth";
@@ -59,6 +68,7 @@ const LEON_ENTRY = "7ecead58-5eed-4000-8000-000000000101";
 const ATLAS_ENTRY = "7ecead58-5eed-4000-8000-000000000102";
 const RUNNING_ID = "7ecead58-5eed-4000-8000-000000000216";
 const DONE_ID = "7ecead58-5eed-4000-8000-000000000217";
+const QUEUED_ID = "7ecead58-5eed-4000-8000-000000000218";
 const REPORT_ID = "7ecead58-5eed-4000-8000-000000000301";
 const ISO = "2026-10-13T12:00:00.000Z";
 const hash = (c: string) => c.repeat(64);
@@ -126,6 +136,8 @@ const RUNNING = dispatchOf({
 	model: "claude-opus-5-5",
 	startedAt: ISO,
 });
+
+const QUEUED = dispatchOf({ id: QUEUED_ID });
 
 const DONE = dispatchOf({
 	id: DONE_ID,
@@ -608,6 +620,41 @@ describe("the Dispatches section", () => {
 		expect(visibleText(html)).toContain("$4.75");
 	});
 
+	it("offers Start on a queued card and Halt on a running one, and the mission Halt counts the running", async () => {
+		const html = await renderMission((qc) => {
+			qc.setQueryData(missionKeys.detail(MISSION_ID).slice(), mission());
+			qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [
+				QUEUED,
+				RUNNING,
+				DONE,
+			]);
+			qc.setQueryData(queryKeys.dispatches.reports(MISSION_ID), [REPORT]);
+		});
+		const s = section(html) ?? "";
+		expect(s).toContain(`data-testid="dispatch-card-start-${QUEUED_ID}"`);
+		expect(s).toContain(`data-testid="dispatch-card-halt-${RUNNING_ID}"`);
+		expect(s).not.toContain(`dispatch-card-controls-${DONE_ID}`);
+		const note = html.slice(html.indexOf('data-testid="mission-halt-note"'));
+		expect(visibleText(note)).toMatch(
+			/^ ?Halting also stops every running dispatch\. 1 is running now\./,
+		);
+	});
+
+	it("offers neither Start nor Halt on a halted mission's cards", async () => {
+		const html = await renderMission((qc) => {
+			qc.setQueryData(
+				missionKeys.detail(MISSION_ID).slice(),
+				mission({ status: "halted" }),
+			);
+			qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [QUEUED, DONE]);
+			qc.setQueryData(queryKeys.dispatches.reports(MISSION_ID), [REPORT]);
+		});
+		const s = section(html) ?? "";
+		expect(s).toContain(`data-testid="dispatch-card-${QUEUED_ID}"`);
+		expect(s).not.toContain("dispatch-card-controls-");
+		expect(html).not.toContain("mission-halt-note");
+	});
+
 	it("leaves a draft with no dispatches without the section", async () => {
 		const html = await renderMission((qc) => {
 			qc.setQueryData(
@@ -631,5 +678,173 @@ describe("the Dispatches section", () => {
 		expect(s).toContain('data-testid="mission-dispatches-empty"');
 		expect(visibleText(s)).toContain("No dispatch ran on this mission.");
 		expect(s).not.toContain("dispatch-new-button");
+	});
+});
+
+describe("starting and halting a dispatch", () => {
+	const ok = (data: Dispatch) => ({
+		status: 200,
+		body: { success: true, data },
+	});
+
+	it("start and halt post to the dispatch's own routes", async () => {
+		const { client, calls } = recording(({ path }) =>
+			path.endsWith("/start")
+				? ok(dispatchOf({ id: QUEUED_ID, status: "running", startedAt: ISO }))
+				: ok(RUNNING),
+		);
+		const started = await startDispatchRequest(client, QUEUED_ID);
+		await haltDispatchRequest(client, RUNNING_ID);
+		expect(started.status).toBe("running");
+		expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+			`POST http://avel.test/api/dispatches/${QUEUED_ID}/start`,
+			`POST http://avel.test/api/dispatches/${RUNNING_ID}/halt`,
+		]);
+	});
+
+	it("a move refreshes the mission (its dispatches and reports), the dispatch and the log", async () => {
+		const qc = seededClient();
+		qc.setQueryData(missionKeys.detail(MISSION_ID).slice(), mission());
+		qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [RUNNING]);
+		qc.setQueryData(queryKeys.dispatches.reports(MISSION_ID), []);
+		qc.setQueryData(queryKeys.dispatches.detail(RUNNING_ID), RUNNING);
+		qc.setQueryData(queryKeys.dispatches.detail(DONE_ID), DONE);
+		qc.setQueryData(queryKeys.activity.all(), {});
+		qc.setQueryData(queryKeys.roster.list(MISSION_ID), [LEON]);
+		await afterDispatchMoved(qc, MISSION_ID, RUNNING_ID);
+		const stale = (key: readonly unknown[]) =>
+			qc.getQueryState(key)?.isInvalidated;
+		expect(stale(missionKeys.detail(MISSION_ID))).toBe(true);
+		expect(stale(queryKeys.dispatches.list(MISSION_ID))).toBe(true);
+		expect(stale(queryKeys.dispatches.reports(MISSION_ID))).toBe(true);
+		expect(stale(queryKeys.dispatches.detail(RUNNING_ID))).toBe(true);
+		expect(stale(queryKeys.activity.all())).toBe(true);
+		expect(stale(queryKeys.dispatches.detail(DONE_ID))).toBe(false);
+		expect(stale(queryKeys.roster.list(MISSION_ID))).toBe(false);
+	});
+
+	const refusal = (reason: string, extra: Record<string, unknown> = {}) =>
+		new ApiError({
+			method: "POST",
+			path: "/api/dispatches/:id/start",
+			kind: "contract",
+			status: 422,
+			code: "PRECONDITION_FAILED",
+			message: "for logs",
+			requestId: "req_s",
+			details: { reason, dispatchId: QUEUED_ID, ...extra },
+		} as ConstructorParameters<typeof ApiError>[0]);
+
+	const card = (
+		d: Dispatch,
+		controls: Partial<Parameters<typeof DispatchControls>[0]> = {},
+	) =>
+		inProviders(
+			<DispatchCard
+				dispatch={d}
+				now={Date.parse(ISO)}
+				renderControls={(x) => (
+					<DispatchControls
+						dispatch={x}
+						onStart={() => {}}
+						onHalt={() => {}}
+						{...controls}
+					/>
+				)}
+			/>,
+			seededClient(),
+		);
+
+	/** The card's refusal, as visible text. */
+	const refusalText = (html: string, id: string) => {
+		const at = html.indexOf(`data-testid="dispatch-card-error-${id}"`);
+		// renderToString escapes apostrophes; the copy is read as typed.
+		return at === -1
+			? null
+			: visibleText(html.slice(at)).replaceAll("&#x27;", "'");
+	};
+
+	it("puts a refused Start's copy on its card, naming the model with no price", () => {
+		const html = card(QUEUED, {
+			error: refusal("model_price_unknown", { model: "claude-opus-5-5" }),
+		});
+		const text = refusalText(html, QUEUED_ID) ?? "";
+		expect(text).toMatch(
+			/^ ?AVEL has no price for this model, so it can't hold the run to the spend limit\. ?The model with no price is claude-opus-5-5\./,
+		);
+		expect(text).not.toContain("for logs");
+		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
+	});
+
+	it("names the card's agent where a refusal names roster entries, never by id", () => {
+		const html = card(QUEUED, {
+			error: refusal("roster_entry_inactive", { rosterEntryIds: [LEON_ENTRY] }),
+		});
+		expect(refusalText(html, QUEUED_ID)).toMatch(
+			/^ ?That agent isn't active on this mission's roster\. ?Leon: not active on the roster\./,
+		);
+		expect(
+			dispatchRefusalLine(
+				refusal("agent_identity_missing", { rosterEntryIds: [LEON_ENTRY] }),
+				QUEUED,
+			),
+		).toBe("Leon: no generated identity yet.");
+		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
+	});
+
+	it("words every Start refusal in our copy, with no extra line where the copy says it all", () => {
+		const copy = {
+			dispatch_not_queued: "This dispatch has already started or ended.",
+			mission_not_active: "This mission isn't running.",
+			spend_ceiling_reached: "This mission has reached its spend limit.",
+			harness_unavailable: "The agent runner can't take this agent right now.",
+		};
+		for (const [reason, what] of Object.entries(copy)) {
+			const error = refusal(reason);
+			expect(dispatchRefusalLine(error, QUEUED)).toBeNull();
+			expect(refusalText(card(QUEUED, { error }), QUEUED_ID)).toContain(what);
+		}
+	});
+
+	it("puts a refused Halt on the running card: dispatch_not_running", () => {
+		const html = card(RUNNING, { error: refusal("dispatch_not_running") });
+		expect(refusalText(html, RUNNING_ID)).toMatch(
+			/^ ?This dispatch isn't running\. ?Reload to see where it stands\. Only a running dispatch can be halted\./,
+		);
+	});
+
+	it("holds Halt to confirm, and shows nothing on a closed card", () => {
+		const running = card(RUNNING);
+		expect(running).toContain(`data-testid="dispatch-card-halt-${RUNNING_ID}"`);
+		expect(visibleText(running)).toContain("Hold to halt");
+		expect(running).not.toContain(`dispatch-card-start-${RUNNING_ID}`);
+		expect(card(DONE)).not.toContain("dispatch-card-controls-");
+		expect(card(QUEUED, { pending: "start" })).toContain("Starting");
+		expect(card(RUNNING, { pending: "halt" })).toContain("Halting");
+	});
+
+	it("says Sign in to start and Sign in to halt in the preview", () => {
+		const preview = (d: Dispatch) =>
+			inProviders(
+				<SignedInProvider
+					value={{ user: PREVIEW_USER, signOut: async () => {} }}
+				>
+					<DispatchControls dispatch={d} onStart={() => {}} onHalt={() => {}} />
+				</SignedInProvider>,
+				seededClient(),
+			);
+		expect(preview(QUEUED)).toContain("Sign in to start");
+		expect(preview(RUNNING)).toContain("Sign in to halt");
+		expect(card(QUEUED)).not.toContain("Sign in to");
+	});
+});
+
+describe("the mission Halt's note", () => {
+	it("says it stops every running dispatch, and how many run now", () => {
+		const all = "Halting also stops every running dispatch.";
+		expect(haltNote(undefined)).toBe(all);
+		expect(haltNote(0)).toBe(`${all} None is running now.`);
+		expect(haltNote(1)).toBe(`${all} 1 is running now.`);
+		expect(haltNote(3)).toBe(`${all} 3 are running now.`);
 	});
 });

@@ -87,15 +87,20 @@ export function laneOrder(dispatches: Dispatch[]): Dispatch[] {
  */
 export type RenderReport = (dispatch: Dispatch) => ReactNode;
 
+/** What a card shows under its budget: Start or Halt, from the page. */
+export type RenderControls = (dispatch: Dispatch) => ReactNode;
+
 export function DispatchBoard({
 	dispatches,
 	now = Date.now(),
 	renderReport,
+	renderControls,
 }: {
 	dispatches: Dispatch[];
 	/** For the minutes a running dispatch has run so far. */
 	now?: number;
 	renderReport?: RenderReport;
+	renderControls?: RenderControls;
 }) {
 	const open = DISPATCH_LANES.filter(isOpenLane);
 	const closed = DISPATCH_LANES.filter((s) => !isOpenLane(s));
@@ -106,6 +111,7 @@ export function DispatchBoard({
 			dispatches={laneOrder(dispatches.filter((d) => d.status === status))}
 			now={now}
 			renderReport={renderReport}
+			renderControls={renderControls}
 		/>
 	);
 	return (
@@ -131,11 +137,13 @@ function Lane({
 	dispatches,
 	now,
 	renderReport,
+	renderControls,
 }: {
 	status: DispatchStatus;
 	dispatches: Dispatch[];
 	now: number;
 	renderReport?: RenderReport;
+	renderControls?: RenderControls;
 }) {
 	const headingId = useId();
 	return (
@@ -175,6 +183,7 @@ function Lane({
 								dispatch={d}
 								now={now}
 								renderReport={renderReport}
+								renderControls={renderControls}
 							/>
 						</li>
 					))}
@@ -197,10 +206,12 @@ export function DispatchCard({
 	dispatch,
 	now = Date.now(),
 	renderReport,
+	renderControls,
 }: {
 	dispatch: Dispatch;
 	now?: number;
 	renderReport?: RenderReport;
+	renderControls?: RenderControls;
 }) {
 	const [open, setOpen] = useState(false);
 	const nameId = useId();
@@ -264,6 +275,7 @@ export function DispatchCard({
 			<Pinned dispatch={dispatch} />
 			<Times dispatch={dispatch} />
 			<DispatchBudget dispatch={dispatch} now={now} />
+			{renderControls?.(dispatch)}
 			{/* The rest opens in place, inert while closed. */}
 			<div
 				className={cn(

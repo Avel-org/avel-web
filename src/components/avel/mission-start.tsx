@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rosterQuery } from "@/lib/api/coherence";
+import { missionDispatchesQuery } from "@/lib/api/dispatches";
 import { ApiError } from "@/lib/api/errors";
 import {
 	useHaltMission,
@@ -454,6 +455,17 @@ export function startBlockedReason(
 }
 
 /**
+ * What holding Halt does beyond the mission: it stops every running
+ * dispatch, with how many run now once the dispatches are read.
+ */
+export function haltNote(running: number | undefined): string {
+	const all = "Halting also stops every running dispatch.";
+	if (running === undefined) return all;
+	if (running === 0) return `${all} None is running now.`;
+	return `${all} ${running} ${running === 1 ? "is" : "are"} running now.`;
+}
+
+/**
  * The mission header's Start (a draft) or Halt (an active mission). Halt is
  * held to confirm, as abort is: it stops every running dispatch.
  */
@@ -463,10 +475,13 @@ export function MissionStart({
 	context = {},
 	start,
 	halt,
+	running,
 }: {
 	mission: Pick<MissionDetail, "id" | "status">;
 	readiness: SurfaceQuery<MissionReadiness, ApiError>;
 	context?: DetailContext;
+	/** How many of its dispatches run now; undefined until they are read. */
+	running?: number;
 	/** POST start; rejects with the ApiError it was refused with. */
 	start: () => Promise<unknown>;
 	/** POST halt; rejects with the ApiError it was refused with. */
@@ -496,6 +511,12 @@ export function MissionStart({
 					<Square aria-hidden="true" />
 					{halting.pending ? "Halting" : "Hold to halt"}
 				</Button>
+				<p
+					data-testid="mission-halt-note"
+					className="type-caption text-text-muted"
+				>
+					{haltNote(running)}
+				</p>
 				{halting.error ? (
 					<Refusal
 						error={halting.error}
@@ -556,6 +577,11 @@ export function MissionStartLive({
 	const roster = useQuery({ ...rosterQuery(api, mission.id), enabled: draft });
 	const start = useStartMission(mission.id);
 	const halt = useHaltMission(mission.id);
+	// The same entry the Dispatches section reads, so no extra request.
+	const dispatches = useQuery({
+		...missionDispatchesQuery(api, mission.id),
+		enabled: mission.status === "active",
+	});
 	return (
 		<MissionStart
 			mission={mission}
@@ -563,6 +589,7 @@ export function MissionStartLive({
 			context={{ brief: plan.data?.brief ?? null, roster: roster.data }}
 			start={() => start.mutateAsync()}
 			halt={() => halt.mutateAsync()}
+			running={dispatches.data?.filter((d) => d.status === "running").length}
 		/>
 	);
 }

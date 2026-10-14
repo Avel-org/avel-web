@@ -14,7 +14,8 @@ import {
 } from "@/lib/api/dispatches";
 import { useApiClient } from "@/lib/api/provider";
 import { CompletionReportView, type DispatchAgent } from "./completion-report";
-import { DispatchBoard } from "./dispatch-board";
+import { DispatchBoard, type RenderControls } from "./dispatch-board";
+import { DispatchControlsLive } from "./dispatch-controls";
 import { NewDispatch } from "./dispatch-new";
 import { missionDetailQuery } from "./mission-data";
 import { SectionPanel } from "./section-panel";
@@ -22,8 +23,8 @@ import { ErrorState, Surface } from "./surface";
 
 /*
  * A mission's dispatches (module 6) on its page: the board, each closed card
- * opening onto its completion report, and New dispatch while the mission is
- * active. While a dispatch waits or runs, the dispatches, the reports and the
+ * opening onto its completion report, and New dispatch, Start on queued
+ * cards and Halt on running ones while the mission is active. While a dispatch waits or runs, the dispatches, the reports and the
  * mission (its spend) read again every few seconds, and stop once none does.
  */
 
@@ -74,6 +75,14 @@ export function MissionDispatches({
 	const renderReport = (dispatch: Dispatch) => (
 		<DispatchReport dispatch={dispatch} byId={byId} producers={producers} />
 	);
+	// Only an active mission's dispatches start or halt one by one; a
+	// halted mission has already stopped its running ones.
+	const renderControls: RenderControls | undefined =
+		mission.status === "active"
+			? (dispatch) => (
+					<DispatchControlsLive missionId={mission.id} dispatch={dispatch} />
+				)
+			: undefined;
 
 	return (
 		<SectionPanel
@@ -108,6 +117,7 @@ export function MissionDispatches({
 						dispatches={data}
 						now={now}
 						renderReport={renderReport}
+						renderControls={renderControls}
 					/>
 				)}
 			</Surface>
