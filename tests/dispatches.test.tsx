@@ -22,7 +22,8 @@ import { InlineModals } from "@/components/avel/action-modal";
 import { DispatchCard } from "@/components/avel/dispatch-board";
 import {
 	DispatchControls,
-	dispatchRefusalLine,
+	dispatchRefusalLines,
+	sourceIssueText,
 } from "@/components/avel/dispatch-controls";
 import {
 	bodyOf,
@@ -784,11 +785,11 @@ describe("starting and halting a dispatch", () => {
 			/^ ?That agent isn't active on this mission's roster\. ?Leon: not active on the roster\./,
 		);
 		expect(
-			dispatchRefusalLine(
+			dispatchRefusalLines(
 				refusal("agent_identity_missing", { rosterEntryIds: [LEON_ENTRY] }),
 				QUEUED,
 			),
-		).toBe("Leon: no generated identity yet.");
+		).toEqual(["Leon: no generated identity yet."]);
 		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
 	});
 
@@ -801,9 +802,70 @@ describe("starting and halting a dispatch", () => {
 		};
 		for (const [reason, what] of Object.entries(copy)) {
 			const error = refusal(reason);
-			expect(dispatchRefusalLine(error, QUEUED)).toBeNull();
+			expect(dispatchRefusalLines(error, QUEUED)).toEqual([]);
 			expect(refusalText(card(QUEUED, { error }), QUEUED_ID)).toContain(what);
 		}
+	});
+
+	const source = (...paths: (string | number)[][]) =>
+		refusal("source_unavailable", {
+			issues: paths.map((path) => ({ path, message: "for logs" })),
+		});
+
+	it("says the mission needs one approved intake when its source is an intake", () => {
+		const html = card(QUEUED, { error: source(["intake"]) });
+		expect(refusalText(html, QUEUED_ID)).toMatch(
+			/^ ?AVEL can't find the code this agent would work on\. ?This mission needs exactly one approved intake\./,
+		);
+		expect(refusalText(html, QUEUED_ID)).not.toContain("for logs");
+	});
+
+	it("names the template to clone from the plan, or the mission's template without it", () => {
+		const named = card(QUEUED, {
+			error: source(["source", "template"]),
+			templateRef: "template-booking",
+		});
+		expect(refusalText(named, QUEUED_ID)).toContain(
+			"Clone the template template-booking into AVEL_SOURCES_DIR/templates.",
+		);
+		expect(sourceIssueText(["source", "template"], null)).toBe(
+			"Clone the mission's template into AVEL_SOURCES_DIR/templates.",
+		);
+		expect(
+			refusalText(
+				card(QUEUED, { error: source(["source", "template"]) }),
+				QUEUED_ID,
+			),
+		).toContain(
+			"Clone the mission's template into AVEL_SOURCES_DIR/templates.",
+		);
+	});
+
+	it("says to clone the client's repository at the mission's commit", () => {
+		const html = card(QUEUED, { error: source(["source", "repo"]) });
+		expect(refusalText(html, QUEUED_ID)).toContain(
+			"Clone the client's repository into AVEL_SOURCES_DIR/repos at the mission's commit.",
+		);
+		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
+	});
+
+	it("gives each source issue its line once, and none for a path we have no words for", () => {
+		expect(
+			dispatchRefusalLines(
+				source(
+					["intake"],
+					["source", "repo"],
+					["source", "repo"],
+					["source", "other"],
+				),
+				QUEUED,
+			),
+		).toEqual([
+			"This mission needs exactly one approved intake.",
+			"Clone the client's repository into AVEL_SOURCES_DIR/repos at the mission's commit.",
+		]);
+		expect(sourceIssueText(["intake", 0], null)).toBeNull();
+		expect(sourceIssueText(["source"], null)).toBeNull();
 	});
 
 	it("puts a refused Halt on the running card: dispatch_not_running", () => {
