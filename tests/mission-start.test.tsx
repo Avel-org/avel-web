@@ -78,7 +78,7 @@ const BRIEF: Brief = {
 };
 
 /** All six checks failing, in the server's order. */
-const ALL_FAILING: readonly ReadinessBlocker[] = [
+const ALL_FAILING: ReadinessBlocker[] = [
 	{ reason: "mission_not_draft" },
 	{ reason: "engagement_closed", engagementId: GONE_ENTRY_ID },
 	{
@@ -114,8 +114,12 @@ const ready = (
 	data: MissionReadiness,
 ): SurfaceQuery<MissionReadiness, ApiError> => ({ status: "success", data });
 
-const NOT_READY = ready({ ready: false, blockers: ALL_FAILING });
-const READY = ready({ ready: true, blockers: [] });
+const NOT_READY = ready({
+	missionId: MISSION_ID,
+	ready: false,
+	blockers: ALL_FAILING,
+});
+const READY = ready({ missionId: MISSION_ID, ready: true, blockers: [] });
 
 const never = () => new Promise<never>(() => {});
 

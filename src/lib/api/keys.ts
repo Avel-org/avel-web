@@ -233,6 +233,15 @@ export const queryKeys = {
 		 */
 		detail: (missionId: string) => ["missions", "plan", missionId] as const,
 	},
+	missionLifecycle: {
+		/**
+		 * contract.missionLifecycle.readiness. Under the mission's detail key
+		 * (["missions", "detail", id]), so every write that refreshes the
+		 * mission (plan, roster, start, halt) refreshes its readiness too.
+		 */
+		readiness: (missionId: string) =>
+			["missions", "detail", missionId, "readiness"] as const,
+	},
 	roster: {
 		/**
 		 * contract.roster.list: one mission's live roster, unpaginated. Under

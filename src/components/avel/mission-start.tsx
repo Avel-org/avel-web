@@ -1,18 +1,30 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
 	type Brief,
 	type MissionDetail,
-	type PreconditionDetails,
+	type MissionReadiness,
+	READINESS_REASONS,
+	type ReadinessBlocker,
 	type RosterEntry,
-	WAVES,
-	type Wave,
 } from "avel-server/contract";
 import { CircleCheck, Play, Square } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { rosterQuery } from "@/lib/api/coherence";
 import { ApiError } from "@/lib/api/errors";
-import { issueTarget, planAnchor } from "@/lib/api/mission-plans";
+import {
+	useHaltMission,
+	useMissionReadiness,
+	useStartMission,
+} from "@/lib/api/mission-lifecycle";
+import {
+	issueTarget,
+	planAnchor,
+	useMissionPlan,
+} from "@/lib/api/mission-plans";
+import { useApiClient } from "@/lib/api/provider";
 import { entryName, waveTitle } from "@/lib/api/roster";
 import { describeError } from "@/lib/error-map";
 import { useIsPreview } from "@/shell/auth-gate";
@@ -21,26 +33,12 @@ import { ErrorState, Surface, type SurfaceQuery } from "./surface";
 /*
  * Starting and halting a mission (module 6), for the mission header. Start
  * is offered on a draft and enabled only when every readiness check passes;
- * Halt on an active mission. Readiness, start and halt are props until
- * avel-server's routes land (GET /api/missions/:id/readiness, POST start
- * and halt); the page that mounts this owns the reads and writes.
+ * Halt on an active mission. MissionStart takes readiness, start and halt as
+ * props, so it renders in a test without a server; MissionStartLive wires
+ * them to contract.missionLifecycle.
  */
 
-/**
- * One failing readiness check: the precondition reason and its details.
- * Stands in for GET /api/missions/:id/readiness's blocker until that route
- * is in the contract; `wave` is coherence_blocked's first wave (null when
- * the playbook declares none), arriving on preconditionDetails.
- */
-export type ReadinessBlocker = Pick<
-	PreconditionDetails,
-	"reason" | "issues" | "rosterEntryIds" | "engagementId"
-> & { wave?: Wave | null };
-
-export type MissionReadiness = {
-	ready: boolean;
-	blockers: readonly ReadinessBlocker[];
-};
+export type { MissionReadiness, ReadinessBlocker };
 
 /** Where a detail line's fix lives. */
 export type DetailLink =
@@ -94,8 +92,10 @@ export function planIssueText(
 	return "The plan has an issue to fix.";
 }
 
-function isWave(value: unknown): value is Wave {
-	return (WAVES as readonly unknown[]).includes(value);
+function isReadinessReason(
+	reason: string,
+): reason is ReadinessBlocker["reason"] {
+	return (READINESS_REASONS as readonly string[]).includes(reason);
 }
 
 /** The roster entries a blocker names: rosterEntryIds, else the ids in its issue paths. */
@@ -139,7 +139,7 @@ export function blockerDetails(
 						link: { to: "/playbooks" },
 					},
 				];
-			const wave = isWave(blocker.wave) ? blocker.wave : null;
+			const wave = blocker.wave ?? null;
 			return [
 				{
 					key: "block",
@@ -155,9 +155,13 @@ export function blockerDetails(
 				const entry = roster?.find((e) => e.id === id);
 				return {
 					key: id,
+					// Without the roster (still loading, or its read failed) the
+					// agent is unnamed but still there.
 					text: entry
 						? `${entryName(entry)} has no token estimate.`
-						: "An agent no longer on the roster has no token estimate.",
+						: roster
+							? "An agent no longer on the roster has no token estimate."
+							: "An agent on the roster has no token estimate.",
 					link: { to: "/missions/$id/roster" },
 				};
 			});
@@ -166,21 +170,24 @@ export function blockerDetails(
 	}
 }
 
-/** The details of a refused Start, as a readiness blocker, when it carries any. */
+/**
+ * A refused Start's details as a readiness blocker: start refuses with the
+ * first one readiness would list. Null for any other refusal (a halt's
+ * mission_not_active), which its copy covers alone.
+ */
 export function refusedBlocker(error: ApiError): ReadinessBlocker | null {
 	const { failure } = error;
 	if (failure.kind !== "contract" || failure.code !== "PRECONDITION_FAILED")
 		return null;
-	const details = failure.details as PreconditionDetails & { wave?: unknown };
+	const { reason, issues, rosterEntryIds, wave, engagementId } =
+		failure.details;
+	if (!isReadinessReason(reason)) return null;
 	return {
-		reason: details.reason,
-		...(details.issues ? { issues: details.issues } : {}),
-		...(details.rosterEntryIds
-			? { rosterEntryIds: details.rosterEntryIds }
-			: {}),
-		...(isWave(details.wave) || details.wave === null
-			? { wave: details.wave as Wave | null }
-			: {}),
+		reason,
+		...(issues ? { issues } : {}),
+		...(rosterEntryIds ? { rosterEntryIds } : {}),
+		...(wave !== undefined ? { wave } : {}),
+		...(engagementId ? { engagementId } : {}),
 	};
 }
 
@@ -488,5 +495,34 @@ export function MissionStart({
 				context={context}
 			/>
 		</div>
+	);
+}
+
+/**
+ * MissionStart wired to avel-server. Readiness and the roster are read only
+ * for a draft: the roster names the agents a blocker points at, and shares
+ * coherence's cache entry, so a mission with a playbook makes no extra
+ * request. Plan items are named from the plan the page already reads.
+ */
+export function MissionStartLive({
+	mission,
+}: {
+	mission: Pick<MissionDetail, "id" | "status">;
+}) {
+	const api = useApiClient();
+	const draft = mission.status === "draft";
+	const readiness = useMissionReadiness(mission.id, draft);
+	const plan = useMissionPlan(mission.id);
+	const roster = useQuery({ ...rosterQuery(api, mission.id), enabled: draft });
+	const start = useStartMission(mission.id);
+	const halt = useHaltMission(mission.id);
+	return (
+		<MissionStart
+			mission={mission}
+			readiness={readiness}
+			context={{ brief: plan.data?.brief ?? null, roster: roster.data }}
+			start={() => start.mutateAsync()}
+			halt={() => halt.mutateAsync()}
+		/>
 	);
 }

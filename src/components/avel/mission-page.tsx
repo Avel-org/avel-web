@@ -24,6 +24,7 @@ import {
 	sampleTeam,
 } from "./mission-placeholders";
 import { ORIGIN_LABEL } from "./mission-search";
+import { MissionStartLive } from "./mission-start";
 import {
 	EXPORT_PHASE,
 	QUIET_AFTER_DAYS,
@@ -369,6 +370,8 @@ function Header({ mission }: { mission: MissionDetail }) {
 				</Field>
 				<Field label="Origin">{ORIGIN_LABEL[mission.origin]}</Field>
 			</dl>
+			{/* Start on a draft, with what stops it; Halt while active. */}
+			<MissionStartLive mission={mission} />
 		</header>
 	);
 }
