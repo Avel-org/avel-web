@@ -48,6 +48,12 @@ export const ACTION_COPY = {
 	"playbook.updated": "Playbook published",
 	"agent_template.updated": "Agent changed",
 	"agent_template.identity_regenerated": "Identity regenerated",
+	"dispatch.created": "Dispatch created",
+	"dispatch.started": "Dispatch started",
+	"dispatch.soft_ceiling_crossed": "Dispatch passed its token warning",
+	"dispatch.halted": "Dispatch halted",
+	"dispatch.closed": "Dispatch closed",
+	"completion_report.filed": "Report filed",
 } as const satisfies Record<ActivityAction, string>;
 
 /** The name of each entity type, singular, as a filter option and a row's "which". */
@@ -65,6 +71,8 @@ export const ENTITY_LABEL = {
 	roster_preset: "Team",
 	playbook: "Playbook",
 	agent_template: "Agent",
+	dispatch: "Dispatch",
+	completion_report: "Report",
 } as const satisfies Record<ActivityEntityType, string>;
 
 /**

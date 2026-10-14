@@ -181,7 +181,7 @@ const as = (method: "GET" | "POST", code: ErrorCode) =>
 
 describe("copy for every code in avel-server's contract", () => {
 	it("has an entry for each of the contract's codes, and no others", () => {
-		expect(CODES).toHaveLength(22);
+		expect(CODES).toHaveLength(24);
 		expect(Object.keys(CONTRACT_ERROR_COPY).sort()).toEqual([...CODES].sort());
 	});
 

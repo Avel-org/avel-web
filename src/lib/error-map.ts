@@ -222,6 +222,22 @@ export const CONTRACT_ERROR_COPY: ErrorCopyTable<ContractErrorCode> = {
 		next: "Check the repository's settings and permissions on GitHub. Trying again unchanged will not help.",
 		retry: false,
 	},
+	// DATA-CONTRACTS-V2.md, Dispatch: an agent's token after its dispatch
+	// stopped running. Agents meet it; the operator only sees it relayed.
+	DISPATCH_CLOSED: {
+		what: "This agent's run has ended, so its access no longer works.",
+		written: NOTHING_WRITTEN,
+		next: "Start a new dispatch if the work needs to continue.",
+		retry: false,
+	},
+	// DATA-CONTRACTS-V2.md, Dispatch: the agent's families do not allow the
+	// route's verb (ROLES.md, what each family may do through the API).
+	AGENT_NOT_PERMITTED: {
+		what: "This agent isn't allowed to do this.",
+		written: NOTHING_WRITTEN,
+		next: "Agents act only within their roles. Do it yourself, or give it to an agent whose role covers it.",
+		retry: false,
+	},
 };
 
 /**
@@ -465,6 +481,117 @@ export const PRECONDITION_COPY = {
 		what: "These roles would have this agent checking its own work.",
 		written: NOTHING_WRITTEN,
 		next: "Keep its roles on one side: writing code, writing tests, reviewing, or the independent check. Give the others to another agent.",
+		retry: false,
+	},
+	// Module 6, mission start (draft to active) and halt. details.issues
+	// lists what the plan check or the coherence check found;
+	// details.rosterEntryIds names the agents at fault.
+	mission_not_draft: {
+		what: "This mission has already started.",
+		written: NOTHING_WRITTEN,
+		next: "Only a draft mission can be started. Reload to see where it stands.",
+		retry: false,
+	},
+	mission_not_active: {
+		what: "This mission isn't running.",
+		written: NOTHING_WRITTEN,
+		next: "Start the mission first. A halted or finished mission takes no new dispatches.",
+		retry: false,
+	},
+	plan_check_failed: {
+		what: "The mission's plan doesn't pass its check.",
+		written: NOTHING_WRITTEN,
+		next: "Fix each issue listed in the plan, then start the mission again.",
+		retry: false,
+	},
+	coherence_blocked: {
+		what: "The roster has a gap or a clash that blocks this mission.",
+		written: NOTHING_WRITTEN,
+		next: "Resolve each blocking item listed on the roster, then start the mission again.",
+		retry: false,
+	},
+	estimate_missing: {
+		what: "Some agents have no token estimate.",
+		written: NOTHING_WRITTEN,
+		next: "Give each agent listed an estimate on the roster, then try again.",
+		retry: false,
+	},
+	spend_ceiling_missing: {
+		what: "This mission has no spend limit.",
+		written: NOTHING_WRITTEN,
+		next: "Set the mission's spend limit, then start it again.",
+		retry: false,
+	},
+	spend_ceiling_reached: {
+		what: "This mission has reached its spend limit.",
+		written: NOTHING_WRITTEN,
+		next: "Raise the mission's spend limit if the work should go on.",
+		retry: false,
+	},
+	// Module 6, dispatch create, start and halt.
+	roster_entry_not_found: {
+		what: "That agent isn't on this mission's roster.",
+		written: NOTHING_WRITTEN,
+		next: "Reload the roster and choose an agent on it.",
+		retry: false,
+	},
+	roster_entry_inactive: {
+		what: "That agent isn't active on this mission's roster.",
+		written: NOTHING_WRITTEN,
+		next: "Make the agent active on the roster, or choose another.",
+		retry: false,
+	},
+	agent_identity_missing: {
+		what: "This agent has no generated identity yet.",
+		written: NOTHING_WRITTEN,
+		next: "Regenerate the agent's identity on its page, then try again.",
+		retry: false,
+	},
+	dispatch_not_queued: {
+		what: "This dispatch has already started or ended.",
+		written: NOTHING_WRITTEN,
+		next: "Reload to see where it stands.",
+		retry: false,
+	},
+	dispatch_not_running: {
+		what: "This dispatch isn't running.",
+		written: NOTHING_WRITTEN,
+		next: "Reload to see where it stands. Only a running dispatch can be halted.",
+		retry: false,
+	},
+	// details.model names the model with no price.
+	model_price_unknown: {
+		what: "AVEL has no price for this model, so it can't hold the run to the spend limit.",
+		written: NOTHING_WRITTEN,
+		next: "Choose a model AVEL has a price for, or add its price to avel-server.",
+		retry: false,
+	},
+	harness_unavailable: {
+		what: "The agent runner couldn't start this agent.",
+		written: NOTHING_WRITTEN,
+		next: "Try again in a moment. If it repeats, report it with the request reference.",
+		retry: true,
+	},
+	// No room was free (one at a time by default), or the room didn't start.
+	room_unavailable: {
+		what: "There's no room free to run this agent.",
+		written: NOTHING_WRITTEN,
+		next: "Wait for the running dispatch to finish, then start this one.",
+		retry: true,
+	},
+	// Module 8, completion reports. Agents meet these; the operator sees them
+	// relayed in a report or the activity.
+	report_dispatch_mismatch: {
+		what: "This report names a different run than the agent's own.",
+		written: NOTHING_WRITTEN,
+		next: "An agent can file a report only for its own run. Report it with the request reference.",
+		retry: false,
+	},
+	// details.issues lists each file outside the agent's writable paths.
+	writes_outside_mount: {
+		what: "The agent changed files outside the paths it may write.",
+		written: NOTHING_WRITTEN,
+		next: "Review the files listed. Give them to the agent that owns them, or widen this agent's writable paths.",
 		retry: false,
 	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;

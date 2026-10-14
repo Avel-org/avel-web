@@ -104,6 +104,14 @@ export const INVERSE = {
 	// does, and its versions are never changed or deleted.
 	"agent_template.updated": null,
 	"agent_template.identity_regenerated": null,
+	// A dispatch runs once and its report is filed once: a halted or failed
+	// run is followed by a new dispatch, never undone.
+	"dispatch.created": null,
+	"dispatch.started": null,
+	"dispatch.soft_ceiling_crossed": null,
+	"dispatch.halted": null,
+	"dispatch.closed": null,
+	"completion_report.filed": null,
 } as const satisfies Record<ActivityAction, Inverse | null>;
 
 /** Every entry is Applied while avel-server logs no refusals (ruling 36). */
