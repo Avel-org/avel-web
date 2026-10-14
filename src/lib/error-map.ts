@@ -574,6 +574,16 @@ export const PRECONDITION_COPY = {
 		next: "Wait for a running dispatch to finish, or try again in a moment. If it repeats, report it with the request reference.",
 		retry: true,
 	},
+	// avel-server step 7: the room's source can't be found, so retrying
+	// won't help. details.issues names the case by path: ["intake"] (not
+	// exactly one approved intake), ["source","template"] or ["source","repo"]
+	// (AVEL_SOURCES_DIR unset, the clone missing, or the commit not in it).
+	source_unavailable: {
+		what: "AVEL can't find the code this agent would work on.",
+		written: NOTHING_WRITTEN,
+		next: "Give the mission exactly one approved intake, set AVEL_SOURCES_DIR on avel-server, and clone the template or repository there at a state that has the mission's commit. Then start the dispatch again.",
+		retry: false,
+	},
 	// The source exists, but the agent's worktree couldn't be created.
 	// Worktree rooms have no capacity limit.
 	room_unavailable: {
