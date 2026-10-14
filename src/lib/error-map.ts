@@ -567,17 +567,19 @@ export const PRECONDITION_COPY = {
 		next: "Choose a model AVEL has a price for, or add its price to avel-server.",
 		retry: false,
 	},
+	// The harness can't take the run now, or failed to start it.
 	harness_unavailable: {
-		what: "The agent runner couldn't start this agent.",
+		what: "The agent runner can't take this agent right now.",
 		written: NOTHING_WRITTEN,
-		next: "Try again in a moment. If it repeats, report it with the request reference.",
+		next: "Wait for a running dispatch to finish, or try again in a moment. If it repeats, report it with the request reference.",
 		retry: true,
 	},
-	// No room was free (one at a time by default), or the room didn't start.
+	// The source exists, but the agent's worktree couldn't be created.
+	// Worktree rooms have no capacity limit.
 	room_unavailable: {
-		what: "There's no room free to run this agent.",
+		what: "AVEL couldn't set up this agent's room.",
 		written: NOTHING_WRITTEN,
-		next: "Wait for the running dispatch to finish, then start this one.",
+		next: "Try again in a moment. If it repeats, report it with the request reference.",
 		retry: true,
 	},
 	// Module 8, completion reports. Agents meet these; the operator sees them
