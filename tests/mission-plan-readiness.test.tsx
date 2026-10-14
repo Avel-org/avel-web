@@ -46,6 +46,31 @@ describe("each requirement's segment, resolved by path through the saved brief",
 		expect(states(p)).toEqual(["R1:hatched", "R2:empty"]);
 	});
 
+	it("is hatched for rule 5: no check, or an issue on a check that cites it", () => {
+		const unchecked = withIssues([
+			{
+				path: ["brief", "requirements", 0, "checks"],
+				message: "R1 has no check outside the agent",
+			},
+		]);
+		expect(states(unchecked)).toEqual(["R1:hatched", "R2:empty"]);
+		const duplicate = withIssues(
+			[
+				{
+					path: ["brief", "checks", 0, "id"],
+					message: "Check id CK1 is used more than once",
+				},
+			],
+			{
+				checks: [
+					{ id: "CK1", requirementId: "R1", kind: "file_exists", path: "a" },
+				],
+			},
+		);
+		expect(states(duplicate)).toEqual(["R1:hatched", "R2:empty"]);
+		expect(readinessOf(duplicate)?.planWide).toEqual([]);
+	});
+
 	it("is hatched for an issue on a module that lists it, and the module keeps it", () => {
 		const p = withIssues([
 			{

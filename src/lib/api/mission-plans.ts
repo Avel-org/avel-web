@@ -349,6 +349,11 @@ export function readinessOf(plan: MissionPlan): Readiness | null {
 		} else if (head === "acceptanceCriteria" && typeof index === "number") {
 			const cited = acceptanceCriteria[index]?.requirementId;
 			touched = cited === undefined ? [] : positionsOf(cited);
+		} else if (head === "checks" && typeof index === "number") {
+			// A check's issue is its requirement's; one citing no requirement
+			// reaches none and stays plan-wide.
+			const cited = brief.checks[index]?.requirementId;
+			touched = cited === undefined ? [] : positionsOf(cited);
 		} else if (head === "modules" && typeof index === "number") {
 			const listed = modules[index];
 			touched = listed
