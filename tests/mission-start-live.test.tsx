@@ -240,8 +240,13 @@ describe("the mission page header", () => {
 	it("reads readiness for a draft only, and the roster for Start or New dispatch", async () => {
 		/** Whether each read is switched on, as the page's queries left them. */
 		const reads = async (status: MissionDetail["status"]) => {
+			// No agents counted, so the Team panel (which reads the roster
+			// whenever there is one) stays out of what this test measures.
 			const client = seeded((c) => {
-				c.setQueryData(missionKeys.detail(ID).slice(), detail({ status }));
+				c.setQueryData(
+					missionKeys.detail(ID).slice(),
+					detail({ status, roster: { agents: 0, active: 0 } }),
+				);
 			});
 			await renderMission(client);
 			const enabled = (key: readonly unknown[]) =>

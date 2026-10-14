@@ -8,6 +8,8 @@ import {
 	EXPORT_STATUSES,
 	type MissionDetail,
 	missionDetail,
+	type RosterEntry,
+	rosterEntrySchema,
 } from "avel-server/contract";
 import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
@@ -25,9 +27,8 @@ import {
 	sampleExports,
 	sampleHaltReason,
 	sampleStages,
-	sampleTeam,
 } from "@/components/avel/mission-placeholders";
-import { ApiError, ApiOverrideProvider } from "@/lib/api";
+import { ApiError, ApiOverrideProvider, queryKeys } from "@/lib/api";
 import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
@@ -122,6 +123,45 @@ const withMission =
 	(mission: MissionDetail) =>
 	(client: QueryClient): void => {
 		client.setQueryData(missionKeys.detail(mission.id).slice(), mission);
+	};
+
+function rosterEntry(
+	n: number,
+	name: string,
+	extra: Partial<RosterEntry> = {},
+): RosterEntry {
+	return rosterEntrySchema.parse({
+		id: `0a1b2c3d-0000-4000-8000-00000000030${n}`,
+		missionId: ID,
+		agentTemplate: {
+			id: `0a1b2c3d-0000-4000-8000-00000000020${n}`,
+			slug: name.toLowerCase(),
+			name,
+			kind: "feature",
+			roles: [],
+		},
+		active: true,
+		waves: ["B"],
+		customizedMd: null,
+		writablePaths: null,
+		territory: null,
+		estimatedTokens: null,
+		tokenSoftCeiling: null,
+		tokenHardCeiling: null,
+		grain: "default",
+		absorbedBoundaries: [],
+		accessOverrides: null,
+		createdAt: "2026-10-05T09:00:00.000Z",
+		updatedAt: "2026-10-05T09:00:00.000Z",
+		...extra,
+	});
+}
+
+const withRoster =
+	(mission: MissionDetail, entries: RosterEntry[]) =>
+	(client: QueryClient): void => {
+		withMission(mission)(client);
+		client.setQueryData(queryKeys.roster.list(mission.id), entries);
 	};
 
 /** One element by test id, from its opening tag to its matching close. */
@@ -254,6 +294,45 @@ describe("the page from the contract", () => {
 		);
 	});
 
+	it("lists the team from the roster, active first, by name and never by id", async () => {
+		const html = await render(
+			`/missions/${ID}`,
+			withRoster(detail({ roster: { agents: 2, active: 1 } }), [
+				rosterEntry(1, "Iyo", { active: false, waves: ["C"] }),
+				rosterEntry(2, "Leon", { territory: "Booking", waves: ["A", "B"] }),
+			]),
+		);
+		const team = element(html, "mission-team-entries");
+		const text = visibleText(team);
+		expect(text).toMatch(/Leon · Booking\s*A B\s*Active.*Iyo\s*C\s*Idle/s);
+		expect(text).not.toMatch(UUID_FRAGMENT);
+		expect(pills(team)).toBe(0);
+		expect(team).toContain('title="A · Setup, B · Build"');
+	});
+
+	it("reads the roster only when the mission counts an agent", async () => {
+		// Halted, so neither Start nor New dispatch reads it; no playbook, so
+		// no coherence check does.
+		let client: QueryClient | undefined;
+		const html = await render(`/missions/${ID}`, (c) => {
+			withMission(
+				detail({
+					status: "halted",
+					roster: { agents: 0, active: 0 },
+					playbook: null,
+				}),
+			)(c);
+			client = c;
+		});
+		expect(html).not.toContain('data-testid="mission-team-entries"');
+		// No entry, or one left switched off: nothing reads it.
+		const roster = client
+			?.getQueryCache()
+			.find({ queryKey: queryKeys.roster.list(ID), exact: true });
+		if (roster !== undefined)
+			expect((roster.options as { enabled?: unknown }).enabled).toBe(false);
+	});
+
 	it("counts the team from the roster, and the ceiling from the mission", async () => {
 		const html = await render(`/missions/${ID}`, withMission(detail()));
 		expect(
@@ -267,11 +346,7 @@ describe("the page from the contract", () => {
 });
 
 describe("sample data (ruling 29)", () => {
-	const SAMPLE_REGIONS = [
-		"mission-progress-early",
-		"mission-exports-earlier",
-		"mission-team-entries",
-	];
+	const SAMPLE_REGIONS = ["mission-progress-early", "mission-exports-earlier"];
 	const REAL_REGIONS = [
 		"mission-page-header",
 		"mission-progress-delivery",
@@ -281,6 +356,7 @@ describe("sample data (ruling 29)", () => {
 		"mission-section-playbook-page",
 		"mission-section-brief-page",
 		"mission-section-spend-page",
+		"mission-team-entries",
 	];
 
 	it("labels every sample region, once, and no real one", async () => {
@@ -317,11 +393,7 @@ describe("sample data (ruling 29)", () => {
 			...html.matchAll(/data-testid="sample-data" data-missing="([^"]+)"/g),
 		].map((m) => m[1]);
 		expect(new Set(missing)).toEqual(
-			new Set([
-				MISSING_ROUTE.stages,
-				MISSING_ROUTE.exports,
-				MISSING_ROUTE.team,
-			]),
+			new Set([MISSING_ROUTE.stages, MISSING_ROUTE.exports]),
 		);
 		expect(html).toContain(
 			`placeholder until avel-server has ${MISSING_ROUTE.exports}`,
@@ -330,19 +402,11 @@ describe("sample data (ruling 29)", () => {
 
 	it("gives one mission the same samples every time", () => {
 		expect(sampleExports(ID)).toEqual(sampleExports(ID));
-		expect(sampleTeam(ID, 4, 2)).toEqual(sampleTeam(ID, 4, 2));
 		expect(sampleHaltReason(ID)).toBe(sampleHaltReason(ID));
 		const other = "0a1b2c3d-0000-4000-8000-000000000002";
 		expect(JSON.stringify(sampleExports(other))).not.toBe(
 			JSON.stringify(sampleExports(ID)),
 		);
-	});
-
-	it("keeps samples inside the real counts", () => {
-		const team = sampleTeam(ID, 4, 2);
-		expect(team).toHaveLength(4);
-		expect(team.filter((t) => t.active)).toHaveLength(2);
-		expect(sampleTeam(ID, 0, 0)).toEqual([]);
 	});
 
 	it("puts every early stage behind a mission that has an export", () => {

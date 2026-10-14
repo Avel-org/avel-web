@@ -3,12 +3,15 @@ import type {
 	ExportStatus,
 	MissionDetail,
 	needsYouReason,
+	RosterEntry,
 } from "avel-server/contract";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import type { ReactNode } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiError } from "@/lib/api/errors";
+import { entryName, useRoster, waveTitle } from "@/lib/api/roster";
 import { cn } from "@/lib/utils";
 import { MissionSpendBar } from "./dispatch-budget";
 import { ClientName, MissionStatusPill } from "./mission-columns";
@@ -22,7 +25,6 @@ import {
 	sampleExports,
 	sampleHaltReason,
 	sampleStages,
-	sampleTeam,
 } from "./mission-placeholders";
 import { ORIGIN_LABEL } from "./mission-search";
 import { MissionStartLive } from "./mission-start";
@@ -584,33 +586,69 @@ function Team({ mission }: { mission: MissionDetail }) {
 				{agents === 1 ? "agent" : "agents"},{" "}
 				<span className="type-mono text-foreground">{active}</span> active
 			</p>
-			{agents > 0 ? (
-				<div
-					data-testid="mission-team-entries"
-					className="mt-3 flex flex-col gap-2 rounded-sm border border-dashed border-border p-2"
-				>
-					<SampleData missing={MISSING_ROUTE.team} />
-					<ul className="flex flex-col gap-1">
-						{sampleTeam(mission.id, agents, active).map((entry) => (
-							<li
-								key={entry.role}
-								className="flex items-center justify-between gap-2"
-							>
-								<span className="type-small text-foreground">{entry.role}</span>
-								<span className="flex items-center gap-2">
-									<span className="type-mono-small text-text-subtle">
-										{entry.agent}
-									</span>
-									<span className="type-caption text-text-muted">
-										{entry.active ? "Active" : "Idle"}
-									</span>
-								</span>
-							</li>
-						))}
-					</ul>
-				</div>
-			) : null}
+			{agents > 0 ? <TeamRoster missionId={mission.id} /> : null}
 		</SectionPanel>
+	);
+}
+
+/**
+ * The roster, read only once the mission counts an agent: mounted then, so
+ * an empty team starts no read. The loadout's own cache entry, so an edit
+ * there shows here at once.
+ */
+function TeamRoster({ missionId }: { missionId: string }) {
+	const roster = useRoster(missionId);
+	return (
+		<Surface
+			data-testid="mission-team-entries"
+			query={roster}
+			loading={
+				<div className="mt-3 flex flex-col gap-1.5">
+					<Skeleton className="h-5 w-full" />
+					<Skeleton className="h-5 w-2/3" />
+				</div>
+			}
+			empty={null}
+			error={ErrorState}
+		>
+			{(entries) => <TeamEntries entries={entries} />}
+		</Surface>
+	);
+}
+
+/** The roster's entries, active first: each agent by name, its waves, and whether it is on. */
+export function TeamEntries({ entries }: { entries: readonly RosterEntry[] }) {
+	const ordered = [...entries].sort(
+		(a, b) => Number(b.active) - Number(a.active),
+	);
+	return (
+		<ul className="mt-3 flex flex-col gap-1">
+			{ordered.map((entry) => (
+				<li
+					key={entry.id}
+					data-testid={`mission-team-entry-${entry.id}`}
+					data-active={entry.active}
+					className="flex min-w-0 items-center justify-between gap-2"
+				>
+					<span className="min-w-0 truncate type-small text-foreground">
+						{entryName(entry)}
+					</span>
+					<span className="flex shrink-0 items-center gap-2">
+						{entry.waves.length > 0 ? (
+							<span
+								className="type-mono-small text-text-subtle"
+								title={entry.waves.map(waveTitle).join(", ")}
+							>
+								{entry.waves.join(" ")}
+							</span>
+						) : null}
+						<span className="type-caption text-text-muted">
+							{entry.active ? "Active" : "Idle"}
+						</span>
+					</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 

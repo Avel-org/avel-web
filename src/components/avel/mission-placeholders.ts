@@ -14,7 +14,6 @@ import type { Gate } from "avel-server/contract";
 /** The route each kind of sample stands in for, named in its pill. */
 export const MISSING_ROUTE = {
 	exports: "exports.list",
-	team: "roster.list",
 	haltReason: "a halt reason on the mission",
 	stages: "per-stage mission progress",
 } as const;
@@ -105,34 +104,6 @@ export function sampleExports(id: string): SampleExport[] {
 			verdict: pick(next, ["pass", "pass", "pass", "warn", "block"] as const),
 			attested: next() < 0.25,
 		})),
-	}));
-}
-
-export type SampleTeamEntry = { role: string; agent: string; active: boolean };
-
-const ROLES = [
-	"Planner",
-	"Architect",
-	"Builder",
-	"Reviewer",
-	"Verifier",
-	"Integrator",
-] as const;
-
-/**
- * One entry per agent the real roster counts, up to six; as many of them
- * marked active as the real count says.
- */
-export function sampleTeam(
-	id: string,
-	agents: number,
-	active: number,
-): SampleTeamEntry[] {
-	const next = sequence(`${id}:team`);
-	return Array.from({ length: Math.min(agents, ROLES.length) }, (_, i) => ({
-		role: ROLES[i] as string,
-		agent: `agent-${String(Math.floor(next() * 900) + 100)}`,
-		active: i < active,
 	}));
 }
 
