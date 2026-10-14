@@ -145,6 +145,7 @@ const DETAIL: MissionDetail = missionDetail.parse({
 	...ITEM,
 	brief: {},
 	spendCeilingUsd: null,
+	spentUsd: 0,
 	cutRationale: null,
 	repoUrl: "https://github.com/example/app",
 	roster: { agents: 1, active: 1 },

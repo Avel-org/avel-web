@@ -10,16 +10,17 @@ import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
+import { MissionSpendBar } from "./dispatch-budget";
 import { ClientName, MissionStatusPill } from "./mission-columns";
 import { useMission } from "./mission-data";
 import { Brief, RecentActivity } from "./mission-details";
+import { MissionDispatches } from "./mission-dispatches";
 import { MissionRowsSkeleton } from "./mission-panels";
 import {
 	MISSING_ROUTE,
 	type SampleStageState,
 	sampleExports,
 	sampleHaltReason,
-	sampleSpend,
 	sampleStages,
 	sampleTeam,
 } from "./mission-placeholders";
@@ -259,6 +260,7 @@ function MissionContent({
 			<NowBanner mission={mission} now={now} />
 			<UnblockCard mission={mission} />
 			<ProgressTrack mission={mission} />
+			<MissionDispatches mission={mission} now={now} />
 			<div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 				<div className="flex min-w-0 flex-col gap-4">
 					<Exports mission={mission} now={now} />
@@ -613,50 +615,12 @@ function Team({ mission }: { mission: MissionDetail }) {
 }
 
 function Spend({ mission }: { mission: MissionDetail }) {
-	const ceiling = mission.spendCeilingUsd;
-	const spent = sampleSpend(mission.id, ceiling);
-	const share = ceiling ? Math.min(1, spent / ceiling) : null;
 	return (
 		<SectionPanel title="Spend" data-testid="mission-section-spend-page">
-			<dl className="flex flex-col gap-2">
-				<Field label="Ceiling">
-					{ceiling === null ? (
-						<span className="text-text-subtle">None set</span>
-					) : (
-						<span className="type-mono">{`$${ceiling.toFixed(2)}`}</span>
-					)}
-				</Field>
-			</dl>
-			<div
-				data-testid="mission-spend-meter"
-				className="mt-3 flex flex-col gap-2 rounded-sm border border-dashed border-border p-2"
-			>
-				<SampleData missing={MISSING_ROUTE.spend} />
-				<span className="type-small text-text-muted">
-					<span className="type-mono text-foreground">{`$${spent.toFixed(2)}`}</span>
-					{" spent"}
-				</span>
-				{share !== null ? (
-					<div className="h-1.5 overflow-hidden rounded-full bg-border">
-						{/* The native meter speaks; the bar beside it only shows. */}
-						<meter
-							className="sr-only"
-							aria-label="Sample spend against the ceiling"
-							min={0}
-							max={1}
-							value={share}
-						/>
-						<div
-							className={cn(
-								"h-full rounded-full",
-								share >= 0.9 ? "bg-gate-warn" : "bg-accent",
-							)}
-							aria-hidden="true"
-							style={{ width: `${share * 100}%` }}
-						/>
-					</div>
-				) : null}
-			</div>
+			<MissionSpendBar
+				spentUsd={mission.spentUsd}
+				spendCeilingUsd={mission.spendCeilingUsd}
+			/>
 		</SectionPanel>
 	);
 }

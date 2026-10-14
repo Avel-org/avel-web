@@ -108,6 +108,7 @@ const DETAIL: MissionDetail = missionDetail.parse({
 	...ACTIVE,
 	brief: { goal: "Ship the booking flow", pages: 4 },
 	spendCeilingUsd: null,
+	spentUsd: 0,
 	cutRationale: null,
 	repoUrl: "https://github.com/example/app",
 	roster: { agents: 5, active: 3 },

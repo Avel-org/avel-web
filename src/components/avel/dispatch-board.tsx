@@ -4,7 +4,7 @@ import {
 	type DispatchStatus,
 } from "avel-server/contract";
 import { ChevronDown } from "lucide-react";
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { whenLabel } from "./agent-activity";
@@ -81,13 +81,21 @@ export function laneOrder(dispatches: Dispatch[]): Dispatch[] {
 	);
 }
 
+/**
+ * What an opened closed card shows beneath its details: its completion
+ * report, rendered by the page that reads the reports.
+ */
+export type RenderReport = (dispatch: Dispatch) => ReactNode;
+
 export function DispatchBoard({
 	dispatches,
 	now = Date.now(),
+	renderReport,
 }: {
 	dispatches: Dispatch[];
 	/** For the minutes a running dispatch has run so far. */
 	now?: number;
+	renderReport?: RenderReport;
 }) {
 	const open = DISPATCH_LANES.filter(isOpenLane);
 	const closed = DISPATCH_LANES.filter((s) => !isOpenLane(s));
@@ -97,6 +105,7 @@ export function DispatchBoard({
 			status={status}
 			dispatches={laneOrder(dispatches.filter((d) => d.status === status))}
 			now={now}
+			renderReport={renderReport}
 		/>
 	);
 	return (
@@ -121,10 +130,12 @@ function Lane({
 	status,
 	dispatches,
 	now,
+	renderReport,
 }: {
 	status: DispatchStatus;
 	dispatches: Dispatch[];
 	now: number;
+	renderReport?: RenderReport;
 }) {
 	const headingId = useId();
 	return (
@@ -160,7 +171,11 @@ function Lane({
 				<ul className="stagger-in flex flex-col gap-2">
 					{dispatches.map((d) => (
 						<li key={d.id}>
-							<DispatchCard dispatch={d} now={now} />
+							<DispatchCard
+								dispatch={d}
+								now={now}
+								renderReport={renderReport}
+							/>
 						</li>
 					))}
 				</ul>
@@ -181,9 +196,11 @@ const TONE_TEXT: Record<StatusTone, string> = {
 export function DispatchCard({
 	dispatch,
 	now = Date.now(),
+	renderReport,
 }: {
 	dispatch: Dispatch;
 	now?: number;
+	renderReport?: RenderReport;
 }) {
 	const [open, setOpen] = useState(false);
 	const nameId = useId();
@@ -285,6 +302,15 @@ export function DispatchCard({
 								/>
 							</p>
 						)}
+						{/* Rendered only while open: it may read the report. */}
+						{open && dispatch.reportId !== null && renderReport ? (
+							<div
+								data-testid={`dispatch-card-report-${dispatch.id}`}
+								className="border-t border-border pt-2.5"
+							>
+								{renderReport(dispatch)}
+							</div>
+						) : null}
 					</div>
 				</div>
 			</div>

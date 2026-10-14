@@ -242,6 +242,21 @@ export const queryKeys = {
 		readiness: (missionId: string) =>
 			["missions", "detail", missionId, "readiness"] as const,
 	},
+	dispatches: {
+		/**
+		 * contract.dispatches.list, every page. Under the mission's detail key,
+		 * as readiness is, so a write that refreshes the mission refreshes it.
+		 */
+		list: (missionId: string) =>
+			["missions", "detail", missionId, "dispatches"] as const,
+		/** contract.dispatches.reports, every page. Under the detail key too. */
+		reports: (missionId: string) =>
+			["missions", "detail", missionId, "reports"] as const,
+		/** contract.dispatches.get: one dispatch by id. */
+		detail: (id: string) => ["dispatches", id] as const,
+		/** contract.dispatches.report: one report by id. Never changes once filed. */
+		report: (id: string) => ["completionReports", id] as const,
+	},
 	roster: {
 		/**
 		 * contract.roster.list: one mission's live roster, unpaginated. Under

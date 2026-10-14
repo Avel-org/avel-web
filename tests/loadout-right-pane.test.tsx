@@ -80,6 +80,7 @@ function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 		updatedAt: AT,
 		brief: {},
 		spendCeilingUsd: null,
+		spentUsd: 0,
 		cutRationale: null,
 		repoUrl: "https://github.com/example/app",
 		roster: { agents: 2, active: 1 },

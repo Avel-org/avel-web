@@ -48,6 +48,7 @@ function detail(extra: Partial<MissionDetail> = {}): MissionDetail {
 		updatedAt: ISO,
 		brief: {},
 		spendCeilingUsd: null,
+		spentUsd: 0,
 		cutRationale: null,
 		repoUrl: "https://github.com/example/app",
 		roster: { agents: 1, active: 1 },
@@ -236,7 +237,7 @@ describe("the mission page header", () => {
 		expect(h).not.toContain('data-testid="mission-start"');
 	});
 
-	it("reads the roster and readiness for a draft only", async () => {
+	it("reads readiness for a draft only, and the roster for Start or New dispatch", async () => {
 		/** Whether each read is switched on, as the page's queries left them. */
 		const reads = async (status: MissionDetail["status"]) => {
 			const client = seeded((c) => {
@@ -254,7 +255,10 @@ describe("the mission page header", () => {
 			};
 		};
 		expect(await reads("draft")).toEqual({ roster: true, readiness: true });
-		expect(await reads("active")).toEqual({ roster: false, readiness: false });
+		// Halted: no Start, and no New dispatch (which reads the roster for
+		// an active mission's form).
+		expect(await reads("halted")).toEqual({ roster: false, readiness: false });
+		expect((await reads("active")).readiness).toBe(false);
 	});
 });
 

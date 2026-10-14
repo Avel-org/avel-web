@@ -22,7 +22,6 @@ import {
 	MISSING_ROUTE,
 	sampleExports,
 	sampleHaltReason,
-	sampleSpend,
 	sampleStages,
 	sampleTeam,
 } from "@/components/avel/mission-placeholders";
@@ -60,6 +59,7 @@ function detail(extra: Partial<MissionDetail> = {}): MissionDetail {
 		updatedAt: "2026-10-05T00:00:00.000Z",
 		brief: { goal: "Ship the booking flow" },
 		spendCeilingUsd: 120,
+		spentUsd: 0,
 		cutRationale: null,
 		repoUrl: "https://github.com/example/app",
 		roster: { agents: 4, active: 2 },
@@ -241,6 +241,9 @@ describe("the page from the contract", () => {
 			element(html, "mission-section-team").replaceAll("<!-- -->", ""),
 		).toMatch(/>4<\/span> agents,.*>2<\/span> active/s);
 		expect(element(html, "mission-section-spend-page")).toContain("$120.00");
+		expect(element(html, "mission-section-spend-page")).toContain(
+			'data-testid="mission-spend-bar"',
+		);
 	});
 });
 
@@ -249,7 +252,6 @@ describe("sample data (ruling 29)", () => {
 		"mission-progress-early",
 		"mission-exports-earlier",
 		"mission-team-entries",
-		"mission-spend-meter",
 	];
 	const REAL_REGIONS = [
 		"mission-page-header",
@@ -259,6 +261,7 @@ describe("sample data (ruling 29)", () => {
 		"mission-section-repository",
 		"mission-section-playbook-page",
 		"mission-section-brief-page",
+		"mission-section-spend-page",
 	];
 
 	it("labels every sample region, once, and no real one", async () => {
@@ -299,7 +302,6 @@ describe("sample data (ruling 29)", () => {
 				MISSING_ROUTE.stages,
 				MISSING_ROUTE.exports,
 				MISSING_ROUTE.team,
-				MISSING_ROUTE.spend,
 			]),
 		);
 		expect(html).toContain(
@@ -310,24 +312,18 @@ describe("sample data (ruling 29)", () => {
 	it("gives one mission the same samples every time", () => {
 		expect(sampleExports(ID)).toEqual(sampleExports(ID));
 		expect(sampleTeam(ID, 4, 2)).toEqual(sampleTeam(ID, 4, 2));
-		expect(sampleSpend(ID, 120)).toBe(sampleSpend(ID, 120));
 		expect(sampleHaltReason(ID)).toBe(sampleHaltReason(ID));
 		const other = "0a1b2c3d-0000-4000-8000-000000000002";
-		expect(
-			JSON.stringify([sampleExports(other), sampleSpend(other, 120)]),
-		).not.toBe(JSON.stringify([sampleExports(ID), sampleSpend(ID, 120)]));
+		expect(JSON.stringify(sampleExports(other))).not.toBe(
+			JSON.stringify(sampleExports(ID)),
+		);
 	});
 
-	it("keeps samples inside the real counts and ceiling", () => {
+	it("keeps samples inside the real counts", () => {
 		const team = sampleTeam(ID, 4, 2);
 		expect(team).toHaveLength(4);
 		expect(team.filter((t) => t.active)).toHaveLength(2);
 		expect(sampleTeam(ID, 0, 0)).toEqual([]);
-		for (let n = 0; n < 50; n++) {
-			const spent = sampleSpend(`${ID}-${n}`, 120);
-			expect(spent).toBeGreaterThan(0);
-			expect(spent).toBeLessThan(120);
-		}
 	});
 
 	it("puts every early stage behind a mission that has an export", () => {

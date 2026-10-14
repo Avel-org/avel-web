@@ -16,7 +16,6 @@ export const MISSING_ROUTE = {
 	exports: "exports.list",
 	team: "roster.list",
 	haltReason: "a halt reason on the mission",
-	spend: "the cost log",
 	stages: "per-stage mission progress",
 } as const;
 
@@ -135,13 +134,6 @@ export function sampleTeam(
 		agent: `agent-${String(Math.floor(next() * 900) + 100)}`,
 		active: i < active,
 	}));
-}
-
-/** Spend so far, in USD: under the real ceiling when there is one. */
-export function sampleSpend(id: string, ceilingUsd: number | null): number {
-	const next = sequence(`${id}:spend`);
-	const scale = ceilingUsd ?? 200;
-	return Math.round(scale * (0.15 + next() * 0.8) * 100) / 100;
 }
 
 /**
