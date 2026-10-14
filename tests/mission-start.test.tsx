@@ -74,7 +74,8 @@ const BRIEF: Brief = {
 		{ id: "R2", text: "two" },
 	],
 	acceptanceCriteria: [],
-	modules: [{ id: "M1", name: "Booking", requirementIds: ["R1"] }],
+	modules: [{ id: "M1", name: "Booking", reads: [], requirementIds: ["R1"] }],
+	checks: [],
 };
 
 /** All six checks failing, in the server's order. */

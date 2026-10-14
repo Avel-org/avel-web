@@ -103,6 +103,8 @@ function dispatch(
 		agentVersionRef: queued ? null : "atlas@v3",
 		skillsSha256: queued ? null : SKILLS,
 		model: queued ? null : "claude-opus-5-5",
+		briefSha256: null,
+		harnessVersion: null,
 		reportId: closed
 			? `4e904e90-5eed-4000-8000-0000000000${String(n).padStart(2, "0")}`
 			: null,

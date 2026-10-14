@@ -44,6 +44,33 @@ describe("the plan as a draft", () => {
 		expect(body.brief.requirements.map((r) => r.id)).toEqual(["R1", "R2"]);
 		expect(updateMissionPlanBody.safeParse(body).success).toBe(true);
 	});
+
+	it("sends back every check and read path it loaded: an omitted list is stored as none", () => {
+		const p = plan();
+		const saved = p.brief && {
+			...p.brief,
+			modules: p.brief.modules.map((m) => ({
+				...m,
+				reads: ["src/booking/**"],
+			})),
+			checks: [
+				{
+					id: "CK1",
+					requirementId: "R1",
+					kind: "test" as const,
+					command: "pnpm test booking",
+				},
+			],
+		};
+		const d = planDraftOf({ ...p, brief: saved });
+		if (d === null) throw new Error("expected a draft");
+		const body = planBodyOf(d);
+		expect(body.brief.checks).toEqual(saved?.checks);
+		expect(body.brief.modules?.[0]?.reads).toEqual(["src/booking/**"]);
+		const first = d.brief.checks[0];
+		if (first) first.requirementId = "R2";
+		expect(saved?.checks[0]?.requirementId).toBe("R1");
+	});
 });
 
 describe("what an approved brief locks", () => {

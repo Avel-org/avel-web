@@ -25,6 +25,7 @@ export function approvedBrief(): Brief {
 			{ id: "AC1", requirementId: "R1", text: "A free slot can be booked." },
 		],
 		modules: [],
+		checks: [],
 	};
 }
 
@@ -46,7 +47,10 @@ export function plan(overrides: Partial<MissionPlan> = {}): MissionPlan {
 				...approved.acceptanceCriteria,
 				{ id: "AC2", requirementId: "R2", text: "Today's list shows them." },
 			],
-			modules: [{ id: "M1", name: "Booking", requirementIds: ["R1"] }],
+			modules: [
+				{ id: "M1", name: "Booking", reads: [], requirementIds: ["R1"] },
+			],
+			checks: [],
 		},
 		approvedBrief: approved,
 		templateRef: null,

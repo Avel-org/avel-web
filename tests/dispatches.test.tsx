@@ -113,6 +113,8 @@ function dispatchOf(over: Partial<Dispatch> & { id: string }): Dispatch {
 		agentVersionRef: null,
 		skillsSha256: null,
 		model: null,
+		briefSha256: null,
+		harnessVersion: null,
 		reportId: null,
 		startedAt: null,
 		closedAt: null,
@@ -236,7 +238,10 @@ const BRIEF: Brief = {
 		{ id: "R2", text: "Cancel a booking" },
 	],
 	acceptanceCriteria: [],
-	modules: [{ id: "M1", name: "Booking", requirementIds: ["R1", "R2"] }],
+	modules: [
+		{ id: "M1", name: "Booking", reads: [], requirementIds: ["R1", "R2"] },
+	],
+	checks: [],
 };
 
 function mission(over: Partial<MissionDetail> = {}): MissionDetail {

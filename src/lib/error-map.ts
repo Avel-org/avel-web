@@ -584,6 +584,15 @@ export const PRECONDITION_COPY = {
 		next: "Give the mission exactly one approved intake, set AVEL_SOURCES_DIR on avel-server, and clone the template or repository there at a state that has the mission's commit. Then start the dispatch again.",
 		retry: false,
 	},
+	// avel-server step 9b: dispatch create and start refuse a requirement in
+	// the briefRef with no Done-when check (missions started before the plan
+	// rule). details.issues names each requirement.
+	requirement_unchecked: {
+		what: "A requirement this agent would work on has no check that shows it's done.",
+		written: NOTHING_WRITTEN,
+		next: "Add a check for each requirement listed in the mission's plan, under How it's checked, then queue or start the dispatch again.",
+		retry: false,
+	},
 	// The source exists, but the agent's worktree couldn't be created.
 	// Worktree rooms have no capacity limit.
 	room_unavailable: {

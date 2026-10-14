@@ -168,6 +168,7 @@ const BRIEF = {
 	requirements: [],
 	acceptanceCriteria: [],
 	modules: [],
+	checks: [],
 };
 
 const ENTRY: RosterEntry = rosterEntrySchema.parse({

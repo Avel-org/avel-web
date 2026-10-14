@@ -69,8 +69,8 @@ describe("each requirement's segment, resolved by path through the saved brief",
 			],
 			{
 				modules: [
-					{ id: "M1", name: "A", requirementIds: ["R1"] },
-					{ id: "M2", name: "B", requirementIds: ["R1", "R2"] },
+					{ id: "M1", name: "A", reads: [], requirementIds: ["R1"] },
+					{ id: "M2", name: "B", reads: [], requirementIds: ["R1", "R2"] },
 				],
 			},
 		);
@@ -82,8 +82,8 @@ describe("each requirement's segment, resolved by path through the saved brief",
 		// whatever the check said.
 		const p = withIssues([], {
 			modules: [
-				{ id: "M1", name: "A", requirementIds: ["R1", "R2"] },
-				{ id: "M2", name: "B", requirementIds: ["R1"] },
+				{ id: "M1", name: "A", reads: [], requirementIds: ["R1", "R2"] },
+				{ id: "M2", name: "B", reads: [], requirementIds: ["R1"] },
 			],
 		});
 		expect(states(p)).toEqual(["R1:hatched", "R2:solid"]);
@@ -103,7 +103,7 @@ describe("each requirement's segment, resolved by path through the saved brief",
 					{ id: "R1", text: "b" },
 				],
 				acceptanceCriteria: [],
-				modules: [{ id: "M1", name: "A", requirementIds: ["R1"] }],
+				modules: [{ id: "M1", name: "A", reads: [], requirementIds: ["R1"] }],
 			},
 		);
 		expect(states(p)).toEqual(["R1:solid", "R1:hatched"]);
@@ -144,7 +144,7 @@ describe("a module issue that reaches no requirement", () => {
 						message: "M1 lists R9, which is not a requirement",
 					},
 				],
-				{ modules: [{ id: "M1", name: "A", requirementIds }] },
+				{ modules: [{ id: "M1", name: "A", reads: [], requirementIds }] },
 			);
 			const readiness = readinessOf(p);
 			expect(readiness?.planWide).toEqual([

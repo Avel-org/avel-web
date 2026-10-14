@@ -89,8 +89,13 @@ export function useSaveMissionPlan(missionId: string) {
 // Pure functions below: no React, no network, so they are tested directly.
 
 /** A brief as the editor holds it: a request literal, with modules always present. */
+/**
+ * A brief being edited: modules and checks always present, so a save sends
+ * back every check it loaded (an omitted list would be stored as none).
+ */
 export type BriefDraft = BriefInput & {
 	modules: NonNullable<BriefInput["modules"]>;
+	checks: NonNullable<BriefInput["checks"]>;
 };
 
 export type PlanDraft = {
@@ -108,7 +113,8 @@ export type CheckIssue = MissionPlan["check"]["issues"][number];
  */
 export function planDraftOf(plan: MissionPlan): PlanDraft | null {
 	if (plan.brief === null) return null;
-	const { summary, requirements, acceptanceCriteria, modules } = plan.brief;
+	const { summary, requirements, acceptanceCriteria, modules, checks } =
+		plan.brief;
 	return {
 		brief: {
 			summary,
@@ -116,8 +122,10 @@ export function planDraftOf(plan: MissionPlan): PlanDraft | null {
 			acceptanceCriteria: acceptanceCriteria.map((ac) => ({ ...ac })),
 			modules: modules.map((m) => ({
 				...m,
+				reads: [...m.reads],
 				requirementIds: [...m.requirementIds],
 			})),
+			checks: checks.map((c) => ({ ...c })),
 		},
 		templateRef: plan.templateRef ?? "",
 		templateVersion: plan.templateVersion ?? "",

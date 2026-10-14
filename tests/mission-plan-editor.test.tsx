@@ -124,7 +124,14 @@ describe("modules", () => {
 			...p,
 			brief: p.brief && {
 				...p.brief,
-				modules: [{ id: "M1", name: "Booking", requirementIds: ["R1", "R9"] }],
+				modules: [
+					{
+						id: "M1",
+						name: "Booking",
+						reads: [],
+						requirementIds: ["R1", "R9"],
+					},
+				],
 			},
 		});
 		expect(html).toContain('data-testid="plan-module-M1-missing-R9"');

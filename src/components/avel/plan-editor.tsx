@@ -538,6 +538,8 @@ function Requirements({
 				...m,
 				requirementIds: m.requirementIds.filter((rid) => rid !== id),
 			})),
+			// A check names one requirement; it goes with it.
+			checks: b.checks.filter((c) => c.requirementId !== id),
 		}));
 	const setRequirement = (index: number, text: string) =>
 		onChange((b) => ({
@@ -779,6 +781,7 @@ function Modules({
 						b.modules.map((m) => m.id),
 					),
 					name: "",
+					reads: [],
 					requirementIds: [],
 				},
 			],
