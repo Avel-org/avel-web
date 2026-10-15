@@ -16,6 +16,7 @@ import {
 	isOpenLane,
 	laneOrder,
 } from "@/components/avel/dispatch-board";
+import { briefLineTones } from "@/components/avel/dispatch-brief";
 import {
 	DispatchBudget,
 	formatUsd,
@@ -232,6 +233,34 @@ describe("a dispatch card", () => {
 				),
 			),
 		).toBe("No brief");
+	});
+
+	it("offers the brief it started with, by hash, only once one is frozen", () => {
+		expect(card).not.toContain(`dispatch-card-brief-text-${running.id}`);
+		const started = dispatch("running", { briefSha256: SHA });
+		const html = tip(<DispatchCard dispatch={started} now={NOW} />);
+		const line = element(html, `dispatch-card-brief-text-${started.id}`);
+		expect(text(line)).toContain(SHA.slice(0, 7));
+		expect(text(line)).toContain("Read brief");
+	});
+
+	it("tones the brief's headings, never a heading inside the client's source", () => {
+		const md = [
+			"# M1: Booking",
+			"## Read",
+			"```md",
+			"# Client title",
+			"```",
+			"text",
+		].join("\n");
+		expect(briefLineTones(md)).toEqual([
+			"heading",
+			"heading",
+			"key",
+			undefined,
+			"key",
+			undefined,
+		]);
 	});
 
 	it("shows the identity ref with its short hash, and the model", () => {

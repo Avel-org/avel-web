@@ -4,7 +4,7 @@ import {
 	type IdentityVersionSummary,
 	ROLE_RUNNER,
 } from "avel-server/contract";
-import { GitCompare, RefreshCw } from "lucide-react";
+import { GitCompare, RefreshCw, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -159,14 +159,19 @@ export function inputChanges(
 // Regenerate.
 
 /**
- * Regenerate on the Identity panel's header: a Confirm with what it does.
- * The operator's template holds a person's role, so the button says why it
- * is held instead of opening.
+ * Generate on the Identity panel's header: a Confirm with what it does.
+ * It reads Generate until a first version exists, then Regenerate, and is
+ * the primary button while there is something to write (none yet, or out of
+ * date). The operator's template holds a person's role, so the button says
+ * why it is held instead of opening.
  */
 export function RegenerateIdentity({ agent }: { agent: AgentTemplate }) {
 	const [open, setOpen] = useState(false);
 	const regenerate = useRegenerateIdentity();
 	const person = isPerson(agent);
+	const first = agent.identityVersion === null;
+	const verb = first ? "Generate" : "Regenerate";
+	const due = !person && (first || agent.identityStale);
 	const changes: Change[] =
 		agent.identityVersion === null
 			? [
@@ -199,26 +204,31 @@ export function RegenerateIdentity({ agent }: { agent: AgentTemplate }) {
 		<>
 			<Button
 				size="sm"
-				variant="outline"
+				variant={due ? "default" : "outline"}
 				data-testid="agent-identity-regenerate"
+				data-due={due || undefined}
 				disabledReason={person ? PERSON_REASON : undefined}
 				onClick={() => {
 					regenerate.reset();
 					setOpen(true);
 				}}
 			>
-				<RefreshCw aria-hidden="true" />
-				Regenerate
+				{first ? (
+					<Sparkles aria-hidden="true" />
+				) : (
+					<RefreshCw aria-hidden="true" />
+				)}
+				{first ? "Generate identity" : "Regenerate"}
 			</Button>
 			<ActionModal
 				open={open}
 				onOpenChange={setOpen}
 				size="confirm"
-				title={`Regenerate ${agent.name}'s identity`}
+				title={`${verb} ${agent.name}'s identity`}
 				description="The identity generator writes it again from the agent's roles, skills and settings. A new version is kept only when the text differs; no version is ever changed or deleted."
 				dirty={false}
-				submitLabel="Regenerate"
-				pendingLabel="Regenerating"
+				submitLabel={verb}
+				pendingLabel={first ? "Generating" : "Regenerating"}
 				onSubmit={submit}
 				pending={regenerate.isPending}
 				error={regenerate.error}

@@ -51,7 +51,9 @@ export function missionSearchParams(
  * alone for an internal mission, then its sprint. A mission has no name in
  * the contract, so this is the line the Missions page leads with too.
  */
-export function missionLabel(mission: MissionListItem): string {
+export function missionLabel(
+	mission: Pick<MissionListItem, "client" | "type" | "sprintN">,
+): string {
 	const what = mission.client
 		? `${mission.client.name}, ${mission.type}`
 		: mission.type;

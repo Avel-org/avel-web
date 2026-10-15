@@ -1,6 +1,8 @@
 import {
+	infiniteQueryOptions,
 	type QueryClient,
 	queryOptions,
+	useInfiniteQuery,
 	useMutation,
 	useQuery,
 	useQueryClient,
@@ -10,6 +12,7 @@ import {
 	type CreateDispatchBody,
 	contract,
 	type Dispatch,
+	type DispatchStatus,
 	MAX_PAGE_SIZE,
 } from "avel-server/contract";
 import { missionKeys } from "@/components/avel/mission-data";
@@ -141,6 +144,69 @@ export function useCompletionReport(id: string) {
 	return useQuery(completionReportQuery(useApiClient(), id));
 }
 
+export function dispatchBriefQuery(api: ApiClient, id: string) {
+	return queryOptions({
+		queryKey: queryKeys.dispatches.brief(id),
+		queryFn: () =>
+			call(contract.dispatches.brief, () =>
+				api.dispatches.brief({ params: { id } }),
+			),
+		// Read only once a dispatch has started, when its brief is frozen.
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+}
+
+/** The brief a dispatch started with: its text and hash (step 9). */
+export function useDispatchBrief(id: string) {
+	return useQuery(dispatchBriefQuery(useApiClient(), id));
+}
+
+// ---------------------------------------------------------------------------
+// One agent template's dispatches, across missions.
+
+/** How many of a template's dispatches a page holds. */
+export const TEMPLATE_DISPATCH_PAGE_SIZE = 50;
+
+/**
+ * A template's dispatches, newest first, a page at a time, each with its
+ * mission and report summary. meta.totals counts what the status filter
+ * keeps on every page, whatever the cursor. While a loaded dispatch
+ * waits or runs, the list reads again.
+ */
+export function templateDispatchesQuery(
+	api: ApiClient,
+	templateId: string,
+	status: DispatchStatus | null = null,
+) {
+	return infiniteQueryOptions({
+		queryKey: queryKeys.dispatches.byTemplate(templateId, status),
+		queryFn: ({ pageParam }) =>
+			callPage(contract.agentTemplates.dispatches, () =>
+				api.agentTemplates.dispatches({
+					params: { id: templateId },
+					query: {
+						limit: TEMPLATE_DISPATCH_PAGE_SIZE,
+						...(status ? { status } : {}),
+						...(pageParam ? { cursor: pageParam } : {}),
+					},
+				}),
+			),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: (last) => last.meta.nextCursor ?? undefined,
+		refetchInterval: (query) =>
+			pollWhile(inMotion(query.state.data?.pages.flatMap((p) => p.data))),
+	});
+}
+
+export function useTemplateDispatches(
+	templateId: string,
+	status: DispatchStatus | null = null,
+) {
+	return useInfiniteQuery(
+		templateDispatchesQuery(useApiClient(), templateId, status),
+	);
+}
+
 // ---------------------------------------------------------------------------
 // Queueing a dispatch.
 
@@ -207,6 +273,9 @@ export function afterDispatchCreated(
 ) {
 	return Promise.all([
 		queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) }),
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.dispatches.byTemplateAll(),
+		}),
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 	]);
 }
@@ -241,8 +310,8 @@ export function haltDispatchRequest(api: ApiClient, id: string) {
 /**
  * A started or halted dispatch changes lanes, moves the mission's spend,
  * files a report (a halt) and logs an activity row: the mission's detail
- * (its dispatches and reports under it), the one dispatch and the log read
- * again.
+ * (its dispatches and reports under it), the one dispatch, its agent's
+ * list across missions and the log read again.
  */
 export function afterDispatchMoved(
 	queryClient: QueryClient,
@@ -253,6 +322,9 @@ export function afterDispatchMoved(
 		queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) }),
 		queryClient.invalidateQueries({
 			queryKey: queryKeys.dispatches.detail(id),
+		}),
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.dispatches.byTemplateAll(),
 		}),
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 	]);

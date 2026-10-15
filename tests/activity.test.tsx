@@ -296,9 +296,9 @@ describe("who acted", () => {
 			[agent, "Atlas · scheduling"],
 			[system, "AVEL runner"],
 		] as const) {
-			expect(html).toMatch(
-				new RegExp(`data-testid="activity-actor-${row.id}"[^>]*>${display}<`),
-			);
+			const at = html.indexOf(`data-testid="activity-actor-${row.id}"`);
+			const cell = html.slice(at, html.indexOf("</span>", at + 1) + 7);
+			expect(visibleText(cell).trim()).toBe(display);
 			expect(tagOf(html, `activity-actor-${row.id}`)).toContain(
 				`data-actor-kind="${row.actor.kind}"`,
 			);
@@ -308,6 +308,17 @@ describe("who acted", () => {
 			/data-testid="activity-actor-[^"]*"[^>]*>Operator</,
 		);
 		expect(html).not.toMatch(/data-testid="activity-actor-[^"]*"[^>]*>Agent</);
+		// An agent is its name, linked to its catalog page; the territory
+		// sits beside it, outside the link. No one else links.
+		const link = tagOf(html, `activity-actor-agent-${agent.id}`);
+		expect(link).toContain('href="/catalog/agents/atlas"');
+		expect(html).toMatch(
+			new RegExp(
+				`data-testid="activity-actor-agent-${agent.id}"[^>]*>Atlas</a>`,
+			),
+		);
+		expect(html).not.toContain(`activity-actor-agent-${operator.id}`);
+		expect(html).not.toContain(`activity-actor-agent-${system.id}`);
 		// Not as a name, not anywhere.
 		expect(html).not.toContain(ID(901));
 		expect(html).not.toContain(ID(902));

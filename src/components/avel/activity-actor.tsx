@@ -1,9 +1,11 @@
 import type { ActivityEntry } from "avel-server/contract";
+import { ActorLabel } from "./agent-actor";
 
 /**
- * The "who" of one entry: the server's display label for the actor (an
- * operator's GitHub login, "System", or an agent as "Name · territory").
- * Never an id. The kind rides along as data-actor-kind, for styling.
+ * The "who" of one entry: an agent by name, linked to its catalog page,
+ * with its territory beside it; an operator by GitHub login; the system
+ * as "AVEL runner", the server's display. Never an id. The kind rides
+ * along as data-actor-kind, for styling.
  */
 export function ActivityActor({
 	entry,
@@ -16,7 +18,10 @@ export function ActivityActor({
 			data-actor-kind={entry.actor.kind}
 			className="type-small text-text-muted"
 		>
-			{entry.actor.display}
+			<ActorLabel
+				actor={entry.actor}
+				data-testid={`activity-actor-agent-${entry.id}`}
+			/>
 		</span>
 	);
 }

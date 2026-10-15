@@ -409,8 +409,8 @@ export function IdentityTab({ agent }: { agent: AgentTemplate }) {
 				data-testid="catalog-agent-identity-none"
 				className="type-small text-text-muted"
 			>
-				This agent's identity hasn't been generated yet. It's written from its
-				roles when the operator regenerates it.
+				This agent's identity hasn't been generated yet. Generate identity,
+				above, writes it from its roles.
 			</p>
 		);
 	return <IdentityRead agent={agent} number={agent.identityVersion} />;

@@ -47,6 +47,7 @@ import {
 	AgentTitleEdit,
 } from "./agent-edit";
 import { IdentityVersions, RegenerateIdentity } from "./agent-identity";
+import { AgentPerformance } from "./agent-performance";
 import {
 	IdentityTab,
 	ManifestTab,
@@ -365,13 +366,18 @@ function AgentPage({
 			</TabsContent>
 			<TabsContent value="performance">
 				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-					<SectionPanel
-						title="Performance"
-						description="How this version has done on client work, compared with the version before it."
-						data-testid="agent-performance-panel"
-					>
-						<PerformanceBody agent={agent} />
-					</SectionPanel>
+					<div className="flex min-w-0 flex-col gap-6">
+						{/* Live: every run from the dispatches route. The measures
+						    below wait for the gate, so they stay labelled samples. */}
+						<AgentPerformance agent={agent} />
+						<SectionPanel
+							title="Quality measures"
+							description="How this version has done on client work, compared with the version before it."
+							data-testid="agent-performance-panel"
+						>
+							<PerformanceBody agent={agent} />
+						</SectionPanel>
+					</div>
 					<SectionPanel
 						title="Versions"
 						description="Every version of this agent's identity, newest first. Open one to read it, or choose two to compare."

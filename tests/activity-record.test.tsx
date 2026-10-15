@@ -24,6 +24,7 @@ import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "../src/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { tagOf } from "./render-page";
+import { visibleText } from "./visible-text";
 
 const ID = (n: number) =>
 	`00000000-0000-4000-8000-${String(7000 + n).padStart(12, "0")}`;
@@ -199,6 +200,9 @@ describe("the audit log", () => {
 		expect(tagOf(table, `activity-actor-${ADDED.id}`)).toContain(
 			'data-actor-kind="agent"',
 		);
+		expect(tagOf(table, `activity-actor-agent-${ADDED.id}`)).toContain(
+			'href="/catalog/agents/atlas"',
+		);
 	});
 
 	it("has no record until a row is selected", async () => {
@@ -220,7 +224,13 @@ describe("the audit log", () => {
 		expect(element(record, "activity-record-did")).toContain(
 			"Agent added to roster",
 		);
-		expect(element(record, "activity-record-did")).toContain("by Atlas.");
+		const did = element(record, "activity-record-did");
+		// Tags read as spaces, so the link leaves one before the full stop.
+		expect(visibleText(did)).toMatch(/, by Atlas ?./);
+		// The agent is a link to its catalog page, never an id.
+		expect(tagOf(did, `activity-record-actor-${ADDED.id}`)).toContain(
+			'href="/catalog/agents/atlas"',
+		);
 		const looked = element(record, "activity-record-looked");
 		expect(looked).toContain(">Agent template id<");
 		expect(looked).toContain(">A, B<");

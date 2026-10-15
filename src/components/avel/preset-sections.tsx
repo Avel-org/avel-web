@@ -25,6 +25,7 @@ import {
 	usePresetApplications,
 } from "@/lib/api/presets";
 import { cn } from "@/lib/utils";
+import { ActorLabel } from "./agent-actor";
 import { InlineExpand } from "./inline-expand";
 import { CoherenceView } from "./playbook-coherence";
 import { agentName, fieldText } from "./preset-compare";
@@ -407,7 +408,11 @@ function PresetHistory({ preset }: { preset: Preset }) {
 										) : null}
 									</span>
 									<span className="type-caption shrink-0 text-text-subtle">
-										{`${entry.actor.display} · ${isoDate(entry.at)}`}
+										<ActorLabel
+											actor={entry.actor}
+											data-testid={`preset-history-actor-${entry.id}`}
+										/>
+										{` · ${isoDate(entry.at)}`}
 									</span>
 								</li>
 							);
@@ -496,7 +501,11 @@ function UsedBy({ preset }: { preset: Preset }) {
 											</span>
 										</span>
 										<span className="type-caption text-text-subtle">
-											{`${app.actor.display} · ${isoDate(app.appliedAt)}`}
+											<ActorLabel
+												actor={app.actor}
+												data-testid={`preset-application-actor-${app.missionId}`}
+											/>
+											{` · ${isoDate(app.appliedAt)}`}
 										</span>
 									</li>
 								);

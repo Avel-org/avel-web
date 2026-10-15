@@ -91,6 +91,11 @@ const EXCEPTIONS: { file: string; marker: string; why: string }[] = [
 		why: "a list row",
 	},
 	{
+		file: "components/avel/agent-performance.tsx",
+		marker: "agent-performance-run-toggle-",
+		why: "a run row in the agent's Performance list",
+	},
+	{
 		file: "components/avel/catalog-agent-inspector.tsx",
 		marker: "catalog-agent-edge-row-",
 		why: "an edge row in the agent panel (ruling 34)",

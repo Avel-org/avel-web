@@ -5,7 +5,7 @@ import type {
 	AgentTemplate,
 	IdentityVersion,
 } from "avel-server/contract";
-import { KIND_LABELS } from "avel-server/contract";
+import { activityEntry, KIND_LABELS } from "avel-server/contract";
 import { Building2, FlaskConical, Hammer, Scale } from "lucide-react";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
@@ -31,6 +31,7 @@ import { AGENT_ACTIVITY_LIMIT } from "@/lib/api/activity";
 import { queryKeys } from "@/lib/api/keys";
 import { agent, inProviders, seededClient } from "./catalog-fixtures";
 import { tagOf } from "./render-page";
+import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 /*
  * The agent page's polish (ruling 46): one heading per panel, a stub said
@@ -428,6 +429,45 @@ describe("Recent activity", () => {
 		expect(render({ entries, activity: rows })).not.toContain(
 			"agent-activity-load-more",
 		);
+	});
+
+	it("12. names an agent that acted, linked to its catalog page", () => {
+		const base = logged(
+			"a0000000-5eed-4000-8000-000000000009",
+			"2026-10-12T11:00:00.000Z",
+			MISSION,
+			ENTRY,
+		);
+		const row = activityEntry.parse({
+			...base,
+			actorKind: "agent",
+			actorUserId: null,
+			actorRosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+			actor: {
+				kind: "agent",
+				userId: null,
+				rosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+				display: "Atlas · scheduling",
+				agent: {
+					templateId: "7ecead58-5eed-4000-8000-000000000991",
+					slug: "atlas",
+					name: "Atlas",
+					territory: "scheduling",
+				},
+			},
+		});
+		const html = render({ entries, activity: [row] });
+		expect(tagOf(html, `agent-activity-actor-${row.id}`)).toContain(
+			'href="/catalog/agents/atlas"',
+		);
+		expect(html).toMatch(
+			new RegExp(`data-testid="agent-activity-actor-${row.id}"[^>]*>Atlas</a>`),
+		);
+		const text = visibleText(
+			html.slice(html.indexOf(`data-testid="agent-activity-row-${row.id}"`)),
+		);
+		expect(text).toContain("Atlas · scheduling");
+		expect(text.slice(0, 120)).not.toMatch(UUID_FRAGMENT);
 	});
 
 	it("12. heads each group with a link to its mission", () => {

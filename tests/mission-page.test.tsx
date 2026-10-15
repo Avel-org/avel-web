@@ -261,6 +261,45 @@ describe("the page from the contract", () => {
 		expect(tagOf(html, "mission-activity-full-log")).toMatch(/disabled/);
 	});
 
+	it("names an agent in the recent activity, linked to its catalog page", async () => {
+		const html = await render(
+			`/missions/${ID}`,
+			withMission(
+				detail({
+					recentActivity: [
+						{
+							action: "completion_report.filed",
+							entityType: "completion_report",
+							at: "2026-10-06T07:00:00.000Z",
+							actor: {
+								kind: "agent",
+								userId: null,
+								rosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+								display: "Atlas · scheduling",
+								agent: {
+									templateId: "7ecead58-5eed-4000-8000-000000000991",
+									slug: "atlas",
+									name: "Atlas",
+									territory: "scheduling",
+								},
+							},
+						},
+					],
+				}),
+			),
+		);
+		const activity = element(html, "mission-section-activity-page");
+		expect(tagOf(activity, "mission-activity-actor-0")).toContain(
+			'href="/catalog/agents/atlas"',
+		);
+		expect(activity).toMatch(
+			/data-testid="mission-activity-actor-0"[^>]*>Atlas<\/a>/,
+		);
+		expect(visibleText(activity)).toContain("Report filed");
+		expect(visibleText(activity)).toContain("Atlas · scheduling");
+		expect(visibleText(activity)).not.toMatch(UUID_FRAGMENT);
+	});
+
 	it("keys activity entries that share a time and an action apart", () => {
 		// renderToString never checks keys, so read them off the element tree.
 		const queued = {

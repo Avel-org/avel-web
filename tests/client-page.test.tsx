@@ -1,4 +1,8 @@
-import type { Client } from "avel-server/contract";
+import {
+	activityActor,
+	activityEntry as activityEntrySchema,
+	type Client,
+} from "avel-server/contract";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api";
 import { clientPageSearch, Route } from "../src/routes/clients_.$id";
@@ -12,6 +16,20 @@ import {
 	renderClientsRoute,
 } from "./clients-fixtures";
 import { tagOf } from "./render-page";
+import { visibleText } from "./visible-text";
+
+const AGENT_ACTOR = activityActor.parse({
+	kind: "agent",
+	userId: null,
+	rosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+	display: "Atlas · scheduling",
+	agent: {
+		templateId: "7ecead58-5eed-4000-8000-000000000991",
+		slug: "atlas",
+		name: "Atlas",
+		territory: "scheduling",
+	},
+});
 
 /** The markup of one element by test id, to its first closing tag of that name. */
 const blockOf = (html: string, testId: string, tag = "section") => {
@@ -346,6 +364,28 @@ describe("the Activity tab", () => {
 		expect(tagOf(html, `client-activity-open-${older.id}`)).toContain(
 			`href="/activity?entry=${older.id}"`,
 		);
+	});
+
+	it("names an agent that acted, linked to its catalog page", async () => {
+		const row = activityEntry(4, "client", ONE.id, {
+			actorKind: "agent",
+			actorUserId: null,
+			actorRosterEntryId: AGENT_ACTOR.rosterEntryId,
+			actor: AGENT_ACTOR,
+		});
+		activityEntrySchema.parse(row);
+		const html = await open(ONE, "?tab=activity", {
+			clientActivity: { clientId: ONE.id, rows: [row] },
+		});
+		expect(tagOf(html, `client-activity-actor-${row.id}`)).toContain(
+			'href="/catalog/agents/atlas"',
+		);
+		expect(html).toMatch(
+			new RegExp(
+				`data-testid="${`client-activity-actor-${row.id}`}"[^>]*>Atlas</a>`,
+			),
+		);
+		expect(visibleText(html)).toContain("Atlas · scheduling");
 	});
 
 	it("offers Load more while the server has more, saying how many of the total", async () => {

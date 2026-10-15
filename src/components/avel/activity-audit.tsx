@@ -23,6 +23,7 @@ import {
 	payloadFacts,
 	resultOf,
 } from "./activity-record";
+import { ActorLabel } from "./agent-actor";
 import { CodeView } from "./code-view";
 import { SectionPanel } from "./section-panel";
 import { HiddenId, ShortHash } from "./short-hash";
@@ -115,7 +116,10 @@ export function AuditTable({
 										data-actor-kind={entry.actor.kind}
 										className="type-small text-text-muted"
 									>
-										{entry.actor.display}
+										<ActorLabel
+											actor={entry.actor}
+											data-testid={`activity-actor-agent-${entry.id}`}
+										/>
 									</span>
 								</span>
 							</TableCell>
@@ -235,7 +239,12 @@ function RecordBody({ entry }: { entry: ActivityEntry }) {
 							{name ? ` ${name}` : null}
 						</span>
 					)}
-					{`, by ${entry.actor.display}.`}
+					{", by "}
+					<ActorLabel
+						actor={entry.actor}
+						data-testid={`activity-record-actor-${entry.id}`}
+					/>
+					.
 				</p>
 				<p className="type-mono-small text-text-subtle">
 					<time dateTime={entry.at}>{entry.at}</time>

@@ -200,6 +200,28 @@ describe("the Regenerate button", () => {
 		expect(tagOf(held, "agent-identity-regenerate")).toMatch(/\sdisabled=""/);
 		expect(held).toContain(PERSON_REASON);
 	});
+
+	it("reads Generate identity, as the primary button, until a first version exists", () => {
+		expect(atlas.identityVersion).toBeNull();
+		const first = render(atlas);
+		const button = tagOf(first, "agent-identity-regenerate");
+		expect(button).toContain('data-due="true"');
+		expect(button).toContain('data-variant="default"');
+		expect(first).toContain("Generate identity</button>");
+		const current = render({
+			...atlas,
+			identityVersion: 1,
+			identityStale: false,
+		});
+		const again = tagOf(current, "agent-identity-regenerate");
+		expect(again).not.toContain("data-due");
+		expect(again).toContain('data-variant="outline"');
+		expect(current).toContain("Regenerate</button>");
+		const stale = render({ ...atlas, identityVersion: 1, identityStale: true });
+		expect(tagOf(stale, "agent-identity-regenerate")).toContain(
+			'data-due="true"',
+		);
+	});
 });
 
 describe("the live versions", () => {

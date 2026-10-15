@@ -6,10 +6,12 @@ import {
 	createRouter,
 	RouterProvider,
 } from "@tanstack/react-router";
-import type {
-	ActivityEntry,
-	Playbook,
-	PresetApplication,
+import {
+	type ActivityEntry,
+	activityActor,
+	activityEntry,
+	type Playbook,
+	type PresetApplication,
 } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
@@ -27,11 +29,11 @@ import { ApiProvider } from "@/lib/api";
 import { CATALOG_PAGE_SIZE } from "@/lib/api/catalog";
 import { queryKeys } from "@/lib/api/keys";
 import { PLAYBOOK_PAGE_SIZE } from "@/lib/api/playbooks";
-import { staleSince } from "@/lib/api/presets";
+import { PRESET_ACTIVITY_LIMIT, staleSince } from "@/lib/api/presets";
 import { fakeApi } from "./clients-fixtures";
 import { ID, preset, TEMPLATE, template } from "./presets-fixtures";
 import { tagOf } from "./render-page";
-import { visibleText } from "./visible-text";
+import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 const names: Names = {
 	status: "success",
@@ -62,6 +64,8 @@ async function render(
 	applications: PresetApplication[] = [],
 	/** A cursor for the catalog's next page: the catalog is not all loaded. */
 	templatesNext: string | null = null,
+	/** The preset's history rows, when the test reads them. */
+	history?: ActivityEntry[],
 ) {
 	const qc = new QueryClient({
 		defaultOptions: {
@@ -90,6 +94,11 @@ async function render(
 		],
 		pageParams: [undefined],
 	});
+	if (history)
+		qc.setQueryData(queryKeys.presets.activity(ID(1), PRESET_ACTIVITY_LIMIT), {
+			data: history,
+			meta: { nextCursor: null, total: history.length },
+		});
 	const root = createRootRoute({ component: () => <>{node}</> });
 	const router = createRouter({
 		routeTree: root.addChildren([
@@ -181,6 +190,19 @@ describe("a preset's coverage", () => {
 	});
 });
 
+const AGENT_ACTOR = activityActor.parse({
+	kind: "agent",
+	userId: null,
+	rosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+	display: "Atlas · scheduling",
+	agent: {
+		templateId: "7ecead58-5eed-4000-8000-000000000991",
+		slug: "atlas",
+		name: "Atlas",
+		territory: "scheduling",
+	},
+});
+
 describe("a preset's used-by", () => {
 	const app = (
 		n: number,
@@ -227,6 +249,70 @@ describe("a preset's used-by", () => {
 		expect(visibleText(html)).not.toContain(ID(103).slice(0, 8));
 		expect(html).not.toContain(`preset-application-link-${ID(103)}`);
 		expect(html).toContain("+4 −1");
+	});
+
+	it("names an agent that applied it, linked to its catalog page", async () => {
+		const html = await render(
+			<PresetSections preset={preset(1, { version: 3 })} names={names} />,
+			[],
+			[app(4, { actor: AGENT_ACTOR })],
+		);
+		expect(tagOf(html, `preset-application-actor-${ID(104)}`)).toContain(
+			'href="/catalog/agents/atlas"',
+		);
+		expect(html).toMatch(
+			new RegExp(
+				`data-testid="${`preset-application-actor-${ID(104)}`}"[^>]*>Atlas</a>`,
+			),
+		);
+		expect(visibleText(html)).toContain("Atlas · scheduling");
+		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
+	});
+
+	it("names an agent in the history, linked, and an operator by login", async () => {
+		const row = (n: number, actor: ActivityEntry["actor"]): ActivityEntry =>
+			activityEntry.parse({
+				id: ID(600 + n),
+				at: "2026-10-05T09:00:00.000Z",
+				actorKind: actor.kind,
+				actorUserId: actor.userId,
+				actorRosterEntryId: actor.rosterEntryId,
+				action: n === 1 ? "preset.created" : "preset.updated",
+				entityType: "roster_preset",
+				entityId: ID(1),
+				missionId: null,
+				engagementId: null,
+				requestId: "req",
+				payload: {},
+				actor,
+			});
+		const agentRow = row(2, AGENT_ACTOR);
+		const operatorRow = row(1, {
+			kind: "operator",
+			userId: ID(200),
+			rosterEntryId: null,
+			display: "javaris",
+			agent: null,
+		});
+		const html = await render(
+			<PresetSections preset={preset(1, { version: 3 })} names={names} />,
+			[],
+			[],
+			null,
+			[agentRow, operatorRow],
+		);
+		expect(tagOf(html, `preset-history-actor-${agentRow.id}`)).toContain(
+			'href="/catalog/agents/atlas"',
+		);
+		expect(html).toMatch(
+			new RegExp(
+				`data-testid="${`preset-history-actor-${agentRow.id}`}"[^>]*>Atlas</a>`,
+			),
+		);
+		expect(visibleText(html)).toContain("Atlas · scheduling");
+		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
+		expect(html).not.toContain(`preset-history-actor-${operatorRow.id}`);
+		expect(visibleText(html)).toContain("javaris · 2026-10-05");
 	});
 
 	it("says when no mission has applied it", async () => {

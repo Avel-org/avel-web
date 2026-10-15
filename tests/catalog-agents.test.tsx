@@ -968,7 +968,7 @@ describe("an agent page's tabs", () => {
 		expect(atlas.identityVersion).toBeNull();
 		const html = tip(<IdentityTab agent={atlas} />);
 		expect(element(html, "catalog-agent-identity-none")).toContain(
-			"This agent&#x27;s identity hasn&#x27;t been generated yet. It&#x27;s written from its roles when the operator regenerates it.",
+			"This agent&#x27;s identity hasn&#x27;t been generated yet. Generate identity, above, writes it from its roles.",
 		);
 		expect(html).not.toContain("catalog-agent-identity-skeleton");
 	});

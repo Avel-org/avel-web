@@ -11,6 +11,7 @@ import { useTemplateRosterEntries } from "@/lib/api/access";
 import { useEntriesActivity } from "@/lib/api/activity";
 import { ACTION_COPY } from "./activity-copy";
 import { entryLabel } from "./agent-access";
+import { ActorLabel } from "./agent-actor";
 import { EmptyState } from "./empty-state";
 import { SectionPanel } from "./section-panel";
 import { ErrorState } from "./surface";
@@ -193,7 +194,13 @@ function ActivityRows({ rows }: { rows: readonly ActivityEntry[] }) {
 					</time>
 					<span className="min-w-0 type-small text-foreground">
 						{ACTION_COPY[entry.action]}
-						<span className="text-text-subtle">{` by ${entry.actor.display}`}</span>
+						<span className="text-text-subtle">
+							{" by "}
+							<ActorLabel
+								actor={entry.actor}
+								data-testid={`agent-activity-actor-${entry.id}`}
+							/>
+						</span>
 					</span>
 					<Link
 						to="/activity"

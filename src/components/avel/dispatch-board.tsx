@@ -8,6 +8,7 @@ import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { whenLabel } from "./agent-activity";
+import { DispatchBriefLine } from "./dispatch-brief";
 import { DispatchBudget, DispatchTokenSplit } from "./dispatch-budget";
 import { DISPATCH_STATUS_LABEL } from "./dispatch-labels";
 import { ShortHash } from "./short-hash";
@@ -314,6 +315,7 @@ export function DispatchCard({
 								/>
 							</p>
 						)}
+						<DispatchBriefLine dispatch={dispatch} agentName={agent.name} />
 						{/* Rendered only while open: it may read the report. */}
 						{open && dispatch.reportId !== null && renderReport ? (
 							<div

@@ -460,7 +460,7 @@ export function presetDiff(
 }
 
 /** The last few changes to a preset: its detail's Activity tab, one page. */
-const PRESET_ACTIVITY_LIMIT = 20;
+export const PRESET_ACTIVITY_LIMIT = 20;
 
 /**
  * contract.activity.list for one preset: preset.created and preset.updated

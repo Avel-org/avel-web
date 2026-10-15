@@ -25,6 +25,7 @@ import { relativeTime } from "@/lib/api/clients";
 import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 import { actionLabel } from "./activity-copy";
+import { ActorLabel } from "./agent-actor";
 import { ClientName, MissionStatusPill } from "./mission-columns";
 import { NEEDS_YOU_COPY, useMission } from "./mission-data";
 import { exportStatusTone, StatusGlyph, StatusPill } from "./status-pill";
@@ -659,7 +660,11 @@ export function RecentActivity({
 							{actionLabel(entry.action)}
 						</span>
 						<span className="type-caption text-text-subtle">
-							{entry.actor.display ?? ACTOR_KIND[entry.actor.kind]}
+							<ActorLabel
+								actor={entry.actor}
+								fallback={ACTOR_KIND[entry.actor.kind]}
+								data-testid={`mission-activity-actor-${i}`}
+							/>
 						</span>
 					</span>
 					<time

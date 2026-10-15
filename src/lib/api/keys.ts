@@ -1,3 +1,4 @@
+import type { DispatchStatus } from "avel-server/contract";
 /**
  * Every query key, defined once (BUILDING-AVEL-WEB.md, Data). Screens and
  * invalidations import these and never write a key inline, so an
@@ -256,6 +257,16 @@ export const queryKeys = {
 		detail: (id: string) => ["dispatches", id] as const,
 		/** contract.dispatches.report: one report by id. Never changes once filed. */
 		report: (id: string) => ["completionReports", id] as const,
+		/** contract.dispatches.brief: frozen at start, so it never changes. */
+		brief: (id: string) => ["dispatchBriefs", id] as const,
+		/**
+		 * contract.agentTemplates.dispatches: one template's dispatches across
+		 * missions, paged, with an optional status filter.
+		 */
+		byTemplate: (templateId: string, status: DispatchStatus | null) =>
+			["dispatchesByTemplate", templateId, { status }] as const,
+		/** Every template's list: a dispatch write reaches whichever is open. */
+		byTemplateAll: () => ["dispatchesByTemplate"] as const,
 	},
 	roster: {
 		/**

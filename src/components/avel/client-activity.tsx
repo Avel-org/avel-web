@@ -8,6 +8,7 @@ import { useClientEngagements, useClientMissions } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
 import { ACTION_COPY } from "./activity-copy";
 import { whenLabel } from "./agent-activity";
+import { ActorLabel } from "./agent-actor";
 import { EmptyState } from "./empty-state";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, Surface } from "./surface";
@@ -160,7 +161,13 @@ function Timeline({
 						>
 							{subjectOf(entry, names)}
 						</span>
-						<span className="text-text-subtle">{` by ${entry.actor.display}`}</span>
+						<span className="text-text-subtle">
+							{" by "}
+							<ActorLabel
+								actor={entry.actor}
+								data-testid={`client-activity-actor-${entry.id}`}
+							/>
+						</span>
 					</span>
 					<Link
 						to="/activity"
