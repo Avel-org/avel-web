@@ -108,6 +108,7 @@ const logged = (
 	actorKind: "operator",
 	actorUserId: "22222222-5eed-4000-8000-000000000001",
 	actorRosterEntryId: null,
+	actorCanonSessionId: null,
 	action: "roster.entry_updated",
 	entityType: "roster_entry",
 	entityId,
@@ -119,6 +120,7 @@ const logged = (
 		kind: "operator",
 		userId: "00000000-0000-4000-8000-000000000900",
 		rosterEntryId: null,
+		canonSessionId: null,
 		display: "javaris",
 		agent: null,
 	},
@@ -443,10 +445,12 @@ describe("Recent activity", () => {
 			actorKind: "agent",
 			actorUserId: null,
 			actorRosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+			actorCanonSessionId: null,
 			actor: {
 				kind: "agent",
 				userId: null,
 				rosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+				canonSessionId: null,
 				display: "Atlas · scheduling",
 				agent: {
 					templateId: "7ecead58-5eed-4000-8000-000000000991",

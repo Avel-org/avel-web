@@ -60,6 +60,14 @@ export function attachSkillOptions(
 	missionId: string,
 ) {
 	const key = queryKeys.missionSkills.list(missionId);
+	// A 409 or 404 means someone else changed the list, so access changed too.
+	const rereadSkillsAndAccess = () =>
+		Promise.all([
+			queryClient.invalidateQueries({ queryKey: key }),
+			queryClient.invalidateQueries({
+				queryKey: queryKeys.roster.accessAll(missionId),
+			}),
+		]);
 	return {
 		mutationFn: (skillId: string) =>
 			call(contract.roster.attachSkill, () =>
@@ -70,13 +78,12 @@ export function attachSkillOptions(
 				list ? [...list, attached] : list,
 			);
 			return Promise.all([
-				queryClient.invalidateQueries({ queryKey: key }),
+				rereadSkillsAndAccess(),
 				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 			]);
 		},
 		onError: (error: ApiError) => {
-			if (isAlreadyAttached(error))
-				return queryClient.invalidateQueries({ queryKey: key });
+			if (isAlreadyAttached(error)) return rereadSkillsAndAccess();
 		},
 	};
 }
@@ -97,6 +104,14 @@ export function detachSkillOptions(
 	missionId: string,
 ) {
 	const key = queryKeys.missionSkills.list(missionId);
+	// A 409 or 404 means someone else changed the list, so access changed too.
+	const rereadSkillsAndAccess = () =>
+		Promise.all([
+			queryClient.invalidateQueries({ queryKey: key }),
+			queryClient.invalidateQueries({
+				queryKey: queryKeys.roster.accessAll(missionId),
+			}),
+		]);
 	return {
 		mutationFn: (skillId: string) =>
 			call(contract.roster.detachSkill, () =>
@@ -107,13 +122,12 @@ export function detachSkillOptions(
 				list?.filter((s) => s.skill.id !== skillId),
 			);
 			return Promise.all([
-				queryClient.invalidateQueries({ queryKey: key }),
+				rereadSkillsAndAccess(),
 				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 			]);
 		},
 		onError: (error: ApiError) => {
-			if (isCode(error, "NOT_FOUND"))
-				return queryClient.invalidateQueries({ queryKey: key });
+			if (isCode(error, "NOT_FOUND")) return rereadSkillsAndAccess();
 		},
 	};
 }

@@ -19,20 +19,11 @@ import {
 	type ApiError,
 	call,
 	callPage,
+	queryKeys,
 	useApiClient,
 } from "@/lib/api";
 import type { Direction, Origin, Sort } from "./mission-search";
 import type { SurfaceQuery } from "./surface";
-
-/**
- * Query keys for contract.missions. They live here until src/lib/api/keys.ts
- * is free to take them (avel-web-ec); named as they will be there.
- */
-export const missionKeys = {
-	all: () => ["missions"] as const,
-	list: (params: MissionListParams) => ["missions", "list", params] as const,
-	detail: (id: string) => ["missions", "detail", id] as const,
-} as const;
 
 export const MISSIONS_PAGE_SIZE = 50;
 
@@ -64,7 +55,7 @@ export const NEEDS_YOU_COPY = {
 
 export function missionListQuery(api: ApiClient, params: MissionListParams) {
 	return infiniteQueryOptions({
-		queryKey: missionKeys.list(params),
+		queryKey: queryKeys.missions.list(params),
 		initialPageParam: undefined as string | undefined,
 		// The cursor is bound to its sort (a reused cursor under another sort is
 		// a 400), so sort is part of the key and a new sort starts over.
@@ -95,9 +86,43 @@ export function missionListQuery(api: ApiClient, params: MissionListParams) {
 	});
 }
 
+/** What the newest read narrows by: the list's filters, not its sort. */
+export type NewestParams = Omit<MissionListParams, "sort" | "direction">;
+
+/**
+ * The newest mission under a filter set: one row, sorted by last activity,
+ * newest first, whatever the page's own sort. A status card needs only
+ * that row, so it never reads a full page to find it.
+ */
+export function newestMissionQuery(api: ApiClient, params: NewestParams) {
+	return queryOptions({
+		queryKey: queryKeys.missions.newest(params),
+		queryFn: () =>
+			call(contract.missions.list, () =>
+				api.missions.list({
+					query: {
+						origin: params.origin,
+						q: params.q === "" ? undefined : params.q,
+						sort: "lastActivity",
+						direction: "desc",
+						includeArchived: params.includeArchived ? "true" : "false",
+						needsYou: params.needsYou ? "true" : undefined,
+						status: params.status ? [...params.status] : undefined,
+						quietBefore: params.quietBefore,
+						lastExportStatus: params.lastExportStatus
+							? [...params.lastExportStatus]
+							: undefined,
+						limit: 1,
+					},
+				}),
+			),
+		select: (rows) => rows[0] ?? null,
+	});
+}
+
 export function missionDetailQuery(api: ApiClient, id: string) {
 	return queryOptions({
-		queryKey: missionKeys.detail(id),
+		queryKey: queryKeys.missions.detail(id),
 		queryFn: () =>
 			call(contract.missions.get, () => api.missions.get({ params: { id } })),
 	});
@@ -150,5 +175,11 @@ export function asSurface(
 		};
 	}
 	if (list.status === "pending") return { status: "pending" };
-	return { status: "success", data: rowsOf(list) };
+	return {
+		status: "success",
+		data: rowsOf(list),
+		dataUpdatedAt: list.dataUpdatedAt,
+		refetch: list.refetch,
+		isFetching: list.isFetching,
+	};
 }

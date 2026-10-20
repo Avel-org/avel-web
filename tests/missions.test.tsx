@@ -20,7 +20,6 @@ import { DataPanel } from "@/components/avel/data-panel";
 import { MISSION_STATUS_TONE } from "@/components/avel/mission-columns";
 import {
 	type MissionListParams,
-	missionKeys,
 	missionListQuery,
 	NEEDS_YOU_COPY,
 } from "@/components/avel/mission-data";
@@ -38,12 +37,18 @@ import {
 	quietBefore,
 } from "@/components/avel/mission-watch";
 import { ApiError, ApiOverrideProvider, createApiClient } from "@/lib/api";
+import { queryKeys } from "@/lib/api/keys";
 import { SessionSourceProvider } from "@/lib/auth";
+import { NOT_YET } from "@/lib/capabilities";
 import { Route } from "@/routes/missions";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { tagOf } from "./render-page";
 import { UUID_FRAGMENT, visibleText } from "./visible-text";
+
+// The mission details open in a Sheet, which portals; draw it in place so
+// the server render shows what the drawer holds.
+vi.mock("@/components/ui/sheet", () => import("./missions-sheet-inline"));
 
 // ---------------------------------------------------------------------------
 // Fixtures, parsed through the contract's own schemas so they cannot drift
@@ -124,6 +129,7 @@ const DETAIL: MissionDetail = missionDetail.parse({
 				kind: "system",
 				userId: null,
 				rosterEntryId: null,
+				canonSessionId: null,
 				display: null,
 				agent: null,
 			},
@@ -136,6 +142,7 @@ const DETAIL: MissionDetail = missionDetail.parse({
 				kind: "operator",
 				userId: id(7),
 				rosterEntryId: null,
+				canonSessionId: null,
 				display: "ada",
 				agent: null,
 			},
@@ -178,17 +185,17 @@ type Seed = (client: QueryClient) => void;
 /** Every list the default page asks for, with the fixtures in place. */
 const seeded: Seed = (client) => {
 	client.setQueryData(
-		missionKeys.list(base()).slice(),
+		queryKeys.missions.list(base()).slice(),
 		page([ACTIVE, HALTED, DRAFT]),
 	);
 	client.setQueryData(
-		missionKeys.list(base({ needsYou: true })).slice(),
+		queryKeys.missions.list(base({ needsYou: true })).slice(),
 		page([ACTIVE]),
 	);
 	for (const status of MISSION_STATUSES) {
 		const rows = [ACTIVE, HALTED, DRAFT].filter((m) => m.status === status);
 		client.setQueryData(
-			missionKeys.list(base({ status: [status] })).slice(),
+			queryKeys.missions.list(base({ status: [status] })).slice(),
 			page(rows),
 		);
 	}
@@ -321,8 +328,9 @@ describe("panels follow the contract's statuses", () => {
 	});
 
 	it("comes in action order, Shipped closed, Archived hidden", async () => {
+		// Needs you has its own panel in the side column, so the list starts
+		// at the statuses rather than listing those missions twice.
 		expect(panels(await render("/missions"))).toEqual([
-			["needs-you", "open"],
 			["active", "open"],
 			["halted", "open"],
 			["draft", "open"],
@@ -334,7 +342,7 @@ describe("panels follow the contract's statuses", () => {
 		const html = await render("/missions?archived=true", (client) => {
 			for (const status of MISSION_STATUSES) {
 				client.setQueryData(
-					missionKeys
+					queryKeys.missions
 						.list(base({ includeArchived: true, status: [status] }))
 						.slice(),
 					page([]),
@@ -358,17 +366,16 @@ describe("panels follow the contract's statuses", () => {
 });
 
 describe("the data in the grouped view", () => {
-	it("counts every chip from meta.counts, All as their sum", async () => {
+	it("counts every status card from meta.counts", async () => {
 		const html = await render("/missions");
-		const count = (chip: string) =>
+		const count = (card: string) =>
 			html.match(
-				new RegExp(`data-testid="missions-status-${chip}-count"[^>]*>(\\d+)<`),
+				new RegExp(`data-testid="missions-card-${card}-count"[^>]*>(\\d+)<`),
 			)?.[1];
-		expect(count("all")).toBe("3");
 		expect(count("needs-you")).toBe("1");
 		expect(count("halted")).toBe("1");
 		expect(count("shipped")).toBe("0");
-		expect(html).not.toContain('data-testid="missions-status-archived"');
+		expect(html).not.toContain('data-testid="missions-card-archived"');
 	});
 
 	it("puts each mission in its status's panel, and the needs-you one in Needs you too", async () => {
@@ -379,19 +386,19 @@ describe("the data in the grouped view", () => {
 		expect(region(html, "missions-panel-halted")).toContain(
 			`missions-panel-halted-table-row-${HALTED.id}`,
 		);
-		expect(region(html, "missions-panel-needs-you")).toContain(
+		// The Needs you card narrows the list to its group.
+		const lens = await render("/missions?status=needs-you");
+		expect(region(lens, "missions-panel-needs-you")).toContain(
 			`missions-panel-needs-you-table-row-${ACTIVE.id}`,
 		);
-		expect(region(html, "missions-panel-needs-you")).not.toContain(HALTED.id);
+		expect(region(lens, "missions-panel-needs-you")).not.toContain(HALTED.id);
 	});
 
 	it("says why a mission needs you, and keys that copy on the contract's reasons", async () => {
 		const html = await render("/missions");
 		// The words themselves, not the table they come from: a test that read
 		// NEEDS_YOU_COPY would pass whatever the copy said.
-		expect(region(html, "missions-panel-needs-you")).toContain(
-			"Pull request open",
-		);
+		expect(region(html, "missions-needs-you")).toContain("Pull request open");
 		expect(Object.keys(NEEDS_YOU_COPY).sort()).toEqual([
 			"export_previewed",
 			"pr_open",
@@ -403,9 +410,13 @@ describe("the data in the grouped view", () => {
 		expect(tableOf(html, "missions-panel-halted")).not.toContain(
 			'data-testid="mission-status"',
 		);
-		expect(tableOf(html, "missions-panel-needs-you")).toContain(
+		const lens = await render("/missions?status=needs-you");
+		expect(tableOf(lens, "missions-panel-needs-you")).toContain(
 			'data-testid="mission-status"',
 		);
+		// Nested in the Missions panel the why column goes: the last export's
+		// pill already says it.
+		expect(tableOf(lens, "missions-panel-needs-you")).not.toContain(">Why<");
 	});
 
 	it("shows an internal mission's missing client as a subtle dash, said in words", async () => {
@@ -434,11 +445,11 @@ describe("the data in the grouped view", () => {
 		const html = await render("/missions", (client) => {
 			seeded(client);
 			client.setQueryData(
-				missionKeys.list(base()).slice(),
+				queryKeys.missions.list(base()).slice(),
 				page([ACTIVE, HALTED, DRAFT], { counts }),
 			);
 			client.setQueryData(
-				missionKeys.list(base({ status: ["halted"] })).slice(),
+				queryKeys.missions.list(base({ status: ["halted"] })).slice(),
 				page([HALTED], { nextCursor: "next", counts, total: 7 }),
 			);
 		});
@@ -460,7 +471,7 @@ describe("the data in the grouped view", () => {
 		};
 		const html = await render("/missions", (client) => {
 			client.setQueryData(
-				missionKeys.list(base()).slice(),
+				queryKeys.missions.list(base()).slice(),
 				page([], { counts: zero }),
 			);
 		});
@@ -489,44 +500,37 @@ describe("collapsing a strip hides it, and keeps its rows", () => {
 	it("stacks the strips in one column, so a collapsed strip shrinks to its header", async () => {
 		// Side by side in a grid row, a collapsed strip stretched to its
 		// sibling's height: an empty card, read as the rows being removed.
-		const watch = tagOf(await render("/missions"), "missions-watch");
-		expect(watch).toContain('class="flex flex-col gap-4"');
-		expect(watch).not.toMatch(/grid-cols|\bgrid\b/);
+		const side = tagOf(await render("/missions"), "missions-dashboard-side");
+		expect(side).toContain("lg:flex lg:min-w-0 lg:flex-col lg:gap-4");
+		expect(side).not.toMatch(/grid-cols|\bgrid\b/);
 	});
 });
 
-describe("strips and the tree share one row geometry", () => {
-	it("gives strip rows and tree leaves the same height and time column, and no id column", async () => {
+describe("the strips in the dashboard's side column", () => {
+	it("set each row on two lines, end it in the row chevron, and show no id", async () => {
 		const seed = (client: QueryClient) => {
 			seeded(client);
 			client.setQueryData(
-				missionKeys
+				queryKeys.missions
 					.list(base({ lastExportStatus: IN_FLIGHT_STATUSES }))
 					.slice(),
 				page([ACTIVE]),
 			);
 		};
-		const strip = tagOf(
-			await render("/missions?view=tree", seed),
-			`missions-watch-in-flight-row-${ACTIVE.id}`,
+		const html = await render("/missions", seed);
+		const row = tagOf(html, `missions-watch-in-flight-row-${ACTIVE.id}`);
+		// A narrow column: the mission, then its badges and time below.
+		expect(row).toContain('data-compact="true"');
+		expect(row).toContain(
+			"flex min-h-10 w-full min-w-0 items-center gap-3 py-2",
 		);
-		const leaf = tagOf(
-			await render("/missions?view=tree", seed),
-			`mission-tree-leaf-${ACTIVE.id}`,
+		expect(row).toContain("group/row");
+		const strip = region(html, "missions-watch-in-flight");
+		expect(visibleText(strip)).not.toMatch(UUID_FRAGMENT);
+		// The export method gives way first, whole on hover (QA item c).
+		expect(strip).toContain(
+			'title="github_pr" class="min-w-0 truncate type-mono text-text-subtle"',
 		);
-		for (const row of [strip, leaf]) {
-			expect(row).toContain("flex h-9 w-full min-w-0 items-center gap-3");
-		}
-		const html = await render("/missions?view=tree", seed);
-		const strips = region(html, "missions-watch-in-flight");
-		const tree = region(html, `mission-tree-leaf-${ACTIVE.id}`);
-		for (const part of [strips, tree]) {
-			expect(part).not.toContain('class="w-24 shrink-0"');
-			expect(visibleText(part)).not.toMatch(UUID_FRAGMENT);
-			expect(part).toContain(
-				"w-40 shrink-0 truncate text-right type-caption text-text-muted",
-			);
-		}
 	});
 });
 
@@ -554,7 +558,7 @@ describe("what to keep an eye on", () => {
 	});
 
 	const quietKey = () =>
-		missionKeys
+		queryKeys.missions
 			.list(
 				base({
 					status: ["active"],
@@ -565,7 +569,9 @@ describe("what to keep an eye on", () => {
 			)
 			.slice();
 	const inFlightKey = () =>
-		missionKeys.list(base({ lastExportStatus: IN_FLIGHT_STATUSES })).slice();
+		queryKeys.missions
+			.list(base({ lastExportStatus: IN_FLIGHT_STATUSES }))
+			.slice();
 
 	const withStrips =
 		(
@@ -582,27 +588,31 @@ describe("what to keep an eye on", () => {
 			);
 		};
 
-	it("sits above the panels, in both views", async () => {
+	it("sits in the side column beside the list, in both views", async () => {
 		for (const path of ["/missions", "/missions?view=tree"]) {
 			const html = await render(path, withStrips([QUIET_OLD], [ACTIVE]));
-			const watch = html.indexOf('data-testid="missions-watch"');
-			expect(watch, path).toBeGreaterThan(-1);
+			const side = html.indexOf('data-testid="missions-dashboard-side"');
+			const watch = html.indexOf('data-testid="missions-watch-quiet"');
+			expect(watch, path).toBeGreaterThan(side);
 			const views = html.indexOf(
 				path.includes("tree")
 					? 'data-testid="missions-tree-view"'
 					: 'data-testid="missions-panels"',
 			);
-			expect(watch).toBeLessThan(views);
+			expect(views, path).toBeGreaterThan(-1);
+			expect(views).toBeLessThan(side);
 		}
 	});
 
-	it("steps aside while a status other than All is chosen", async () => {
-		expect(
-			await render(
-				"/missions?status=halted",
-				withStrips([QUIET_OLD], [ACTIVE]),
-			),
-		).not.toContain('data-testid="missions-watch"');
+	it("stays while a status is chosen, beside the card that chose it", async () => {
+		const html = await render(
+			"/missions?status=halted",
+			withStrips([QUIET_OLD], [ACTIVE]),
+		);
+		expect(html).toContain('data-testid="missions-watch-quiet"');
+		expect(tagOf(html, "missions-card-halted")).toContain(
+			'aria-pressed="true"',
+		);
 	});
 
 	it("names how long each mission has been quiet, from the server's quiet list", async () => {
@@ -661,12 +671,16 @@ describe("what to keep an eye on", () => {
 	});
 });
 
-describe("sort is a segmented pill track", () => {
+describe("sort is a segmented track", () => {
 	it("offers every sort as a pressed segment, with no dropdown", async () => {
 		const html = await render("/missions");
 		const track = tagOf(html, "missions-sort");
 		expect(track).toMatch(/^<fieldset/);
-		expect(track).toContain("rounded-full");
+		// v3 .segmented: the raised track, a chip for the pressed option.
+		expect(track).toContain("bg-app-raised");
+		expect(tagOf(html, "missions-sort-lastActivity")).toContain(
+			'data-variant="segment"',
+		);
 		expect(tagOf(html, "missions-sort-lastActivity")).toContain(
 			'aria-pressed="true"',
 		);
@@ -685,7 +699,9 @@ describe("sort is a segmented pill track", () => {
 			html.indexOf("</fieldset>", html.indexOf('data-testid="missions-sort"')),
 		);
 		expect(track).toContain('data-testid="missions-direction"');
-		expect(tagOf(html, "missions-direction")).toContain("rounded-full");
+		expect(tagOf(html, "missions-direction")).toContain(
+			'data-variant="segment"',
+		);
 	});
 });
 
@@ -705,7 +721,7 @@ describe("sorting both ways", () => {
 			await render("/missions?direction=asc", (client) => {
 				for (const status of [undefined, ...MISSION_STATUSES]) {
 					client.setQueryData(
-						missionKeys
+						queryKeys.missions
 							.list(
 								base({
 									direction: "asc",
@@ -741,7 +757,7 @@ describe("the tree view", () => {
 		const html = await render("/missions?view=tree", (client) => {
 			seeded(client);
 			client.setQueryData(
-				missionKeys.list(base()).slice(),
+				queryKeys.missions.list(base()).slice(),
 				page([ACTIVE, ENGAGED, HALTED]),
 			);
 		});
@@ -774,7 +790,7 @@ describe("the tree view", () => {
 		const html = await render("/missions?view=tree", (client) => {
 			seeded(client);
 			client.setQueryData(
-				missionKeys.list(base()).slice(),
+				queryKeys.missions.list(base()).slice(),
 				page([ACTIVE, ENGAGED]),
 			);
 		});
@@ -809,7 +825,7 @@ describe("the tree view", () => {
 			"/missions?view=tree&origin=internal",
 			(client) => {
 				client.setQueryData(
-					missionKeys.list(base({ origin: "internal" })).slice(),
+					queryKeys.missions.list(base({ origin: "internal" })).slice(),
 					page([internal]),
 				);
 			},
@@ -826,7 +842,7 @@ describe("the tree view", () => {
 		const html = await render("/missions?view=tree", (client) => {
 			seeded(client);
 			client.setQueryData(
-				missionKeys.list(base()).slice(),
+				queryKeys.missions.list(base()).slice(),
 				page([ACTIVE], { nextCursor: "next", total: 9 }),
 			);
 		});
@@ -851,21 +867,24 @@ describe("the tree, in steel", () => {
 	});
 	const seed = (client: QueryClient) => {
 		seeded(client);
-		client.setQueryData(missionKeys.list(base()).slice(), page([ENGAGED]));
+		client.setQueryData(
+			queryKeys.missions.list(base()).slice(),
+			page([ENGAGED]),
+		);
 	};
 
-	it("sets a client on a steel header plate, with a count chip", async () => {
+	it("sets a client on a band header row, with a count badge", async () => {
 		const html = await render("/missions?view=tree", seed);
 		const client = region(html, `mission-tree-client:${id(931)}`);
 		expect(client).toMatch(
-			/data-testid="mission-tree-group-row" class="[^"]*surface-steel h-10 border-border bg-app-band/,
+			/data-testid="mission-tree-group-row" class="[^"]*h-10 border-border bg-app-band/,
 		);
 		expect(client).toMatch(
-			/data-testid="mission-tree-count"[^>]*class="[^"]*rounded-full[^"]*border border-border-strong bg-app-field/,
+			/data-testid="mission-tree-count"[^>]*data-variant="count"|data-variant="count"[^>]*data-testid="mission-tree-count"/,
 		);
 	});
 
-	it("sets an engagement one step quieter: no plate", async () => {
+	it("sets an engagement one step quieter: no band", async () => {
 		const html = await render("/missions?view=tree", seed);
 		const row = html.slice(
 			html.indexOf(
@@ -875,7 +894,7 @@ describe("the tree, in steel", () => {
 		);
 		const cls = /class="([^"]+)"/.exec(row)?.[1] ?? "";
 		expect(cls).toContain("h-9 border-transparent");
-		expect(cls).not.toContain("surface-steel");
+		expect(cls).not.toContain("bg-app-band");
 	});
 
 	it("hangs children off a ruler, with a tick per child", async () => {
@@ -889,14 +908,14 @@ describe("the tree, in steel", () => {
 		);
 	});
 
-	it("puts the open mission on a selected plate, with an accent tick", async () => {
+	it("puts the open mission in v3's selected state, with an accent tick", async () => {
 		const leaf = tagOf(
 			await render(`/missions?view=tree&mission=${ENGAGED.id}`, seed),
 			`mission-tree-leaf-${ENGAGED.id}`,
 		);
 		expect(leaf).toContain('aria-selected="true"');
 		expect(leaf).toContain('data-selected="true"');
-		expect(leaf).toContain("surface-steel border-border bg-app-raised");
+		expect(leaf).toContain("border-selected-border bg-selected");
 		expect(leaf).toContain(
 			"data-[selected]:before:w-1.5 data-[selected]:before:bg-accent",
 		);
@@ -905,7 +924,7 @@ describe("the tree, in steel", () => {
 			`mission-tree-leaf-${ENGAGED.id}`,
 		);
 		expect(plain).toContain('aria-selected="false"');
-		expect(plain).toContain("border-transparent hover:bg-state-hover");
+		expect(plain).toContain("border-transparent hover:bg-app-raised");
 	});
 
 	it("rings the focused row, offset like a button's", async () => {
@@ -922,12 +941,14 @@ describe("the tree, in steel", () => {
 describe("the details panel", () => {
 	const withDetail: Seed = (client) => {
 		seeded(client);
-		client.setQueryData(missionKeys.detail(ACTIVE.id).slice(), DETAIL);
+		client.setQueryData(queryKeys.missions.detail(ACTIVE.id).slice(), DETAIL);
 	};
 
-	it("opens from the URL beside the list, with the mission's header", async () => {
+	it("opens from the URL as a drawer from the right, with the mission's header", async () => {
 		const html = await render(`/missions?mission=${ACTIVE.id}`, withDetail);
-		expect(html).toContain('data-testid="mission-details"');
+		// A Sheet over the page, never a column that reflows the grid.
+		expect(tagOf(html, "mission-details")).toContain('data-sheet-side="right"');
+		expect(html).not.toContain('data-testid="missions-layout"');
 		const header = region(html, "mission-details-header");
 		expect(visibleText(header)).not.toMatch(UUID_FRAGMENT);
 		expect(header).toContain("Client 1");
@@ -957,13 +978,13 @@ describe("the details panel", () => {
 		);
 		expect(brief).toContain(">goal<");
 		expect(brief).toContain("Ship the booking flow");
-		expect(brief).toMatch(/type-mono-small[^"]*">4</);
+		expect(brief).toMatch(/type-mono[^"]*">4</);
 	});
 
 	it("shows a brief in the contract's shape by requirement, as the full page does", async () => {
 		const html = await render(`/missions?mission=${ACTIVE.id}`, (client) => {
 			seeded(client);
-			client.setQueryData(missionKeys.detail(ACTIVE.id).slice(), {
+			client.setQueryData(queryKeys.missions.detail(ACTIVE.id).slice(), {
 				...DETAIL,
 				brief: {
 					summary: "A booking flow.",
@@ -1017,12 +1038,12 @@ describe("the details panel", () => {
 		}
 	});
 
-	it("says none set for a missing spend ceiling, and not built for gates", async () => {
+	it("says none set for a missing spend ceiling, and leaves gates to the mission page", async () => {
 		const html = await render(`/missions?mission=${ACTIVE.id}`, withDetail);
 		expect(region(html, "mission-section-spend")).toContain("None set");
-		expect(html).toContain(
-			'data-testid="mission-export-gates" data-state="not-built"',
-		);
+		// Module 9 is built: the gate's results are the mission page's Gate
+		// panel, so the side panel no longer stands in for them.
+		expect(html).not.toContain('data-testid="mission-export-gates"');
 	});
 
 	it("answers a stale link with NOT_FOUND and a way back", async () => {
@@ -1030,7 +1051,9 @@ describe("the details panel", () => {
 			seeded(client);
 			client
 				.getQueryCache()
-				.build(client, { queryKey: missionKeys.detail(ACTIVE.id).slice() })
+				.build(client, {
+					queryKey: queryKeys.missions.detail(ACTIVE.id).slice(),
+				})
 				.setState({
 					status: "error",
 					fetchStatus: "idle",
@@ -1141,14 +1164,14 @@ describe("what the page asks avel-server for", () => {
 	});
 
 	it("keys each list on its sort and direction, so a cursor never crosses them", () => {
-		expect(missionKeys.list(base({ direction: "asc" }))).not.toEqual(
-			missionKeys.list(base()),
+		expect(queryKeys.missions.list(base({ direction: "asc" }))).not.toEqual(
+			queryKeys.missions.list(base()),
 		);
 	});
 
 	it("keys each list on its sort, so a new sort never reuses a cursor", () => {
-		expect(missionKeys.list(base({ sort: "client" }))).not.toEqual(
-			missionKeys.list(base()),
+		expect(queryKeys.missions.list(base({ sort: "client" }))).not.toEqual(
+			queryKeys.missions.list(base()),
 		);
 	});
 });
@@ -1161,6 +1184,6 @@ describe("the page", () => {
 	it("keeps New mission disabled, with its reason", async () => {
 		const html = await render("/missions");
 		expect(tagOf(html, "missions-new")).toMatch(/\sdisabled=""/);
-		expect(html).toContain("Needs mission.create in the contract");
+		expect(html).toContain(NOT_YET["mission.create"]);
 	});
 });

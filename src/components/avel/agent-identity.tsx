@@ -251,7 +251,7 @@ export function RegenerateIdentity({ agent }: { agent: AgentTemplate }) {
 				{overCap ? (
 					<p
 						data-testid="agent-identity-regenerate-over-cap"
-						className="type-mono-small text-gate-block"
+						className="type-mono text-gate-block"
 					>
 						{overCap}
 					</p>
@@ -357,7 +357,7 @@ export function VersionList({
 								data-testid={`agent-identity-version-${v.number}-open`}
 								aria-label={`Read ${v.ref}`}
 								onClick={() => setOpened(v)}
-								className="h-auto px-0 type-mono-small"
+								className="h-auto px-0 type-mono"
 							>
 								{v.ref}
 							</Button>
@@ -374,17 +374,14 @@ export function VersionList({
 								label={`the hash of ${v.ref}`}
 								data-testid={`agent-identity-version-${v.number}-sha`}
 							/>
-							<span className="type-mono-small text-text-subtle tabular-nums">
+							<span className="type-mono text-text-subtle tabular-nums">
 								{`${v.identityTokens} + ${v.depthTokens} tokens`}
 							</span>
 							<span className="ml-auto flex items-baseline gap-3 type-caption text-text-subtle">
 								<span data-testid={`agent-identity-version-${v.number}-by`}>
 									{generatedByLabel(v.generatedBy, me)}
 								</span>
-								<time
-									dateTime={v.createdAt}
-									className="type-mono-small tabular-nums"
-								>
+								<time dateTime={v.createdAt} className="type-mono tabular-nums">
 									{v.createdAt.slice(0, 10)}
 								</time>
 							</span>
@@ -446,7 +443,7 @@ function VersionText({
 			data-testid="agent-identity-version-text"
 			query={query}
 			isEmpty={() => false}
-			loading={<Skeleton className="h-40 w-full rounded-sm" />}
+			loading={<Skeleton className="h-40 w-full rounded-control" />}
 			empty={null}
 			error={ErrorState}
 		>
@@ -498,7 +495,7 @@ function VersionDiff({
 		return (
 			<Skeleton
 				data-testid="agent-identity-diff-skeleton"
-				className="h-40 w-full rounded-sm"
+				className="h-40 w-full rounded-control"
 			/>
 		);
 	return <DiffBody before={before.data} after={after.data} />;
@@ -532,7 +529,7 @@ export function DiffBody({
 					<h3 className="type-caption text-text-subtle">{file}</h3>
 					<pre
 						data-testid={`agent-identity-diff-${file.replace(".md", "")}`}
-						className="app-scroll overflow-x-auto rounded-xs border border-border bg-app-recessed py-2 type-mono-small"
+						className="app-scroll overflow-x-auto rounded-xs border border-border bg-app-well py-2 type-mono"
 					>
 						{lineDiff(a, b).map((line, i) => (
 							<div

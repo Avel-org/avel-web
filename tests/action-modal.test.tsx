@@ -237,6 +237,26 @@ describe("the modal frame", () => {
 		expect(html).not.toContain("Check the fields marked above.");
 	});
 
+	it("shows a refusal's request id, in mono with a copy button (audit F4)", () => {
+		const traced = new ApiError({
+			...where,
+			kind: "contract",
+			status: 404,
+			code: "NOT_FOUND",
+			message: "for logs only",
+			requestId: "req_refused_7f3c",
+		});
+		const html = frame({ error: traced });
+		const refusal = html.slice(
+			html.indexOf('data-testid="action-modal-refusal"'),
+		);
+		expect(refusal).toContain('data-testid="surface-error-reference"');
+		expect(refusal).toMatch(
+			/data-testid="surface-error-request-id"[^>]*>req_refused_7f3c</,
+		);
+		expect(refusal).toContain('data-testid="surface-error-copy"');
+	});
+
 	it("asks before discarding, in place of the buttons", () => {
 		const html = frame({ confirmingDiscard: true });
 		expect(html).toContain('data-testid="m-discard"');
@@ -244,12 +264,12 @@ describe("the modal frame", () => {
 		expect(html).not.toContain('data-testid="m-submit"');
 	});
 
-	it("marks an irreversible write's primary as destructive", () => {
+	it("makes an irreversible write's primary the filled danger confirm (audit D7)", () => {
 		expect(tagOf(frame({ destructive: true }), "m-submit")).toContain(
-			'data-variant="destructive"',
+			'data-variant="destructive-confirm"',
 		);
 		expect(tagOf(frame(), "m-submit")).not.toContain(
-			'data-variant="destructive"',
+			'data-variant="destructive',
 		);
 	});
 

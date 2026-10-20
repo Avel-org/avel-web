@@ -39,7 +39,6 @@ import {
 	landableFocus,
 	landOn,
 } from "@/components/avel/loadout-page";
-import { missionKeys } from "@/components/avel/mission-data";
 import { blockCopy } from "@/components/avel/playbook-coherence";
 import { ApplyToMissionSteps } from "@/components/avel/preset-apply";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -230,7 +229,8 @@ const set =
 	(client) =>
 		client.setQueryData([...key], value);
 
-const withMission = (m: MissionDetail) => set(missionKeys.detail(m.id), m);
+const withMission = (m: MissionDetail) =>
+	set(queryKeys.missions.detail(m.id), m);
 const withRoster = (r: RosterEntry[]) => set(queryKeys.roster.list(ID), r);
 const withCatalog = (...templates: AgentTemplate[]): Seed => {
 	return (client) => {
@@ -776,11 +776,11 @@ describe("two moves in a row", () => {
 describe("after any roster write", () => {
 	it("reads the mission again, for its Team counts", async () => {
 		const qc = rosterClient([entry(1, ATLAS)]);
-		qc.setQueryData([...missionKeys.detail(ID)], mission());
+		qc.setQueryData([...queryKeys.missions.detail(ID)], mission());
 		await settleRosterWrite(qc, ID, (r) => r);
-		expect(qc.getQueryState([...missionKeys.detail(ID)])?.isInvalidated).toBe(
-			true,
-		);
+		expect(
+			qc.getQueryState([...queryKeys.missions.detail(ID)])?.isInvalidated,
+		).toBe(true);
 	});
 
 	it("seeds an added agent's template, so coherence never drops to loading", async () => {

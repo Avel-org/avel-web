@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ActivityEntry, Client } from "avel-server/contract";
 import { History } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClientActivity } from "@/lib/api/activity";
 import { useClientEngagements, useClientMissions } from "@/lib/api/clients";
@@ -10,6 +9,7 @@ import { ACTION_COPY } from "./activity-copy";
 import { whenLabel } from "./agent-activity";
 import { ActorLabel } from "./agent-actor";
 import { EmptyState } from "./empty-state";
+import { Paging, PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, Surface } from "./surface";
 
@@ -21,11 +21,15 @@ import { ErrorState, Surface } from "./surface";
  * record.
  */
 
-/** A dot's tone from what happened: made, changed, or ended. */
+/**
+ * A dot's tone from what happened: made, changed, or ended. A change is a
+ * record of the system's, not something to act on, so it takes the pending
+ * grey, never the accent (audit D3).
+ */
 function toneOf(entry: ActivityEntry): string {
-	if (entry.action.endsWith(".created")) return "bg-gate-pass";
+	if (entry.action.endsWith(".created")) return "bg-gate-pass-solid";
 	if (entry.action.endsWith(".closed")) return "bg-text-subtle";
-	return "bg-accent";
+	return "bg-gate-pending-solid";
 }
 
 export function ClientActivity({ client }: { client: Client }) {
@@ -36,6 +40,23 @@ export function ClientActivity({ client }: { client: Client }) {
 			title="Activity"
 			description="Everything logged on this client, its engagements and their missions, newest first."
 			data-testid="client-activity"
+			footer={
+				<PanelFooter
+					data-testid="client-activity-read-age"
+					queries={[activity]}
+				>
+					{activity.hasNextPage ? (
+						<Paging
+							loaded={activity.data?.pages.flatMap((p) => p.data).length ?? 0}
+							total={activity.data?.pages[0]?.meta.total}
+							hasMore
+							loadingMore={activity.isFetchingNextPage}
+							onLoadMore={() => activity.fetchNextPage()}
+							testIdPrefix="client-activity"
+						/>
+					) : null}
+				</PanelFooter>
+			}
 		>
 			<Surface
 				data-testid="client-activity-surface"
@@ -55,29 +76,9 @@ export function ClientActivity({ client }: { client: Client }) {
 			>
 				{(data) => {
 					const entries = data.pages.flatMap((page) => page.data);
-					const total = data.pages[0]?.meta.total ?? entries.length;
 					return (
 						<div className="flex flex-col gap-3">
 							<Timeline entries={entries} names={names} />
-							{activity.hasNextPage ? (
-								<div className="flex items-center justify-between gap-2">
-									<p
-										data-testid="client-activity-showing"
-										className="type-caption text-text-subtle tabular-nums"
-									>
-										{`Showing ${entries.length} of ${total}`}
-									</p>
-									<Button
-										variant="ghost"
-										size="sm"
-										data-testid="client-activity-load-more"
-										disabled={activity.isFetchingNextPage}
-										onClick={() => activity.fetchNextPage()}
-									>
-										{activity.isFetchingNextPage ? "Loading" : "Load more"}
-									</Button>
-								</div>
-							) : null}
 						</div>
 					);
 				}}
@@ -143,13 +144,13 @@ function Timeline({
 					<span
 						aria-hidden="true"
 						className={cn(
-							"absolute top-4 -left-1 size-2 rounded-full ring-4 ring-app-plate",
+							"absolute top-4 -left-1 size-2 rounded-full ring-4 ring-app-panel",
 							toneOf(entry),
 						)}
 					/>
 					<time
 						dateTime={entry.at}
-						className="type-mono-small shrink-0 text-text-subtle tabular-nums sm:w-28"
+						className="type-mono shrink-0 text-text-subtle tabular-nums sm:w-28"
 					>
 						{whenLabel(entry.at)}
 					</time>
@@ -173,7 +174,7 @@ function Timeline({
 						to="/activity"
 						search={{ entry: entry.id }}
 						data-testid={`client-activity-open-${entry.id}`}
-						className="type-caption w-fit rounded-xs text-accent-text underline-offset-4 hover:underline"
+						className="py-1.5 -my-1.5 type-caption w-fit rounded-xs text-accent-text underline-offset-4 hover:underline"
 					>
 						Record
 					</Link>

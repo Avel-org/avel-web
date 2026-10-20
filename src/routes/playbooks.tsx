@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
+import { DataPanel } from "@/components/avel/data-panel";
+import { Paging, PanelFooter } from "@/components/avel/panel-footer";
 import {
 	PLAYBOOK_VIEWS,
 	PlaybookList,
@@ -11,7 +13,7 @@ import { NewPlaybookModal } from "@/components/avel/playbook-new";
 import { ViewToggle } from "@/components/avel/view-toggle";
 import { Button } from "@/components/ui/button";
 import { catalogTotal } from "@/lib/api/catalog";
-import { usePlaybooks } from "@/lib/api/playbooks";
+import { loadedPlaybooks, usePlaybooks } from "@/lib/api/playbooks";
 import { Page, pageHead } from "../shell/page";
 
 /**
@@ -40,19 +42,28 @@ function PlaybooksPage() {
 			to="/playbooks"
 			subtitle={total === undefined ? undefined : playbookCountLabel(total)}
 			actions={
-				<>
-					<Button
-						size="sm"
-						data-testid="playbooks-new"
-						onClick={() => setCreating(true)}
-					>
-						<Plus aria-hidden="true" />
-						New playbook
-					</Button>
+				<Button
+					size="sm"
+					data-testid="playbooks-new"
+					onClick={() => setCreating(true)}
+				>
+					<Plus aria-hidden="true" />
+					New playbook
+				</Button>
+			}
+		>
+			{/* One panel, as every list page: the view in its toolbar, the
+				    paging and read age in its footer band. */}
+			<DataPanel
+				data-testid="playbooks-panel"
+				title="Playbooks"
+				count={total}
+				toolbar={
 					<ViewToggle
 						options={PLAYBOOK_VIEWS}
 						testIdPrefix="playbooks-view"
 						view={view}
+						className="ml-auto"
 						onChange={(next) =>
 							navigate({
 								search: next === "board" ? {} : { view: next },
@@ -60,10 +71,24 @@ function PlaybooksPage() {
 							})
 						}
 					/>
-				</>
-			}
-		>
-			<PlaybookList query={playbooks} view={view} />
+				}
+				footer={
+					<PanelFooter data-testid="playbooks-read-age" queries={[playbooks]}>
+						{playbooks.data ? (
+							<Paging
+								testIdPrefix="playbooks"
+								loaded={loadedPlaybooks(playbooks.data).length}
+								total={total}
+								hasMore={playbooks.hasNextPage}
+								loadingMore={playbooks.isFetchingNextPage}
+								onLoadMore={() => playbooks.fetchNextPage()}
+							/>
+						) : null}
+					</PanelFooter>
+				}
+			>
+				<PlaybookList query={playbooks} view={view} />
+			</DataPanel>
 			<NewPlaybookModal open={creating} onOpenChange={setCreating} />
 		</Page>
 	);

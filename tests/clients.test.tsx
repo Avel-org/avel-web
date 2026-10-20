@@ -527,6 +527,12 @@ describe("the Board | Table toggle (ruling 36)", () => {
 		expect(tagOf(html, `client-row-link-${ONE.id}`)).toContain(
 			`href="/clients/${ONE.id}"`,
 		);
+		// The whole row opens the client: the row that reacts to hover is the
+		// link, stretched over it (v3 UX 5).
+		expect(tagOf(html, `client-row-${ONE.id}`)).toContain("relative");
+		expect(tagOf(html, `client-row-link-${ONE.id}`)).toContain(
+			"after:absolute after:inset-0",
+		);
 		const row = html.slice(html.indexOf(`client-row-${ONE.id}`));
 		expect(row.slice(0, row.indexOf("</tr>"))).toContain(
 			">3 engagements, 1 active<",

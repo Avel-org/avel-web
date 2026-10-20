@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
 	APPROVED_LOCK_REASON,
 	consumePlanHash,
+	LANDED_RING,
+	landOn,
 	PlanEditor,
 } from "@/components/avel/plan-editor";
 import { choiceFor, NO_TEMPLATE } from "@/components/avel/template-picker";
@@ -232,6 +234,34 @@ describe("where Resolve lands", () => {
 		]) {
 			expect(html).toMatch(new RegExp(`\\sid="${id}"`));
 		}
+	});
+
+	it("gives every anchored item the warn ring a landed issue draws (audit F4)", () => {
+		const html = render(plan());
+		const anchored = [
+			...html.matchAll(/<[a-z]+\s(?:[^>]*\s)?id="plan-[^"]+"[^>]*>/g),
+		];
+		expect(anchored.length).toBeGreaterThan(3);
+		for (const [tag] of anchored)
+			expect(tag, tag.slice(0, 60)).toContain(
+				"data-[landed=issue]:outline-gate-warn-solid",
+			);
+		expect(LANDED_RING).not.toMatch(/accent/);
+	});
+
+	it("marks the item a Resolve link lands on, scrolls to it, and focuses its first control", () => {
+		const focused: string[] = [];
+		const scrolled: unknown[] = [];
+		const control = { focus: () => focused.push("control") };
+		const item = {
+			dataset: {} as Record<string, string>,
+			scrollIntoView: (arg: unknown) => scrolled.push(arg),
+			querySelector: () => control,
+		};
+		landOn(item as unknown as HTMLElement);
+		expect(item.dataset.landed).toBe("issue");
+		expect(scrolled).toEqual([{ block: "center" }]);
+		expect(focused).toEqual(["control"]);
 	});
 
 	it("uses the hash once, so a later remount does not jump back", () => {

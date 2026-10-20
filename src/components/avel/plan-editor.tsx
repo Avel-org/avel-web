@@ -46,6 +46,26 @@ export function consumePlanHash(
 	return id;
 }
 
+/**
+ * Where a Resolve link landed (audit F4): the item a plan-check issue points
+ * at is marked data-landed="issue", and every anchored item draws a warn ring
+ * while it carries that mark, so the operator sees which field the issue is
+ * about, not only where the page scrolled to. The mark stays until the
+ * editor remounts, after the next save.
+ */
+export const LANDED_RING =
+	"data-[landed=issue]:outline-2 data-[landed=issue]:outline-offset-2 data-[landed=issue]:outline-gate-warn-solid";
+
+/** Mark the landed item, bring it into view and focus its first control. */
+export function landOn(item: HTMLElement): void {
+	item.dataset.landed = "issue";
+	item.scrollIntoView({ block: "center" });
+	const control = item.querySelector<HTMLElement>(
+		"textarea, input, button:not([disabled])",
+	);
+	control?.focus();
+}
+
 /** Why an approved item cannot be edited, shown beside its lock. */
 export const APPROVED_LOCK_REASON =
 	"Approved at intake. It cannot change or be removed; add a new one instead.";
@@ -97,12 +117,7 @@ export function PlanEditor({
 		const id = consumePlanHash(window.location, window.history);
 		if (id === null) return;
 		const item = document.getElementById(id);
-		if (!item) return;
-		item.scrollIntoView({ block: "center" });
-		const control = item.querySelector<HTMLElement>(
-			"textarea, input, button:not([disabled])",
-		);
-		control?.focus();
+		if (item) landOn(item);
 	}, []);
 
 	if (draft === null || initial === null) {
@@ -176,7 +191,7 @@ export function PlanEditor({
 			{readOnly ? (
 				<p
 					data-testid="plan-read-only"
-					className="type-small flex items-start gap-2 rounded-sm border border-border bg-app-band px-3 py-2 text-text-muted"
+					className="type-small flex items-start gap-2 rounded-control border border-border bg-app-band px-3 py-2 text-text-muted"
 				>
 					<Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
 					{readOnlyReason}
@@ -258,7 +273,7 @@ export function PlanEditor({
 					forceMount
 					className="flex flex-col gap-2 data-[state=inactive]:hidden"
 				>
-					<p className="type-mono-small text-text-subtle">
+					<p className="type-mono text-text-subtle">
 						{`PUT /api/missions/${plan.missionId}/plan`}
 					</p>
 					<p className="type-caption text-text-subtle">
@@ -308,7 +323,7 @@ function PlanCheck({ plan }: { plan: MissionPlan }) {
 	return (
 		<section data-testid="plan-check" className="flex flex-col gap-2">
 			<div className="flex items-center gap-2">
-				<h3 className="type-panel-title text-foreground">Plan check</h3>
+				<h3 className="type-title text-foreground">Plan check</h3>
 				<Badge
 					variant={passed ? "default" : "outline"}
 					data-testid="plan-check-status"
@@ -438,7 +453,7 @@ function SummaryField({
 			<section
 				id={planAnchor("summary")}
 				data-testid="plan-summary"
-				className="flex flex-col gap-1.5"
+				className={cn("flex flex-col gap-1.5 rounded-control", LANDED_RING)}
 			>
 				<h3 className="type-small flex items-center gap-2 font-medium text-foreground">
 					Summary
@@ -453,7 +468,7 @@ function SummaryField({
 		<div
 			id={planAnchor("summary")}
 			data-testid="plan-summary"
-			className="flex flex-col gap-1.5"
+			className={cn("flex flex-col gap-1.5 rounded-control", LANDED_RING)}
 		>
 			<Field label="Summary" error={errors[0]} testid="plan-summary-input">
 				{(props) => (
@@ -580,7 +595,7 @@ function Requirements({
 		<section
 			id={planAnchor("requirements")}
 			data-testid="plan-requirements"
-			className="flex flex-col gap-3"
+			className={cn("flex flex-col gap-3 rounded-control", LANDED_RING)}
 		>
 			<ListHeader
 				title="Requirements"
@@ -603,10 +618,13 @@ function Requirements({
 							key={requirementKeys[ri]}
 							id={planAnchor(`requirement:${r.id}`)}
 							data-testid={`plan-requirement-${r.id}`}
-							className="plate flex flex-col gap-2 rounded-md border p-3"
+							className={cn(
+								"flex flex-col gap-2 p-3 rounded-card border border-border bg-app-panel shadow-card",
+								LANDED_RING,
+							)}
 						>
 							<div className="flex items-center gap-2">
-								<span className="type-mono-small text-foreground">{r.id}</span>
+								<span className="type-mono text-foreground">{r.id}</span>
 								{locked ? (
 									<Locked testid={`plan-requirement-${r.id}-locked`} />
 								) : null}
@@ -649,10 +667,13 @@ function Requirements({
 											key={`${ac.id}#${index}`}
 											id={planAnchor(`criterion:${ac.id}`)}
 											data-testid={`plan-criterion-${ac.id}`}
-											className="flex flex-col gap-1"
+											className={cn(
+												"flex flex-col gap-1 rounded-control",
+												LANDED_RING,
+											)}
 										>
 											<div className="flex items-center gap-2">
-												<span className="type-mono-small text-text-muted">
+												<span className="type-mono text-text-muted">
 													{ac.id}
 												</span>
 												{acLocked ? (
@@ -714,9 +735,12 @@ function Requirements({
 									key={`${ac.id}#${index}`}
 									id={planAnchor(`criterion:${ac.id}`)}
 									data-testid={`plan-criterion-${ac.id}`}
-									className="type-small flex items-center gap-2 text-text-muted"
+									className={cn(
+										"type-small flex items-center gap-2 rounded-control text-text-muted",
+										LANDED_RING,
+									)}
 								>
-									<span className="type-mono-small">{`${ac.id} → ${ac.requirementId}`}</span>
+									<span className="type-mono">{`${ac.id} → ${ac.requirementId}`}</span>
 									<span className="min-w-0 flex-1 truncate">{ac.text}</span>
 									{locks.criteria.has(ac.id) || readOnly ? null : (
 										<RemoveButton
@@ -804,7 +828,7 @@ function Modules({
 		<section
 			id={planAnchor("modules")}
 			data-testid="plan-modules"
-			className="flex flex-col gap-3"
+			className={cn("flex flex-col gap-3 rounded-control", LANDED_RING)}
 		>
 			<ListHeader
 				title="Modules"
@@ -830,10 +854,13 @@ function Modules({
 							key={moduleKeys[mi]}
 							id={planAnchor(`module:${m.id}`)}
 							data-testid={`plan-module-${m.id}`}
-							className="plate flex flex-col gap-2 rounded-md border p-3"
+							className={cn(
+								"flex flex-col gap-2 p-3 rounded-card border border-border bg-app-panel shadow-card",
+								LANDED_RING,
+							)}
 						>
 							<div className="flex items-center gap-2">
-								<span className="type-mono-small text-foreground">{m.id}</span>
+								<span className="type-mono text-foreground">{m.id}</span>
 								{readOnly ? (
 									<span className="type-body text-foreground">{m.name}</span>
 								) : (
@@ -879,7 +906,7 @@ function Modules({
 															: [...m.requirementIds, r.id],
 													})
 												}
-												className="type-mono-small aria-pressed:bg-state-selected"
+												className="type-mono aria-pressed:bg-selected"
 											>
 												{r.id}
 											</Button>
@@ -936,12 +963,15 @@ function TemplateFields({
 }) {
 	return (
 		<fieldset data-testid="plan-template" className="flex flex-col gap-3">
-			<legend className="type-panel-title text-foreground">Template</legend>
+			<legend className="type-title text-foreground">Template</legend>
 			<p className="type-caption text-text-subtle">
 				Both or neither: the AVEL project template it is built from, and the
 				full commit. Choosing a template pins its latest commit.
 			</p>
-			<div id={planAnchor("templateRef")}>
+			<div
+				id={planAnchor("templateRef")}
+				className={cn("rounded-control", LANDED_RING)}
+			>
 				<Field
 					label="Template"
 					hint="Optional"
@@ -958,7 +988,10 @@ function TemplateFields({
 					)}
 				</Field>
 			</div>
-			<div id={planAnchor("templateVersion")}>
+			<div
+				id={planAnchor("templateVersion")}
+				className={cn("rounded-control", LANDED_RING)}
+			>
 				<Field
 					label="Commit"
 					hint="40 hex characters"
@@ -970,7 +1003,7 @@ function TemplateFields({
 							{...props}
 							readOnly={readOnly}
 							maxLength={40}
-							className="type-mono-small"
+							className="type-mono"
 							value={draft.templateVersion}
 							onChange={(e) => onChange({ templateVersion: e.target.value })}
 						/>
@@ -990,7 +1023,7 @@ function TemplateFields({
 function ListHeader({ title, notes }: { title: string; notes: ReactNode }) {
 	return (
 		<div className="flex flex-col gap-1">
-			<h3 className="type-panel-title text-foreground">{title}</h3>
+			<h3 className="type-title text-foreground">{title}</h3>
 			{notes}
 		</div>
 	);

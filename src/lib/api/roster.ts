@@ -17,7 +17,6 @@ import {
 	updateRosterEntryBody,
 	type Wave,
 } from "avel-server/contract";
-import { missionKeys } from "@/components/avel/mission-data";
 import { PRECONDITION_COPY } from "@/lib/error-map";
 import { type ApiClient, call } from "./client";
 import { rosterQuery } from "./coherence";
@@ -103,7 +102,13 @@ export function settleRosterWrite(
 					queryKey: queryKeys.roster.list(missionId),
 				})
 			: undefined,
-		queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) }),
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.missions.detail(missionId),
+		}),
+		// Each agent's page lists its entries across missions (audit F2).
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.roster.byTemplateAll(),
+		}),
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 	]);
 }

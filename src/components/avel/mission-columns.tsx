@@ -173,7 +173,7 @@ export function MissionCard({
 			</div>
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-small text-text-muted">
 				<span>{mission.type}</span>
-				<span className="type-mono-small">sprint {mission.sprintN}</span>
+				<span className="type-mono">sprint {mission.sprintN}</span>
 				<LastExport mission={mission} />
 				<LastActivity at={mission.lastActivityAt} now={now} />
 			</div>
@@ -183,7 +183,7 @@ export function MissionCard({
 
 /*
  * One mission row's geometry, shared by the watch strips and the tree's
- * leaves so they read as one column (ruling 30): 36px rows, the row's
+ * leaves so they read as one column: 36px rows, the row's
  * subject, its badges, and a fixed, right-aligned time column. The tree indents its leaves; their right-hand columns still land
  * on the strips' because both end 16px in from the panel's edge.
  */

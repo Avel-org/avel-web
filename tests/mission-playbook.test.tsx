@@ -19,7 +19,6 @@ import {
 } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { missionKeys } from "@/components/avel/mission-data";
 import {
 	blockCopy,
 	CoherenceView,
@@ -192,7 +191,8 @@ const set =
 	(client) =>
 		client.setQueryData([...key], value);
 
-const withMission = (m: MissionDetail) => set(missionKeys.detail(m.id), m);
+const withMission = (m: MissionDetail) =>
+	set(queryKeys.missions.detail(m.id), m);
 const withPlan = (p: MissionPlan) => set(queryKeys.missionPlans.detail(ID), p);
 const withPlaybook = (p: Playbook) =>
 	set(queryKeys.playbooks.byType(p.missionType), p);
@@ -388,9 +388,11 @@ describe("/missions/$id/playbook", () => {
 
 	it("shows the resolved playbook for the mission's type", async () => {
 		const html = await render(PAGE, ...everything());
-		expect(tagOf(html, "playbook-prop-name")).toContain(
-			'value="Template booking"',
-		);
+		// The builder's canvas, named by the playbook; its properties wait in
+		// Details, and the name is no link: the playbook is the mission's.
+		expect(element(html, "playbook-identity")).toContain(">Template booking<");
+		expect(tagOf(html, "playbook-identity")).toMatch(/^<div/);
+		expect(html).toContain('data-testid="playbook-details"');
 		expect(tagOf(html, "mission-playbook-open-type")).toContain(
 			'href="/playbooks/template-booking"',
 		);
@@ -431,7 +433,7 @@ describe("/missions/$id/playbook", () => {
 	it("answers a mission that is gone with NOT_FOUND and a way back", async () => {
 		const html = await render(
 			PAGE,
-			failing(missionKeys.detail(ID), 404, "NOT_FOUND"),
+			failing(queryKeys.missions.detail(ID), 404, "NOT_FOUND"),
 		);
 		expect(tagOf(html, "mission-playbook")).toContain('data-state="error"');
 		expect(tagOf(html, "mission-playbook-back")).toContain('href="/missions"');
@@ -440,7 +442,7 @@ describe("/missions/$id/playbook", () => {
 	it("offers no way back for a failure that is not NOT_FOUND", async () => {
 		const html = await render(
 			PAGE,
-			failing(missionKeys.detail(ID), 500, "INTERNAL"),
+			failing(queryKeys.missions.detail(ID), 500, "INTERNAL"),
 		);
 		expect(tagOf(html, "mission-playbook")).toContain('data-state="error"');
 		expect(html).not.toContain("mission-playbook-back");

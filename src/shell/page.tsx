@@ -94,7 +94,7 @@ export function Page(props: PageProps) {
 			<header
 				data-testid="topbar"
 				data-scrolled={scrolled.value || undefined}
-				className="sticky top-0 z-(--z-raised) brushed edge-highlight h-(--topbar-height) shrink-0 border-b border-transparent bg-card transition-colors duration-(--duration-micro) ease-avel data-scrolled:border-border"
+				className="sticky top-0 z-(--z-raised) h-(--topbar-height) shrink-0 border-b border-transparent bg-app-panel transition-colors duration-(--duration-micro) ease-avel data-scrolled:border-border"
 			>
 				<div
 					data-testid="topbar-row"
@@ -116,7 +116,7 @@ export function Page(props: PageProps) {
 						className="flex min-w-0 flex-1 flex-col justify-center"
 					>
 						<Breadcrumbs crumbs={crumbs} />
-						<h1 className="type-h2 truncate text-foreground">{title}</h1>
+						<h1 className="type-page truncate text-text">{title}</h1>
 						<SecondLine
 							subtitle={subtitle}
 							definition={crumbs.length > 0 ? undefined : definition}
@@ -146,7 +146,7 @@ export function Page(props: PageProps) {
 					// into the remaining height and centre in it.
 					canvas
 						? "flex min-h-0 flex-col"
-						: cn(CONTENT, "stagger-in flex flex-col pt-2 pb-8"),
+						: cn(CONTENT, "flex flex-col pt-2 pb-8"),
 				)}
 			>
 				{children}

@@ -5,7 +5,7 @@ import {
 	RouterProvider,
 } from "@tanstack/react-router";
 import {
-	EXPORT_STATUSES,
+	type EXPORT_STATUSES,
 	type MissionDetail,
 	missionDetail,
 	type RosterEntry,
@@ -13,20 +13,13 @@ import {
 } from "avel-server/contract";
 import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import { missionKeys } from "@/components/avel/mission-data";
+import { describe, expect, it, vi } from "vitest";
 import { RecentActivity } from "@/components/avel/mission-details";
-import {
-	DELIVERY_STAGES,
-	deliveryStages,
-	nowBanner,
-	shortDuration,
-} from "@/components/avel/mission-page";
+import { nowBanner, shortDuration } from "@/components/avel/mission-page";
 import {
 	MISSING_ROUTE,
 	sampleExports,
 	sampleHaltReason,
-	sampleStages,
 } from "@/components/avel/mission-placeholders";
 import { ApiError, ApiOverrideProvider, queryKeys } from "@/lib/api";
 import { SessionSourceProvider } from "@/lib/auth";
@@ -34,6 +27,10 @@ import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { tagOf } from "./render-page";
 import { UUID_FRAGMENT, visibleText } from "./visible-text";
+
+// The mission details open in a Sheet, which portals; draw it in place so
+// the server render shows what the drawer holds.
+vi.mock("@/components/ui/sheet", () => import("./missions-sheet-inline"));
 
 // ---------------------------------------------------------------------------
 // Fixtures, parsed through the contract's own schema.
@@ -76,6 +73,7 @@ function detail(extra: Partial<MissionDetail> = {}): MissionDetail {
 					kind: "operator",
 					userId: "00000000-0000-4000-8000-000000000900",
 					rosterEntryId: null,
+					canonSessionId: null,
 					display: "ada",
 					agent: null,
 				},
@@ -128,7 +126,7 @@ async function render(
 const withMission =
 	(mission: MissionDetail) =>
 	(client: QueryClient): void => {
-		client.setQueryData(missionKeys.detail(mission.id).slice(), mission);
+		client.setQueryData(queryKeys.missions.detail(mission.id).slice(), mission);
 	};
 
 function rosterEntry(
@@ -210,10 +208,10 @@ describe("the route", () => {
 
 	it("says a missing mission is gone, with a way back", async () => {
 		const html = await render(`/missions/${ID}`, (client) => {
-			client.setQueryData(missionKeys.detail(ID).slice(), undefined);
+			client.setQueryData(queryKeys.missions.detail(ID).slice(), undefined);
 			const query = client
 				.getQueryCache()
-				.build(client, { queryKey: missionKeys.detail(ID).slice() });
+				.build(client, { queryKey: queryKeys.missions.detail(ID).slice() });
 			query.setState({
 				status: "error",
 				error: new ApiError({
@@ -275,6 +273,7 @@ describe("the page from the contract", () => {
 								kind: "agent",
 								userId: null,
 								rosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+								canonSessionId: null,
 								display: "Atlas · scheduling",
 								agent: {
 									templateId: "7ecead58-5eed-4000-8000-000000000991",
@@ -310,6 +309,7 @@ describe("the page from the contract", () => {
 				kind: "system",
 				userId: null,
 				rosterEntryId: null,
+				canonSessionId: null,
 				display: "AVEL runner",
 				agent: null,
 			},
@@ -397,10 +397,9 @@ describe("the page from the contract", () => {
 });
 
 describe("sample data (ruling 29)", () => {
-	const SAMPLE_REGIONS = ["mission-progress-early", "mission-exports-earlier"];
+	const SAMPLE_REGIONS = ["mission-exports-earlier"];
 	const REAL_REGIONS = [
 		"mission-page-header",
-		"mission-progress-delivery",
 		"mission-export-latest",
 		"mission-section-activity-page",
 		"mission-section-repository",
@@ -443,9 +442,7 @@ describe("sample data (ruling 29)", () => {
 		const missing = [
 			...html.matchAll(/data-testid="sample-data" data-missing="([^"]+)"/g),
 		].map((m) => m[1]);
-		expect(new Set(missing)).toEqual(
-			new Set([MISSING_ROUTE.stages, MISSING_ROUTE.exports]),
-		);
+		expect(new Set(missing)).toEqual(new Set([MISSING_ROUTE.exports]));
 		expect(html).toContain(
 			`placeholder until avel-server has ${MISSING_ROUTE.exports}`,
 		);
@@ -458,16 +455,6 @@ describe("sample data (ruling 29)", () => {
 		expect(JSON.stringify(sampleExports(other))).not.toBe(
 			JSON.stringify(sampleExports(ID)),
 		);
-	});
-
-	it("puts every early stage behind a mission that has an export", () => {
-		expect(sampleStages(ID, true)).toEqual({
-			plan: "done",
-			assemble: "done",
-			execute: "done",
-		});
-		const early = Object.values(sampleStages(ID, false));
-		expect(early.filter((s) => s === "current")).toHaveLength(1);
 	});
 });
 
@@ -500,39 +487,37 @@ describe("the Now banner", () => {
 	});
 });
 
-describe("the progress track", () => {
-	it("reads Verify and Ship from the real last export", () => {
-		expect(deliveryStages(undefined)).toEqual({
-			verify: "not-started",
-			ship: "not-started",
-		});
-		expect(deliveryStages("previewed")).toEqual({
-			verify: "waiting-on-you",
-			ship: "not-started",
-		});
-		expect(deliveryStages("pr-open")).toEqual({
-			verify: "done",
-			ship: "waiting-on-you",
-		});
-		expect(deliveryStages("done")).toEqual({ verify: "done", ship: "done" });
-		expect(deliveryStages("failed").verify).toBe("failed");
-	});
-
-	it("places every export status the contract has", () => {
-		expect(Object.keys(DELIVERY_STAGES).sort()).toEqual(
-			[...EXPORT_STATUSES].sort(),
+describe("the lifecycles", () => {
+	it("wraps the Now banner's action under its text on a phone, aligned to the end (v3 UX 7)", async () => {
+		const html = await render(
+			`/missions/${ID}`,
+			withMission(detail({ needsYou: { reason: "export_previewed" } })),
 		);
+		const actions = tagOf(html, "mission-now-actions");
+		for (const cls of ["ml-auto", "max-sm:basis-full", "max-sm:justify-end"])
+			expect(actions).toContain(cls);
+		expect(
+			html.indexOf('data-testid="mission-now-open-export"'),
+		).toBeGreaterThan(html.indexOf('data-testid="mission-now-actions"'));
 	});
 
-	it("renders the real stages from the export", async () => {
+	it("draws the mission's and the last export's lifecycle from their real status, with no sample stages (audit D5, F5)", async () => {
 		const html = await render(
 			`/missions/${ID}`,
 			withMission(detail({ lastExport: exported("pr-open") })),
 		);
-		expect(tagOf(html, "mission-stage-verify")).toContain('data-state="done"');
-		expect(tagOf(html, "mission-stage-ship")).toContain(
-			'data-state="waiting-on-you"',
+		expect(tagOf(html, "mission-lifecycle")).toMatch(/data-current="[a-z]+"/);
+		expect(tagOf(html, "mission-export-lifecycle")).toContain(
+			'data-current="pr-open"',
 		);
+		expect(tagOf(html, "mission-export-lifecycle-step-pr-open")).toContain(
+			'aria-current="step"',
+		);
+		expect(tagOf(html, "mission-export-lifecycle-step-delivering")).toContain(
+			'data-standing="passed"',
+		);
+		expect(html).not.toContain("mission-progress");
+		expect(html).not.toContain("mission-stage-");
 	});
 });
 

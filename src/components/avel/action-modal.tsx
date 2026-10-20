@@ -1,3 +1,4 @@
+import { XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import {
 	createContext,
@@ -8,11 +9,16 @@ import {
 	useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { DialogOverlay, DialogPortal } from "@/components/ui/dialog";
+import {
+	CLOSE_BUTTON,
+	DialogOverlay,
+	DialogPortal,
+} from "@/components/ui/dialog";
 import { ApiError } from "@/lib/api";
 import { describeError } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
 import { isShortcut, useShortcutLabel } from "@/shell/shortcut";
+import { RequestReference } from "./surface";
 
 /*
  * The one modal shell (AVEL-DESIGN.md ruling 35): Confirm, Form and Stepper
@@ -159,13 +165,19 @@ const SIZE: Record<ModalSize, string> = {
 	stepper: "md:max-w-3xl",
 };
 
-/** The shell every modal shares: full screen below md, centred by size above. */
+/**
+ * The shell every modal shares: full screen below md, centred by size above.
+ * It is a v3 dialog: the float surface and the dialog shadow, whose own ring
+ * draws its edge, so it takes no border.
+ */
 export function shellClass(size: ModalSize): string {
 	return cn(
-		"fixed z-(--z-modal) flex flex-col plate-float bg-popover outline-hidden",
+		// overflow-hidden clips to the radius: the footer band's square
+		// corners otherwise show past the rounded bottom.
+		"fixed z-(--z-modal) flex flex-col overflow-hidden bg-app-float shadow-dialog outline-hidden",
 		"duration-(--duration-state) ease-avel data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
 		"inset-0 max-md:h-dvh",
-		"md:inset-auto md:top-1/2 md:left-1/2 md:max-h-[calc(100dvh-4rem)] md:w-full md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border md:data-[state=open]:zoom-in-95",
+		"md:inset-auto md:top-1/2 md:left-1/2 md:max-h-[calc(100dvh-4rem)] md:w-full md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-dialog md:data-[state=open]:zoom-in-95",
 		SIZE[size],
 	);
 }
@@ -184,6 +196,11 @@ export function InlineModals({ children }: { children: ReactNode }) {
 			{children}
 		</InlineModalContext.Provider>
 	);
+}
+
+/** Whether open overlays render in place: true only under InlineModals. */
+export function useInlineModals(): boolean {
+	return useContext(InlineModalContext);
 }
 
 /** The dialog's root, then either the portal and content, or in place. */
@@ -205,7 +222,7 @@ function ModalRoot({
 	>;
 	children: ReactNode;
 }) {
-	const inline = useContext(InlineModalContext);
+	const inline = useInlineModals();
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
 			{inline ? (
@@ -251,7 +268,10 @@ export type ActionModalProps = {
 	pending: boolean;
 	pendingLabel?: string;
 	submitDisabledReason?: string;
-	/** An irreversible write: the primary is the outlined destructive button. */
+	/**
+	 * An irreversible write: the primary is the filled danger confirm (audit
+	 * D7), the dialog's last button, after the dialog has named the effect.
+	 */
 	destructive?: boolean;
 	error: ApiError | null;
 	fieldOf?: (path: IssuePath) => string | null;
@@ -261,6 +281,11 @@ export type ActionModalProps = {
 	/** Stepper only: the steps' names, the current one, and Back. */
 	steps?: readonly string[];
 	step?: number;
+	/**
+	 * How the steps show: v3's numbered discs (.steps-num), or its pills,
+	 * "1 · Agent" (.steps-pills), for a form whose steps are short nouns.
+	 */
+	stepStyle?: "numbered" | "pills";
 	onBack?: () => void;
 	children?: ReactNode;
 	"data-testid": string;
@@ -367,6 +392,7 @@ export function ActionModalFrame({
 	changes,
 	steps,
 	step = 0,
+	stepStyle = "numbered",
 	onBack,
 	children,
 	"data-testid": testId,
@@ -384,9 +410,25 @@ export function ActionModalFrame({
 	);
 	return (
 		<>
-			<header className="flex flex-col gap-1 border-b border-border px-6 pt-5 pb-4">
-				{steps ? <StepTrail steps={steps} step={step} /> : null}
-				<DialogPrimitive.Title className="type-h2 text-foreground">
+			<header className="flex flex-col gap-1 px-6 pt-5 pb-4 pr-14">
+				{/* Through onRequestClose, so an edited form asks first. */}
+				<button
+					type="button"
+					data-testid={`${testId}-dismiss`}
+					className={CLOSE_BUTTON}
+					onClick={onRequestClose}
+				>
+					<XIcon aria-hidden="true" />
+					<span className="sr-only">Close</span>
+				</button>
+				{steps ? (
+					stepStyle === "pills" ? (
+						<StepPills steps={steps} step={step} testId={testId} />
+					) : (
+						<StepTrail steps={steps} step={step} />
+					)
+				) : null}
+				<DialogPrimitive.Title className="type-page text-foreground">
 					{title}
 				</DialogPrimitive.Title>
 				{description ? (
@@ -401,20 +443,26 @@ export function ActionModalFrame({
 				)}
 			</header>
 			<IssuesContext.Provider value={byField}>
-				<div className="app-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+				<div className="app-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-5">
 					{children}
 				</div>
 			</IssuesContext.Provider>
-			<footer className="flex flex-col gap-3 border-t border-border px-6 py-4">
-				{changes}
-				{error ? (
-					<RefusalRow
-						error={error}
-						unplaced={unplaced}
-						placed={unplaced.length < issuesOf(error).length}
-						describe={describeIssue ?? ((issue) => issue.message)}
-					/>
-				) : null}
+			{/* What the write changes and what the server refused sit above the
+			    band, outside the scroll, so the band holds only the buttons. */}
+			{changes || error ? (
+				<div className="flex flex-col gap-3 px-6 pb-4">
+					{changes}
+					{error ? (
+						<RefusalRow
+							error={error}
+							unplaced={unplaced}
+							placed={unplaced.length < issuesOf(error).length}
+							describe={describeIssue ?? ((issue) => issue.message)}
+						/>
+					) : null}
+				</div>
+			) : null}
+			<footer className="flex flex-col gap-3 border-t border-border bg-app-band py-3 pr-4 pl-6">
 				{confirmingDiscard ? (
 					<div
 						role="alertdialog"
@@ -464,14 +512,14 @@ export function ActionModalFrame({
 							Cancel
 						</Button>
 						<Button
-							variant={destructive ? "destructive" : "default"}
+							variant={destructive ? "destructive-confirm" : "default"}
 							data-testid={`${testId}-submit`}
 							disabled={pending}
 							disabledReason={submitDisabledReason}
 							onClick={onSubmitClick}
 						>
 							{pending ? pendingLabel : submitLabel}
-							<kbd className="ml-1 hidden type-mono-small opacity-70 md:inline">
+							<kbd className="ml-1 hidden type-mono opacity-70 md:inline">
 								{submitHint}
 							</kbd>
 						</Button>
@@ -482,7 +530,53 @@ export function ActionModalFrame({
 	);
 }
 
-/** Where a stepper stands: numbered steps, the current one marked. */
+/**
+ * Where a stepper stands, as v3's step pills: each step a small pill, "1 ·
+ * Agent", the current one in the selected fill with the accent ring and
+ * text (Polish 10), the rest quiet.
+ */
+function StepPills({
+	steps,
+	step,
+	testId,
+}: {
+	steps: readonly string[];
+	step: number;
+	testId: string;
+}) {
+	return (
+		<ol
+			aria-label="Steps"
+			data-testid={`${testId}-steps`}
+			className="mb-1 flex flex-wrap items-center gap-1.5"
+		>
+			{steps.map((name, i) => (
+				<li
+					key={name}
+					data-testid={`${testId}-step-${i}`}
+					aria-current={i === step ? "step" : undefined}
+					className={cn(
+						"inline-flex h-6 items-center rounded-sm px-2 type-small",
+						i === step
+							? "bg-selected text-accent-text ring-1 ring-accent-line ring-inset"
+							: i < step
+								? "bg-gate-pending-soft text-text"
+								: "bg-gate-pending-soft text-text-subtle",
+					)}
+				>
+					{`${i + 1} · ${name}`}
+					{i < step ? <span className="sr-only">, done</span> : null}
+				</li>
+			))}
+		</ol>
+	);
+}
+
+/**
+ * Where a stepper stands: v3's numbered steps. Finished steps take the
+ * primary face, the current one an accent ring (where the operator is), and
+ * the rest quiet discs.
+ */
 function StepTrail({
 	steps,
 	step,
@@ -497,11 +591,21 @@ function StepTrail({
 					key={name}
 					aria-current={i === step ? "step" : undefined}
 					className={cn(
-						"flex items-center gap-1.5 type-caption",
-						i === step ? "text-foreground" : "text-text-subtle",
+						"flex items-center gap-2 type-small",
+						i === step ? "text-text" : "text-text-subtle",
 					)}
 				>
-					<span className="type-mono-small">{i + 1}</span>
+					<span
+						className={cn(
+							"inline-grid size-[22px] place-items-center rounded-full border type-caption font-medium",
+							i < step && "control-on text-text-on-solid",
+							i === step && "border-accent bg-app-panel text-accent-text",
+							i > step &&
+								"border-transparent bg-gate-pending-soft text-text-subtle",
+						)}
+					>
+						{i + 1}
+					</span>
 					{name}
 				</li>
 			))}
@@ -531,7 +635,7 @@ function RefusalRow({
 		<div
 			role="alert"
 			data-testid="action-modal-refusal"
-			className="flex flex-col gap-1 rounded-sm border border-gate-block-line bg-gate-block-soft px-3 py-2"
+			className="flex flex-col gap-1 rounded-control border border-gate-block-line bg-gate-block-soft px-3 py-2"
 		>
 			<p className="type-small text-foreground">
 				{onFieldsOnly ? "Check the fields marked above." : copy.what}
@@ -547,7 +651,7 @@ function RefusalRow({
 							className="type-small text-foreground"
 						>
 							{issue.path.length > 0 ? (
-								<span className="mr-2 type-mono-small text-text-subtle">
+								<span className="mr-2 type-mono text-text-subtle">
 									{issue.path.join(".")}
 								</span>
 							) : null}
@@ -559,6 +663,9 @@ function RefusalRow({
 			{onFieldsOnly ? null : (
 				<p className="type-small text-text-muted">{copy.next}</p>
 			)}
+			{/* The id support traces the refusal by (audit F4), as every
+			    error state shows it. */}
+			{error.requestId ? <RequestReference id={error.requestId} /> : null}
 		</div>
 	);
 }
@@ -596,8 +703,15 @@ export function DetailModal({
 			testId={testId}
 			content={{}}
 		>
-			<header className="flex flex-col gap-1 border-b border-border px-6 pt-5 pb-4">
-				<DialogPrimitive.Title className="type-h2 text-foreground">
+			<header className="flex flex-col gap-1 px-6 pt-5 pb-4 pr-14">
+				<DialogPrimitive.Close
+					data-testid={`${testId}-dismiss`}
+					className={CLOSE_BUTTON}
+				>
+					<XIcon aria-hidden="true" />
+					<span className="sr-only">Close</span>
+				</DialogPrimitive.Close>
+				<DialogPrimitive.Title className="type-page text-foreground">
 					{title}
 				</DialogPrimitive.Title>
 				<DialogPrimitive.Description
@@ -606,10 +720,10 @@ export function DetailModal({
 					{description ?? title}
 				</DialogPrimitive.Description>
 			</header>
-			<div className="app-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+			<div className="app-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-5">
 				{children}
 			</div>
-			<footer className="flex justify-end border-t border-border px-6 py-4">
+			<footer className="flex justify-end border-t border-border bg-app-band py-3 pr-4 pl-6">
 				<DialogPrimitive.Close asChild>
 					<Button variant="ghost" data-testid={`${testId}-close`}>
 						Close

@@ -1,7 +1,8 @@
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import type { MissionListItem } from "avel-server/contract";
 import { Plus, Target } from "lucide-react";
-import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect } from "react";
+import { DataPanel } from "@/components/avel/data-panel";
 import { EmptyState } from "@/components/avel/empty-state";
 import {
 	countsOf,
@@ -9,10 +10,7 @@ import {
 	useMissionList,
 } from "@/components/avel/mission-data";
 import { MissionDetails } from "@/components/avel/mission-details";
-import {
-	MissionFilterBar,
-	MissionStatusStrip,
-} from "@/components/avel/mission-filters";
+import { MissionFilterBar } from "@/components/avel/mission-filters";
 import { MissionPanels } from "@/components/avel/mission-panels";
 import {
 	includesArchived,
@@ -22,8 +20,11 @@ import {
 	type View,
 } from "@/components/avel/mission-search";
 import { MissionTree } from "@/components/avel/mission-tree";
-import { GoingQuiet, InFlight } from "@/components/avel/mission-watch";
+import { MissionsDashboard } from "@/components/avel/missions-dashboard";
+import { ReadAge } from "@/components/avel/read-age";
 import { Button } from "@/components/ui/button";
+import { QUERY_STALE_MS } from "@/lib/api/provider";
+import { NOT_YET } from "@/lib/capabilities";
 import { useStoredState } from "@/lib/stored";
 import { useNow } from "@/lib/use-now";
 import { Page, pageHead } from "../shell/page";
@@ -37,19 +38,6 @@ export const Route = createFileRoute("/missions")({
 	search: { middlewares: [stripSearchParams(MISSION_SEARCH_DEFAULTS)] },
 	component: MissionsPage,
 });
-
-/** md and up, where the details panel sits beside the list. */
-function useIsDesktop(): boolean {
-	const [desktop, setDesktop] = useState(true);
-	useEffect(() => {
-		const query = window.matchMedia("(min-width: 48rem)");
-		const update = () => setDesktop(query.matches);
-		update();
-		query.addEventListener("change", update);
-		return () => query.removeEventListener("change", update);
-	}, []);
-	return desktop;
-}
 
 /**
  * J and K move between mission rows, wherever focus is in a list: a panel's
@@ -74,15 +62,16 @@ function moveBetweenRows(event: KeyboardEvent<HTMLElement>) {
 }
 
 /**
- * Missions, by where they stand (ROUTES.md, /missions): the status strip and
- * filters, then the missions grouped into panels or as one table, and the
- * details of the one chosen, beside the list or, on a phone, over it.
- * Everything filtering or choosing lives in the URL.
+ * Missions, by where they stand (ROUTES.md, /missions; MISSIONS-DASHBOARD.md):
+ * the dashboard (status cards, what is running now, what needs you, what is
+ * going quiet, recent activity), then the filters and the missions grouped
+ * into panels or as a tree, and the details of the one chosen, beside the
+ * list or, on a phone, over it. Everything filtering or choosing lives in
+ * the URL; the status cards set its status.
  */
 function MissionsPage() {
 	const search = Route.useSearch();
 	const navigate = Route.useNavigate();
-	const desktop = useIsDesktop();
 	const now = useNow();
 
 	// The view is remembered per viewer. A link carries it only when it is
@@ -106,8 +95,8 @@ function MissionsPage() {
 		navigate({ search: (prev) => ({ ...prev, view }) });
 	};
 
-	// Every status in scope: its meta.counts drive the strip, the panel
-	// badges and the top bar's total (counts ignore the status filter).
+	// Every status in scope: its meta.counts drive the status cards, the
+	// panel badges and the top bar's total (counts ignore the status filter).
 	const base: MissionListParams = {
 		origin: search.origin,
 		q: search.q,
@@ -158,86 +147,95 @@ function MissionsPage() {
 				<Button
 					size="sm"
 					data-testid="missions-new"
-					disabledReason="Needs mission.create in the contract"
+					disabledReason={NOT_YET["mission.create"]}
 				>
 					<Plus aria-hidden="true" />
 					New mission
 				</Button>
 			}
 		>
-			<div data-testid="missions-page" className="flex flex-col gap-4 pt-2">
-				<MissionStatusStrip counts={counts} />
-				<MissionFilterBar onViewChange={changeView} />
-				{firstRun ? (
-					<EmptyState
-						data-testid="missions-first-run"
-						icon={Target}
-						title={
-							search.origin === "client"
-								? "No client missions yet"
-								: "No internal missions yet"
-						}
-						description="Missions appear here as they are created, grouped by where each one stands."
-					/>
-				) : (
-					<div
-						data-testid="missions-layout"
-						className={
-							search.mission && desktop
-								? "grid items-start gap-4 md:grid-cols-[minmax(0,1fr)_24rem]"
-								: "flex flex-col"
-						}
-					>
-						{/* biome-ignore lint/a11y/noStaticElementInteractions: J and K
-						    move between the rows inside; the rows are the controls. */}
-						<div
-							data-testid="missions-views"
-							className="flex flex-col gap-4"
-							onKeyDown={moveBetweenRows}
+			<div data-testid="missions-page" className="pt-2">
+				<MissionsDashboard
+					base={base}
+					counts={counts}
+					status={search.status}
+					includeArchived={includesArchived(search)}
+					now={now}
+					onStatus={(status) =>
+						navigate({ search: (prev) => ({ ...prev, status }) })
+					}
+					onOpen={open}
+					missions={
+						// The full list is a panel of the page's grid: its header
+						// carries the count and the list's toolbar; the status groups
+						// sit inside it as sub-sections.
+						<DataPanel
+							data-testid="missions-list"
+							title="Missions"
+							count={total}
+							toolbar={<MissionFilterBar onViewChange={changeView} />}
+							footer={
+								scope.status === "success" ? (
+									<ReadAge
+										data-testid="missions-list-read-age"
+										readAt={scope.dataUpdatedAt}
+										staleAfterMs={QUERY_STALE_MS}
+										onRefresh={() => scope.refetch()}
+										refreshing={scope.isFetching}
+									/>
+								) : undefined
+							}
 						>
-							{/* What to keep an eye on, above both views. A status filter
-							    narrows the page to one status, so they step aside.
-							    Stacked full width, never side by side: their rows then
-							    share the tree's and panels' edges and columns, and a
-							    collapsed strip shrinks to its header. Side by side, a
-							    grid row stretched a collapsed strip to its sibling's
-							    height, so collapsing looked like the rows vanishing. */}
-							{search.status === "all" ? (
-								<div
-									data-testid="missions-watch"
-									className="flex flex-col gap-4"
-								>
-									<GoingQuiet params={base} now={now} onOpen={open} />
-									<InFlight params={base} now={now} onOpen={open} />
-								</div>
-							) : null}
-							{search.view === "tree" ? (
-								<MissionTree
-									params={tableParams}
-									now={now}
-									selectedId={search.mission}
-									onOpen={open}
+							{firstRun ? (
+								<EmptyState
+									data-testid="missions-first-run"
+									icon={Target}
+									title={
+										search.origin === "client"
+											? "No client missions yet"
+											: "No internal missions yet"
+									}
+									description="Missions appear here as they are created, grouped by where each one stands."
 								/>
 							) : (
-								<MissionPanels
-									params={base}
-									counts={counts}
-									now={now}
-									onOpen={open}
-								/>
+								// biome-ignore lint/a11y/noStaticElementInteractions: J and K move between the rows inside; the rows are the controls.
+								<div
+									data-testid="missions-views"
+									className="flex flex-col"
+									onKeyDown={moveBetweenRows}
+								>
+									{search.view === "tree" ? (
+										<MissionTree
+											params={tableParams}
+											now={now}
+											selectedId={search.mission}
+											onOpen={open}
+											nested
+										/>
+									) : (
+										<MissionPanels
+											params={base}
+											counts={counts}
+											now={now}
+											onOpen={open}
+											nested
+										/>
+									)}
+								</div>
 							)}
-						</div>
-						{search.mission ? (
-							<MissionDetails
-								key={search.mission}
-								id={search.mission}
-								desktop={desktop}
-								now={now}
-								onClose={close}
-							/>
-						) : null}
-					</div>
-				)}
+						</DataPanel>
+					}
+				/>
+				{/* A drawer over the page, never a column that reflows the grid.
+				    ?mission opens it; Esc and the close button clear it. */}
+				{search.mission ? (
+					<MissionDetails
+						key={search.mission}
+						id={search.mission}
+						now={now}
+						onClose={close}
+					/>
+				) : null}
 			</div>
 		</Page>
 	);

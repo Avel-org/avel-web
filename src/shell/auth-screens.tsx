@@ -36,7 +36,9 @@ function AuthScreen({
 
 function Heading({ children }: { children: ReactNode }) {
 	return (
-		<h1 className="mt-6 type-h1 text-balance text-foreground">{children}</h1>
+		<h1 className="mt-6 type-display text-balance text-foreground">
+			{children}
+		</h1>
 	);
 }
 
@@ -100,7 +102,7 @@ export function SignInScreen({
 				<p
 					role="alert"
 					data-testid="auth-sign-in-notice"
-					className="mt-6 w-full rounded-md border border-border bg-app-panel px-4 py-3 type-small text-text-muted"
+					className="mt-6 w-full rounded-card border border-border bg-app-panel px-4 py-3 type-small text-text-muted"
 				>
 					{notice}
 				</p>
@@ -165,7 +167,7 @@ export function NotAllowedScreen({
 }) {
 	return (
 		<AuthScreen testId="auth-not-allowed">
-			<span className="flex size-12 items-center justify-center rounded-md border border-border bg-app-panel">
+			<span className="flex size-12 items-center justify-center rounded-card border border-border bg-app-panel">
 				<CircleSlash aria-hidden="true" className="size-5 text-gate-block" />
 			</span>
 			<Heading>
@@ -178,14 +180,14 @@ export function NotAllowedScreen({
 			{account ? (
 				<div
 					data-testid="auth-not-allowed-account"
-					className="mt-6 flex w-full items-center gap-3 rounded-md border border-border bg-app-panel px-4 py-3 text-left"
+					className="mt-6 flex w-full items-center gap-3 rounded-card border border-border bg-app-panel px-4 py-3 text-left"
 				>
 					<OperatorAvatar user={account} />
 					<span className="flex min-w-0 flex-col">
 						<span className="truncate type-body font-medium text-foreground">
 							{account.name || account.githubLogin}
 						</span>
-						<span className="truncate type-mono-small text-text-subtle">
+						<span className="truncate type-mono text-text-subtle">
 							@{account.githubLogin}
 						</span>
 					</span>
@@ -232,7 +234,7 @@ export function UnreachableScreen({
 }) {
 	return (
 		<AuthScreen testId="auth-unreachable">
-			<span className="flex size-12 items-center justify-center rounded-md border border-border bg-app-panel">
+			<span className="flex size-12 items-center justify-center rounded-card border border-border bg-app-panel">
 				<ServerOff aria-hidden="true" className="size-5 text-text-muted" />
 			</span>
 			<Heading>Can't reach avel-server</Heading>

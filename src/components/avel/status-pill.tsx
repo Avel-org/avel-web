@@ -12,15 +12,20 @@ import { cn } from "@/lib/utils";
  *
  * `attested` draws the ring dashed: a mechanical result is a solid ring, an
  * attested one is dashed (section 2), so a claim never looks like a check.
+ *
+ * The pill is v3's: a soft ground in the tone, the word in its text colour,
+ * and in dark, where the soft ground nearly vanishes, an inset ring from the
+ * tone's line. The glyph keeps its shape inside it (audit D2): the shape
+ * carries the meaning, the colour repeats it.
  */
 export type StatusTone = "pass" | "block" | "warn" | "pending" | "stale";
 
 const TONE: Record<StatusTone, string> = {
-	pass: "border-gate-pass-line bg-gate-pass-soft text-gate-pass",
-	block: "border-gate-block-line bg-gate-block-soft text-gate-block",
-	warn: "border-gate-warn-line bg-gate-warn-soft text-gate-warn",
-	pending: "border-gate-pending-line bg-gate-pending-soft text-gate-pending",
-	stale: "border-gate-stale-line bg-gate-stale-soft text-gate-stale",
+	pass: "bg-gate-pass-soft text-gate-pass ring-gate-pass-line",
+	block: "bg-gate-block-soft text-gate-block ring-gate-block-line",
+	warn: "bg-gate-warn-soft text-gate-warn ring-gate-warn-line",
+	pending: "bg-gate-pending-soft text-gate-pending ring-gate-pending-line",
+	stale: "bg-gate-stale-soft text-gate-stale ring-gate-stale-line",
 };
 
 /** The glyph alone, for places where the word is already beside it. */
@@ -90,8 +95,8 @@ export function StatusPill({
 			data-testid={testId}
 			data-tone={tone}
 			className={cn(
-				"inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
-				size === "sm" ? "h-5 px-1.5 text-xs" : "h-6 px-2 text-xs",
+				"inline-flex w-fit shrink-0 items-center gap-[5px] rounded-sm type-caption font-medium whitespace-nowrap ring-inset in-[.dark]:ring-1",
+				size === "sm" ? "h-5 px-1.5" : "h-[22px] px-2",
 				TONE[tone],
 				className,
 			)}

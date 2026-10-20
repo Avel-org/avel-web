@@ -29,7 +29,6 @@ import {
 	gapTarget,
 	parseFocus,
 } from "@/components/avel/loadout-coherence";
-import { missionKeys } from "@/components/avel/mission-data";
 import { sendWith } from "@/components/avel/mission-skills-pane";
 import { blockCopy } from "@/components/avel/playbook-coherence";
 import {
@@ -236,7 +235,7 @@ const page = <T,>(rows: readonly T[]) => ({
 });
 
 const withMission = (m: MissionDetail = mission()) =>
-	set(missionKeys.detail(m.id), m);
+	set(queryKeys.missions.detail(m.id), m);
 const withPlaybook = set(
 	queryKeys.playbooks.byType("template-booking"),
 	PLAYBOOK,

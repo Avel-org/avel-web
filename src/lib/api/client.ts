@@ -32,7 +32,7 @@ export function resolveBaseUrl(env: {
 	return env.isServer ? (env.serverOrigin ?? "http://localhost:8787") : "";
 }
 
-function defaultBaseUrl(): string {
+export function defaultBaseUrl(): string {
 	return resolveBaseUrl({
 		isServer: typeof window === "undefined",
 		override: import.meta.env.VITE_AVEL_API_URL,

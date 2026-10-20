@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { relativeTime } from "@/lib/api/clients";
 import type { ApiError } from "@/lib/api/errors";
+import { QUERY_STALE_MS } from "@/lib/api/provider";
 import { cn } from "@/lib/utils";
 import { DataPanel } from "./data-panel";
 import {
@@ -23,6 +24,8 @@ import {
 	useMissionList,
 } from "./mission-data";
 import { MissionRowsSkeleton } from "./mission-panels";
+import { ReadAge } from "./read-age";
+import { ROW_LINK_GROUP, RowChevron } from "./row-link";
 import { exportStatusTone, StatusPill } from "./status-pill";
 import { ErrorState, Surface, type SurfaceQuery } from "./surface";
 
@@ -104,7 +107,9 @@ type Watched = {
 /**
  * One watch strip: a collapsible panel of up to five rows from its own
  * server-filtered list, with the exact total in its badge. "Show all" opens
- * it up to every loaded row and pages for the rest.
+ * it up to every loaded row and pages for the rest. Compact, for a narrow
+ * column (the Missions dashboard's side), each row takes two lines: the
+ * mission, then its badges and time.
  */
 function WatchStrip({
 	id,
@@ -114,6 +119,7 @@ function WatchStrip({
 	rows,
 	empty,
 	onOpen,
+	compact = false,
 }: {
 	id: "quiet" | "in-flight";
 	title: string;
@@ -122,6 +128,7 @@ function WatchStrip({
 	rows: Watched[];
 	empty: string;
 	onOpen: (mission: MissionListItem) => void;
+	compact?: boolean;
 }) {
 	const [all, setAll] = useState(false);
 	const testId = `missions-watch-${id}`;
@@ -146,6 +153,47 @@ function WatchStrip({
 			tone={tone}
 			count={total}
 			storageKey={`avel.missions.watch.${id}`}
+			// The one panel footer: when the list was read on the left; how
+			// many are shown, and the way to the rest, on the right.
+			footer={
+				list.status === "success" ? (
+					<>
+						<ReadAge
+							data-testid={`${testId}-read-age`}
+							readAt={list.dataUpdatedAt}
+							staleAfterMs={QUERY_STALE_MS}
+							onRefresh={() => list.refetch()}
+							refreshing={list.isFetching}
+						/>
+						{footer ? (
+							<span
+								data-testid={`${testId}-coverage`}
+								className="flex items-center gap-2"
+							>
+								<span className="type-caption text-text-subtle tabular-nums">
+									{footer}
+								</span>
+								<Button
+									variant="ghost"
+									size="sm"
+									data-testid={`${testId}-more`}
+									disabled={all && list.isFetchingNextPage}
+									onClick={() => {
+										if (!all) setAll(true);
+										else list.fetchNextPage();
+									}}
+								>
+									{!all
+										? "Show all"
+										: list.isFetchingNextPage
+											? "Loading"
+											: "Load more"}
+								</Button>
+							</span>
+						) : null}
+					</>
+				) : undefined
+			}
 		>
 			<Surface
 				data-testid={`${testId}-list`}
@@ -169,52 +217,63 @@ function WatchStrip({
 									<button
 										type="button"
 										data-testid={`${testId}-row-${mission.id}`}
+										data-compact={compact || undefined}
 										onClick={() => onOpen(mission)}
 										className={cn(
-											MISSION_ROW,
-											"px-4 text-left transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-state-hover",
+											compact
+												? "flex min-h-10 w-full min-w-0 items-center gap-3 py-2"
+												: MISSION_ROW,
+											ROW_LINK_GROUP,
+											"px-4 text-left transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-app-raised",
 										)}
 									>
-										<span className={MISSION_ROW_SUBJECT}>
-											<ClientName mission={mission} />
-										</span>
-										{badges}
-										<span
-											data-testid={`${testId}-time`}
-											className={MISSION_ROW_TIME}
-										>
-											{time}
-										</span>
+										{compact && !badges ? (
+											// Nothing but the client and its time: one line.
+											<span className="flex min-w-0 flex-1 items-baseline gap-3">
+												<span className="min-w-0 flex-1 truncate type-small text-text">
+													<ClientName mission={mission} />
+												</span>
+												<span
+													data-testid={`${testId}-time`}
+													className="shrink-0 type-caption text-text-subtle"
+												>
+													{time}
+												</span>
+											</span>
+										) : compact ? (
+											<span className="flex min-w-0 flex-1 flex-col gap-1">
+												<span className="truncate type-small text-text">
+													<ClientName mission={mission} />
+												</span>
+												<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+													{badges}
+													<span
+														data-testid={`${testId}-time`}
+														className="type-caption text-text-subtle"
+													>
+														{time}
+													</span>
+												</span>
+											</span>
+										) : (
+											<>
+												<span className={MISSION_ROW_SUBJECT}>
+													<ClientName mission={mission} />
+												</span>
+												{badges}
+												<span
+													data-testid={`${testId}-time`}
+													className={MISSION_ROW_TIME}
+												>
+													{time}
+												</span>
+											</>
+										)}
+										<RowChevron />
 									</button>
 								</li>
 							))}
 						</ul>
-						{footer ? (
-							<div
-								data-testid={`${testId}-coverage`}
-								className="flex items-center justify-between gap-2 border-t border-border px-4 py-2"
-							>
-								<span className="type-caption text-text-subtle tabular-nums">
-									{footer}
-								</span>
-								<Button
-									variant="ghost"
-									size="sm"
-									data-testid={`${testId}-more`}
-									disabled={all && list.isFetchingNextPage}
-									onClick={() => {
-										if (!all) setAll(true);
-										else list.fetchNextPage();
-									}}
-								>
-									{!all
-										? "Show all"
-										: list.isFetchingNextPage
-											? "Loading"
-											: "Load more"}
-								</Button>
-							</div>
-						) : null}
 					</>
 				)}
 			</Surface>
@@ -231,11 +290,14 @@ export function GoingQuiet({
 	params,
 	now,
 	onOpen,
+	compact = false,
 }: {
 	/** The page's scope; the strip narrows it. */
 	params: MissionListParams;
 	now: number;
 	onOpen: (mission: MissionListItem) => void;
+	/** Two-line rows, for a narrow column. */
+	compact?: boolean;
 }) {
 	const list = useMissionList({
 		...params,
@@ -256,6 +318,7 @@ export function GoingQuiet({
 			}))}
 			empty="Nothing has gone quiet."
 			onOpen={onOpen}
+			compact={compact}
 		/>
 	);
 }
@@ -269,10 +332,13 @@ export function InFlight({
 	params,
 	now,
 	onOpen,
+	compact = false,
 }: {
 	params: MissionListParams;
 	now: number;
 	onOpen: (mission: MissionListItem) => void;
+	/** Two-line rows, for a narrow column. */
+	compact?: boolean;
 }) {
 	const list = useMissionList({
 		...params,
@@ -291,7 +357,9 @@ export function InFlight({
 					mission,
 					time: `since ${relativeTime(last.statusChangedAt, now)}`,
 					badges: (
-						<span className="flex shrink-0 items-center gap-2">
+						// min-w-0: the badges give way before the row overflows, and the
+						// export method ellipsises first (whole on hover).
+						<span className="flex min-w-0 items-center gap-2">
 							{EXPORT_PHASE[last.status] === "waiting" ? (
 								<StatusPill
 									size="sm"
@@ -305,7 +373,10 @@ export function InFlight({
 								tone={exportStatusTone(last.status)}
 								label={last.status}
 							/>
-							<span className="type-mono-small text-text-subtle">
+							<span
+								title={last.targetKind}
+								className="min-w-0 truncate type-mono text-text-subtle"
+							>
 								{last.targetKind}
 							</span>
 						</span>
@@ -314,6 +385,7 @@ export function InFlight({
 			})}
 			empty="Nothing in flight."
 			onOpen={onOpen}
+			compact={compact}
 		/>
 	);
 }

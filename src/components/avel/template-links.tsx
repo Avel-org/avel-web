@@ -116,7 +116,7 @@ export function PlaybookLink({
 			{link}
 			<span
 				data-testid={`template-playbook-meta-${slug}`}
-				className="shrink-0 type-mono-small text-text-subtle"
+				className="shrink-0 type-mono text-text-subtle"
 			>
 				{`v${playbook.version} · ${gateCountLabel(playbook.gates.length)}`}
 			</span>

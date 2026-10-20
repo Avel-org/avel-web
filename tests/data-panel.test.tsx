@@ -15,9 +15,16 @@ const classesOf = (html: string, testid: string) =>
 	(tagOf(html, testid).match(/class="([^"]*)"/)?.[1] ?? "").split(" ");
 
 describe("DataPanel", () => {
-	it("is a machined plate (ruling 37), rounded-md, clipped without a scroll container", () => {
+	it("is a v3 card, rounded-card, clipped without a scroll container", () => {
 		const root = classesOf(render(), "p");
-		for (const cls of ["plate", "rounded-md", "border", "overflow-clip"]) {
+		for (const cls of [
+			"rounded-card",
+			"border",
+			"border-border",
+			"bg-app-panel",
+			"shadow-card",
+			"overflow-clip",
+		]) {
 			expect(root).toContain(cls);
 		}
 		// overflow-hidden would trap a DataTable's sticky header inside the panel.
@@ -29,7 +36,7 @@ describe("DataPanel", () => {
 		const html = render();
 		const id = tagOf(html, "p").match(/aria-labelledby="([^"]+)"/)?.[1];
 		expect(html).toMatch(
-			new RegExp(`<h2 id="${id}" class="type-panel-title[^"]*">Needs you</h2>`),
+			new RegExp(`<h2 id="${id}" class="type-title[^"]*">Needs you</h2>`),
 		);
 	});
 
@@ -70,8 +77,9 @@ describe("DataPanel", () => {
 		expect(render({ count: 7 })).toMatch(/data-testid="p-count"[^>]*>7</);
 		expect(render({ count: 0 })).toMatch(/data-testid="p-count"[^>]*>0</);
 		expect(render()).toMatch(/data-testid="p-count"[^>]*>—</);
-		expect(classesOf(render(), "p-count")).toContain("type-mono-small");
-		expect(tagOf(render(), "p-count")).toContain('data-variant="tag"');
+		// The shared count badge (v3 .count-badge): tabular figures.
+		expect(tagOf(render(), "p-count")).toContain('data-variant="count"');
+		expect(classesOf(render(), "p-count")).toContain("tabular-nums");
 	});
 
 	it("keeps actions outside the toggle, as their own tab stops", () => {

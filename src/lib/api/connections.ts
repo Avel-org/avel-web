@@ -1,7 +1,9 @@
 import {
 	type InfiniteData,
 	infiniteQueryOptions,
+	queryOptions,
 	useInfiniteQuery,
+	useQuery,
 } from "@tanstack/react-query";
 import {
 	type Connection,
@@ -50,6 +52,34 @@ export function connectionsQuery(api: ApiClient) {
 
 export function useConnections() {
 	return useInfiniteQuery(connectionsQuery(useApiClient()));
+}
+
+/**
+ * How many live connections an engagement has: the ones closing it revokes.
+ * One row is read for the route's exact meta.total.
+ */
+export function engagementConnectionCountQuery(
+	api: ApiClient,
+	engagementId: string,
+) {
+	return queryOptions({
+		queryKey: queryKeys.connections.activeCount(engagementId),
+		queryFn: () =>
+			callPage(contract.connections.list, () =>
+				api.connections.list({
+					query: { engagementId, status: "active", limit: 1 },
+				}),
+			),
+		select: (page) => page.meta.total,
+	});
+}
+
+/** The live connection count for an engagement; idle until one is chosen. */
+export function useEngagementConnectionCount(engagementId: string | null) {
+	return useQuery({
+		...engagementConnectionCountQuery(useApiClient(), engagementId ?? ""),
+		enabled: engagementId !== null,
+	});
 }
 
 /** Every connection loaded so far, across the pages fetched. */

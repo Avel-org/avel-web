@@ -1,12 +1,13 @@
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
+// v3 .field, grown to its content. Focus and invalid as Input's.
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
 	return (
 		<textarea
 			data-slot="textarea"
 			className={cn(
-				"flex field-sizing-content min-h-16 w-full field-inset rounded-xs border border-input bg-app-field px-3 py-2 text-base transition-colors duration-(--duration-micro) ease-avel  placeholder:text-text-subtle focus-visible:border-text-muted focus-visible:bg-app-raised disabled:cursor-not-allowed disabled:opacity-(--opacity-disabled) aria-invalid:border-destructive md:text-sm",
+				"field-surface flex field-sizing-content min-h-16 w-full rounded-control px-2.5 py-1.5 type-body text-text transition-[border-color,box-shadow] duration-(--duration-micro) ease-avel placeholder:text-text-subtle disabled:cursor-not-allowed disabled:bg-app-raised disabled:text-text-subtle",
 				className,
 			)}
 			{...props}

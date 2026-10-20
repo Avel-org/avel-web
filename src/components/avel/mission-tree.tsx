@@ -9,6 +9,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
 	LastActivity,
@@ -28,6 +29,7 @@ import {
 } from "./mission-data";
 import { LoadMore, MissionRowsSkeleton } from "./mission-panels";
 import { STATUS_ORDER, STATUS_PANEL } from "./mission-search";
+import { ROW_LINK_GROUP, RowChevron } from "./row-link";
 import { StatusGlyph, StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
@@ -293,12 +295,15 @@ export function MissionTree({
 	now,
 	selectedId,
 	onOpen,
+	nested = false,
 }: {
 	params: MissionListParams;
 	now: number;
-	/** The mission open in the details panel (?mission), shown on a plate. */
+	/** The mission open in the details panel (?mission), shown selected. */
 	selectedId?: string;
 	onOpen: (mission: MissionListItem) => void;
+	/** Inside a panel that already frames the list: no card of its own. */
+	nested?: boolean;
 }) {
 	const list = useMissionList(params);
 	return (
@@ -307,7 +312,13 @@ export function MissionTree({
 			aria-label="Missions"
 			className="flex flex-col"
 		>
-			<div className="surface-steel overflow-clip rounded-md border border-border bg-card">
+			<div
+				className={
+					nested
+						? undefined
+						: "overflow-clip rounded-card border border-border bg-card shadow-card"
+				}
+			>
 				<Surface
 					data-testid="missions-tree-list"
 					query={asSurface(list)}
@@ -393,8 +404,8 @@ function Tree({
 		if (group.missions.length === 0) return null;
 		const expanded = !collapsed.has(group.id);
 		const count = group.missions.length;
-		// Top-level groups (a client, or an internal mission's type) are
-		// steel header plates; an engagement is one step quieter.
+		// Top-level groups (a client, or an internal mission's type) sit on
+		// the band, like a table header; an engagement is one step quieter.
 		const top = level === 1;
 		return (
 			<div
@@ -425,10 +436,10 @@ function Tree({
 						setCollapsed(group.id, expanded);
 					}}
 					className={cn(
-						"flex cursor-pointer items-center gap-2 rounded-sm border px-2 transition-colors duration-(--duration-micro) ease-avel",
+						"flex cursor-pointer items-center gap-2 rounded-control border px-2 transition-colors duration-(--duration-micro) ease-avel",
 						top
-							? "surface-steel h-10 border-border bg-app-band hover:bg-app-raised"
-							: "h-9 border-transparent hover:bg-state-hover",
+							? "h-10 border-border bg-app-band hover:bg-app-raised"
+							: "h-9 border-transparent hover:bg-app-raised",
 					)}
 				>
 					<ChevronRight
@@ -444,30 +455,25 @@ function Tree({
 							group.kind === "type"
 								? "type-mono text-foreground"
 								: top
-									? "type-panel-title text-foreground"
+									? "type-title text-foreground"
 									: "type-body font-medium text-text-muted",
 						)}
 					>
 						{group.name}
 					</span>
-					<span
+					<Badge
+						variant="count"
 						data-testid="mission-tree-count"
 						title={complete ? undefined : "Loaded so far"}
-						className={cn(
-							"shrink-0 rounded-full px-2 type-mono-small tabular-nums",
-							top
-								? "border border-border-strong bg-app-field text-text-muted"
-								: "text-text-subtle",
-						)}
 					>
 						{complete ? count : `${count} loaded`}
-					</span>
+					</Badge>
 					<span className="ml-auto">
 						<Rollup missions={group.missions} />
 					</span>
 				</div>
 				{expanded ? (
-					// The ruler (ruling 30): a 1px line under the chevron, a tick
+					// The ruler: a 1px line under the chevron, a tick
 					// at each child (TICK, on each child treeitem).
 					// biome-ignore lint/a11y/useSemanticElements: a tree's group is role="group" by the WAI-ARIA tree pattern; a fieldset is for forms
 					<div
@@ -512,18 +518,19 @@ function Tree({
 				}}
 				className={cn(
 					MISSION_ROW,
+					ROW_LINK_GROUP,
 					TICK,
 					// pr 7px + its 1px border + the tree's 8px = the strips' 16px: the
 					// time columns end on one line.
-					"cursor-pointer rounded-sm border pr-[7px] pl-2 outline-none transition-colors duration-(--duration-micro) ease-avel",
+					"cursor-pointer rounded-control border pr-[7px] pl-2 outline-none transition-colors duration-(--duration-micro) ease-avel",
 					"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
 					selected
-						? "surface-steel border-border bg-app-raised"
-						: "border-transparent hover:bg-state-hover",
+						? "border-selected-border bg-selected"
+						: "border-transparent hover:bg-app-raised",
 				)}
 			>
 				<span className={MISSION_ROW_SUBJECT}>{mission.type}</span>
-				<span className="shrink-0 type-mono-small text-text-muted">
+				<span className="shrink-0 type-mono text-text-muted">
 					sprint {mission.sprintN}
 				</span>
 				<MissionStatusPill status={mission.status} />
@@ -538,6 +545,7 @@ function Tree({
 				<span className={MISSION_ROW_TIME}>
 					<LastActivity at={mission.lastActivityAt} now={now} />
 				</span>
+				<RowChevron />
 			</div>
 		);
 	};

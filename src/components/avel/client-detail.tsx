@@ -22,18 +22,19 @@ import {
 	isoDate,
 	relativeTime,
 	useClient,
+	useClientEngagements,
 	useClientMissions,
 } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
 import { ClientActivity } from "./client-activity";
 import { ClientFilesDrive, ClientNotesDrive } from "./client-drive";
+import { ClientMemoryPanel } from "./client-memory";
 import { ClientMissions } from "./client-missions";
 import type { ClientActions } from "./client-overlays";
 import { EmptyState } from "./empty-state";
 import { EngagementBoard } from "./engagement-board";
 import { EngagementList } from "./engagement-list";
 import {
-	BANNER_BUTTON,
 	BannerStat,
 	BannerStatus,
 	type BannerTab,
@@ -41,6 +42,8 @@ import {
 	EntityBanner,
 	PinnedBanner,
 } from "./entity-banner";
+import { ClientIntakes } from "./intake-list";
+import { Paging, PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
@@ -54,6 +57,7 @@ import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 const TAB_LABEL: Record<ClientTabId, string> = {
 	overview: "Overview",
 	engagements: "Engagements",
+	intakes: "Intakes",
 	drive: "Drive",
 	activity: "Activity",
 };
@@ -153,13 +157,17 @@ function ClientPage({
 	const banner = useRef<HTMLElement>(null);
 	// One read for the Missions panel, its status strip and the banner's count.
 	const missions = useClientMissions(client.id);
+	// The same reads the panels make (shared by key), for their footers'
+	// read ages.
+	const record = useClient(client.id);
+	const engagements = useClientEngagements(client.id);
 	return (
 		<Tabs
 			value={tab}
 			onValueChange={(next) => onTab(next as ClientTabId)}
 			data-testid="client-detail"
 			data-client={client.id}
-			className="min-w-0 gap-6 [&>*]:min-w-0"
+			className="min-w-0 gap-4 [&>*]:min-w-0"
 		>
 			{/* Zero height, so its -mb-6 takes back the gap the column gives it. */}
 			<PinnedBanner
@@ -197,23 +205,39 @@ function ClientPage({
 				tabsLabel={`${client.name}'s page`}
 			/>
 			<TabsContent value="overview">
-				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-					<SectionPanel
-						title="Engagements"
-						description="Each piece of work for this client. Closing one revokes its connections."
-						data-testid="client-engagements-panel"
-					>
-						<EngagementBoard
-							client={client}
-							onNewEngagement={() => actions.onNewEngagement(client)}
-							onCloseEngagement={actions.onCloseEngagement}
-						/>
-					</SectionPanel>
-					<div className="flex min-w-0 flex-col gap-6">
+				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+					<div className="flex min-w-0 flex-col gap-4">
+						<SectionPanel
+							title="Engagements"
+							description="Each piece of work for this client. Closing one revokes its connections."
+							data-testid="client-engagements-panel"
+							footer={
+								<PanelFooter
+									data-testid="client-engagements-read-age"
+									queries={[engagements]}
+								/>
+							}
+						>
+							<EngagementBoard
+								client={client}
+								onNewEngagement={() => actions.onNewEngagement(client)}
+								onCloseEngagement={actions.onCloseEngagement}
+							/>
+						</SectionPanel>
+						{/* What Canon and you remember about this client. */}
+						<ClientMemoryPanel clientId={client.id} />
+					</div>
+					<div className="flex min-w-0 flex-col gap-4">
 						<SectionPanel
 							title="Details"
 							description="The client's own fields."
 							data-testid="client-details-panel"
+							footer={
+								<PanelFooter
+									data-testid="client-details-read-age"
+									queries={[record]}
+								/>
+							}
 							actions={
 								<Button
 									variant="ghost"
@@ -232,6 +256,25 @@ function ClientPage({
 							title="Missions"
 							description="The work run under this client's engagements, most recent activity first."
 							data-testid="client-missions-panel"
+							footer={
+								<PanelFooter
+									data-testid="client-missions-read-age"
+									queries={[missions]}
+								>
+									{missions.hasNextPage ? (
+										<Paging
+											loaded={
+												missions.data?.pages.flatMap((p) => p.data).length ?? 0
+											}
+											total={missions.data?.pages[0]?.meta.total}
+											hasMore
+											loadingMore={missions.isFetchingNextPage}
+											onLoadMore={() => missions.fetchNextPage()}
+											testIdPrefix="client-missions"
+										/>
+									) : null}
+								</PanelFooter>
+							}
 						>
 							<ClientMissions query={missions} clientName={client.name} />
 						</SectionPanel>
@@ -246,8 +289,11 @@ function ClientPage({
 					actions={actions}
 				/>
 			</TabsContent>
+			<TabsContent value="intakes">
+				<ClientIntakes client={client} />
+			</TabsContent>
 			<TabsContent value="drive">
-				<div className="flex flex-col gap-6">
+				<div className="flex flex-col gap-4">
 					<ClientNotesDrive clientId={client.id} />
 					<ClientFilesDrive clientId={client.id} />
 				</div>
@@ -310,7 +356,7 @@ function ClientBannerActions({
 		<>
 			<Button
 				size="sm"
-				className={cn(BANNER_BUTTON)}
+				variant="outline"
 				data-testid="client-new-engagement"
 				disabledReason={
 					closed ? "Reopen the client to add an engagement." : undefined
@@ -322,7 +368,7 @@ function ClientBannerActions({
 			</Button>
 			<Button
 				size="sm"
-				className={cn(BANNER_BUTTON)}
+				variant="outline"
 				data-testid="client-edit"
 				onClick={() => actions.onEdit(client)}
 			>
@@ -332,7 +378,7 @@ function ClientBannerActions({
 			{closed ? (
 				<Button
 					size="sm"
-					className={cn(BANNER_BUTTON)}
+					variant="outline"
 					data-testid="client-reopen"
 					onClick={() => actions.onReopen(client)}
 				>
@@ -342,7 +388,7 @@ function ClientBannerActions({
 			) : (
 				<Button
 					size="sm"
-					className={cn(BANNER_BUTTON)}
+					variant="outline"
 					data-testid="client-close"
 					onClick={() => actions.onClose(client)}
 				>
@@ -386,7 +432,7 @@ function ClientDetails({ client, now }: { client: Client; now: number }) {
 			<div className="grid grid-cols-2 gap-3">
 				<div className="flex flex-col gap-1">
 					<dt className="type-caption text-text-subtle">Added</dt>
-					<dd className="type-mono-small text-text-muted">
+					<dd className="type-mono text-text-muted">
 						<time dateTime={client.createdAt}>{isoDate(client.createdAt)}</time>
 					</dd>
 				</div>
@@ -394,7 +440,7 @@ function ClientDetails({ client, now }: { client: Client; now: number }) {
 					<dt className="type-caption text-text-subtle">Updated</dt>
 					<dd
 						data-testid="client-detail-updated"
-						className="type-mono-small text-text-muted"
+						className="type-mono text-text-muted"
 					>
 						<time
 							dateTime={client.updatedAt}
@@ -422,11 +468,22 @@ function ClientEngagements({
 	onActiveOnlyChange: (activeOnly: boolean) => void;
 	actions: ClientActions;
 }) {
+	// The list's own read, shared by key, for the footer's read age.
+	const query = useClientEngagements(
+		client.id,
+		activeOnly ? "active" : undefined,
+	);
 	return (
 		<SectionPanel
 			title="Engagements"
 			description="Newest first. Active only lists the ones that keep this client open."
 			data-testid="client-engagements-tab"
+			footer={
+				<PanelFooter
+					data-testid="client-engagements-tab-read-age"
+					queries={[query]}
+				/>
+			}
 			actions={
 				<Button
 					variant="ghost"
@@ -434,7 +491,7 @@ function ClientEngagements({
 					aria-pressed={activeOnly}
 					data-testid="client-active-only"
 					onClick={() => onActiveOnlyChange(!activeOnly)}
-					className="aria-pressed:bg-state-selected"
+					className="aria-pressed:bg-selected"
 				>
 					Active only
 				</Button>
@@ -454,11 +511,11 @@ function ClientEngagements({
 /** The banner and the first panels' shape while the client loads. */
 function ClientPageSkeleton() {
 	return (
-		<div data-testid="client-detail-skeleton" className="flex flex-col gap-6">
-			<div className="flex flex-col gap-5 rounded-lg border border-border p-4 md:px-8 md:pt-6">
+		<div data-testid="client-detail-skeleton" className="flex flex-col gap-4">
+			<div className="flex flex-col gap-5 rounded-card border border-border p-4 md:px-8 md:pt-6">
 				<Skeleton className="h-3 w-20" />
 				<div className="flex items-center gap-5">
-					<Skeleton className="size-16 rounded-lg" />
+					<Skeleton className="size-16 rounded-card" />
 					<div className="flex flex-col gap-2">
 						<Skeleton className="h-7 w-56" />
 						<Skeleton className="h-4 w-72 max-w-full" />
@@ -466,9 +523,9 @@ function ClientPageSkeleton() {
 				</div>
 				<Skeleton className="h-9 w-full" />
 			</div>
-			<div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-				<Skeleton className="h-64 w-full rounded-md" />
-				<Skeleton className="h-48 w-full rounded-md" />
+			<div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+				<Skeleton className="h-64 w-full rounded-card" />
+				<Skeleton className="h-48 w-full rounded-card" />
 			</div>
 		</div>
 	);

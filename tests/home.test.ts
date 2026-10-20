@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -69,7 +70,7 @@ describe("Home", () => {
 		);
 	});
 
-	it("opens with Canon's one calm, centred line, and says chat is not built", async () => {
+	it("opens with Canon's one calm, centred line, and says chat is not built as a Reason", async () => {
 		const html = await renderPage("/");
 		expect(html).toMatch(
 			/data-testid="home-chat-prompt"[^>]*>What should we work on\?</,
@@ -78,10 +79,23 @@ describe("Home", () => {
 			html.lastIndexOf("<div", html.indexOf('data-testid="home-chat-prompt"')),
 		);
 		expect(block).toMatch(/^<div class="[^"]*\btext-center\b/);
-		expect(tagOf(html, "home-chat-note")).toMatch(/\btext-text-subtle\b/);
+		expect(tagOf(html, "home-chat-note")).toContain('data-slot="reason"');
 		expect(html).toMatch(
-			/data-testid="home-chat-note"[^>]*>Canon can&#x27;t answer yet: chat is not built\.</,
+			/data-testid="home-chat-note"[^>]*>(?:<svg[\s\S]*?<\/svg>)?Canon can&#x27;t answer yet: chat is not built\.</,
 		);
+	});
+
+	it("offers places to go while chat is not built, each a real route", async () => {
+		const html = await renderPage("/");
+		const href = (id: string) =>
+			tagOf(html, `home-chat-suggestion-${id}`).match(/href="([^"]+)"/)?.[1];
+		expect(href("needs-you")).toBe("/missions?status=needs-you");
+		expect(href("running")).toBe("/missions?status=active");
+		expect(href("client")).toBe("/clients");
+		// Under the welcome, above the composer.
+		const chips = html.indexOf('data-testid="home-chat-suggestions"');
+		expect(chips).toBeGreaterThan(html.indexOf('data-testid="home-chat-note"'));
+		expect(chips).toBeLessThan(html.indexOf('data-testid="home-chat-dock"'));
 	});
 
 	it("pins the composer below the thread, on the canvas surface", async () => {
@@ -107,7 +121,7 @@ describe("Home", () => {
 		// The prompt and its note share one group; the spacers bracket the
 		// group, so the prompt leads it and the flex-3 spacer follows it.
 		expect(thread).toMatch(
-			/<div aria-hidden="true" class="flex-2"><\/div><div[^>]*><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p>(?:<p[^>]*>[^<]*<\/p>)*<\/div><div aria-hidden="true" class="flex-3"><\/div>/,
+			/<div aria-hidden="true" class="flex-2"><\/div><div[^>]*><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p>[\s\S]*<\/nav><\/div><div aria-hidden="true" class="flex-3"><\/div>/,
 		);
 	});
 
@@ -139,7 +153,7 @@ describe("Home", () => {
 
 	it("sets the prompt line in the type scale", async () => {
 		expect(tagOf(await renderPage("/"), "home-chat-prompt")).toMatch(
-			/\btype-h2\b/,
+			/\btype-display\b/,
 		);
 	});
 
@@ -180,30 +194,37 @@ describe("the chat composer", () => {
 		const pill = tagOf(html, "chat-composer-pill");
 		expect(pill).not.toMatch(/focus|has-\[/);
 		const input = tagOf(html, "chat-composer-input");
-		// Every focus style the field primitive brings is undone here.
-		expect(input).toContain("focus-visible:outline-none");
-		expect(input).toContain("focus-visible:bg-transparent");
-		expect(input).toMatch(/\bborder-0\b/);
-		expect(input).toContain("shadow-none!");
+		// The box is the field: the textarea carries no field-surface, so no
+		// edge, ring or halo, and no focus styles of its own.
+		expect(input).not.toMatch(/\bfield-surface\b/);
+		expect(input).not.toMatch(/\bborder\b|\bring-|shadow-|focus/);
+		expect(input).toMatch(/\bbg-transparent\b/);
 	});
 
-	it("is a steel pill at the 15px body size, with room around its contents", () => {
+	it("is a v3 card on the field surface, at body size, with room around its contents", () => {
 		const pill = tagOf(html, "chat-composer-pill");
-		expect(pill).toMatch(/\bsurface-steel\b/);
-		expect(pill).toMatch(/\bp-3\b/);
+		for (const cls of [
+			"rounded-dialog",
+			"border",
+			"border-border",
+			"bg-app-field",
+			"shadow-card",
+			"p-3",
+		]) {
+			expect(pill).toMatch(new RegExp(`(?:"|\\s)${cls}(?:"|\\s)`));
+		}
 		const input = tagOf(html, "chat-composer-input");
-		expect(input).toContain("text-[0.9375rem]");
-		expect(input).toContain("md:text-[0.9375rem]");
-		// The primitive's 16px/14px sizes are replaced, not left to fight it.
-		expect(input).not.toMatch(/\btext-base\b|\bmd:text-sm\b/);
+		// The primitive's type-body is the size; no ad hoc size fights it.
+		expect(input).toMatch(/\btype-body\b/);
+		expect(input).not.toMatch(/text-\[|\btext-(base|sm)\b/);
 	});
 
-	it("floats the pill and its glow together, never the field, still while typing", () => {
+	it("floats the box and its glow together, never the field, still while typing", () => {
 		const float = tagOf(html, "chat-composer-float");
 		expect(float).toMatch(/\banimate-float\b/);
 		expect(float).toContain("focus-within:[animation-play-state:paused]");
 		expect(float).toContain("motion-reduce:animate-none");
-		// One wrapper moves both, so the glow can never drift from the pill.
+		// One wrapper moves both, so the glow can never drift from the box.
 		const inside = html.slice(
 			html.indexOf('data-testid="chat-composer-float"'),
 		);
@@ -213,63 +234,49 @@ describe("the chat composer", () => {
 		expect(inside.indexOf('data-testid="chat-composer-pill"')).toBeGreaterThan(
 			0,
 		);
-		expect(tagOf(html, "chat-composer-pill")).not.toMatch(/animate-/);
 		expect(tagOf(html, "chat-composer-input")).not.toMatch(/animate-/);
 	});
 
-	it("puts a blurred accent glow behind and below the pill, out of reach", () => {
+	it("pulses a blurred baby blue glow behind and below the box, out of reach", () => {
 		const glow = tagOf(html, "chat-composer-glow");
 		expect(glow).toContain('aria-hidden="true"');
-		for (const cls of [
-			"pointer-events-none",
-			"absolute",
-			"-z-10",
-			"inset-x-[10%]",
-			"top-3",
-			"-bottom-3",
-		]) {
+		for (const cls of ["pointer-events-none", "absolute", "-z-10"])
 			expect(glow).toContain(cls);
-		}
 		expect(tagOf(html, "chat-composer-float")).toMatch(/\bisolate\b/);
 		const pulse = tagOf(html, "chat-composer-glow-pulse");
-		expect(pulse).toMatch(/\bbg-accent\b/);
-		expect(pulse).toMatch(/\bblur-2xl\b/);
-	});
-
-	it("pulses the glow in step with the float, peaking as the pill rises", () => {
-		const pulse = tagOf(html, "chat-composer-glow-pulse");
-		// Same 4s period as animate-float; half a period ahead, so avelPulse's
-		// bright end (1) lands on the float's top (50%).
-		expect(pulse).toContain("animate-[avelPulse_4s_ease-in-out_infinite]");
-		expect(pulse).toContain("[animation-delay:-2s]");
+		for (const cls of ["animate-glow", "bg-accent", "blur-2xl", "rounded-full"])
+			expect(pulse).toContain(cls);
 		expect(pulse).toContain(
 			"group-focus-within/float:[animation-play-state:paused]",
 		);
-	});
-
-	it("sets the glow's range, stronger in light, static and soft under reduced motion", () => {
-		// React escapes the & of the [.light_&] variant inside the attribute.
-		const glow = tagOf(html, "chat-composer-glow").replaceAll("&amp;", "&");
-		expect(glow).toMatch(/\sopacity-55\s/);
-		expect(glow).toContain("[.light_&]:opacity-80");
-		expect(glow).toContain("motion-reduce:opacity-35");
-		expect(glow).toContain("[.light_&]:motion-reduce:opacity-50");
-		const pulse = tagOf(html, "chat-composer-glow-pulse");
 		expect(pulse).toContain("motion-reduce:animate-none");
 	});
 
-	it("glows only in the glow: no ring or shadow hack anywhere else", () => {
-		const rest = html.replace(
-			/<div[^>]*data-testid="chat-composer-glow[^"]*"[^>]*>/g,
-			"",
-		);
-		expect(rest).not.toMatch(/shadow-\[|ring-\[|blur/);
+	it("sets the glow stronger in light, the default, and soft and static under reduced motion", () => {
+		const glow = tagOf(html, "chat-composer-glow");
+		expect(glow).toMatch(/\sopacity-80\s/);
+		expect(glow).toContain("motion-reduce:opacity-50");
+		expect(glow).toContain("in-[.dark]:opacity-55");
+		expect(glow).toContain("in-[.dark]:motion-reduce:opacity-35");
 	});
 
-	it("is one generously rounded pill: the field above, the tool row below", () => {
+	it("draws the float and the glow from app.css: a 4s float, the pulse half a period ahead", () => {
+		const css = readFileSync(
+			new URL("../src/styles/app.css", import.meta.url),
+			"utf8",
+		);
+		expect(css).toMatch(
+			/@utility animate-float \{\s*animation: avelFloat 4s ease-in-out infinite;/,
+		);
+		expect(css).toMatch(
+			/@utility animate-glow \{\s*animation: avelGlow 4s ease-in-out -2s infinite;/,
+		);
+		expect(css).toMatch(/50% \{\s*transform: translateY\(-6px\);/);
+	});
+
+	it("is one box: the field above, the tool row below", () => {
 		const pill = tagOf(html, "chat-composer-pill");
 		expect(pill).toMatch(/\bflex-col\b/);
-		expect(pill).toContain("rounded-[1.75rem]");
 		const input = html.indexOf('data-testid="chat-composer-input"');
 		const row = html.indexOf('data-testid="chat-composer-tool-row"');
 		const pillEnd = html.indexOf('data-testid="chat-composer-send"');
@@ -333,7 +340,7 @@ describe("the chat composer", () => {
 		});
 	}
 
-	it("sizes every tool at 32px", () => {
+	it("sizes every tool at 28px, the small control", () => {
 		expect(tagOf(html, "chat-composer-tool-attach")).toContain(
 			'data-size="icon-sm"',
 		);

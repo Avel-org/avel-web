@@ -113,16 +113,6 @@ export type MissionOrigin = MissionListItem["origin"];
 /** How many missions a template's page lists per origin before Load more. */
 export const TEMPLATE_MISSIONS_PAGE = 20;
 
-export const templateMissionKeys = {
-	list: (slug: string, origin: MissionOrigin) =>
-		[
-			"missions",
-			"byTemplate",
-			slug,
-			{ origin, limit: TEMPLATE_MISSIONS_PAGE },
-		] as const,
-} as const;
-
 /**
  * One origin's missions built from this template, most recent activity
  * first (the list's default sort), paged by cursor. meta.total is the
@@ -134,7 +124,11 @@ export function templateMissionsQuery(
 	origin: MissionOrigin,
 ) {
 	return infiniteQueryOptions({
-		queryKey: templateMissionKeys.list(slug, origin),
+		queryKey: queryKeys.templateMissions.list(
+			slug,
+			origin,
+			TEMPLATE_MISSIONS_PAGE,
+		),
 		initialPageParam: undefined as string | undefined,
 		queryFn: ({ pageParam }) =>
 			callPage(contract.missions.list, () =>

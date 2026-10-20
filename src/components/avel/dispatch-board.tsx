@@ -5,21 +5,32 @@ import {
 } from "avel-server/contract";
 import { ChevronDown } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { ActorMark } from "./actor";
 import { whenLabel } from "./agent-activity";
 import { DispatchBriefLine } from "./dispatch-brief";
-import { DispatchBudget, DispatchTokenSplit } from "./dispatch-budget";
+import {
+	DispatchBudget,
+	DispatchTokenSplit,
+	formatUsd,
+	minutesRun,
+} from "./dispatch-budget";
 import { DISPATCH_STATUS_LABEL } from "./dispatch-labels";
+import { CompactBudget } from "./missions-dashboard";
 import { ShortHash } from "./short-hash";
 import { StatusGlyph, type StatusTone } from "./status-pill";
 
 /*
  * A mission's dispatches as a board (module 6): one lane per status, the
  * open ones first (waiting, running, blocked), then the closed ones. Each
- * card names the agent, the brief it runs, the identity and model frozen at
- * its start, its times and its budget, and opens in place for the token
- * split. No generated id is visible text.
+ * dispatch is a row in the Missions dashboard's Running now look (the agent,
+ * its status, the compact budget, spend and wall clock), with its evidence
+ * and controls under it; it opens in place for the brief, the identity and
+ * model frozen at its start, its times, the full budget and the token split.
+ * No generated id is visible text.
  */
 
 /**
@@ -60,16 +71,6 @@ export const DISPATCH_STATUS_TONE = {
 	halted: "stale",
 } as const satisfies Record<DispatchStatus, StatusTone>;
 
-/** "None waiting to start.", per lane, for an empty one. */
-const EMPTY_LANE = {
-	queued: "None waiting to start.",
-	running: "None running.",
-	blocked: "None blocked.",
-	complete: "None complete.",
-	failed: "None failed.",
-	halted: "None halted.",
-} as const satisfies Record<DispatchStatus, string>;
-
 /**
  * A lane's cards in order: waiting ones oldest first (the next to start
  * leads); the rest latest first, by when they closed or started.
@@ -91,20 +92,33 @@ export type RenderReport = (dispatch: Dispatch) => ReactNode;
 /** What a card shows under its budget: Start or Halt, from the page. */
 export type RenderControls = (dispatch: Dispatch) => ReactNode;
 
+/**
+ * What a closed card leads with: its evidence summary, from the report the
+ * page has read (audit F5). Nothing while the report is not in hand.
+ */
+export type RenderEvidence = (dispatch: Dispatch) => ReactNode;
+
 export function DispatchBoard({
 	dispatches,
 	now = Date.now(),
 	renderReport,
 	renderControls,
+	renderEvidence,
 }: {
 	dispatches: Dispatch[];
 	/** For the minutes a running dispatch has run so far. */
 	now?: number;
 	renderReport?: RenderReport;
 	renderControls?: RenderControls;
+	renderEvidence?: RenderEvidence;
 }) {
-	const open = DISPATCH_LANES.filter(isOpenLane);
-	const closed = DISPATCH_LANES.filter((s) => !isOpenLane(s));
+	// Only the statuses that hold a dispatch: an empty group is noise. The
+	// page shows its one empty state when there is no dispatch at all.
+	const held = DISPATCH_LANES.filter((s) =>
+		dispatches.some((d) => d.status === s),
+	);
+	const open = held.filter(isOpenLane);
+	const closed = held.filter((s) => !isOpenLane(s));
 	const lane = (status: DispatchStatus) => (
 		<Lane
 			key={status}
@@ -113,22 +127,27 @@ export function DispatchBoard({
 			now={now}
 			renderReport={renderReport}
 			renderControls={renderControls}
+			renderEvidence={renderEvidence}
 		/>
 	);
+	// The groups stack as sub-sections of the panel, open ones first, each a
+	// list of rows in the dashboard's Running now look, so a mission's board
+	// and the Missions dashboard read the same.
 	return (
 		<div data-testid="dispatch-board" className="flex flex-col gap-4">
-			<div
-				data-testid="dispatch-board-open"
-				className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3"
-			>
-				{open.map(lane)}
-			</div>
-			<div
-				data-testid="dispatch-board-closed"
-				className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3"
-			>
-				{closed.map(lane)}
-			</div>
+			{open.length > 0 ? (
+				<div data-testid="dispatch-board-open" className="flex flex-col gap-4">
+					{open.map(lane)}
+				</div>
+			) : null}
+			{closed.length > 0 ? (
+				<div
+					data-testid="dispatch-board-closed"
+					className="flex flex-col gap-4"
+				>
+					{closed.map(lane)}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -139,12 +158,14 @@ function Lane({
 	now,
 	renderReport,
 	renderControls,
+	renderEvidence,
 }: {
 	status: DispatchStatus;
 	dispatches: Dispatch[];
 	now: number;
 	renderReport?: RenderReport;
 	renderControls?: RenderControls;
+	renderEvidence?: RenderEvidence;
 }) {
 	const headingId = useId();
 	return (
@@ -152,45 +173,63 @@ function Lane({
 			aria-labelledby={headingId}
 			data-testid={`dispatch-lane-${status}`}
 			data-open={isOpenLane(status)}
-			className="flex min-w-0 flex-col gap-2 rounded-md border border-border bg-app-recessed p-2"
+			className="flex min-w-0 flex-col gap-2"
 		>
-			<header className="flex items-center gap-2 px-1.5 pt-1">
+			<header className="flex items-center gap-2">
 				<StatusGlyph
 					tone={DISPATCH_STATUS_TONE[status]}
 					className={TONE_TEXT[DISPATCH_STATUS_TONE[status]]}
 				/>
-				<h3 id={headingId} className="type-small font-medium text-foreground">
+				<h3 id={headingId} className="type-eyebrow">
 					{DISPATCH_STATUS_LABEL[status]}
 				</h3>
-				<span
-					data-testid={`dispatch-lane-${status}-count`}
-					className="type-mono-small text-text-subtle tabular-nums"
-				>
+				<Badge variant="count" data-testid={`dispatch-lane-${status}-count`}>
 					{dispatches.length}
-				</span>
+				</Badge>
+				<span aria-hidden="true" className="h-px flex-1 bg-border" />
 			</header>
-			{dispatches.length === 0 ? (
-				<p
-					data-testid={`dispatch-lane-${status}-none`}
-					className="type-small px-1.5 pb-1 text-text-subtle"
-				>
-					{EMPTY_LANE[status]}
-				</p>
-			) : (
-				<ul className="stagger-in flex flex-col gap-2">
-					{dispatches.map((d) => (
-						<li key={d.id}>
-							<DispatchCard
-								dispatch={d}
-								now={now}
-								renderReport={renderReport}
-								renderControls={renderControls}
-							/>
-						</li>
-					))}
-				</ul>
-			)}
+			<ul className="flex flex-col divide-y divide-border overflow-clip rounded-card border border-border bg-app-panel [contain:inline-size]">
+				{dispatches.map((d) => (
+					<li key={d.id}>
+						<DispatchCard
+							dispatch={d}
+							now={now}
+							renderReport={renderReport}
+							renderControls={renderControls}
+							renderEvidence={renderEvidence}
+						/>
+					</li>
+				))}
+			</ul>
 		</section>
+	);
+}
+
+/**
+ * A dispatch card while the board loads, in the card's own shape (v3 UX 8,
+ * .skel-row and .skel-pill): the agent's name and slug, a pill where the
+ * status sits, the budget track and its line.
+ */
+export function DispatchCardSkeleton() {
+	return (
+		<div
+			data-testid="dispatch-card-skeleton"
+			aria-hidden="true"
+			className="flex flex-col gap-2.5 rounded-card border border-border bg-app-panel p-3"
+		>
+			<div className="flex items-center gap-2">
+				<div className="flex flex-1 flex-col gap-1.5">
+					<Skeleton className="h-3 w-28" />
+					<Skeleton className="h-3 w-16" />
+				</div>
+				<Skeleton
+					data-testid="dispatch-card-skeleton-pill"
+					className="h-[22px] w-16 rounded-sm"
+				/>
+			</div>
+			<Skeleton className="h-2 w-full rounded-full" />
+			<Skeleton className="h-3 w-2/3" />
+		</div>
 	);
 }
 
@@ -208,55 +247,70 @@ export function DispatchCard({
 	now = Date.now(),
 	renderReport,
 	renderControls,
+	renderEvidence,
 }: {
 	dispatch: Dispatch;
 	now?: number;
 	renderReport?: RenderReport;
 	renderControls?: RenderControls;
+	renderEvidence?: RenderEvidence;
 }) {
 	const [open, setOpen] = useState(false);
 	const nameId = useId();
 	const detailsId = useId();
 	const { agent } = dispatch;
+	const minutes = minutesRun(dispatch, now);
 	return (
 		<article
+			// The anchor a gate refusal links to: "#dispatch-<id>" on the mission page.
+			id={`dispatch-${dispatch.id}`}
 			aria-labelledby={nameId}
 			data-testid={`dispatch-card-${dispatch.id}`}
 			data-status={dispatch.status}
 			data-open={open}
-			className="plate flex flex-col gap-2.5 rounded-md border p-3"
+			className="flex flex-col gap-2 px-4 py-2"
 		>
-			{/* The agent: name and title, the slug beneath. */}
-			<div className="flex items-start gap-2">
-				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
-						<span
-							id={nameId}
-							data-testid={`dispatch-card-name-${dispatch.id}`}
-							className="type-body font-medium text-foreground"
-						>
-							{agent.name}
-						</span>
-						{agent.title ? (
-							<span
-								data-testid={`dispatch-card-title-${dispatch.id}`}
-								className="type-small text-text-muted"
-							>
-								{agent.title}
-							</span>
-						) : null}
-					</p>
+			{/* The row, as the dashboard's Running now draws it: the agent's
+			    tile, name and title over its slug, the budget at a glance, then
+			    the toggle. Its status is the group's heading. */}
+			<div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 md:grid-cols-[auto_minmax(0,1fr)_12rem_auto]">
+				<ActorMark kind="agent" name={agent.name} className="size-6" />
+				{/* The agent and its title on one line; its slug is in the details. */}
+				<span className="flex min-w-0 items-baseline gap-1.5">
 					<span
-						data-testid={`dispatch-card-slug-${dispatch.id}`}
-						className="type-mono-small text-text-subtle"
+						id={nameId}
+						data-testid={`dispatch-card-name-${dispatch.id}`}
+						className="shrink-0 type-small font-medium text-text"
 					>
-						{agent.slug}
+						{agent.name}
+					</span>
+					{agent.title ? (
+						<span
+							data-testid={`dispatch-card-title-${dispatch.id}`}
+							className="min-w-0 truncate type-caption text-text-subtle"
+							title={agent.title}
+						>
+							{agent.title}
+						</span>
+					) : null}
+				</span>
+				<div className="col-span-3 row-start-2 flex min-w-0 flex-col gap-1 md:col-span-1 md:row-start-auto">
+					<CompactBudget dispatch={dispatch} />
+					<span className="flex items-baseline justify-between gap-2 type-caption">
+						<span className="type-mono text-text-muted">
+							{formatUsd(dispatch.spendUsd)}
+						</span>
+						<span className="type-mono text-text-subtle">
+							{minutes === null
+								? `${dispatch.wallClockMinutes} min limit`
+								: `${minutes} of ${dispatch.wallClockMinutes} min`}
+						</span>
 					</span>
 				</div>
 				<Button
 					variant="ghost"
 					size="icon-sm"
-					className="-mt-1 -mr-1.5"
+					className="col-start-3 row-start-1 md:col-start-auto md:row-start-auto"
 					aria-expanded={open}
 					aria-controls={detailsId}
 					aria-label={`${open ? "Hide" : "Show"} details for ${agent.name}`}
@@ -272,10 +326,9 @@ export function DispatchCard({
 					/>
 				</Button>
 			</div>
-			<Brief dispatch={dispatch} />
-			<Pinned dispatch={dispatch} />
-			<Times dispatch={dispatch} />
-			<DispatchBudget dispatch={dispatch} now={now} />
+			{/* A closed dispatch leads with its evidence (audit F5); the
+			    controls stay on the row. */}
+			{renderEvidence?.(dispatch)}
 			{renderControls?.(dispatch)}
 			{/* The rest opens in place, inert while closed. */}
 			<div
@@ -290,7 +343,20 @@ export function DispatchCard({
 					className="min-h-0 overflow-hidden"
 					inert={!open}
 				>
-					<div className="flex flex-col gap-2 border-t border-border pt-2.5">
+					<div className="flex flex-col gap-2.5 border-t border-border pt-2.5">
+						<p className="type-small text-text-muted">
+							{"Agent "}
+							<span
+								data-testid={`dispatch-card-slug-${dispatch.id}`}
+								className="type-mono text-foreground"
+							>
+								{agent.slug}
+							</span>
+						</p>
+						<Brief dispatch={dispatch} />
+						<Pinned dispatch={dispatch} />
+						<Times dispatch={dispatch} />
+						<DispatchBudget dispatch={dispatch} now={now} />
 						<p className="type-small text-text-muted">
 							{"Territory "}
 							{dispatch.territory === null ? (
@@ -298,7 +364,7 @@ export function DispatchCard({
 							) : (
 								<span
 									data-testid={`dispatch-card-territory-${dispatch.id}`}
-									className="type-mono-small text-foreground"
+									className="type-mono text-foreground"
 								>
 									{dispatch.territory}
 								</span>
@@ -345,13 +411,11 @@ function Brief({ dispatch }: { dispatch: Dispatch }) {
 			) : (
 				<>
 					<span className="type-small text-text-muted">Module</span>
-					<span className="type-mono-small text-foreground">
-						{brief.moduleId}
-					</span>
+					<span className="type-mono text-foreground">{brief.moduleId}</span>
 					{brief.requirementIds.map((id) => (
 						<span
 							key={id}
-							className="rounded-xs border border-border bg-app-recessed px-1.5 type-mono-small text-text-muted"
+							className="rounded-xs border border-border bg-app-well px-1.5 type-mono text-text-muted"
 						>
 							{id}
 						</span>
@@ -377,7 +441,7 @@ function Pinned({ dispatch }: { dispatch: Dispatch }) {
 					</span>
 				) : (
 					<>
-						<span className="truncate rounded-xs border border-border bg-app-recessed px-1.5 type-mono-small text-text-muted">
+						<span className="truncate rounded-xs border border-border bg-app-well px-1.5 type-mono text-text-muted">
 							{dispatch.agentVersionRef}
 						</span>
 						{dispatch.agentVersionSha256 === null ? null : (
@@ -395,7 +459,7 @@ function Pinned({ dispatch }: { dispatch: Dispatch }) {
 				className={cn(
 					dispatch.model === null
 						? "type-caption text-text-subtle"
-						: "type-mono-small text-text-muted",
+						: "type-mono text-text-muted",
 				)}
 			>
 				{dispatch.model ?? "Model set when it starts"}

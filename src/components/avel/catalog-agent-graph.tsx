@@ -1,7 +1,13 @@
+import { Link } from "@tanstack/react-router";
 import { type AgentTemplate, WAVES, type Wave } from "avel-server/contract";
-import type { KeyboardEvent } from "react";
+import { ArrowUpRight, X } from "lucide-react";
+import { type KeyboardEvent, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ActorMark } from "./actor";
+import { CanvasHint, CanvasSurface, useCanvasHint } from "./canvas";
 import {
+	AGENT_MISSING,
 	artifactLabel,
 	firstWave,
 	isFirmAgent,
@@ -9,32 +15,186 @@ import {
 	sampleEdges,
 	sideOf,
 } from "./catalog-agent-placeholders";
+import { SampleRegion } from "./catalog-sample";
 
 /*
  * The artifact graph: agents as nodes in wave columns A to D, Operate (E)
  * set apart, and firm agents (who work between missions and join no wave) in
  * a band of their own below, with an arrow from each producer to each
  * consumer, labelled with the artifacts it carries and their short hashes. Inline SVG coloured
- * by token classes (fill-*, stroke-*), no chart library. Every node is
- * focusable and opens the inspector on Enter or Space, as a click does.
+ * by token classes (fill-*, stroke-*), no chart library; each node is a v3
+ * card in HTML within it. On the builders' canvas: a node chosen (click,
+ * Enter or Space) lights its handoffs and docks them beside the graph, with
+ * a link on to the agent's page.
  */
 
+const GRAPH_HINT =
+	"Select an agent to light up its handoffs and show them beside the graph. An arrow runs from the agent that makes a file to each agent that reads it. Esc closes them.";
+
+/**
+ * The graph on the canvas, with the chosen agent's handoffs docked on it.
+ * Nothing slides over the list (the agents ruling): the handoffs are an
+ * inline panel, as pre-flight is docked on the Playbook canvas. It sits
+ * beside the graph at 2xl; narrower, the graph needs the whole width to keep
+ * wave E in view, so the panel docks above it instead.
+ */
+export function AgentGraphCanvas({
+	agents,
+	initialSelected,
+}: {
+	agents: readonly AgentTemplate[];
+	/** For a test: start with this agent chosen and its handoffs shown. */
+	initialSelected?: string;
+}) {
+	const [selected, setSelected] = useState(initialSelected);
+	const [hintShown, dismissHint] = useCanvasHint("avel.agents.graph-hint");
+	const agent = agents.find((a) => a.slug === selected);
+	const edges = sampleEdges(agents);
+	const nameOf = (slug: string) =>
+		agents.find((a) => a.slug === slug)?.name ?? slug;
+	return (
+		<CanvasSurface
+			data-testid="catalog-agent-graph-canvas"
+			onKeyDown={(event) => {
+				if (event.key === "Escape" && selected !== undefined) {
+					event.preventDefault();
+					setSelected(undefined);
+				}
+			}}
+		>
+			{hintShown ? (
+				<CanvasHint
+					data-testid="catalog-agent-graph-hint"
+					onDismiss={dismissHint}
+				>
+					{GRAPH_HINT}
+				</CanvasHint>
+			) : null}
+			<div
+				className={cn(
+					"grid items-start gap-3",
+					agent && "2xl:grid-cols-[minmax(0,1fr)_18rem]",
+				)}
+			>
+				<div className="min-w-0 rounded-card border border-border bg-app-panel p-3 shadow-card">
+					<AgentGraph
+						agents={agents}
+						selected={selected}
+						onOpen={setSelected}
+					/>
+				</div>
+				{agent ? (
+					<aside
+						aria-label={`${agent.name}: handoffs`}
+						data-testid="catalog-agent-graph-details"
+						className="order-first flex flex-col gap-3 rounded-card border border-border bg-app-panel p-3 shadow-card 2xl:order-none"
+					>
+						<header className="flex items-start gap-2">
+							<div className="flex min-w-0 flex-1 flex-col">
+								<h3 className="truncate type-title text-text">{agent.name}</h3>
+								<p className="type-caption text-text-muted">
+									{`${isFirmAgent(agent) ? "Firm agent, between missions" : `Wave ${firstWave(agent)}`}, v${agent.version}`}
+								</p>
+							</div>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								aria-label="Close the handoffs"
+								data-testid="catalog-agent-graph-close"
+								onClick={() => setSelected(undefined)}
+							>
+								<X aria-hidden="true" />
+							</Button>
+						</header>
+						<Button asChild variant="outline" size="sm" className="self-start">
+							<Link
+								to="/catalog/agents/$slug"
+								params={{ slug: agent.slug }}
+								data-testid="catalog-agent-graph-open"
+							>
+								Open its page
+								<ArrowUpRight aria-hidden="true" />
+							</Link>
+						</Button>
+						<SampleRegion
+							missing={AGENT_MISSING.edges}
+							title="Handoffs"
+							what="What this agent hands on and what it reads, each file with its hash."
+							data-testid="catalog-agent-graph-handoffs"
+						>
+							{(["makes", "reads"] as const).map((way) => {
+								const list = edges.filter((e) =>
+									way === "makes" ? e.from === agent.slug : e.to === agent.slug,
+								);
+								return (
+									<section key={way} className="flex flex-col gap-1.5">
+										<h4 className="type-eyebrow">
+											{way === "makes" ? "Hands on to" : "Reads from"}
+										</h4>
+										{list.length === 0 ? (
+											<p className="type-small text-text-subtle">
+												{way === "makes"
+													? "No agent here reads what it makes."
+													: "It reads nothing these agents make."}
+											</p>
+										) : (
+											<ul
+												data-testid={`catalog-agent-graph-${way}`}
+												className="flex flex-col gap-1.5"
+											>
+												{list.map((e) => {
+													const other = way === "makes" ? e.to : e.from;
+													return (
+														<li
+															key={other}
+															className="flex flex-col gap-0.5 rounded-control border border-border bg-app-well px-2.5 py-2"
+														>
+															<span className="type-small font-medium text-text">
+																{nameOf(other)}
+															</span>
+															<span className="type-mono break-all text-text-muted">
+																{e.artifacts.map(artifactLabel).join(", ")}
+															</span>
+														</li>
+													);
+												})}
+											</ul>
+										)}
+									</section>
+								);
+							})}
+						</SampleRegion>
+					</aside>
+				) : null}
+			</div>
+		</CanvasSurface>
+	);
+}
+
+// The geometry is held to the canvas at 1280 and up, as every canvas is:
+// columns 180 apart and Operate's gap 32 make the drawing 1010 wide, which
+// the canvas holds at 1280 with no sideways scroll.
 const NODE_W = 148;
 const NODE_H = 48;
-const COL_W = 220;
-const ROW_H = 112;
+const COL_W = 180;
+/** A row: the 48px card and room for the edges between rows, no more. */
+const ROW_H = 80;
 const PAD = 24;
 /** Room left of wave A for an edge that loops within one column. */
-const LOOP = 48;
+const LOOP = 40;
 const HEADER = 36;
 /** Extra room before E: Operate runs after the ship decision, apart. */
-const E_GAP = 56;
+const E_GAP = 32;
 /** Room above the firm band, for its rule and its label. */
 const FIRM_GAP = 40;
-/** The E column's width: its label, 26 mono characters, runs past a node. */
-export const E_LABEL_W = 210;
-/** How far the graph may shrink to fit its column before it scrolls. */
-const MIN_SCALE = 0.8;
+/** The E column's width: its label, 20 mono characters, runs past a node. */
+export const E_LABEL_W = 170;
+/**
+ * How far the graph may shrink to fit its column before it scrolls: 0.7
+ * keeps the cards' text legible, and is reached only below 1280.
+ */
+const MIN_SCALE = 0.7;
 
 /** A node's place: a wave column, or the firm band. */
 export type Lane = Wave | "firm";
@@ -125,8 +285,9 @@ export function AgentGraph({
 	onOpen,
 }: {
 	agents: readonly AgentTemplate[];
-	/** The agent whose edges print their artifacts; none on the list. */
+	/** The agent whose edges print their artifacts; none until one is chosen. */
 	selected?: string;
+	/** A node chosen, by click, Enter or Space. */
 	onOpen: (slug: string) => void;
 }) {
 	const placed = layoutGraph(agents);
@@ -162,7 +323,7 @@ export function AgentGraph({
 					maxWidth: width,
 					height: "auto",
 				}}
-				className="type-mono-small"
+				className="type-mono"
 			>
 				<title>Handoff graph</title>
 				<defs>
@@ -241,30 +402,39 @@ export function AgentGraph({
 							data-selected={isSelected || undefined}
 							role="button"
 							tabIndex={0}
-							aria-label={`${agent.name}, ${lane === "firm" ? "firm agent, between missions" : `wave ${lane}`}. Open its page`}
+							aria-pressed={isSelected}
+							aria-label={`${agent.name}, ${lane === "firm" ? "firm agent, between missions" : `wave ${lane}`}. Show its handoffs and details`}
 							transform={`translate(${x} ${y})`}
 							onClick={() => onOpen(agent.slug)}
 							onKeyDown={open(agent.slug)}
 							className="group cursor-pointer outline-none"
 						>
-							<rect
-								width={NODE_W}
-								height={NODE_H}
-								rx={6}
-								className={cn(
-									"fill-app-panel stroke-border-strong transition-colors duration-(--duration-micro) ease-avel group-hover:fill-state-hover group-focus-visible:stroke-accent",
-									isSelected && "stroke-accent",
-								)}
-								strokeWidth={isSelected ? 2 : 1}
-							/>
-							<text x={10} y={20} className="fill-foreground font-medium">
-								{agent.name}
-							</text>
-							{/* Two facts, two elements with a gap: no middle dot (ruling 4). */}
-							<text x={10} y={37} className="fill-text-subtle">
-								<tspan>{sideOf(agent) ?? "firm"}</tspan>
-								<tspan dx={8}>{`v${agent.version}`}</tspan>
-							</text>
+							{/* A v3 card, drawn in HTML inside the drawing so it takes the
+							    card's radius, shadow and the one selected state (R10);
+							    it scales with the graph. */}
+							<foreignObject width={NODE_W} height={NODE_H}>
+								<div
+									data-slot="graph-card"
+									className={cn(
+										"flex size-full items-center gap-2 rounded-card border px-2 font-sans transition-colors duration-(--duration-micro) ease-avel group-focus-visible:outline-2 group-focus-visible:outline-focus-ring",
+										isSelected
+											? "border-selected-border bg-selected"
+											: "border-border bg-app-panel shadow-card group-hover:border-border-strong group-hover:bg-app-raised",
+									)}
+								>
+									<ActorMark kind="agent" name={agent.name} />
+									<span className="flex min-w-0 flex-col leading-tight">
+										<span className="truncate type-small font-medium text-text">
+											{agent.name}
+										</span>
+										{/* Two facts, two elements with a gap: no middle dot (ruling 4). */}
+										<span className="flex gap-2 type-caption text-text-subtle">
+											<span>{sideOf(agent) ?? "firm"}</span>
+											<span className="type-mono">{`v${agent.version}`}</span>
+										</span>
+									</span>
+								</div>
+							</foreignObject>
 						</g>
 					);
 				})}

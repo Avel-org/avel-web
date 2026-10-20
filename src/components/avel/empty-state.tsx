@@ -13,9 +13,11 @@ import { cn } from "@/lib/utils";
  *                       contract routes it waits on, set apart below a hairline
  *
  * Status stays out of the sentences, so the copy reads the same before and
- * after the region is built. The eyebrow's dashed border marks a placeholder,
- * as every dashed border does (AVEL-DESIGN.md section 8). It fills its parent
- * (flex-1), so a page body that fills the height centres it on the canvas.
+ * after the region is built. It is v3's empty band (UX 8): a dashed edge on
+ * the band surface, because a dashed border marks a placeholder (AVEL-DESIGN.md
+ * section 8) and a solid one bounds only something real. The eyebrow is a
+ * pill with the same dashed edge. It fills its parent (flex-1), so a page body
+ * that fills the height centres it on the canvas.
  */
 export function EmptyState({
 	icon: Icon,
@@ -42,43 +44,40 @@ export function EmptyState({
 		<div
 			data-testid={testId}
 			className={cn(
-				"flex flex-1 animate-page-in flex-col items-center justify-center text-center",
-				compact ? "px-4 py-8" : "px-6 py-16",
+				"flex flex-1 flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-border-strong bg-app-band text-center",
+				compact ? "px-4 py-7" : "px-6 py-16",
 			)}
 		>
 			<div
 				data-testid="empty-state-icon"
-				className="flex size-12 items-center justify-center surface-steel rounded-lg border border-border bg-app-band shadow-e1"
+				className="mb-1 flex size-tile-md items-center justify-center rounded-tile border border-border bg-app-panel"
 			>
-				<Icon aria-hidden="true" className="size-5 text-text-muted" />
+				<Icon aria-hidden="true" className="size-4 text-text-subtle" />
 			</div>
 			{eyebrow ? (
 				<p
 					data-testid="empty-state-eyebrow"
-					className="mt-5 inline-flex items-center rounded-full border border-dashed border-border-strong px-2.5 py-0.5 type-caption text-text-muted"
+					className="inline-flex h-[22px] items-center rounded-sm border border-dashed border-border-strong px-2 type-caption font-medium text-text-muted"
 				>
 					{eyebrow}
 				</p>
 			) : null}
 			<h2
 				data-testid="empty-state-title"
-				className={cn(
-					"max-w-md type-h2 text-balance text-foreground",
-					eyebrow ? "mt-3" : "mt-5",
-				)}
+				className="max-w-md type-title text-balance text-text"
 			>
 				{title}
 			</h2>
 			<p
 				data-testid="empty-state-description"
-				className="mt-2 max-w-md type-body text-pretty text-text-muted"
+				className="max-w-[38ch] type-caption text-pretty text-text-muted"
 			>
 				{description}
 			</p>
 			{needs.length > 0 ? (
 				<div
 					data-testid="empty-state-needs"
-					className="mt-6 flex w-full max-w-xs flex-wrap items-center justify-center gap-2 border-t border-border pt-4"
+					className="mt-2.5 flex w-full max-w-xs flex-wrap items-center justify-center gap-2 border-t border-border pt-4"
 				>
 					<span className="type-caption text-text-subtle">Waiting on</span>
 					{needs.map((route) => (
@@ -89,7 +88,7 @@ export function EmptyState({
 				</div>
 			) : null}
 			{action ? (
-				<div data-testid="empty-state-action" className="mt-6">
+				<div data-testid="empty-state-action" className="mt-2">
 					{action}
 				</div>
 			) : null}

@@ -45,7 +45,7 @@ describe("the Start a plan confirmation", () => {
 		);
 		// Nothing hidden is lost, so it is not styled as destructive.
 		expect(tagOf(html, "plan-start-modal-submit")).not.toContain(
-			'data-variant="destructive"',
+			'data-variant="destructive',
 		);
 	});
 

@@ -20,45 +20,48 @@ const bare = renderToString(
 );
 
 describe("EmptyState", () => {
-	it("centres itself in whatever height it is given, and enters gently", () => {
+	it("centres itself in whatever height it is given, on v3's dashed band", () => {
 		const root = tagOf(full, "empty-state");
 		for (const cls of [
 			"flex-1",
 			"items-center",
 			"justify-center",
 			"text-center",
-			"animate-page-in",
+			"rounded-card",
+			"border-dashed",
+			"border-border-strong",
+			"bg-app-band",
 		]) {
-			expect(root).toMatch(new RegExp(`\\b${cls}\\b`));
+			expect(root).toMatch(new RegExp(`(?:"|\\s)${cls}(?:"|\\s)`));
 		}
+		expect(root).not.toMatch(/animate-/);
 	});
 
-	it("sets its icon in a 48px tile with a hairline, at 20px and muted", () => {
+	it("sets its icon in a ringed 32px tile, at 16px and subtle", () => {
 		const tile = tagOf(full, "empty-state-icon");
 		for (const cls of [
-			"size-12",
-			"rounded-lg",
+			"size-tile-md",
+			"rounded-tile",
 			"border",
 			"border-border",
-			"bg-app-band",
-			"shadow-e1",
+			"bg-app-panel",
 		]) {
 			expect(tile).toMatch(new RegExp(`(?:"|\\s)${cls}(?:"|\\s)`));
 		}
 		expect(full).toMatch(
-			/<svg[^>]*class="lucide lucide-layers[^"]*\ssize-5 text-text-muted"/,
+			/<svg[^>]*class="lucide lucide-layers[^"]*\ssize-4 text-text-subtle"/,
 		);
 	});
 
 	it("sets title and description in the type scale, balanced and readable", () => {
 		const title = tagOf(full, "empty-state-title");
-		expect(title).toMatch(/^<h2[^>]*\btype-h2\b/);
+		expect(title).toMatch(/^<h2[^>]*\btype-title\b/);
 		expect(title).toMatch(/\btext-balance\b/);
 		const description = tagOf(full, "empty-state-description");
-		// Body size, not small: this is the one sentence the operator reads.
-		expect(description).toMatch(/\btype-body\b/);
+		// v3's empty state (UX 8): a caption, held to a readable measure.
+		expect(description).toMatch(/\btype-caption\b/);
 		expect(description).toMatch(/\btext-text-muted\b/);
-		expect(description).toMatch(/\bmax-w-md\b/);
+		expect(description).toMatch(/max-w-\[38ch\]/);
 		expect(description).toMatch(/\btext-pretty\b/);
 	});
 
@@ -66,7 +69,7 @@ describe("EmptyState", () => {
 		const eyebrow = tagOf(full, "empty-state-eyebrow");
 		expect(full).toMatch(/data-testid="empty-state-eyebrow"[^>]*>Not built</);
 		// Dashed marks a placeholder (AVEL-DESIGN.md section 8).
-		expect(eyebrow).toMatch(/\brounded-full\b[^"]*\bborder-dashed\b/);
+		expect(eyebrow).toMatch(/\brounded-sm\b[^"]*\bborder-dashed\b/);
 		expect(full.indexOf("empty-state-eyebrow")).toBeLessThan(
 			full.indexOf("empty-state-title"),
 		);

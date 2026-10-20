@@ -17,6 +17,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Kbd } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -99,7 +100,7 @@ export function SidebarBody({
 	);
 
 	return (
-		<div data-testid="sidebar-body" className="brushed flex h-full flex-col">
+		<div data-testid="sidebar-body" className="flex h-full flex-col">
 			<BrandRow collapsed={collapsed} onToggleCollapsed={onToggleCollapsed} />
 
 			<nav
@@ -118,7 +119,7 @@ export function SidebarBody({
 						    never move up when the sidebar collapses. */}
 						<h2
 							className={cn(
-								"engraved flex h-7 items-end px-3 pb-1.5 whitespace-nowrap type-caption text-text-subtle",
+								"flex h-7 items-end px-3 pb-1.5 whitespace-nowrap type-eyebrow",
 								fade(collapsed),
 							)}
 						>
@@ -171,30 +172,38 @@ function fade(collapsed: boolean) {
 	);
 }
 
-// One row for links and parents (ruling 30): 36px tall, a 16px icon 12px in,
-// Plex at 15px and weight 450, muted at rest. On hover a soft steel plate
-// fill arrives over 120ms and label and icon brighten. The current row sits
-// on a machined plate (raised, sheened, top-edge highlight) carrying the
-// right-edge glow; the row itself stays transparent over it. `isolate` keeps
-// the in-row mark under the label. The ring is drawn inside, because the nav
-// clips anything outside it.
+// One row for links and parents, v3 .nav-item: muted at rest, a raised fill
+// and full-colour label and icon under the pointer. Rows keep 36px and 12px
+// to the icon, not v3's 30 and 10, so every icon stays on the 28px centre
+// line the brand mark and avatar share on the rail. The current row's label
+// is full colour and its icon the accent, which marks selection; its chip and
+// glow are the mark beneath it, so the row itself stays transparent over
+// them. `isolate` keeps the in-row mark under the label. The focus ring is
+// drawn inside, because the nav clips anything outside it.
 const ROW =
-	"relative isolate flex h-9 w-full items-center gap-2.5 overflow-hidden rounded-sm px-3 whitespace-nowrap type-body font-[450] text-text-muted transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-state-hover hover:text-foreground [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-text-subtle [&>svg]:transition-colors [&>svg]:duration-(--duration-micro) [&>svg]:ease-avel hover:[&>svg]:text-foreground";
+	"relative isolate flex h-9 w-full items-center gap-2.5 overflow-hidden rounded-control px-3 whitespace-nowrap type-body text-text-muted transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-app-raised hover:text-text [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-text-subtle [&>svg]:transition-colors [&>svg]:duration-(--duration-micro) [&>svg]:ease-avel hover:[&>svg]:text-text";
 const CURRENT =
-	"aria-[current=page]:font-medium aria-[current=page]:text-foreground aria-[current=page]:hover:bg-transparent aria-[current=page]:[&>svg]:text-accent-text";
+	"aria-[current=page]:text-text aria-[current=page]:hover:bg-transparent aria-[current=page]:[&>svg]:text-accent-text";
 
 /**
- * The current page's mark (ruling 12): an accent glow on the row's right
- * edge, with no line. Two layers, each an ellipse anchored at the edge that
- * fades out in every direction, so the glow reads as light coming from the
- * edge rather than as a shape:
+ * The current row's chip (v3 .nav-item.on, R6): the chip surface above the
+ * sidebar, a hairline edge and the button shadow. The edge is a border, not
+ * a ring: shadow-btn and a ring both write box-shadow.
+ */
+const CHIP =
+	"overflow-hidden rounded-control border border-border bg-chip shadow-btn";
+
+/**
+ * The current page's mark (rulings 12 and 50): the v3 chip, with an accent
+ * glow on its right edge and no line. Two layers, each an ellipse anchored at
+ * the edge that fades out in every direction, so the glow reads as light
+ * coming from the edge rather than as a shape:
  *
- *   core  30% x 90%, at 50% (dark) and 60% (light): the visible light
- *   wash  85% x 140%, at 25% (dark) and 30% (light): the falloff across the row
+ *   core  30% x 90%, at 60% (light) and 50% (dark): the visible light
+ *   wash  85% x 140%, at 30% (light) and 25% (dark): the falloff across the row
  *
- * They are separate layers so each keeps its own strength. Light mode is
- * stronger, because the accent on a pale surface reads fainter. Static: it
- * moves only because the current page changed.
+ * Light is stronger, because the accent on a pale chip reads fainter. Static:
+ * it moves only because the current page changed.
  */
 function ActiveMark() {
 	return (
@@ -202,10 +211,10 @@ function ActiveMark() {
 			aria-hidden="true"
 			data-testid="nav-active-mark"
 			// The server's and the first paint's mark. Once the sliding
-			// indicator has measured this row, it draws the plate instead.
+			// indicator has measured this row, it draws the chip instead.
 			// -z-10 inside the row's isolated stack: under the label.
 			className={cn(
-				PLATE,
+				CHIP,
 				"pointer-events-none absolute inset-0 -z-10 group-data-[indicator=ready]/nav:opacity-0",
 			)}
 		>
@@ -214,28 +223,25 @@ function ActiveMark() {
 	);
 }
 
-/** The current row's machined plate (ruling 30), under the glow. */
-const PLATE =
-	"surface-steel rounded-sm border border-border bg-app-raised overflow-hidden";
-
-/** The glow's two layers: a wide wash and a tight core, both at the right edge. */
+/** The glow's two layers: the accent mixed toward transparent, at the right edge. */
 function Glow() {
-	const layer =
-		"absolute inset-0 rounded-sm bg-[radial-gradient(var(--glow-shape)_at_100%_50%,var(--color-accent),transparent)]";
+	const layer = "absolute inset-0";
 	return (
 		<>
 			<span
 				data-testid="nav-active-wash"
 				className={cn(
 					layer,
-					"opacity-25 [--glow-shape:ellipse_85%_140%] in-[.light]:opacity-30",
+					"bg-[radial-gradient(ellipse_85%_140%_at_100%_50%,color-mix(in_oklab,var(--color-accent)_30%,transparent),transparent)]",
+					"in-[.dark]:bg-[radial-gradient(ellipse_85%_140%_at_100%_50%,color-mix(in_oklab,var(--color-accent)_25%,transparent),transparent)]",
 				)}
 			/>
 			<span
 				data-testid="nav-active-core"
 				className={cn(
 					layer,
-					"opacity-50 [--glow-shape:ellipse_30%_90%] in-[.light]:opacity-60",
+					"bg-[radial-gradient(ellipse_30%_90%_at_100%_50%,color-mix(in_oklab,var(--color-accent)_60%,transparent),transparent)]",
+					"in-[.dark]:bg-[radial-gradient(ellipse_30%_90%_at_100%_50%,color-mix(in_oklab,var(--color-accent)_50%,transparent),transparent)]",
 				)}
 			/>
 		</>
@@ -273,7 +279,7 @@ function useActiveIndicator(
 			if (!row) return setBox(null);
 			const rowBox = row.getBoundingClientRect();
 			const navBox = nav.getBoundingClientRect();
-			// Left and width too: a nested row's plate starts at the ruler,
+			// Left and width too: a nested row's chip starts at the guide line,
 			// not at the nav's edge.
 			setBox((previous) => ({
 				x: rowBox.left - navBox.left,
@@ -293,9 +299,10 @@ function useActiveIndicator(
 }
 
 /**
- * The current page's glow as one element that slides to the new row when the
- * page changes, rather than vanishing from one row and appearing on the next.
- * Under reduced motion it moves without travelling.
+ * The current page's chip and glow as one element that slides to the new row
+ * when the page changes, over the state duration, rather than vanishing from
+ * one row and appearing on the next. Under reduced motion it moves without
+ * travelling.
  */
 function SlidingIndicator({ box }: { box: IndicatorBox | null }) {
 	return (
@@ -309,7 +316,7 @@ function SlidingIndicator({ box }: { box: IndicatorBox | null }) {
 				height: box?.height ?? 0,
 			}}
 			className={cn(
-				PLATE,
+				CHIP,
 				"pointer-events-none absolute top-0 left-0",
 				"data-animate:transition-[transform,width,height] data-animate:duration-(--duration-state) data-animate:ease-avel motion-reduce:transition-none",
 				box ? "opacity-100" : "opacity-0",
@@ -341,11 +348,7 @@ function NavRow({
 				aria-label={collapsed ? link.label : undefined}
 				// 21px to the content (guide line at 20px, 1px wide) plus 17px puts a
 				// nested label at 38px: under the parent's label, not its icon.
-				className={cn(
-					ROW,
-					CURRENT,
-					nested && "h-8 pr-3 pl-[17px] type-small font-[450]",
-				)}
+				className={cn(ROW, CURRENT, nested && "h-8 pr-3 pl-[17px] type-small")}
 			>
 				{({ isActive }) => (
 					<>
@@ -390,7 +393,8 @@ function Parent({
 	const testId = `nav-${slug(parent.label)}`;
 	const rowClass = cn(
 		ROW,
-		active && "font-medium text-foreground [&>svg]:text-accent-text",
+		active && "text-text [&>svg]:text-accent-text",
+		active && !expanded && "hover:bg-transparent",
 	);
 	const face = (
 		<>
@@ -448,16 +452,14 @@ function Parent({
 				{/* Closed children are inert: out of the tab order and hidden
 				    from assistive technology, while the height animates. */}
 				<div className="min-h-0 overflow-hidden" inert={!expanded}>
-					{/* The ruler (ruling 30): a 1px line under the parent's icon,
-					    a 4px tick at each child, and a 6px accent tick at the
-					    current child's row. */}
+					{/* The guide line: a 1px rule under the parent's icon. */}
 					<ul
 						id={listId}
 						data-testid={`${testId}-ruler`}
 						className="mt-0.5 ml-5 flex flex-col gap-0.5 border-l border-border-strong"
 					>
 						{parent.children.map((link) => (
-							<li key={link.to} data-testid="nav-ruler-tick" className={TICK}>
+							<li key={link.to}>
 								<NavRow
 									link={link}
 									collapsed={false}
@@ -472,10 +474,6 @@ function Parent({
 		</>
 	);
 }
-
-/** A ruler tick at the row's middle; the current child's is longer, in accent. */
-const TICK =
-	"relative before:pointer-events-none before:absolute before:top-1/2 before:left-0 before:z-10 before:h-px before:w-1 before:bg-border-strong has-[[aria-current=page]]:before:w-1.5 has-[[aria-current=page]]:before:bg-accent";
 
 /** On the rail, a parent's children as a menu to its right. */
 function RailMenu({
@@ -509,7 +507,7 @@ function RailMenu({
 							to={link.to}
 							onClick={onNavigate}
 							data-testid={`nav-${slug(link.label)}`}
-							className={cn(isWithin(pathname, link.to) && "text-foreground")}
+							className={cn(isWithin(pathname, link.to) && "text-text")}
 						>
 							<link.icon aria-hidden="true" />
 							{link.label}
@@ -525,8 +523,7 @@ function RailMenu({
  * The mark, the wordmark and the product (ruling 14). The row is exactly the
  * top bar's height and starts one canvas inset down, so the mark and the
  * page title share a line across the seam. The collapse control is at the
- * top: right-aligned when open, under the mark on the rail. The mark's
- * period is the one loop at rest.
+ * top: right-aligned when open, under the mark on the rail.
  */
 function BrandRow({
 	collapsed,
@@ -551,7 +548,7 @@ function BrandRow({
 			<div className="flex h-(--topbar-height) items-center gap-2.5 px-3 whitespace-nowrap">
 				<BrandMark />
 				<span className={cn("flex min-w-0 flex-col", fade(collapsed))}>
-					<span className="type-h2 text-foreground">avel</span>
+					<span className="type-page text-text">avel</span>
 					<span className="type-caption text-text-subtle">Command Center</span>
 				</span>
 			</div>
@@ -566,7 +563,7 @@ function BrandRow({
 						aria-keyshortcuts="Meta+B Control+B"
 						onClick={onToggleCollapsed}
 						className={cn(
-							"absolute text-text-subtle hover:text-foreground",
+							"absolute text-text-subtle hover:text-text",
 							collapsed ? "top-(--topbar-height) left-3" : "top-3 right-3",
 						)}
 					>
@@ -579,8 +576,9 @@ function BrandRow({
 }
 
 /**
- * Who is signed in, and the way to their account (ruling 15), as a card:
- * the avatar has a hairline ring, and the card's border appears on hover.
+ * Who is signed in, and the way to their account (ruling 15), as a v3 card
+ * that answers like a .row-link: raised, with the strong edge, on hover. The
+ * avatar has a hairline ring.
  * Name and avatar are the session's GitHub identity; the role is a constant
  * (src/shell/operator.ts). The account page is reached by navigating from a
  * menu item, not by a second link: two links to one page would put two
@@ -611,7 +609,7 @@ function OperatorMenu({
 							type="button"
 							data-testid="operator-menu"
 							aria-label={`${name}, ${OPERATOR_ROLE}. Account menu`}
-							className="flex h-12 w-full items-center gap-2.5 overflow-hidden surface-steel rounded-md border border-border bg-app-band pr-2 pl-[3px] text-left whitespace-nowrap transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-app-raised data-[state=open]:bg-app-raised"
+							className="flex h-12 w-full items-center gap-2.5 overflow-hidden rounded-card border border-border bg-app-panel shadow-card pr-2 pl-[3px] text-left whitespace-nowrap transition-colors duration-(--duration-micro) ease-avel focus-inset hover:border-border-strong hover:bg-app-raised data-[state=open]:bg-app-raised"
 						>
 							<OperatorAvatar
 								user={user}
@@ -622,7 +620,7 @@ function OperatorMenu({
 							>
 								<span
 									data-testid="operator-name"
-									className="truncate type-body font-medium text-foreground"
+									className="truncate type-body font-medium text-text"
 								>
 									{name}
 								</span>
@@ -651,8 +649,8 @@ function OperatorMenu({
 					data-testid="operator-menu-content"
 				>
 					<DropdownMenuLabel className="flex flex-col font-normal">
-						<span className="type-body text-foreground">{name}</span>
-						<span className="type-mono-small text-text-subtle">
+						<span className="type-body text-text">{name}</span>
+						<span className="type-mono text-text-subtle">
 							@{user.githubLogin}
 						</span>
 					</DropdownMenuLabel>
@@ -720,11 +718,7 @@ function Hint({
 			<TooltipTrigger asChild>{children}</TooltipTrigger>
 			<TooltipContent side="right" className="flex items-center gap-2">
 				{label}
-				{keys ? (
-					<kbd className="rounded-xs border border-border-strong px-1 type-mono-small text-text-muted">
-						{keys}
-					</kbd>
-				) : null}
+				{keys ? <Kbd>{keys}</Kbd> : null}
 			</TooltipContent>
 		</Tooltip>
 	);

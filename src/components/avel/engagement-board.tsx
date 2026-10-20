@@ -113,14 +113,16 @@ function Lane({
 		<section
 			aria-labelledby={headingId}
 			data-testid={`engagement-lane-${status}`}
-			className="flex min-w-0 flex-col gap-2 rounded-md border border-border bg-app-recessed p-2"
+			className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-app-well p-2"
 		>
 			<header className="flex items-center gap-2 px-1.5 pt-1">
 				<span
 					aria-hidden="true"
 					className={cn(
 						"size-2 rounded-full",
-						status === "active" ? "bg-gate-pass" : "bg-text-subtle",
+						status === "active"
+							? "bg-gate-pass-solid"
+							: "bg-gate-pending-solid",
 					)}
 				/>
 				<h3 id={headingId} className="type-small font-medium text-foreground">
@@ -128,12 +130,12 @@ function Lane({
 				</h3>
 				<span
 					data-testid={`engagement-lane-${status}-count`}
-					className="type-mono-small text-text-subtle tabular-nums"
+					className="type-mono text-text-subtle tabular-nums"
 				>
 					{count}
 				</span>
 			</header>
-			<ul className="stagger-in flex flex-col gap-2">
+			<ul className="flex flex-col gap-2">
 				{engagements.map((e) => (
 					<li key={e.id}>
 						<EngagementCard
@@ -185,7 +187,7 @@ export function EngagementCard({
 			aria-label={engagement.name}
 			data-testid={`engagement-card-${engagement.id}`}
 			data-status={engagement.status}
-			className="plate flex flex-col gap-2 rounded-md border p-3"
+			className="flex flex-col gap-1.5 p-2.5 rounded-card border border-border bg-app-panel shadow-card"
 		>
 			<div className="flex items-start gap-2">
 				<p
@@ -209,7 +211,7 @@ export function EngagementCard({
 			>
 				{engagement.scopeMd ?? "No scope written."}
 			</p>
-			<p className="type-mono-small flex flex-wrap gap-x-3 text-text-subtle">
+			<p className="type-mono flex flex-wrap gap-x-3 text-text-subtle">
 				<span>
 					Started{" "}
 					<time dateTime={engagement.startedAt}>
@@ -271,11 +273,13 @@ function EngagementBoardSkeleton() {
 			{[0, 1].map((lane) => (
 				<div
 					key={lane}
-					className="flex flex-col gap-2 rounded-md border border-border bg-app-recessed p-2"
+					className="flex flex-col gap-2 rounded-card border border-border bg-app-well p-2"
 				>
 					<Skeleton className="mx-1.5 mt-1 h-4 w-20" />
-					<Skeleton className="h-24 w-full rounded-md" />
-					{lane === 0 ? <Skeleton className="h-8 w-full rounded-sm" /> : null}
+					<Skeleton className="h-24 w-full rounded-card" />
+					{lane === 0 ? (
+						<Skeleton className="h-8 w-full rounded-control" />
+					) : null}
 				</div>
 			))}
 		</div>

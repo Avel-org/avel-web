@@ -1,8 +1,25 @@
 import { Link } from "@tanstack/react-router";
-import type { Template } from "avel-server/contract";
-import { ArrowRight, GitCommitHorizontal } from "lucide-react";
-import type { ReactNode } from "react";
+import type { Template, TemplateScope } from "avel-server/contract";
+import {
+	ArrowLeftRight,
+	ArrowRight,
+	Boxes,
+	ClipboardCheck,
+	Database,
+	Layers,
+	type LucideIcon,
+	Monitor,
+	Plug,
+	Plus,
+	ScrollText,
+	Server,
+	Users,
+	Workflow,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { relativeTime } from "@/lib/api/clients";
 import {
 	missionCountLabel,
 	SCOPE_LABEL,
@@ -11,125 +28,91 @@ import {
 	STARTING_STATE_SENTENCE,
 	templateName,
 } from "@/lib/api/templates";
+import { NOT_YET } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
-import { ShortHash } from "./short-hash";
 import { TemplateCover } from "./template-cover";
 import {
-	PlaybookLink,
-	TeamLink,
+	gateCountLabel,
+	TeamName,
 	type TemplateLinks,
 	UNREADABLE_COPY,
 } from "./template-links";
 
 /*
- * A template as a project card (ruling 48): a plate built from sections,
- * headed by a cover that bleeds to the plate's edges. The cover is drawn
- * from the template's scope and starting state (TemplateCover). Below it the
- * plate's body rises into the cover as a tab carrying the latest commit,
- * then come the title, what it starts as, what it runs with, and a footer.
+ * A template as a card, at the density of Javaris's Templates reference: a
+ * tile row, the name, two lines of what it is, its scope as a tag, and its
+ * numbers in the footer. The contract carries no description, so the two
+ * lines are the scope's and starting state's own sentences
+ * (docs/TEMPLATES.md). The whole card opens the template's page through its
+ * title link, stretched over the card.
  *
- * The whole card opens the template's page through its title link,
- * stretched over the plate. The playbook and team links sit above that
- * stretch, so no link is ever inside another, and the keyboard meets the
- * title, then the playbook, then the team.
+ * The "Recently used" row has wider cards (RecentTemplateCard): the cover
+ * band, then the flow a mission built from it follows, scope to playbook to
+ * team, and New mission, disabled with its reason.
  */
 
-/** A section's label, engraved. */
-function SectionLabel({ children }: { children: ReactNode }) {
-	return (
-		<span className="engraved type-caption font-medium tracking-wide text-text-subtle uppercase">
-			{children}
-		</span>
-	);
-}
+/** Each scope's mark. Neutral: an icon in a ringed tile, never a hue. */
+export const SCOPE_ICON = {
+	"full-stack": Layers,
+	frontend: Monitor,
+	backend: Server,
+	integration: Plug,
+	data: Database,
+	automation: Workflow,
+	migration: ArrowLeftRight,
+	audit: ClipboardCheck,
+} as const satisfies Record<TemplateScope, LucideIcon>;
 
-function CardSection({
-	label,
-	section,
-	slug,
-	children,
-}: {
-	label: string;
-	section: string;
-	slug: string;
-	children: ReactNode;
-}) {
-	return (
-		<div
-			data-testid={`template-card-${section}-${slug}`}
-			data-section={section}
-			className="flex min-w-0 flex-col gap-2 border-t border-border px-4 py-3"
-		>
-			<SectionLabel>{label}</SectionLabel>
-			{children}
-		</div>
-	);
-}
+/** v3 .tile.tile-ring: a neutral ringed tile holding an icon. */
+const TILE =
+	"inline-grid shrink-0 place-items-center rounded-tile border border-border bg-app-panel text-text-muted [&_svg]:size-4";
 
-/** Readable or Not readable: a dot and a word. */
-function ReadableStatus({ template }: { template: Template }) {
+function ScopeTile({ template }: { template: Template }) {
+	const Icon = template.scope ? SCOPE_ICON[template.scope] : Boxes;
 	return (
 		<span
-			data-testid={`template-card-status-${template.slug}`}
-			data-readable={template.readable}
-			className={cn(
-				"inline-flex shrink-0 items-center gap-1.5 type-caption font-medium",
-				template.readable ? "text-text-muted" : "text-gate-warn",
-			)}
+			aria-hidden="true"
+			data-testid={`template-card-tile-${template.slug}`}
+			className={cn(TILE, "size-tile-md")}
 		>
-			<span
-				aria-hidden="true"
-				className={cn(
-					"size-1.5 rounded-full",
-					template.readable ? "bg-gate-pass" : "bg-gate-warn",
-				)}
-			/>
-			{template.readable ? "Readable" : "Not readable"}
+			<Icon />
 		</span>
 	);
 }
 
-/** What a mission built from it starts as: the starting state, then the scope. */
-function StartsAs({ template }: { template: Template }) {
-	if (!template.readable) {
-		return (
-			<p
-				data-testid={`template-card-unreadable-${template.slug}`}
-				className="type-small text-gate-warn"
-			>
-				{UNREADABLE_COPY}
-			</p>
-		);
-	}
-	const { scope, startingState } = template;
-	if (!scope && !startingState) {
-		return (
-			<p className="type-small text-text-subtle">
-				Its manifest names no scope or starting state.
-			</p>
-		);
-	}
+/**
+ * What the template is, in two lines: the scope's sentence, then the
+ * starting state's. An unreadable repository says so instead.
+ */
+export function templateDescription(template: Template): string {
+	if (!template.readable) return UNREADABLE_COPY;
+	const parts: string[] = [];
+	if (template.scope) parts.push(SCOPE_SUMMARY[template.scope]);
+	if (template.startingState)
+		parts.push(STARTING_STATE_SENTENCE[template.startingState]);
+	return parts.length > 0
+		? parts.join(" ")
+		: "Its manifest names no scope or starting state.";
+}
+
+/** The title link, stretched over its card: the whole card opens the page. */
+function TitleLink({ template }: { template: Template }) {
 	return (
-		<div className="flex flex-col gap-1 type-small text-text-muted">
-			{startingState ? (
-				<p data-testid={`template-card-state-sentence-${template.slug}`}>
-					<span className="font-medium text-foreground">
-						{`${STARTING_STATE_LABEL[startingState]}. `}
-					</span>
-					{STARTING_STATE_SENTENCE[startingState]}
-				</p>
-			) : null}
-			{scope ? (
-				<p data-testid={`template-card-scope-${template.slug}`}>
-					<span className="font-medium text-foreground">
-						{`${SCOPE_LABEL[scope]}. `}
-					</span>
-					{SCOPE_SUMMARY[scope]}
-				</p>
-			) : null}
-		</div>
+		<Link
+			to="/templates/$slug"
+			params={{ slug: template.slug }}
+			data-stretched=""
+			data-testid={`template-card-link-${template.slug}`}
+			className="rounded-xs after:absolute after:inset-0 after:content-['']"
+		>
+			{templateName(template)}
+		</Link>
 	);
 }
+
+/** v3's option card: a hairline that strengthens on hover, the raised fill under the pointer. */
+const CARD =
+	"group/card relative flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-border bg-app-panel shadow-card transition-colors duration-(--duration-micro) ease-avel hover:border-border-strong hover:bg-app-raised has-[a[data-stretched]:focus-visible]:border-border-strong";
 
 export function TemplateCard({
 	template,
@@ -140,120 +123,252 @@ export function TemplateCard({
 }) {
 	const { slug } = template;
 	const nameId = `template-card-name-${slug}`;
+	const playbook = links.ready ? links.playbookFor(slug) : undefined;
 	return (
 		<li data-testid={`template-card-item-${slug}`} className="min-w-0">
 			<article
 				aria-labelledby={nameId}
 				data-testid={`template-card-${slug}`}
 				data-readable={template.readable}
-				className="group/card plate plate-interactive relative flex h-full min-w-0 flex-col overflow-hidden rounded-md border has-[a[data-stretched]:focus-visible]:-translate-y-px has-[a[data-stretched]:focus-visible]:border-border-strong"
+				className={CARD}
+			>
+				<div className="flex flex-1 flex-col gap-3 p-4">
+					<div className="flex items-start justify-between gap-3">
+						<ScopeTile template={template} />
+						{template.readable ? null : (
+							<Badge
+								variant="outline"
+								data-testid={`template-card-unreadable-${slug}`}
+								className="text-gate-warn"
+							>
+								Not readable
+							</Badge>
+						)}
+					</div>
+					<div className="flex min-w-0 flex-col gap-1">
+						<h2 id={nameId} className="min-w-0 truncate type-title text-text">
+							<TitleLink template={template} />
+						</h2>
+						<p
+							data-testid={`template-card-description-${slug}`}
+							className="line-clamp-2 min-h-9 type-small text-text-muted"
+						>
+							{templateDescription(template)}
+						</p>
+					</div>
+					<div className="flex flex-wrap items-center gap-1.5">
+						{template.scope ? (
+							<Badge
+								variant="secondary"
+								data-testid={`template-card-scope-${slug}`}
+							>
+								{SCOPE_LABEL[template.scope]}
+							</Badge>
+						) : null}
+						{template.startingState ? (
+							<Badge
+								variant="outline"
+								data-testid={`template-card-state-${slug}`}
+							>
+								{STARTING_STATE_LABEL[template.startingState]}
+							</Badge>
+						) : null}
+					</div>
+				</div>
+				<div
+					data-testid={`template-card-footer-${slug}`}
+					className="flex items-center gap-3 border-t border-border px-4 py-2 type-caption text-text-muted tabular-nums"
+				>
+					<span data-testid={`template-card-missions-${slug}`}>
+						{missionCountLabel(template.missionCount)}
+					</span>
+					<span
+						data-testid={`template-card-gates-${slug}`}
+						className="text-text-subtle"
+					>
+						{links.failed
+							? "Playbook unknown"
+							: !links.ready
+								? null
+								: playbook
+									? gateCountLabel(playbook.gates.length)
+									: "No playbook"}
+					</span>
+					{/* The stretched title link is the action; this names it. */}
+					<span
+						aria-hidden="true"
+						className="ml-auto inline-flex items-center gap-1 font-medium text-accent-text"
+					>
+						Open
+						<ArrowRight className="size-3.5 transition-transform duration-(--duration-micro) ease-avel motion-safe:group-hover/card:translate-x-0.5" />
+					</span>
+				</div>
+			</article>
+		</li>
+	);
+}
+
+/** One step of the flow a mission follows: a small neutral tile, its name, and what it is. */
+function FlowStep({
+	icon: Icon,
+	label,
+	detail,
+	"data-testid": testId,
+}: {
+	icon: LucideIcon;
+	label: React.ReactNode;
+	/** The muted second line: what the step is ("Scope", "Playbook v1", "Team"). */
+	detail: React.ReactNode;
+	"data-testid": string;
+}) {
+	return (
+		<span
+			data-testid={testId}
+			className="flex min-w-0 items-center gap-2 @[30rem]/flow:flex-1"
+		>
+			<span
+				aria-hidden="true"
+				className={cn(TILE, "size-tile-sm [&_svg]:size-3.5")}
+			>
+				<Icon />
+			</span>
+			<span className="flex min-w-0 flex-col">
+				<span className="truncate type-small text-text">{label}</span>
+				<span className="truncate type-caption text-text-subtle">{detail}</span>
+			</span>
+		</span>
+	);
+}
+
+/**
+ * A template in the Recently used row: the cover band, the flow (scope, then
+ * the playbook keyed by its slug with its version, then its default team),
+ * when a mission built from it last moved, and New mission, disabled with
+ * its reason (missions cannot be created yet).
+ *
+ * Its cover is always the drawn art on the flat band, never the manifest's
+ * image: a repository's screenshot brings its own colours, and v3 keeps the
+ * page's hues to meaning (no decorative hues). The template's page shows the
+ * image. `wide`, for the only card in its row, sets the cover on the left.
+ */
+export function RecentTemplateCard({
+	template,
+	links,
+	lastActivityAt,
+	now,
+	wide = false,
+}: {
+	template: Template;
+	links: TemplateLinks;
+	lastActivityAt: string;
+	now: number;
+	wide?: boolean;
+}) {
+	const { slug } = template;
+	const playbook = links.ready ? links.playbookFor(slug) : undefined;
+	const ScopeIcon = template.scope ? SCOPE_ICON[template.scope] : Boxes;
+	// Across when the three steps fit, down (each arrow turned) when they do
+	// not: never two on one line and one below.
+	const arrow = (
+		<ArrowRight
+			aria-hidden="true"
+			data-flow-arrow=""
+			className="ml-2 size-3.5 shrink-0 rotate-90 text-text-subtle @[30rem]/flow:ml-0 @[30rem]/flow:rotate-0"
+		/>
+	);
+	return (
+		<li data-testid={`template-recent-${slug}`} className="min-w-0">
+			<article
+				aria-labelledby={`template-recent-name-${slug}`}
+				data-wide={wide || undefined}
+				className={cn(CARD, wide && "md:flex-row")}
 			>
 				<TemplateCover
 					template={template}
-					image={template.cover}
-					data-testid={`template-card-cover-${slug}`}
-					className="h-44 shrink-0"
+					data-testid={`template-recent-cover-${slug}`}
+					className={cn(
+						"h-28 shrink-0",
+						wide && "md:h-auto md:min-h-40 md:w-2/5 md:border-r md:border-b-0",
+					)}
 				/>
-
-				{/* Title: the tab rising into the cover, then name, status and slug. */}
-				<div
-					data-testid={`template-card-title-${slug}`}
-					data-section="title"
-					className="flex min-w-0 flex-col gap-1 bg-app-plate px-4 pb-3"
-				>
-					<span
-						data-testid={`template-card-tab-${slug}`}
-						className="cover-tab relative -mt-7 -ml-4 inline-flex h-7 items-center gap-1.5 self-start pr-3 pl-4 type-mono-small text-text-muted"
-					>
-						<GitCommitHorizontal
-							aria-hidden="true"
-							className="size-3.5 text-accent-text"
-						/>
-						{template.latestSha ? (
-							// Above the card's stretched link, so Copy is its own control.
-							<ShortHash
-								value={template.latestSha}
-								label="the latest commit"
-								data-testid="template-card-sha"
-								className="relative z-10"
-							/>
-						) : (
-							<span className="font-sans type-caption text-text-subtle">
-								Commit unknown
-							</span>
-						)}
-					</span>
-					<span className="flex min-w-0 items-baseline justify-between gap-3 pt-2">
-						<h2
-							id={nameId}
-							className="engraved min-w-0 truncate type-h2 text-foreground"
-						>
-							<Link
-								to="/templates/$slug"
-								params={{ slug }}
-								data-stretched=""
-								data-testid={`template-card-link-${slug}`}
-								// Stretched over the card: the whole plate opens the page.
-								className="rounded-xs after:absolute after:inset-0 after:content-['']"
+				<div className="flex min-w-0 flex-1 flex-col">
+					<div className="flex flex-1 flex-col gap-3 p-4">
+						<div className="flex min-w-0 items-baseline justify-between gap-3">
+							<h3
+								id={`template-recent-name-${slug}`}
+								className="min-w-0 truncate type-title text-text"
 							>
-								{templateName(template)}
-							</Link>
-						</h2>
-						<ReadableStatus template={template} />
-					</span>
-					<span
-						data-testid={`template-card-slug-${slug}`}
-						className="truncate type-mono-small text-text-subtle"
-					>
-						{slug}
-					</span>
-				</div>
-
-				<div className="flex flex-1 flex-col bg-app-plate">
-					<CardSection label="Starts as" section="starts" slug={slug}>
-						<StartsAs template={template} />
-					</CardSection>
-
-					<CardSection label="Runs with" section="runs" slug={slug}>
-						<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-1.5 type-small">
-							<dt className="type-caption text-text-subtle">Playbook</dt>
-							<dd className="flex min-w-0">
-								<PlaybookLink slug={slug} links={links} full />
-							</dd>
-							<dt className="type-caption text-text-subtle">Team</dt>
-							<dd className="flex min-w-0">
-								{template.defaultPresetId === null ? (
-									<span
-										data-testid={`template-team-none-${slug}`}
-										className="text-text-subtle"
-									>
-										No default team
-									</span>
-								) : (
-									<TeamLink slug={slug} template={template} />
-								)}
-							</dd>
-						</dl>
-					</CardSection>
-
-					<div
-						data-testid={`template-card-footer-${slug}`}
-						className="mt-auto flex items-center justify-between gap-3 border-t border-border px-4 py-2.5"
-					>
-						<span
-							data-testid={`template-card-missions-${slug}`}
-							className="type-small text-text-muted tabular-nums"
-						>
+								<TitleLink template={template} />
+							</h3>
+							<span
+								data-testid={`template-recent-activity-${slug}`}
+								className="shrink-0 type-caption text-text-subtle"
+							>
+								{`Used ${relativeTime(lastActivityAt, now)}`}
+							</span>
+						</div>
+						{/* The container is the wrapper: a query measures its container,
+						    and only what is inside it can answer. */}
+						<div className="@container/flow min-w-0">
+							<div
+								data-testid={`template-recent-flow-${slug}`}
+								className="flex min-w-0 flex-col gap-1.5 @[30rem]/flow:flex-row @[30rem]/flow:items-center @[30rem]/flow:gap-2"
+							>
+								<span className="sr-only">A mission from it runs with: </span>
+								<FlowStep
+									icon={ScopeIcon}
+									label={
+										template.scope ? SCOPE_LABEL[template.scope] : "Unknown"
+									}
+									detail="Scope"
+									data-testid={`template-recent-flow-scope-${slug}`}
+								/>
+								{arrow}
+								<FlowStep
+									icon={ScrollText}
+									label={
+										links.failed
+											? "Unknown"
+											: !links.ready
+												? "Reading"
+												: (playbook?.name ?? "None")
+									}
+									detail={
+										playbook ? `Playbook v${playbook.version}` : "Playbook"
+									}
+									data-testid={`template-recent-flow-playbook-${slug}`}
+								/>
+								{arrow}
+								<FlowStep
+									icon={Users}
+									label={
+										template.defaultPresetId === null ? (
+											"None"
+										) : (
+											<TeamName id={template.defaultPresetId} />
+										)
+									}
+									detail="Team"
+									data-testid={`template-recent-flow-team-${slug}`}
+								/>
+							</div>
+						</div>
+					</div>
+					<div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2">
+						<span className="type-caption text-text-muted tabular-nums">
 							{missionCountLabel(template.missionCount)}
 						</span>
-						{/* The stretched title link is the action; this names it. */}
-						<span
-							aria-hidden="true"
-							data-testid={`template-card-open-${slug}`}
-							className="inline-flex items-center gap-1 type-small font-medium text-accent-text"
-						>
-							Open
-							<ArrowRight className="size-4 transition-transform duration-(--duration-micro) ease-avel motion-safe:group-hover/card:translate-x-0.5" />
+						{/* Above the card's stretched link, so it is its own control. */}
+						<span className="relative z-10">
+							<Button
+								size="sm"
+								variant="outline"
+								data-testid={`template-recent-new-mission-${slug}`}
+								disabledReason={NOT_YET["mission.create"]}
+							>
+								<Plus aria-hidden="true" />
+								New mission
+							</Button>
 						</span>
 					</div>
 				</div>
@@ -263,10 +378,10 @@ export function TemplateCard({
 }
 
 /** As many columns as fit, never narrower than a card reads. */
-const GRID =
-	"grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,18rem),1fr))]";
+export const TEMPLATE_GRID =
+	"grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,16rem),1fr))]";
 
-/** The board: a project card per template, in allowlist order. */
+/** The board: a card per template, in the order given. */
 export function TemplateBoard({
 	templates,
 	links,
@@ -275,7 +390,11 @@ export function TemplateBoard({
 	links: TemplateLinks;
 }) {
 	return (
-		<ul aria-label="Templates" data-testid="template-board" className={GRID}>
+		<ul
+			aria-label="Templates"
+			data-testid="template-board"
+			className={TEMPLATE_GRID}
+		>
 			{templates.map((template) => (
 				<TemplateCard key={template.slug} template={template} links={links} />
 			))}
@@ -283,35 +402,25 @@ export function TemplateBoard({
 	);
 }
 
-/** Three cards in the real shape: cover, tab, title, two sections, footer. */
+/** Three cards in the real shape: tile, name, two lines, tag, footer. */
 export function TemplateCardSkeleton() {
 	return (
 		<ul
 			data-testid="template-list-skeleton"
 			aria-hidden="true"
-			className={GRID}
+			className={TEMPLATE_GRID}
 		>
 			{[0, 1, 2].map((i) => (
 				<li key={i} className="min-w-0">
-					<div className="plate flex flex-col overflow-hidden rounded-md border">
-						<div className="template-cover h-44" />
-						<div className="flex flex-col gap-2 bg-app-plate px-4 pb-3">
-							<span className="cover-tab -mt-7 -ml-4 flex h-7 w-28 items-center pl-4">
-								<Skeleton className="h-3 w-16" />
-							</span>
-							<Skeleton className="mt-2 h-5 w-32" />
-							<Skeleton className="h-3 w-24" />
+					<div className="flex flex-col overflow-hidden rounded-card border border-border bg-app-panel shadow-card">
+						<div className="flex flex-col gap-3 p-4">
+							<Skeleton className="size-tile-md rounded-tile" />
+							<Skeleton className="h-5 w-32" />
+							<Skeleton className="h-4 w-full" />
+							<Skeleton className="h-4 w-3/4" />
+							<Skeleton className="h-5 w-20 rounded-sm" />
 						</div>
-						{["w-full", "w-40"].map((width) => (
-							<div
-								key={width}
-								className="flex flex-col gap-2 border-t border-border bg-app-plate px-4 py-3"
-							>
-								<Skeleton className="h-3 w-16" />
-								<Skeleton className={cn("h-4", width)} />
-							</div>
-						))}
-						<div className="flex justify-between border-t border-border bg-app-plate px-4 py-2.5">
+						<div className="flex justify-between border-t border-border px-4 py-2">
 							<Skeleton className="h-4 w-20" />
 							<Skeleton className="h-4 w-12" />
 						</div>

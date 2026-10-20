@@ -295,6 +295,92 @@ export const PRECONDITION_COPY = {
 		next: "Fix each issue listed, then try again.",
 		retry: false,
 	},
+	// Approval while Canon, the project briefer, still has open questions on
+	// the intake (2026-10-19). details.issues names each one, in order, at
+	// ["canonQuestions", <questionId>] with the question's header as message.
+	// A second triage of the same finding (2026-10-19): someone confirmed or
+	// dismissed it first.
+	finding_not_open: {
+		what: "This finding has already been triaged.",
+		written: NOTHING_WRITTEN,
+		next: "Refresh to see whether it was confirmed or dismissed.",
+		retry: false,
+	},
+	// The gate (POST /api/missions/:id/gate, 2026-10-19). Each places its
+	// issues on the dispatches or paths they name.
+	dispatches_running: {
+		what: "A dispatch is still queued or running, so there is nothing settled to judge.",
+		written: NOTHING_WRITTEN,
+		next: "Let each listed dispatch finish, or halt it, then run the gate.",
+		retry: false,
+	},
+	integration_conflict: {
+		what: "Two finished dispatches changed the same file, so their work can't be combined to judge.",
+		written: NOTHING_WRITTEN,
+		next: "Resolve each listed file in one of the dispatches, then run the gate.",
+		retry: false,
+	},
+	nothing_to_judge: {
+		what: "No dispatch on this mission has finished, so there is nothing to judge.",
+		written: NOTHING_WRITTEN,
+		next: "Run a dispatch to completion, then run the gate.",
+		retry: false,
+	},
+	dispatch_commit_missing: {
+		what: "A finished dispatch has no recorded result commit, so its work can't be judged.",
+		written: NOTHING_WRITTEN,
+		next: "Dispatch that work again, then run the gate.",
+		retry: false,
+	},
+	// Canon, the project briefer (2026-10-19).
+	intake_not_draft: {
+		what: "Canon works only on a draft intake.",
+		written: NOTHING_WRITTEN,
+		next: "Revise the intake back to draft to brief it with Canon.",
+		retry: false,
+	},
+	canon_session_open: {
+		what: "A Canon session is already open on this intake.",
+		written: NOTHING_WRITTEN,
+		next: "Resume that session, or close it first.",
+		retry: false,
+	},
+	canon_session_not_open: {
+		what: "This Canon session has ended.",
+		written: NOTHING_WRITTEN,
+		next: "Open a new session to keep briefing.",
+		retry: false,
+	},
+	canon_turn_running: {
+		what: "Canon is still answering.",
+		written: NOTHING_WRITTEN,
+		next: "Wait for its reply, or halt the session.",
+		retry: true,
+	},
+	canon_question_not_open: {
+		what: "This question has already been answered, acknowledged or dismissed.",
+		written: NOTHING_WRITTEN,
+		next: "Refresh to see how it was settled.",
+		retry: false,
+	},
+	client_memory_not_proposed: {
+		what: "Only a proposed memory can be kept.",
+		written: NOTHING_WRITTEN,
+		next: "Refresh to see whether it was already kept or removed.",
+		retry: false,
+	},
+	client_memory_removed: {
+		what: "This memory was removed, so it can't be edited.",
+		written: NOTHING_WRITTEN,
+		next: "Write a new memory instead.",
+		retry: false,
+	},
+	intake_questions_open: {
+		what: "Canon still has open questions on this intake.",
+		written: NOTHING_WRITTEN,
+		next: "Answer, acknowledge or dismiss each question, then approve again.",
+		retry: false,
+	},
 	// src/routes/intake.ts: approval while the repository's cut has not been
 	// derived. Every approval gets this until repo read (module 2) exists.
 	intake_cut_not_derived: {
@@ -520,7 +606,9 @@ export const PRECONDITION_COPY = {
 	spend_ceiling_missing: {
 		what: "This mission has no spend limit.",
 		written: NOTHING_WRITTEN,
-		next: "Set the mission's spend limit, then start it again.",
+		// No route sets spendCeilingUsd yet (audit D4, D6), so the copy never
+		// sends the operator looking for a control that does not exist.
+		next: "A spend limit can't be set yet: avel-server has no route for it, so this mission can't start until one exists.",
 		retry: false,
 	},
 	spend_ceiling_reached: {

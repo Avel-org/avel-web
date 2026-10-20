@@ -1,20 +1,16 @@
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 
+// v3 .field: a 32px box on the field surface with a strong hairline. Focus
+// is field-surface's solid 1px ring and soft halo (v3 UX 2), since app.css
+// takes the outline off text fields; invalid is the same ring in block.
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
 	return (
 		<input
 			type={type}
 			data-slot="input"
 			className={cn(
-				"h-9 w-full min-w-0 field-inset rounded-xs border border-input bg-app-field px-3 py-1 text-base transition-colors duration-(--duration-micro) ease-avel  selection:bg-accent-soft file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-text-subtle disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-(--opacity-disabled) md:text-sm",
-				"",
-				// Focus is the border stepping up, not a ring (operator request; app.css
-				// removes the outline from text fields). The rest border is already
-				// border-strong (--color-input), so the step goes to text-muted: 3.54:1
-				// against the rest border in dark, 5.62:1 in light.
-				"focus-visible:border-text-muted focus-visible:bg-app-raised",
-				"aria-invalid:border-destructive",
+				"field-surface h-control-md w-full min-w-0 rounded-control px-2.5 type-body text-text transition-[border-color,box-shadow] duration-(--duration-micro) ease-avel selection:bg-accent-soft file:inline-flex file:h-7 file:border-0 file:bg-transparent file:type-small file:font-medium file:text-text placeholder:text-text-subtle disabled:cursor-not-allowed disabled:bg-app-raised disabled:text-text-subtle",
 				className,
 			)}
 			{...props}

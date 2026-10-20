@@ -1,11 +1,14 @@
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { tabsListVariants } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 /*
- * A view switch (ruling 36): pressed-state buttons, one pressed, as on
- * Agents' Cards | Graph and the Board | Table pages. The caller keeps the
- * view (in the URL, as a rule); this only shows it and reports a change.
+ * A view switch: v3's segmented control, one option pressed, as on Agents'
+ * Cards | Graph and the Board | Table pages. The track is the tabs' segmented
+ * list and each option the shared segment Button, so it reads the same as
+ * every other segmented row. The caller keeps the view (in the URL, as a
+ * rule); this only shows it and reports a change.
  */
 
 export type ViewOption<V extends string> = {
@@ -31,17 +34,14 @@ export function ViewToggle<V extends string>({
 	return (
 		<fieldset
 			data-testid={testIdPrefix}
-			className={cn(
-				"inline-flex items-center gap-0.5 rounded-sm border border-border p-0.5",
-				className,
-			)}
+			className={cn(tabsListVariants({ variant: "default" }), className)}
 		>
 			<legend className="sr-only">View</legend>
 			{options.map(({ id, label, icon: Icon }) => (
 				<Button
 					key={id}
-					size="sm"
-					variant={view === id ? "secondary" : "ghost"}
+					type="button"
+					variant="segment"
 					aria-pressed={view === id}
 					data-testid={`${testIdPrefix}-${id}`}
 					onClick={() => onChange(id)}

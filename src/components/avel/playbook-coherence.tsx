@@ -168,7 +168,7 @@ export function CoherenceView({ result }: { result: CoherenceResult }) {
 				<li
 					data-testid="coherence-block"
 					data-wave={result.block.wave ?? "none"}
-					className="flex items-start gap-2 rounded-sm border border-gate-block-line bg-gate-block-soft p-2 type-small text-foreground"
+					className="flex items-start gap-2 rounded-control border border-gate-block-line bg-gate-block-soft p-2 type-small text-foreground"
 				>
 					<StatusGlyph tone="block" className="mt-1" />
 					<span>{blockCopy(result.block)}</span>
@@ -178,7 +178,7 @@ export function CoherenceView({ result }: { result: CoherenceResult }) {
 				<li
 					key={warning.code}
 					data-testid={`coherence-warning-${warning.code}`}
-					className="flex items-start gap-2 rounded-sm border border-gate-warn-line bg-gate-warn-soft p-2 type-small text-foreground"
+					className="flex items-start gap-2 rounded-control border border-gate-warn-line bg-gate-warn-banner p-2 type-small text-foreground"
 				>
 					<StatusGlyph tone="warn" className="mt-1" />
 					<span>{warningCopy(warning)}</span>

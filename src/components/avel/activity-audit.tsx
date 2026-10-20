@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import type { ActivityActorKind, ActivityEntry } from "avel-server/contract";
-import { Bot, ChevronDown, Cog, UserRound } from "lucide-react";
+import type { ActivityEntry } from "avel-server/contract";
+import { ChevronDown, X } from "lucide-react";
 import { type KeyboardEvent, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
 	payloadFacts,
 	resultOf,
 } from "./activity-record";
+import { ActorMark } from "./actor";
 import { ActorLabel } from "./agent-actor";
 import { CodeView } from "./code-view";
 import { SectionPanel } from "./section-panel";
@@ -30,17 +31,71 @@ import { HiddenId, ShortHash } from "./short-hash";
 import { Surface } from "./surface";
 
 /*
- * The audit log (ruling 36): one row per entry with its time, actor, action,
- * object and result, and below the table the selected entry's decision
- * record. The selection is the URL's `entry`, so a record is a link.
+ * The audit log (ruling 36): the entries by day under sticky eyebrows, one
+ * row each led by its actor's mark, then action, object, result and time;
+ * the selected entry's decision record docks beside it, nothing over it.
+ * The selection is the URL's `entry`, so a record is a link.
  */
 
-/** Each actor kind's icon, beside the server's display for the actor. */
-const ACTOR_ICON = {
-	operator: UserRound,
-	agent: Bot,
-	system: Cog,
-} as const satisfies Record<ActivityActorKind, typeof UserRound>;
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec",
+];
+
+/**
+ * An entry's day, as the log heads it, in words: "Today", "Yesterday", then
+ * "Fri 17 Oct", with the year only when it isn't this one. UTC, as the
+ * stored times are, so a day never splits by the viewer's zone.
+ */
+export function dayLabel(iso: string, now: number): string {
+	const day = iso.slice(0, 10);
+	const today = new Date(now).toISOString().slice(0, 10);
+	const yesterday = new Date(now - 86_400_000).toISOString().slice(0, 10);
+	if (day === today) return "Today";
+	if (day === yesterday) return "Yesterday";
+	const d = new Date(`${day}T00:00:00.000Z`);
+	const label = `${WEEKDAY[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}`;
+	return day.slice(0, 4) === today.slice(0, 4)
+		? label
+		: `${label} ${d.getUTCFullYear()}`;
+}
+
+/** A short absolute time, "17 Oct, 02:13" (UTC), beside its relative age. */
+export function shortStamp(iso: string): string {
+	const d = new Date(iso);
+	const hh = String(d.getUTCHours()).padStart(2, "0");
+	const mm = String(d.getUTCMinutes()).padStart(2, "0");
+	return `${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}, ${hh}:${mm}`;
+}
+
+/** Entries in their order, cut into runs of one day each. */
+export function groupByDay<T extends Pick<ActivityEntry, "at">>(
+	entries: readonly T[],
+): { day: string; entries: T[] }[] {
+	const groups: { day: string; entries: T[] }[] = [];
+	for (const entry of entries) {
+		const day = entry.at.slice(0, 10);
+		const last = groups.at(-1);
+		if (last && last.day === day) last.entries.push(entry);
+		else groups.push({ day, entries: [entry] });
+	}
+	return groups;
+}
+
+/** A day's heading in the log: an eyebrow that stays while its rows scroll. */
+const DAY_HEADING =
+	"sticky top-(--topbar-height) z-10 border-b border-border bg-app-band px-3 py-1.5 text-left type-eyebrow";
 
 export function AuditTable({
 	entries,
@@ -63,101 +118,120 @@ export function AuditTable({
 	return (
 		<table
 			data-testid="activity-audit"
-			className="w-full caption-bottom text-sm"
+			className="w-full caption-bottom type-body"
 		>
 			<caption className="sr-only">
-				Activity. Select a row for its decision record.
+				Activity, by day. Select a row for its decision record.
 			</caption>
 			<TableHeader>
 				<TableRow className="hover:bg-transparent">
-					<TableHead className="w-36">Time</TableHead>
-					<TableHead className="w-48">Actor</TableHead>
+					{/* Who acted leads each row: the mark reads first (audit F3). */}
+					<TableHead className="w-52">Actor</TableHead>
 					<TableHead>Action</TableHead>
 					<TableHead>Object</TableHead>
 					<TableHead className="w-28">Result</TableHead>
+					<TableHead className="w-32">Time</TableHead>
 				</TableRow>
 			</TableHeader>
-			<TableBody>
-				{entries.map((entry) => {
-					const selected = entry.id === selectedId;
-					const Icon = ACTOR_ICON[entry.actor.kind];
-					return (
-						<TableRow
-							key={entry.id}
-							data-testid={`activity-row-${entry.id}`}
-							data-selected={selected || undefined}
-							aria-selected={selected}
-							tabIndex={0}
-							onClick={() => onSelect(selected ? undefined : entry.id)}
-							onKeyDown={keys(entry.id)}
-							className={cn(
-								"focus-inset cursor-pointer",
-								selected && "bg-state-selected hover:bg-state-selected",
-							)}
+			{groupByDay(entries).map((group) => (
+				<TableBody key={group.day} data-testid={`activity-day-${group.day}`}>
+					<TableRow className="hover:bg-transparent">
+						<th
+							scope="colgroup"
+							colSpan={5}
+							title={group.day}
+							className={DAY_HEADING}
 						>
-							<TableCell>
-								<time
-									dateTime={entry.at}
-									title={entry.at}
-									data-testid={`activity-at-${entry.id}`}
-									className="type-mono-small text-text-muted tabular-nums"
-								>
-									{relativeTime(entry.at, now)}
-								</time>
-							</TableCell>
-							<TableCell>
-								<span className="inline-flex items-center gap-1.5">
-									<Icon
-										aria-hidden="true"
-										className="size-3.5 text-text-subtle"
-									/>
-									<span
-										data-testid={`activity-actor-${entry.id}`}
-										data-actor-kind={entry.actor.kind}
-										className="type-small text-text-muted"
-									>
-										<ActorLabel
-											actor={entry.actor}
-											data-testid={`activity-actor-agent-${entry.id}`}
+							{dayLabel(group.entries[0]?.at ?? group.day, now)}
+						</th>
+					</TableRow>
+					{group.entries.map((entry) => {
+						const selected = entry.id === selectedId;
+						return (
+							<TableRow
+								key={entry.id}
+								data-testid={`activity-row-${entry.id}`}
+								data-selected={selected || undefined}
+								aria-selected={selected}
+								tabIndex={0}
+								onClick={() => onSelect(selected ? undefined : entry.id)}
+								onKeyDown={keys(entry.id)}
+								className={cn(
+									"focus-inset cursor-pointer",
+									selected && "bg-selected hover:bg-selected",
+								)}
+							>
+								<TableCell>
+									<span className="inline-flex items-center gap-2">
+										<ActorMark
+											kind={entry.actor.kind}
+											name={entry.actor.agent?.name}
+											data-testid={`activity-actor-mark-${entry.id}`}
 										/>
+										<span
+											data-testid={`activity-actor-${entry.id}`}
+											data-actor-kind={entry.actor.kind}
+											className="type-small text-text-muted"
+										>
+											<ActorLabel
+												actor={entry.actor}
+												data-testid={`activity-actor-agent-${entry.id}`}
+											/>
+										</span>
 									</span>
-								</span>
-							</TableCell>
-							<TableCell>
-								<span
-									data-testid={`activity-action-${entry.id}`}
-									className="type-small font-medium text-foreground"
-								>
-									{ACTION_COPY[entry.action]}
-								</span>
-							</TableCell>
-							<TableCell>
-								<ActivityTarget entry={entry} />
-							</TableCell>
-							<TableCell>
-								<Badge
-									variant="outline"
-									data-testid={`activity-result-${entry.id}`}
-								>
-									{resultOf(entry)}
-								</Badge>
-							</TableCell>
-						</TableRow>
-					);
-				})}
-			</TableBody>
+								</TableCell>
+								<TableCell>
+									<span
+										data-testid={`activity-action-${entry.id}`}
+										className="type-small font-medium text-foreground"
+									>
+										{ACTION_COPY[entry.action]}
+									</span>
+								</TableCell>
+								<TableCell>
+									<ActivityTarget entry={entry} />
+								</TableCell>
+								<TableCell>
+									<Badge
+										variant="outline"
+										data-testid={`activity-result-${entry.id}`}
+									>
+										{resultOf(entry)}
+									</Badge>
+								</TableCell>
+								<TableCell>
+									<time
+										dateTime={entry.at}
+										title={entry.at}
+										data-testid={`activity-at-${entry.id}`}
+										className="type-mono text-text-muted tabular-nums"
+									>
+										{relativeTime(entry.at, now)}
+									</time>
+								</TableCell>
+							</TableRow>
+						);
+					})}
+				</TableBody>
+			))}
 		</table>
 	);
 }
+
+const RULE_NOT_BUILT =
+	"avel-server logs only what it applied, never what it refused, so no rule is recorded yet. Every entry here was applied.";
 
 /** The selected entry's record, or why there is none to show. */
 export function DecisionRecord({
 	entry,
 	selectedId,
 	onClose,
+	now,
 }: {
 	entry: ActivityEntry | undefined;
 	selectedId: string | undefined;
+	/** The page's fixed clock, for the record's age. */
+	now: number;
 	onClose: () => void;
 }) {
 	if (selectedId === undefined) return null;
@@ -170,14 +244,16 @@ export function DecisionRecord({
 					variant="ghost"
 					size="sm"
 					data-testid="activity-record-close"
+					aria-keyshortcuts="Escape"
 					onClick={onClose}
 				>
+					<X aria-hidden="true" />
 					Close
 				</Button>
 			}
 		>
 			{entry ? (
-				<RecordBody entry={entry} />
+				<RecordBody entry={entry} now={now} />
 			) : (
 				<p
 					data-testid="activity-record-missing"
@@ -221,7 +297,7 @@ function FactValue({ fact }: { fact: PayloadFact }) {
 	return <>{fact.value}</>;
 }
 
-function RecordBody({ entry }: { entry: ActivityEntry }) {
+function RecordBody({ entry, now }: { entry: ActivityEntry; now: number }) {
 	const inverse = INVERSE[entry.action];
 	const facts = payloadFacts(entry.payload);
 	const name = entityNameOf(entry);
@@ -246,8 +322,16 @@ function RecordBody({ entry }: { entry: ActivityEntry }) {
 					/>
 					.
 				</p>
-				<p className="type-mono-small text-text-subtle">
-					<time dateTime={entry.at}>{entry.at}</time>
+				{/* Its age and a short time, the full ISO on hover: a mono stamp
+				    in this column would break mid-token. */}
+				<p className="type-caption whitespace-nowrap text-text-subtle">
+					<time
+						dateTime={entry.at}
+						title={entry.at}
+						data-testid="activity-record-at"
+					>
+						{`${relativeTime(entry.at, now)}, ${shortStamp(entry.at)}`}
+					</time>
 				</p>
 				<p className="type-caption text-text-subtle">
 					<HiddenId
@@ -273,7 +357,7 @@ function RecordBody({ entry }: { entry: ActivityEntry }) {
 									className={cn(
 										"min-w-0 break-words",
 										fact.mono
-											? "type-mono-small text-foreground"
+											? "type-mono text-foreground"
 											: "type-small text-foreground",
 									)}
 								>
@@ -312,13 +396,15 @@ function RecordBody({ entry }: { entry: ActivityEntry }) {
 				</div>
 			</Part>
 			<Part title="What rule applied" testId="activity-record-rule">
+				{/* The fifth state on one line, so the record reads at a glance. */}
 				<Surface
 					data-testid="activity-record-rule-surface"
 					notBuilt={{
 						title: "The rule that applied",
-						what: "avel-server logs only what it applied, never what it refused, so no rule is recorded yet. Every entry here was applied.",
+						what: RULE_NOT_BUILT,
 						needs: [],
-						compact: true,
+						size: "inline",
+						line: "Not recorded yet.",
 					}}
 				/>
 			</Part>
@@ -331,10 +417,10 @@ function RecordBody({ entry }: { entry: ActivityEntry }) {
 				{inverse ? (
 					<div className="flex flex-col gap-1">
 						<p className="flex flex-wrap items-baseline gap-2">
-							<span className="type-mono-small text-foreground">
+							<span className="type-mono text-foreground">
 								{inverse.request}
 							</span>
-							<span className="type-mono-small text-text-subtle">
+							<span className="type-mono text-text-subtle">
 								{inverse.route}
 							</span>
 						</p>
@@ -357,7 +443,7 @@ export function RecordLink({ id }: { id: string }) {
 			to="/activity"
 			search={(prev) => ({ ...prev, entry: id })}
 			data-testid={`activity-record-open-${id}`}
-			className="type-caption text-accent-text underline-offset-4 hover:underline"
+			className="py-1.5 -my-1.5 type-caption text-accent-text underline-offset-4 hover:underline"
 		>
 			Decision record
 		</Link>

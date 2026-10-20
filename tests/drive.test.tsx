@@ -1,12 +1,17 @@
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { InlineModals } from "@/components/avel/action-modal";
 import {
 	DriveBrowser,
 	type DriveState,
 	kindCounts,
+	moveProblem,
+	type Placement,
+	placementOf,
 	recentFiles,
 	visibleFiles,
+	withMoves,
 } from "@/components/avel/drive-browser";
 import {
 	DRIVE_WRITE_REASON,
@@ -40,6 +45,7 @@ import {
 	scopePath,
 	sizeLabel,
 } from "@/components/avel/drive-placeholders";
+import { FolderRail } from "@/components/avel/drive-rail";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError } from "@/lib/api";
 import { driveSearch, Route } from "../src/routes/drive";
@@ -446,7 +452,8 @@ describe("/drive", () => {
 
 	it("puts search, kind chips with counts, sort and the view toggle in the toolbar", async () => {
 		const html = browse();
-		expect(tagOf(html, "drive-toolbar-search")).toMatch(
+		expect(tagOf(html, "drive-toolbar-search")).toContain("field-surface");
+		expect(tagOf(html, "drive-toolbar-search-input")).toMatch(
 			/^<input[^>]*type="search"/,
 		);
 		const counts = kindCounts(SAMPLE_FILES, folderOf(undefined), undefined);
@@ -540,22 +547,30 @@ describe("/drive", () => {
 		expect(html).toContain('data-testid="drive-clear"');
 	});
 
-	it("opens the panel beside the list at 2xl for a known file only", async () => {
+	it("opens a known file's details in the drawer, with Move to", async () => {
 		// A five-file folder keeps the render small; the selection is the Drive's, not the folder's.
 		const small = `engagement:${booking.id}`;
-		const html = browse({ folder: small, file: pdf.id });
-		const classes =
-			tagOf(html, "drive-panel-aside")
-				.match(/class="([^"]*)"/)?.[1]
-				?.split(/\s+/) ?? [];
-		for (const c of ["hidden", "2xl:flex", "sticky"])
-			expect(classes).toContain(c);
-		expect(element(html, "drive-panel-aside")).toContain(
+		const drawer = (file: string) =>
+			renderToString(
+				<TooltipProvider>
+					<InlineModals>
+						<DriveBrowser
+							query={{ status: "success", data: SAMPLE_FILES }}
+							state={{ sort: "newest", view: "grid", folder: small, file }}
+							onChange={() => {}}
+						/>
+					</InlineModals>
+				</TooltipProvider>,
+			);
+		const html = drawer(pdf.id);
+		expect(element(html, "drive-panel-sheet")).toContain(
 			`data-file="${pdf.id}"`,
 		);
-		expect(browse({ folder: small, file: "nope" })).not.toContain(
-			"drive-panel",
+		expect(element(html, "drive-panel-sheet")).toContain(
+			'data-testid="drive-move-to"',
 		);
+		expect(html).not.toContain("drive-panel-aside");
+		expect(drawer("nope")).not.toContain("drive-panel");
 	});
 
 	it("reads its view, folder and file from the URL", async () => {
@@ -569,9 +584,8 @@ describe("/drive", () => {
 		expect(text(element(html, "drive-crumbs"))).toBe(
 			`Drive/Clients/${acme.name}/${booking.name}`,
 		);
-		expect(element(html, "drive-panel-aside")).toContain(
-			`data-file="${pdf.id}"`,
-		);
+		// The file opens in the drawer, which mounts in a browser only; the
+		// browser's own test reads it.
 	});
 
 	it("puts no middle dot anywhere on the page (ruling 4)", async () => {
@@ -756,5 +770,84 @@ describe("every state of the Drive, inside its region", () => {
 	it("finds a file by id only among the Drive's own", () => {
 		expect(sampleFile(pdf.id)).toEqual(pdf);
 		expect(sampleFile("nope")).toBeUndefined();
+	});
+});
+
+describe("the Drive's canvas (Q3: the builders' language)", () => {
+	const general = folderOf("general");
+	const engagement = folderOf(`engagement:${booking.id}`);
+
+	it("opens on cards, the list behind the toggle", async () => {
+		const html = await renderPage(`/drive?folder=engagement:${booking.id}`);
+		expect(tagOf(html, "drive-toolbar-view-grid")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(html).toContain('data-testid="drive-file-grid"');
+	});
+
+	it("lays the folders as the canvas's tray and the files on the band", () => {
+		const html = browse({ view: "grid", folder: `engagement:${booking.id}` });
+		const canvas = tagOf(html, "drive-canvas");
+		for (const cls of ["bg-app-band", "rounded-dialog", "bg-size-[20px_20px]"])
+			expect(canvas).toContain(cls);
+		expect(element(html, "drive-canvas")).toContain('data-testid="drive-rail"');
+		expect(element(html, "drive-canvas")).toContain(
+			'data-testid="drive-file-grid"',
+		);
+		expect(element(html, "drive-hint")).toContain(
+			"Sample: moves aren&#x27;t saved.",
+		);
+		expect(element(html, "drive-moves-note")).toContain(
+			"Sample: moves aren&#x27;t saved.",
+		);
+	});
+
+	it("drags a held file's card, never a tombstone's", () => {
+		const html = browse({ view: "grid" });
+		expect(tagOf(html, `drive-card-${pdf.id}`)).toContain('draggable="true"');
+		expect(tagOf(html, `drive-card-${tomb.id}`)).toContain('draggable="false"');
+	});
+
+	it("makes every folder but All files a drop target while a file is held", () => {
+		const html = tip(
+			<FolderRail
+				files={SAMPLE_FILES}
+				current={undefined}
+				onChange={() => {}}
+				holding
+			/>,
+		);
+		expect(tagOf(html, "drive-folder-general")).toContain('data-target="true"');
+		expect(tagOf(html, "drive-folder-all")).not.toContain("data-target");
+		const idle = tip(
+			<FolderRail
+				files={SAMPLE_FILES}
+				current={undefined}
+				onChange={() => {}}
+			/>,
+		);
+		expect(tagOf(idle, "drive-folder-general")).not.toContain("data-target");
+	});
+
+	it("moves a file into a folder for the visit, and refuses what can't move", () => {
+		const place = placementOf(engagement);
+		expect(place).toEqual({
+			scope: "engagement",
+			clientId: acme.id,
+			engagementId: booking.id,
+		});
+		expect(placementOf(folderOf(undefined))).toBeNull();
+		const moved = withMoves(SAMPLE_FILES, {
+			[pdf.id]: placementOf(general) as Placement,
+		}).find((f) => f.id === pdf.id);
+		expect(moved && inFolder(moved, general)).toBe(true);
+		expect(SAMPLE_FILES.find((f) => f.id === pdf.id)).toEqual(pdf);
+		expect(moveProblem(pdf, general)).toBeNull();
+		expect(moveProblem(pdf, folderOf(undefined))).toMatch(/^Choose a folder/);
+		expect(moveProblem(tomb, general)).toMatch(/bytes are destroyed/);
+		const home = SAMPLE_FILES.find((f) => f.scope === "general");
+		expect(home && moveProblem(home, general)).toBe(
+			`${home?.name} is already in General.`,
+		);
 	});
 });

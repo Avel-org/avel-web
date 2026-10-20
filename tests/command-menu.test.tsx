@@ -4,10 +4,10 @@ import { Command } from "cmdk";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { missionKeys } from "@/components/avel/mission-data";
 import { ApiError, ApiProvider } from "@/lib/api";
 import { CLIENTS_PAGE_SIZE } from "@/lib/api/clients";
 import { queryKeys } from "@/lib/api/keys";
+import { NOT_YET } from "@/lib/capabilities";
 import { clientsSearch } from "../src/routes/clients";
 import {
 	type CommandHandlers,
@@ -77,7 +77,7 @@ const COUNTS = {
 const seedMissions =
 	(origin: "client" | "internal", q: string, rows: MissionListItem[]) =>
 	(qc: QueryClient) =>
-		qc.setQueryData(missionKeys.list(missionSearchParams(origin, q)), {
+		qc.setQueryData(queryKeys.missions.list(missionSearchParams(origin, q)), {
 			pages: [{ data: rows, meta: { nextCursor: null, counts: COUNTS } }],
 			pageParams: [undefined],
 		});
@@ -237,7 +237,9 @@ describe("mission search results", () => {
 	it("say quietly when a search failed, without failing the menu", () => {
 		const html = menu({ search: "acme" }, (qc) => {
 			const query = qc.getQueryCache().build(qc, {
-				queryKey: missionKeys.list(missionSearchParams("internal", "acme")),
+				queryKey: queryKeys.missions.list(
+					missionSearchParams("internal", "acme"),
+				),
 			});
 			query.setState({
 				status: "error",
@@ -350,7 +352,19 @@ describe("go to, create and actions", () => {
 		);
 		const mission = tagOf(html, "command-new-mission");
 		expect(mission).toMatch(/data-disabled="true"|aria-disabled="true"/);
-		expect(html).toContain("The contract cannot create missions yet.");
+		expect(html).toContain(NOT_YET["mission.create"]);
+	});
+
+	it("offer Open full page, with G F, only while a mission's panel is open (audit F6)", () => {
+		expect(html).not.toContain("command-open-full-page");
+		const open = menu({ handlers: { ...NOOP, openFullPage: () => {} } });
+		expect(tagOf(open, "command-open-full-page")).toBeDefined();
+		const item = open.slice(
+			open.indexOf('data-testid="command-open-full-page"'),
+		);
+		expect(item.slice(0, item.indexOf("</div>"))).toMatch(
+			/Open full page[\s\S]*>G F</,
+		);
 	});
 
 	it("switch theme, toggle the sidebar with its shortcut, copy the link, sign out", () => {
@@ -370,9 +384,7 @@ describe("go to, create and actions", () => {
 	it("show how to drive it from the keyboard", () => {
 		const footer = html.slice(html.indexOf('data-testid="command-footer"'));
 		const keys = [
-			...footer.matchAll(
-				/<kbd[^>]*class="type-mono-small[^"]*"[^>]*>([^<]+)</g,
-			),
+			...footer.matchAll(/<kbd[^>]*data-slot="kbd"[^>]*>([^<]+)</g),
 		].map((m) => m[1]);
 		expect(keys).toEqual(["↑↓", "↵", "esc"]);
 		expect(footer).toContain("to move");

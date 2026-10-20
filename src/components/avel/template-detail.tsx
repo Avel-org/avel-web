@@ -16,17 +16,16 @@ import {
 	templateName,
 	useTemplate,
 } from "@/lib/api/templates";
-import { cn } from "@/lib/utils";
 import { linkFor } from "@/shell/nav";
 import { EmptyState } from "./empty-state";
 import {
-	BANNER_BUTTON,
 	BannerStat,
 	BannerStatus,
 	type BannerTab,
 	BannerTile,
 	EntityBanner,
 } from "./entity-banner";
+import { PanelFooter } from "./panel-footer";
 import { DELIVERABLE_LABEL, gateSummary } from "./playbook-list";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
@@ -99,10 +98,10 @@ export function TemplateDetail({
 			loading={
 				<div
 					data-testid="template-detail-skeleton"
-					className="flex flex-col gap-6"
+					className="flex flex-col gap-4"
 				>
-					<Skeleton className="h-48 w-full rounded-md" />
-					<Skeleton className="h-64 w-full rounded-md" />
+					<Skeleton className="h-48 w-full rounded-card" />
+					<Skeleton className="h-64 w-full rounded-card" />
 				</div>
 			}
 			empty={null}
@@ -126,6 +125,8 @@ function TemplatePage({
 }) {
 	const links = useTemplateLinks();
 	const playbook = links.playbookFor(template.slug);
+	// The page's own read, shared by key, for the panels' read ages.
+	const record = useTemplate(template.slug);
 	const name = templateName(template);
 	// The mission count is the only count a route supplies.
 	const tabs: BannerTab[] = TEMPLATE_TABS.map((id) => ({
@@ -139,7 +140,7 @@ function TemplatePage({
 			onValueChange={(next) => onTab(next as TemplateTabId)}
 			data-testid="template-detail"
 			data-template={template.slug}
-			className="min-w-0 gap-6 [&>*]:min-w-0"
+			className="min-w-0 gap-4 [&>*]:min-w-0"
 		>
 			<EntityBanner
 				data-testid="template-banner"
@@ -170,13 +171,19 @@ function TemplatePage({
 				tabs={tabs}
 				tabsLabel={`${name}'s page`}
 			/>
-			<TabsContent value="overview" className="flex flex-col gap-6">
+			<TabsContent value="overview" className="flex flex-col gap-4">
 				<TemplateCoverStrip template={template} />
-				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
 					<SectionPanel
 						title="Manifest"
 						description="Read from the repository's .avel/template.json and its default branch."
 						data-testid="template-manifest-panel"
+						footer={
+							<PanelFooter
+								data-testid="template-manifest-read-age"
+								queries={[record]}
+							/>
+						}
 					>
 						<TemplateManifest template={template} />
 					</SectionPanel>
@@ -184,6 +191,12 @@ function TemplatePage({
 						title="Built from it"
 						description="What uses this template."
 						data-testid="template-uses-panel"
+						footer={
+							<PanelFooter
+								data-testid="template-uses-read-age"
+								queries={[record]}
+							/>
+						}
 					>
 						<Facts
 							data-testid="template-uses"
@@ -275,7 +288,7 @@ function TemplateActions({
 	return (
 		<>
 			{playbook ? (
-				<Button asChild size="sm" className={cn(BANNER_BUTTON)}>
+				<Button asChild size="sm" variant="outline">
 					<Link
 						to="/playbooks/$missionType"
 						params={{ missionType: template.slug }}
@@ -287,7 +300,7 @@ function TemplateActions({
 				</Button>
 			) : null}
 			{template.defaultPresetId === null ? null : (
-				<Button asChild size="sm" className={cn(BANNER_BUTTON)}>
+				<Button asChild size="sm" variant="outline">
 					<Link
 						to="/presets"
 						search={{ preset: template.defaultPresetId }}
@@ -330,7 +343,7 @@ function Facts({
 /** The manifest's fields and the head commit, or why they are unknown. */
 function TemplateManifest({ template }: { template: Template }) {
 	const mono = (text: string, testId: string) => (
-		<span data-testid={testId} className="type-mono-small break-all">
+		<span data-testid={testId} className="type-mono break-all">
 			{text}
 		</span>
 	);
@@ -402,7 +415,7 @@ function TemplatePlaybook({
 						Playbooks could not be read. Open Playbooks to try again.
 					</p>
 				) : (
-					<Skeleton className="h-40 w-full rounded-md" />
+					<Skeleton className="h-40 w-full rounded-card" />
 				)}
 			</div>
 		);
@@ -480,12 +493,12 @@ function TemplateCoverStrip({ template }: { template: Template }) {
 			image={template.cover}
 			variant="strip"
 			data-testid="template-cover-strip"
-			className="h-44 rounded-md border border-border-plate"
+			className="h-44 rounded-card border border-border"
 		>
 			{sentence === "" ? null : (
 				<p
 					data-testid="template-cover-strip-sentence"
-					className="absolute bottom-3 left-3 max-w-[min(32rem,calc(100%-1.5rem))] rounded-xs border border-banner-line bg-banner/85 px-3 py-1.5 type-small text-banner-text backdrop-blur-sm"
+					className="absolute bottom-3 left-3 max-w-[min(32rem,calc(100%-1.5rem))] rounded-control border border-border bg-app-panel px-3 py-1.5 type-small text-text"
 				>
 					{sentence}
 				</p>

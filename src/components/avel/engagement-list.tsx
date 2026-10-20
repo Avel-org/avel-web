@@ -133,7 +133,7 @@ export function EngagementRows({
 			<ul
 				aria-label={`Engagements for ${client.name}`}
 				data-testid={`engagement-rows-${client.id}`}
-				className="flex flex-col divide-y divide-border rounded-sm border border-border bg-card"
+				className="flex flex-col divide-y divide-border rounded-control border border-border bg-card"
 			>
 				{engagements.map((e) => (
 					<li
@@ -150,7 +150,7 @@ export function EngagementRows({
 							label={e.status === "active" ? "Active" : "Closed"}
 							data-testid={`engagement-status-${e.id}`}
 						/>
-						<span className="type-mono-small text-text-muted">
+						<span className="type-mono text-text-muted">
 							<span className="sr-only">Started </span>
 							<time dateTime={e.startedAt}>{isoDate(e.startedAt)}</time>
 						</span>
@@ -249,8 +249,8 @@ function EngagementMenu({
 function EngagementSkeleton() {
 	return (
 		<div data-testid="engagements-skeleton" className="flex flex-col gap-2">
-			<Skeleton className="h-9 w-full rounded-sm" />
-			<Skeleton className="h-9 w-full rounded-sm" />
+			<Skeleton className="h-9 w-full rounded-control" />
+			<Skeleton className="h-9 w-full rounded-control" />
 		</div>
 	);
 }

@@ -38,42 +38,41 @@ export const PURGED_REASON =
 	"This file's bytes were destroyed when it was deleted. The record is kept.";
 
 /**
- * Each kind's words, icon and tone. No file-kind colour tokens exist, and the
- * gate and diff colours carry meanings of their own, so the kinds share one
- * neutral tile (notes take the accent) and the icon tells them apart.
- * Proposed: --color-kind-document, -spreadsheet, -image, -archive, -note.
- * This table is the one place a tone is chosen, so the swap is one line each.
+ * Each kind's words, icon and tone. v3 keeps category hues for data series,
+ * never decoration, and the gate colours carry meanings of their own, so
+ * every kind shares v3's neutral tile and the icon tells them apart. This
+ * table is the one place a tone is chosen, so a change is one line each.
  */
 export const KIND = {
 	document: {
 		label: "Document",
 		plural: "Documents",
 		icon: FileText,
-		tile: "bg-text-muted/15 text-foreground",
+		tile: "bg-app-raised text-text-muted",
 	},
 	spreadsheet: {
 		label: "Spreadsheet",
 		plural: "Spreadsheets",
 		icon: FileSpreadsheet,
-		tile: "bg-text-muted/15 text-foreground",
+		tile: "bg-app-raised text-text-muted",
 	},
 	image: {
 		label: "Image",
 		plural: "Images",
 		icon: FileImage,
-		tile: "bg-text-muted/15 text-foreground",
+		tile: "bg-app-raised text-text-muted",
 	},
 	archive: {
 		label: "Archive",
 		plural: "Archives",
 		icon: FileArchive,
-		tile: "bg-text-muted/15 text-foreground",
+		tile: "bg-app-raised text-text-muted",
 	},
 	note: {
 		label: "Note",
 		plural: "Notes",
 		icon: NotebookText,
-		tile: "bg-accent-soft text-accent-text",
+		tile: "bg-app-raised text-text-muted",
 	},
 } as const satisfies Record<
 	FileKind,
@@ -96,9 +95,9 @@ export function FileIconTile({
 			data-testid="drive-file-tile"
 			data-kind={kind}
 			className={cn(
-				"inline-flex shrink-0 items-center justify-center rounded-sm",
-				size === "sm" && "size-8 [&_svg]:size-4",
-				size === "md" && "size-10 [&_svg]:size-5",
+				"inline-flex shrink-0 items-center justify-center rounded-tile",
+				size === "sm" && "size-tile-md [&_svg]:size-4",
+				size === "md" && "size-tile-lg [&_svg]:size-5",
 				size === "lg" && "size-14 [&_svg]:size-7",
 				KIND[kind].tile,
 			)}
@@ -256,6 +255,7 @@ export function FileList({
 			density="compact"
 			stickyHeader={false}
 			onRowClick={(file) => onOpen(file.id)}
+			viewKey="drive-files"
 		/>
 	);
 }
@@ -268,10 +268,11 @@ function Thumbnail({ file }: { file: SampleFile }) {
 			data-testid="drive-file-thumb"
 			data-placeholder={image || undefined}
 			className={cn(
-				"flex aspect-[16/10] w-full items-center justify-center rounded-sm border border-border",
+				// A short strip, not a tall frame: the card stays near a row's height.
+				"flex h-14 w-full items-center justify-center rounded-control border border-border",
 				image
-					? "bg-app-recessed bg-[linear-gradient(var(--color-border)_1px,transparent_1px),linear-gradient(90deg,var(--color-border)_1px,transparent_1px)] bg-[size:16px_16px]"
-					: "bg-app-recessed",
+					? "bg-app-well bg-[linear-gradient(var(--color-border)_1px,transparent_1px),linear-gradient(90deg,var(--color-border)_1px,transparent_1px)] bg-[size:16px_16px]"
+					: "bg-app-well",
 			)}
 		>
 			<FileIconTile file={file} size="md" />
@@ -280,19 +281,28 @@ function Thumbnail({ file }: { file: SampleFile }) {
 }
 
 /** The grid view: cards, an image placeholder thumbnail on each. */
+/** What a held file carries: its id, under its own type, never text. */
+const FILE_DRAG_TYPE = "application/x-avel-file";
+
 export function FileGrid({
 	files,
 	selectedId,
 	onOpen,
+	heldId,
+	onHold,
 }: {
 	files: SampleFile[];
 	selectedId: string | undefined;
 	onOpen: (id: string) => void;
+	/** The file being dragged to a folder, drawn lifted. */
+	heldId?: string | null;
+	/** Picked up (an id) or put down (null). Unset, the cards don't drag. */
+	onHold?: (id: string | null) => void;
 }) {
 	return (
 		<ul
 			data-testid="drive-file-grid"
-			className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3"
+			className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2.5"
 		>
 			{files.map((file) => (
 				<li key={file.id}>
@@ -300,16 +310,31 @@ export function FileGrid({
 						type="button"
 						data-testid={`drive-card-${file.id}`}
 						data-purged={file.purgedAt !== null || undefined}
+						data-held={heldId === file.id || undefined}
 						aria-pressed={file.id === selectedId}
+						// A tombstone stays where it was: it has no bytes to move.
+						draggable={onHold !== undefined && file.purgedAt === null}
+						onDragStart={(event) => {
+							event.dataTransfer.effectAllowed = "move";
+							event.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
+							onHold?.(file.id);
+						}}
+						onDragEnd={() => onHold?.(null)}
 						onClick={() => onOpen(file.id)}
 						className={cn(
-							"focus-inset flex w-full flex-col gap-2 rounded-md border border-border bg-app-panel p-2.5 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover aria-pressed:border-accent aria-pressed:bg-state-selected",
+							"focus-inset flex w-full flex-col gap-1.5 rounded-card border border-border bg-app-panel p-2 text-left shadow-card transition-[color,background-color,border-color,box-shadow,translate] duration-(--duration-micro) ease-avel hover:border-border-strong hover:bg-app-raised active:scale-[0.995] aria-pressed:border-selected-border aria-pressed:bg-selected",
+							onHold &&
+								file.purgedAt === null &&
+								"cursor-grab active:cursor-grabbing",
+							// Held: lifted on the drag shadow, as a Teams chip is.
+							heldId === file.id &&
+								"-translate-y-px border-border-strong shadow-drag",
 							dimIfPurged(file),
 						)}
 					>
 						<Thumbnail file={file} />
 						<FileName file={file} />
-						<span className="flex items-center justify-between gap-2 type-mono-small text-text-subtle">
+						<span className="flex items-center justify-between gap-2 type-mono whitespace-nowrap text-text-subtle">
 							<span>
 								{file.purgedAt !== null ? "—" : sizeLabel(file.bytes)}
 							</span>
@@ -344,14 +369,14 @@ export function RecentFiles({
 						type="button"
 						data-testid={`drive-recent-${file.id}`}
 						onClick={() => onOpen(file.id)}
-						className="focus-inset flex w-full items-center gap-3 rounded-md border border-border surface-steel bg-app-panel p-3 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover"
+						className="focus-inset flex w-full items-center gap-2.5 rounded-card border border-border bg-app-panel px-2.5 py-2 text-left transition-colors duration-(--duration-micro) ease-avel hover:border-border-strong hover:bg-app-raised"
 					>
 						<FileIconTile file={file} size="md" />
 						<span className="flex min-w-0 flex-col gap-0.5">
 							<span className="type-small truncate font-medium text-foreground">
 								{file.name}
 							</span>
-							<span className="flex flex-wrap gap-x-3 type-mono-small whitespace-nowrap text-text-subtle">
+							<span className="flex flex-wrap gap-x-3 type-mono whitespace-nowrap text-text-subtle">
 								<span>{sizeLabel(file.bytes)}</span>
 								<span>{dateLabel(file.createdAt)}</span>
 							</span>
@@ -371,7 +396,7 @@ export function NoteCards({ notes }: { notes: SampleNote[] }) {
 				<li
 					key={note.id}
 					data-testid="drive-note"
-					className="flex gap-3 rounded-md border border-border bg-app-panel p-3"
+					className="flex gap-3 rounded-card border border-border bg-app-panel p-3"
 				>
 					<FileIconTile file={note} />
 					<div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -384,7 +409,7 @@ export function NoteCards({ notes }: { notes: SampleNote[] }) {
 							</span>
 							<time
 								dateTime={note.createdAt}
-								className="type-mono-small shrink-0 text-text-subtle"
+								className="type-mono shrink-0 text-text-subtle"
 							>
 								{dateLabel(note.createdAt)}
 							</time>
@@ -437,7 +462,7 @@ export function DropZone({
 			data-testid={testId}
 			aria-disabled="true"
 			className={cn(
-				"flex items-center gap-3 rounded-md border border-dashed border-border-strong bg-app-recessed/50 text-text-subtle",
+				"flex items-center gap-3 rounded-card border border-dashed border-border-strong bg-app-well/50 text-text-subtle",
 				size === "bar"
 					? "px-3 py-2"
 					: "flex-col justify-center px-6 py-10 text-center",

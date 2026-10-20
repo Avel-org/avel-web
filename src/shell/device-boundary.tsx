@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { Device } from "./device";
 import { ALL_LINKS } from "./nav";
+import { Page } from "./page";
 
 // Below md, the layout is the phone layout. The same width drives the drawer.
 const PHONE_QUERY = "(max-width: 47.999rem)";
@@ -44,7 +45,7 @@ export function DeviceBoundary({ children }: { children: ReactNode }) {
 	return children;
 }
 
-function DeviceBoundaryNotice() {
+export function DeviceBoundaryNotice() {
 	const { pathname } = useLocation();
 	const link = ALL_LINKS.find((l) => l.to === pathname);
 	const [copied, setCopied] = useState(false);
@@ -63,45 +64,61 @@ function DeviceBoundaryNotice() {
 		}
 	};
 
+	// In the page's own frame, so a phone keeps the top bar: the menu button
+	// (its only way to the rest of the app) and the global actions.
 	return (
-		<div
-			data-testid="device-boundary"
-			className="flex min-h-[60vh] flex-col items-start justify-center gap-4 px-4 py-10"
+		<Page
+			title={link?.label ?? "Desktop only"}
+			definition="A construction screen, built for a desktop."
 		>
-			<Monitor className="size-6 text-text-muted" aria-hidden="true" />
-			<div className="flex flex-col gap-2">
-				<h1 className="font-display text-lg leading-6 font-medium">
-					{link ? `${link.label} needs a desktop` : "This page needs a desktop"}
-				</h1>
-				{link ? (
-					<p className="text-sm text-text-muted">{link.purpose}</p>
-				) : null}
-				<p className="text-sm text-text-muted">
-					It is a construction screen: dense, and built for a keyboard and a
-					wide window. Reading and approving work on a phone; building does not.
+			<div
+				data-testid="device-boundary"
+				className="flex min-h-[60vh] flex-col items-start justify-center gap-4 py-10"
+			>
+				<Monitor className="size-6 text-text-muted" aria-hidden="true" />
+				<div className="flex flex-col gap-2">
+					<h2 className="type-page text-text">
+						{link
+							? `${link.label} needs a desktop`
+							: "This page needs a desktop"}
+					</h2>
+					{link ? (
+						<p className="type-small text-text-muted">{link.purpose}</p>
+					) : null}
+					<p className="type-small text-text-muted">
+						It is a construction screen: dense, and built for a keyboard and a
+						wide window. Reading and approving work on a phone; building does
+						not.
+					</p>
+				</div>
+				{/* One row, the primary last: Copy, then Send where the phone can share. */}
+				<div className="flex flex-wrap gap-2">
+					<Button
+						variant={canShare ? "outline" : "default"}
+						onClick={copy}
+						data-testid="device-boundary-copy"
+					>
+						{copied ? (
+							<Check aria-hidden="true" />
+						) : (
+							<Copy aria-hidden="true" />
+						)}
+						{copied ? "Link copied" : "Copy the link"}
+					</Button>
+					{canShare ? (
+						<Button
+							onClick={() => navigator.share({ url: url() }).catch(() => {})}
+							data-testid="device-boundary-share"
+						>
+							<Share2 aria-hidden="true" />
+							Send the link
+						</Button>
+					) : null}
+				</div>
+				<p aria-live="polite" className="sr-only">
+					{copied ? "Link copied" : ""}
 				</p>
 			</div>
-			<div className="flex flex-wrap gap-2">
-				{canShare ? (
-					<Button
-						onClick={() => navigator.share({ url: url() }).catch(() => {})}
-					>
-						<Share2 aria-hidden="true" />
-						Send the link
-					</Button>
-				) : null}
-				<Button
-					variant={canShare ? "outline" : "default"}
-					onClick={copy}
-					data-testid="device-boundary-copy"
-				>
-					{copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-					{copied ? "Link copied" : "Copy the link"}
-				</Button>
-			</div>
-			<p aria-live="polite" className="sr-only">
-				{copied ? "Link copied" : ""}
-			</p>
-		</div>
+		</Page>
 	);
 }

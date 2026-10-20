@@ -8,6 +8,7 @@ import { ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { tabsListVariants } from "@/components/ui/tabs";
 import {
 	useCompletionReport,
 	useTemplateDispatches,
@@ -19,6 +20,7 @@ import { CompletionReportView, FILED_BY_LABEL } from "./completion-report";
 import { DISPATCH_LANES, DISPATCH_STATUS_TONE } from "./dispatch-board";
 import { formatTokens, formatUsd } from "./dispatch-budget";
 import { DISPATCH_STATUS_LABEL, HALT_REASON_LABEL } from "./dispatch-labels";
+import { PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
 import { StatusGlyph } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
@@ -41,15 +43,17 @@ export type DispatchTotals = {
 };
 
 /**
- * Each status's fill in the outcome bar. Running takes the accent so it
- * reads apart from waiting, which shares its pending tone on the board.
+ * Each status's fill in the outcome bar, from the board's tones. Machine
+ * states never take the accent (audit D3), so the three grey states step
+ * in weight instead: waiting is the pending line, running the pending
+ * solid, halted the stale ink. Their words in the legend tell them apart.
  */
 const MIX_FILL = {
-	queued: "bg-gate-pending",
-	running: "bg-accent",
-	blocked: "bg-gate-warn",
-	complete: "bg-gate-pass",
-	failed: "bg-gate-block",
+	queued: "bg-gate-pending-line",
+	running: "bg-gate-pending-solid",
+	blocked: "bg-gate-warn-solid",
+	complete: "bg-gate-pass-solid",
+	failed: "bg-gate-block-solid",
 	halted: "bg-gate-stale",
 } as const satisfies Record<DispatchStatus, string>;
 
@@ -126,6 +130,12 @@ export function AgentPerformance({ agent }: { agent: AgentTemplate }) {
 			title="Performance"
 			data-testid="agent-performance"
 			description="Every run of this agent, across its missions and versions."
+			footer={
+				<PanelFooter
+					data-testid="agent-performance-read-age"
+					queries={[all, shown]}
+				/>
+			}
 		>
 			<Surface
 				data-testid="agent-performance-surface"
@@ -233,17 +243,17 @@ function OutcomeMix({
 		<section
 			aria-label="How its runs ended"
 			data-testid="agent-performance-mix"
-			className="flex flex-col gap-2.5 rounded-md border border-border p-3"
+			className="flex flex-col gap-2.5 rounded-card border border-border p-3"
 		>
 			<p className="type-small text-text-muted">
-				<span className="type-h2 text-foreground tabular-nums">
+				<span className="type-page text-foreground tabular-nums">
 					{totals.total.toLocaleString("en-US")}
 				</span>{" "}
 				{totals.total === 1 ? "run" : "runs"}
 			</p>
 			<div
 				aria-hidden="true"
-				className="flex h-2.5 w-full overflow-hidden rounded-full bg-app-recessed"
+				className="flex h-2.5 w-full overflow-hidden rounded-full bg-app-well"
 			>
 				{segments.map((s) => (
 					<span
@@ -272,11 +282,11 @@ function OutcomeMix({
 								data-count={count}
 								onClick={() => onStatus(on ? null : s)}
 								className={cn(
-									"inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 type-small transition-colors duration-(--duration-micro) ease-avel",
-									"disabled:cursor-default disabled:opacity-(--opacity-disabled)",
+									"inline-flex h-control-sm items-center gap-1.5 rounded-control border px-2.5 type-small transition-colors duration-(--duration-micro) ease-avel",
+									"disabled:cursor-not-allowed disabled:border-border disabled:bg-app-raised disabled:text-text-subtle",
 									on
-										? "border-accent bg-accent-soft text-foreground"
-										: "border-border text-text-muted hover:bg-state-hover",
+										? "border-selected-border bg-selected text-text"
+										: "border-border text-text-muted enabled:hover:border-border-strong enabled:hover:bg-app-raised",
 								)}
 							>
 								<span
@@ -284,7 +294,7 @@ function OutcomeMix({
 									className={cn("size-2 rounded-full", MIX_FILL[s])}
 								/>
 								{DISPATCH_STATUS_LABEL[s]}
-								<span className="type-mono-small tabular-nums">{count}</span>
+								<span className="type-mono tabular-nums">{count}</span>
 							</button>
 						</li>
 					);
@@ -302,12 +312,12 @@ function SpendAndTokens({ totals }: { totals: DispatchTotals }) {
 		<section
 			aria-label="Spend and tokens"
 			data-testid="agent-performance-spend"
-			className="flex flex-col gap-2.5 rounded-md border border-border p-3"
+			className="flex flex-col gap-2.5 rounded-card border border-border p-3"
 		>
 			<p className="type-small text-text-muted">
 				<span
 					data-testid="agent-performance-spend-usd"
-					className="type-h2 text-foreground tabular-nums"
+					className="type-page text-foreground tabular-nums"
 				>
 					{formatUsd(totals.spendUsd)}
 				</span>{" "}
@@ -320,14 +330,14 @@ function SpendAndTokens({ totals }: { totals: DispatchTotals }) {
 			</p>
 			<div
 				aria-hidden="true"
-				className="relative h-2.5 w-full overflow-hidden rounded-full bg-app-recessed"
+				className="relative h-2.5 w-full overflow-hidden rounded-full bg-app-well"
 			>
 				<span
 					data-testid="agent-performance-tokens-bar"
 					data-over={over}
 					className={cn(
 						"absolute inset-y-0 left-0 rounded-full",
-						over ? "bg-gate-warn" : "bg-gate-pass",
+						over ? "bg-gate-warn-solid" : "bg-gate-pending-solid",
 					)}
 					style={{ width: `${Math.min(share ?? 0, 1) * 100}%` }}
 				/>
@@ -348,7 +358,7 @@ function SpendAndTokens({ totals }: { totals: DispatchTotals }) {
 				{share === null ? null : (
 					<span
 						className={cn(
-							"ml-1.5 type-mono-small tabular-nums",
+							"ml-1.5 type-mono tabular-nums",
 							over ? "text-gate-warn" : "text-text-subtle",
 						)}
 					>
@@ -395,24 +405,19 @@ function Runs({
 			className="flex flex-col gap-3"
 		>
 			<div className="flex flex-wrap items-center gap-2">
-				<fieldset className="inline-flex rounded-full border border-border p-0.5">
+				<fieldset className={tabsListVariants({ variant: "default" })}>
 					<legend className="sr-only">Group runs</legend>
 					{GROUPINGS.map((g) => (
-						<button
+						<Button
 							key={g.value}
 							type="button"
+							variant="segment"
 							aria-pressed={grouping === g.value}
 							data-testid={`agent-performance-by-${g.value}`}
 							onClick={() => onGrouping(g.value)}
-							className={cn(
-								"rounded-full px-2.5 py-0.5 type-small transition-colors duration-(--duration-micro) ease-avel",
-								grouping === g.value
-									? "bg-state-selected text-foreground"
-									: "text-text-muted hover:bg-state-hover",
-							)}
 						>
 							{g.label}
-						</button>
+						</Button>
 					))}
 				</fieldset>
 				{status === null ? null : (
@@ -471,7 +476,7 @@ function Group({ group }: { group: RunGroup }) {
 	return (
 		<section
 			data-testid={`agent-performance-group-${group.key}`}
-			className="flex flex-col gap-1 rounded-md border border-border bg-app-recessed p-2"
+			className="flex flex-col gap-1 rounded-card border border-border bg-app-well p-2"
 		>
 			<header className="flex flex-wrap items-baseline gap-x-2 px-1.5 pt-0.5">
 				{group.by === "mission" ? (
@@ -489,7 +494,7 @@ function Group({ group }: { group: RunGroup }) {
 						</span>
 					</>
 				) : (
-					<span className="type-mono-small text-foreground">
+					<span className="type-mono text-foreground">
 						{group.ref ?? "Not started yet"}
 					</span>
 				)}
@@ -527,7 +532,7 @@ function Run({
 			data-testid={`agent-performance-run-${run.id}`}
 			data-status={run.status}
 			data-open={open}
-			className="rounded-sm"
+			className="rounded-control"
 		>
 			<button
 				type="button"
@@ -535,14 +540,14 @@ function Run({
 				aria-controls={detailsId}
 				data-testid={`agent-performance-run-toggle-${run.id}`}
 				onClick={() => setOpen((o) => !o)}
-				className="focus-inset grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-2.5 rounded-sm px-1.5 py-1.5 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover"
+				className="focus-inset grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-2.5 rounded-control px-1.5 py-1.5 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised"
 			>
 				<StatusGlyph tone={tone} className="translate-y-0.5" />
 				<span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
 					<span className="type-small text-foreground">
 						{DISPATCH_STATUS_LABEL[run.status]}
 					</span>
-					<span className="type-mono-small text-text-muted">
+					<span className="type-mono text-text-muted">
 						{run.briefRef
 							? [run.briefRef.moduleId, ...run.briefRef.requirementIds].join(
 									" ",
@@ -556,10 +561,10 @@ function Run({
 					</span>
 				</span>
 				<span className="flex items-baseline gap-2.5">
-					<span className="type-mono-small text-text-muted tabular-nums">
+					<span className="type-mono text-text-muted tabular-nums">
 						{formatUsd(run.spendUsd)}
 					</span>
-					<span className="type-mono-small text-text-subtle tabular-nums">
+					<span className="type-mono text-text-subtle tabular-nums">
 						{`${formatTokens(run.tokensUsed)} / ${formatTokens(run.estimatedTokens)}`}
 					</span>
 					<time

@@ -5,7 +5,6 @@ import type {
 	AgentTemplate,
 } from "avel-server/contract";
 import { History } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplateRosterEntries } from "@/lib/api/access";
 import { useEntriesActivity } from "@/lib/api/activity";
@@ -13,6 +12,7 @@ import { ACTION_COPY } from "./activity-copy";
 import { entryLabel } from "./agent-access";
 import { ActorLabel } from "./agent-actor";
 import { EmptyState } from "./empty-state";
+import { Paging, PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
 import { ErrorState } from "./surface";
 
@@ -43,11 +43,33 @@ export function whenLabel(iso: string): string {
 
 export function AgentActivity({ agent }: { agent: AgentTemplate }) {
 	const entries = useTemplateRosterEntries(agent.id);
+	// Read here, not in the list, so its paging sits in the footer band. Off
+	// until the entries are in: an empty id list reads nothing.
+	const activity = useEntriesActivity(
+		entries.data?.map((e) => e.entryId) ?? [],
+	);
 	return (
 		<SectionPanel
 			title="Recent activity"
 			description={`When ${agent.name} was added to, changed on or removed from a mission. Its own work shows here once agents run (module 6).`}
 			data-testid="agent-activity"
+			footer={
+				<PanelFooter
+					data-testid="agent-activity-read-age"
+					queries={[entries, activity]}
+				>
+					{activity.hasNextPage ? (
+						<Paging
+							loaded={activity.data?.pages.flatMap((p) => p.data).length ?? 0}
+							total={activity.data?.pages[0]?.meta.total}
+							hasMore
+							loadingMore={activity.isFetchingNextPage}
+							onLoadMore={() => activity.fetchNextPage()}
+							testIdPrefix="agent-activity"
+						/>
+					) : null}
+				</PanelFooter>
+			}
 		>
 			{entries.status === "pending" ? (
 				<ActivitySkeleton />
@@ -58,7 +80,11 @@ export function AgentActivity({ agent }: { agent: AgentTemplate }) {
 					retrying={entries.isFetching}
 				/>
 			) : (
-				<EntryActivity name={agent.name} entries={entries.data} />
+				<EntryActivity
+					name={agent.name}
+					entries={entries.data}
+					activity={activity}
+				/>
 			)}
 		</SectionPanel>
 	);
@@ -100,12 +126,13 @@ export function byMission(
 function EntryActivity({
 	name,
 	entries,
+	activity,
 }: {
 	name: string;
 	entries: readonly AgentRosterEntry[];
+	activity: ReturnType<typeof useEntriesActivity>;
 }) {
 	const entryIds = entries.map((e) => e.entryId);
-	const activity = useEntriesActivity(entryIds);
 	const rows = activity.data?.pages.flatMap((page) => page.data) ?? [];
 	if (entryIds.length === 0)
 		return (
@@ -153,7 +180,7 @@ function EntryActivity({
 							to="/missions/$id"
 							params={{ id: group.missionId }}
 							data-testid={`agent-activity-mission-${group.missionId}`}
-							className="min-w-0 truncate rounded-xs type-small font-medium text-foreground underline-offset-4 hover:underline"
+							className="py-1.5 -my-1.5 min-w-0 truncate rounded-xs type-small font-medium text-foreground underline-offset-4 hover:underline"
 						>
 							{group.entry ? entryLabel(group.entry) : "A mission it has left"}
 						</Link>
@@ -161,18 +188,6 @@ function EntryActivity({
 					<ActivityRows rows={group.rows} />
 				</section>
 			))}
-			{activity.hasNextPage ? (
-				<Button
-					variant="ghost"
-					size="sm"
-					data-testid="agent-activity-load-more"
-					className="self-start"
-					disabled={activity.isFetchingNextPage}
-					onClick={() => activity.fetchNextPage()}
-				>
-					{activity.isFetchingNextPage ? "Loading" : "Load more"}
-				</Button>
-			) : null}
 		</div>
 	);
 }
@@ -188,7 +203,7 @@ function ActivityRows({ rows }: { rows: readonly ActivityEntry[] }) {
 				>
 					<time
 						dateTime={entry.at}
-						className="type-mono-small text-text-subtle tabular-nums"
+						className="type-mono text-text-subtle tabular-nums"
 					>
 						{whenLabel(entry.at)}
 					</time>
@@ -206,7 +221,7 @@ function ActivityRows({ rows }: { rows: readonly ActivityEntry[] }) {
 						to="/activity"
 						search={{ entry: entry.id }}
 						data-testid={`agent-activity-open-${entry.id}`}
-						className="rounded-xs type-caption text-accent-text underline-offset-4 hover:underline"
+						className="py-1.5 -my-1.5 rounded-xs type-caption text-accent-text underline-offset-4 hover:underline"
 					>
 						Record
 					</Link>

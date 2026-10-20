@@ -1,6 +1,6 @@
 import { type Playbook, playbookSchema } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
-import { nodeLabel, nodeTops } from "@/components/avel/playbook-builder";
+import { nodeLabel } from "@/components/avel/playbook-builder";
 import {
 	addableGates,
 	draftChanges,
@@ -181,16 +181,7 @@ describe("the draft", () => {
 	});
 });
 
-describe("the canvas layout and labels", () => {
-	it("gives each segment a label row, so tops step by a row and a label", () => {
-		const tops = nodeTops(pipelineOf(PLAYBOOK));
-		// Waves: one label then five rows. Gates: a label. Deliverable: a label.
-		const step = (tops[1] ?? 0) - (tops[0] ?? 0);
-		expect((tops[5] ?? 0) - (tops[4] ?? 0)).toBeGreaterThan(step);
-		expect((tops[6] ?? 0) - (tops[5] ?? 0)).toBe(step);
-		expect((tops[7] ?? 0) - (tops[6] ?? 0)).toBeGreaterThan(step);
-	});
-
+describe("the canvas labels", () => {
 	it("names a gate's policy as a hard stop or a pass-through", () => {
 		const [qa, security] = pipelineOf(PLAYBOOK).filter(
 			(n) => n.kind === "gate",

@@ -49,3 +49,31 @@ describe("a button with no reason", () => {
 		expect(plain).not.toContain("sr-only");
 	});
 });
+
+describe("each variant's edge", () => {
+	const classes = (variant: "default" | "ghost" | "segment" | "outline") =>
+		(
+			tagOf(
+				renderToString(
+					<Button data-testid="b" variant={variant}>
+						Go
+					</Button>,
+				),
+				"b",
+			).match(/class="([^"]+)"/)?.[1] ?? ""
+		).split(" ");
+
+	it("leaves the primary's border to btn-primary-face: no transparent edge after it", () => {
+		const primary = classes("default");
+		expect(primary).toContain("btn-primary-face");
+		expect(primary).toContain("border");
+		expect(primary).not.toContain("border-transparent");
+	});
+
+	it("keeps a transparent edge where the variant wants one", () => {
+		expect(classes("ghost")).toContain("border-transparent");
+		expect(classes("segment")).toContain("border-transparent");
+		expect(classes("outline")).toContain("border-border-strong");
+		expect(classes("outline")).not.toContain("border-transparent");
+	});
+});

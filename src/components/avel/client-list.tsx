@@ -17,13 +17,13 @@ import {
 	clientSearchText,
 	engagementSummary,
 	isoDate,
-	listTotal,
 	type Page,
 	relativeTime,
 	statusTone,
 	type useClients,
 } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
+import { STRETCHED_LINK } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
@@ -69,8 +69,9 @@ export function ClientTable({
 			{(data) => {
 				const rows = loadedClients(data);
 				return (
-					<div className="flex flex-col gap-3">
-						<div className="plate overflow-hidden rounded-md border">
+					// The page's panel frames the table and carries its paging.
+					<div className="flex flex-col">
+						<div>
 							<Table data-testid="client-table">
 								<TableHeader className="bg-app-band">
 									<TableRow>
@@ -92,13 +93,6 @@ export function ClientTable({
 								</TableBody>
 							</Table>
 						</div>
-						<ClientListFooter
-							loaded={rows.length}
-							total={listTotal(data)}
-							hasMore={query.hasNextPage}
-							loadingMore={query.isFetchingNextPage}
-							onLoadMore={() => query.fetchNextPage()}
-						/>
 					</div>
 				);
 			}}
@@ -112,7 +106,9 @@ function ClientRow({ client, now }: { client: Client; now: number }) {
 		<TableRow
 			data-testid={`client-row-${client.id}`}
 			data-status={client.status}
-			className="hover:bg-state-hover"
+			// The whole row opens the client: its name link is stretched over
+			// it, so the row that reacts to hover is the link (v3 UX 5).
+			className="relative hover:bg-app-raised"
 		>
 			<TableCell className="pl-4">
 				<div className="flex min-w-0 items-center gap-3">
@@ -122,7 +118,10 @@ function ClientRow({ client, now }: { client: Client; now: number }) {
 							to="/clients/$id"
 							params={{ id: client.id }}
 							data-testid={`client-row-link-${client.id}`}
-							className="type-body truncate rounded-xs font-medium text-foreground underline-offset-4 hover:underline"
+							className={cn(
+								"type-body truncate rounded-xs font-medium text-foreground underline-offset-4 hover:underline",
+								STRETCHED_LINK,
+							)}
 						>
 							{client.name}
 						</Link>
@@ -140,10 +139,10 @@ function ClientRow({ client, now }: { client: Client; now: number }) {
 					data-testid={`client-status-${client.id}`}
 				/>
 			</TableCell>
-			<TableCell className="type-mono-small text-text-muted">
+			<TableCell className="type-mono text-text-muted">
 				{engagementSummary(client)}
 			</TableCell>
-			<TableCell className="type-mono-small hidden text-text-muted lg:table-cell">
+			<TableCell className="type-mono hidden text-text-muted lg:table-cell">
 				<time dateTime={client.createdAt}>{isoDate(client.createdAt)}</time>
 			</TableCell>
 			<TableCell
@@ -185,11 +184,11 @@ export function ClientTile({
 			data-testid="client-tile"
 			data-closed={closed || undefined}
 			className={cn(
-				"inline-flex shrink-0 items-center justify-center rounded-sm border font-semibold",
-				size === "sm" ? "size-8 type-caption" : "size-10 type-small",
+				"inline-flex shrink-0 items-center justify-center rounded-tile border font-semibold",
+				size === "sm" ? "size-tile-md type-caption" : "size-tile-lg type-small",
 				closed
-					? "border-border bg-app-recessed text-text-subtle"
-					: "border-accent bg-accent-soft text-accent-text",
+					? "border-dashed border-border-strong bg-app-well text-text-subtle"
+					: "border-border bg-app-panel text-text-muted",
 			)}
 		>
 			{clientInitials(name)}
@@ -293,7 +292,7 @@ export function ClientListSkeleton() {
 	return (
 		<div
 			data-testid="client-list-skeleton"
-			className="plate flex flex-col overflow-hidden rounded-md border"
+			className="flex flex-col overflow-hidden rounded-card border border-border bg-app-panel shadow-card"
 		>
 			<div className="h-10 border-b border-border bg-app-band" />
 			{[0, 1, 2].map((i) => (
@@ -302,7 +301,7 @@ export function ClientListSkeleton() {
 					data-testid="client-list-skeleton-row"
 					className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
 				>
-					<Skeleton className="size-8 rounded-sm" />
+					<Skeleton className="size-8 rounded-control" />
 					<span className="flex flex-1 flex-col gap-1.5">
 						<Skeleton className="h-4 w-40" />
 						<Skeleton className="h-3 w-28" />

@@ -6,7 +6,10 @@ import { describe, expect, it } from "vitest";
 import { InlineModals } from "@/components/avel/action-modal";
 import { ClientForm } from "@/components/avel/client-form";
 import { ClientStatusConfirm } from "@/components/avel/client-status-dialog";
-import { EngagementCloseConfirm } from "@/components/avel/engagement-close";
+import {
+	EngagementCloseConfirm,
+	nameMatches,
+} from "@/components/avel/engagement-close";
 import { EngagementForm } from "@/components/avel/engagement-form";
 import { EngagementList } from "@/components/avel/engagement-list";
 import { Dialog } from "@/components/ui/dialog";
@@ -98,7 +101,7 @@ describe("a client's engagements", () => {
 			'data-tone="pass"',
 		);
 		expect(row).toMatch(
-			/type-mono-small[^>]*>.*<time datetime="2026-09-01T00:00:00.000Z">2026-09-01<\/time>/i,
+			/type-mono[^>]*>.*<time datetime="2026-09-01T00:00:00.000Z">2026-09-01<\/time>/i,
 		);
 		expect(tagOf(row, `engagement-menu-${e.id}`)).toContain(
 			'aria-label="Actions for Engagement 1"',
@@ -285,13 +288,64 @@ describe("closing an engagement", () => {
 
 	it("is a held destructive action, not a click", () => {
 		const confirm = tagOf(html, "engagement-close-confirm");
-		expect(confirm).toContain('data-variant="destructive"');
+		expect(confirm).toContain('data-variant="destructive-confirm"');
 		const inner = html.slice(
 			html.indexOf('data-testid="engagement-close-confirm"'),
 		);
 		expect(inner).toMatch(/data-slot="button-hold-fill"/);
 		expect(inner).toContain("press and hold to confirm");
 		expect(html).toContain('data-testid="engagement-close-cancel"');
+	});
+
+	it("says what happens in a well, before asking for anything", () => {
+		const effects = tagOf(html, "engagement-close-effects");
+		expect(effects).toMatch(/rounded-card border border-border bg-app-well/);
+		expect(html).toContain(">What happens<");
+		expect(html.indexOf("engagement-close-effects")).toBeLessThan(
+			html.indexOf("engagement-close-name"),
+		);
+		// Unread, it names no number rather than a guessed one.
+		expect(html).toContain("Its active connections are revoked.");
+	});
+
+	it("counts the connections it revokes when they are read", () => {
+		const counted = (n: number) =>
+			render(
+				<EngagementCloseConfirm
+					name="Engagement 1"
+					activeConnections={n}
+					pending={false}
+					error={null}
+					onConfirm={() => {}}
+				/>,
+			);
+		expect(counted(3)).toContain("Its 3 active connections are revoked.");
+		expect(counted(1)).toContain("Its 1 active connection is revoked.");
+		expect(counted(0)).toContain(
+			"It has no active connection, so none is revoked.",
+		);
+	});
+
+	it("asks for the name, and keeps the confirm off until it matches", () => {
+		expect(html).toMatch(
+			/Type <span class="type-mono">Engagement 1<\/span> to confirm/,
+		);
+		const help = html.slice(
+			html.indexOf('data-testid="engagement-close-name-help"'),
+		);
+		expect(help).toMatch(/^[^>]*>The button unlocks when the name matches\./);
+		expect(tagOf(html, "engagement-close-confirm")).toMatch(/\sdisabled=""/);
+		expect(nameMatches("Engagement 1", "Engagement 1")).toBe(true);
+		expect(nameMatches("  Engagement 1 ", "Engagement 1")).toBe(true);
+		expect(nameMatches("engagement 1", "Engagement 1")).toBe(false);
+		expect(nameMatches("", "Engagement 1")).toBe(false);
+	});
+
+	it("fills the final confirm with the danger face, the dialog having named the effect (audit D7)", () => {
+		const confirm = tagOf(html, "engagement-close-confirm");
+		expect(confirm).toContain('data-variant="destructive-confirm"');
+		expect(confirm).toContain("btn-danger-face");
+		expect(confirm).not.toContain("btn-primary-face");
 	});
 });
 
@@ -314,7 +368,7 @@ describe("closing a client", () => {
 		expect(html).toContain("Its engagements are not closed for you");
 		expect(tagOf(html, "client-status-confirm")).not.toMatch(/\sdisabled=""/);
 		expect(tagOf(html, "client-status-confirm")).toContain(
-			'data-variant="destructive"',
+			'data-variant="destructive-confirm"',
 		);
 	});
 

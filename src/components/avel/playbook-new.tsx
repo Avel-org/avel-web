@@ -216,7 +216,7 @@ export function NewPlaybookForm({
 				{(props) => (
 					<Input
 						{...props}
-						className="type-mono-small"
+						className="type-mono"
 						placeholder="template-booking"
 						autoComplete="off"
 						value={missionType}

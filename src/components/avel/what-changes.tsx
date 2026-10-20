@@ -87,7 +87,7 @@ export function WhatChanges({
 			aria-label="What changes"
 			data-testid={testId}
 			data-count={changes.length}
-			className="flex flex-col gap-1 rounded-sm border border-border bg-app-band px-3 py-2"
+			className="flex flex-col gap-1 rounded-control border border-border bg-app-band px-3 py-2"
 		>
 			<h3 className="type-caption text-text-subtle">What changes</h3>
 			{changes.length === 0 ? (
@@ -98,7 +98,7 @@ export function WhatChanges({
 						const Icon = KIND_ICON[change.kind];
 						const value = cn(
 							"min-w-0 break-words",
-							change.mono ? "type-mono-small" : "type-small",
+							change.mono ? "type-mono" : "type-small",
 						);
 						return (
 							<li

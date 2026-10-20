@@ -1,4 +1,4 @@
-import { useLocation } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
 	createContext,
 	type ReactNode,
@@ -16,11 +16,12 @@ import {
 import { useStoredState } from "@/lib/stored";
 import { cn } from "@/lib/utils";
 import { AuthGate } from "./auth-gate";
-import { CommandPalette } from "./command-palette";
+import { CommandPalette, usePanelMission } from "./command-palette";
 import { DeviceBoundary } from "./device-boundary";
 import {
 	useCommandShortcut,
 	useKeyShortcut,
+	useSequenceShortcut,
 	useShortcutLabel,
 } from "./shortcut";
 import { SidebarBody } from "./sidebar";
@@ -118,6 +119,18 @@ function Shell({ children }: { children: ReactNode }) {
 	);
 	useKeyShortcut("b", toggleRail);
 
+	// G F: a mission's side panel to its full page (audit F6).
+	const navigate = useNavigate();
+	const panelMission = usePanelMission();
+	const openFullPage = useMemo(
+		() =>
+			panelMission
+				? () => navigate({ to: "/missions/$id", params: { id: panelMission } })
+				: undefined,
+		[navigate, panelMission],
+	);
+	useSequenceShortcut("g", "f", openFullPage);
+
 	const drawer = useMemo(() => ({ open: () => setDrawerOpen(true) }), []);
 
 	return (
@@ -132,7 +145,7 @@ function Shell({ children }: { children: ReactNode }) {
 					<a
 						href="#main"
 						data-testid="skip-link"
-						className="fixed top-3 left-3 z-(--z-toast) -translate-y-20 rounded-sm bg-popover px-3 py-2 type-body shadow-e2 focus:translate-y-0"
+						className="fixed top-3 left-3 z-(--z-toast) -translate-y-20 rounded-control bg-popover px-3 py-2 type-body shadow-popover focus:translate-y-0"
 					>
 						Skip to content
 					</a>
@@ -153,22 +166,27 @@ function Shell({ children }: { children: ReactNode }) {
 
 					<div
 						data-testid="canvas"
-						// The rounded clip. The scroller sits inside it, so the
-						// scrollbar and the sticky top bar never cut the corners.
-						className="edge-highlight flex min-w-0 flex-1 flex-col overflow-hidden bg-card md:m-(--canvas-inset) md:rounded-(--radius-canvas) md:border md:border-border"
+						// The rounded clip: a v3 panel on the frame, at the dialog
+						// radius. The scroller sits inside it, so the scrollbar and
+						// the sticky top bar never cut the corners.
+						className="flex min-w-0 flex-1 flex-col overflow-hidden bg-app-panel md:m-(--canvas-inset) md:rounded-dialog md:border md:border-border md:shadow-card"
 					>
 						<main
 							id="main"
 							tabIndex={-1}
 							data-testid="canvas-scroll"
-							className="app-scroll flex min-h-0 flex-1 flex-col overflow-y-auto outline-none"
+							// Relative: the containing block for every absolute box in a
+							// page, sr-only labels included. Without it they were placed
+							// against the root, stretched the document past the
+							// viewport, and the whole shell could scroll.
+							className="app-scroll relative flex min-h-0 flex-1 flex-col overflow-y-auto outline-none"
 						>
-							{/* Keyed by path: the page entrance answers the
-							    navigation, then stops. */}
+							{/* Keyed by path: each page mounts fresh, with no
+							    entrance animation (v3 has no motion at rest). */}
 							<div
 								key={pathname}
 								data-testid="page-enter"
-								className="flex flex-1 flex-col animate-page-in"
+								className="flex flex-1 flex-col"
 							>
 								<DeviceBoundary>{children}</DeviceBoundary>
 							</div>

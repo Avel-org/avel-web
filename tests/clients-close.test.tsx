@@ -17,6 +17,7 @@ const state = vi.hoisted(() => ({
 	closed: null as ClosedEngagement | null,
 	mutated: [] as string[],
 	toasts: [] as string[],
+	activeConnections: 2,
 }));
 
 vi.mock("sonner", () => ({
@@ -36,6 +37,13 @@ vi.mock("@/lib/api/clients", async (importOriginal) => ({
 			state.mutated.push(id);
 			if (state.closed) options.onSuccess(state.closed);
 		},
+	}),
+}));
+
+vi.mock("@/lib/api/connections", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@/lib/api/connections")>()),
+	useEngagementConnectionCount: (id: string | null) => ({
+		data: id === null ? undefined : state.activeConnections,
 	}),
 }));
 
@@ -67,6 +75,8 @@ describe("closing an engagement", () => {
 		});
 		const confirm = find(tree, EngagementCloseConfirm);
 		expect(confirm).toBeDefined();
+		// The well counts what the close will revoke, from the live read.
+		expect(confirm?.props.activeConnections).toBe(2);
 		(confirm?.props.onConfirm as () => void)();
 		expect(state.mutated).toEqual([target.id]);
 		expect(state.toasts).toEqual([

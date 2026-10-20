@@ -8,7 +8,6 @@ import {
 	presetDiff,
 	templateLabel,
 } from "@/lib/api/presets";
-import { cn } from "@/lib/utils";
 import { WaveGrid } from "./preset-board";
 import type { Names } from "./preset-detail";
 
@@ -73,11 +72,11 @@ export function PresetCompare({
 		<section
 			aria-label={`Comparing ${a.name} with ${b.name}`}
 			data-testid="preset-compare"
-			className="plate flex flex-col gap-4 rounded-md border p-4 motion-safe:animate-in motion-safe:fade-in-0 duration-(--duration-enter) ease-avel"
+			className="flex flex-col gap-4 p-4 motion-safe:animate-in motion-safe:fade-in-0 duration-(--duration-state) ease-avel rounded-card border border-border bg-app-panel shadow-card"
 		>
 			<header className="flex items-start gap-3">
 				<div className="flex min-w-0 flex-1 flex-col gap-1">
-					<h2 className="type-panel-title text-foreground">
+					<h2 className="type-title text-foreground">
 						{`${a.name} → ${b.name}`}
 					</h2>
 					<p
@@ -115,7 +114,6 @@ export function PresetCompare({
 						only={diff.onlyA}
 						changed={diff.changed.map((c) => c.a)}
 						testid="preset-compare-a"
-						from="left"
 					/>
 					<SideBoard
 						preset={b}
@@ -123,7 +121,6 @@ export function PresetCompare({
 						only={diff.onlyB}
 						changed={diff.changed.map((c) => c.b)}
 						testid="preset-compare-b"
-						from="right"
 					/>
 				</div>
 			)}
@@ -137,12 +134,10 @@ export function PresetCompare({
 						Set differently
 					</h3>
 					<ul className="flex flex-col gap-2">
-						{diff.changed.map(({ a: from, b: to, fields }, i) => (
+						{diff.changed.map(({ a: from, b: to, fields }) => (
 							<li
 								key={presetAgentKey(from)}
-								// Rows fade in 30ms apart, the stagger capped at six.
-								style={{ animationDelay: `${Math.min(i, 6) * 30}ms` }}
-								className="flex flex-col gap-1 motion-safe:animate-in motion-safe:fade-in-0 fill-mode-both duration-(--duration-state) ease-avel"
+								className="flex flex-col gap-1"
 								data-testid={`preset-compare-change-${presetAgentKey(from)}`}
 							>
 								<span className="type-small text-foreground">
@@ -154,7 +149,7 @@ export function PresetCompare({
 											<dt className="type-caption text-text-subtle">
 												{FIELD_LABEL[field]}
 											</dt>
-											<dd className="type-mono-small text-text-muted">
+											<dd className="type-mono text-text-muted">
 												{`${fieldText(from, field)} → ${fieldText(to, field)}`}
 											</dd>
 										</div>
@@ -188,28 +183,17 @@ function SideBoard({
 	only,
 	changed,
 	testid,
-	from,
 }: {
 	preset: Preset;
 	names: Names;
 	only: PresetAgent[];
 	changed: PresetAgent[];
 	testid: string;
-	/** The side it slides in from: the two boards slide together. */
-	from: "left" | "right";
 }) {
 	const onlyKeys = new Set(only.map(presetAgentKey));
 	const changedKeys = new Set(changed.map(presetAgentKey));
 	return (
-		<div
-			data-testid={testid}
-			className={cn(
-				"flex flex-col gap-1.5 motion-safe:animate-in duration-(--duration-enter) ease-avel",
-				from === "left"
-					? "motion-safe:slide-in-from-left-4"
-					: "motion-safe:slide-in-from-right-4",
-			)}
-		>
+		<div data-testid={testid} className="flex flex-col gap-1.5">
 			<h3 className="type-small font-medium text-foreground">{preset.name}</h3>
 			<WaveGrid
 				preset={preset}

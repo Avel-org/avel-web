@@ -94,7 +94,10 @@ describe("DataTable", () => {
 
 	it("drops stickiness and scrolls sideways when the header need not stick", () => {
 		const html = render({ stickyHeader: false });
-		expect(headerOf(html, "name")).not.toContain("sticky");
+		// No sticky of its own; the primitive's group-scoped sticky needs a
+		// data-sticky-header table, which DataTable never renders.
+		expect(headerOf(html, "name")).not.toMatch(/class="(?:[^"]*\s)?sticky\s/);
+		expect(headerOf(html, "name")).not.toContain("top-(--topbar-height)");
 		expect(tagOf(html, "t-table")).toMatch(/\boverflow-x-auto\b/);
 	});
 });

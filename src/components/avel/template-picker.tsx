@@ -65,7 +65,7 @@ export function TemplatePicker({
 					readOnly={readOnly}
 					maxLength={100}
 					placeholder="template-booking"
-					className="type-mono-small"
+					className="type-mono"
 					value={value}
 					onChange={(e) =>
 						onChange({ templateRef: e.target.value, templateVersion: "" })
@@ -112,7 +112,7 @@ export function TemplatePicker({
 					>
 						<span className="flex items-baseline gap-2">
 							{templateName(t)}
-							<span className="type-mono-small text-text-subtle">{t.slug}</span>
+							<span className="type-mono text-text-subtle">{t.slug}</span>
 						</span>
 					</SelectItem>
 				))}
@@ -154,7 +154,7 @@ export function LatestCommit({
 		>
 			<span>
 				{"Latest on "}
-				<span className="type-mono-small">{templateRef}</span>
+				<span className="type-mono">{templateRef}</span>
 				{": "}
 				<ShortHash value={latest} label="the latest commit" />
 			</span>

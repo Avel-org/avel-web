@@ -1,6 +1,7 @@
 import {
 	type InfiniteData,
 	infiniteQueryOptions,
+	type QueryClient,
 	queryOptions,
 	useInfiniteQuery,
 	useMutation,
@@ -23,7 +24,6 @@ import {
 	type Wave,
 } from "avel-server/contract";
 import type { z } from "zod";
-import { missionKeys } from "@/components/avel/mission-data";
 import { type ApiClient, call, callPage } from "./client";
 import { presetCoherenceInput } from "./coherence";
 import { queryKeys } from "./keys";
@@ -153,7 +153,7 @@ type AgentBody = CreatePresetBody["agents"][number];
  * Every preset write adds a row to the activity log (preset.created,
  * preset.updated), so the log refreshes with the lists.
  */
-function invalidatePresets(queryClient: ReturnType<typeof useQueryClient>) {
+export function afterPresetWrite(queryClient: QueryClient) {
 	return Promise.all([
 		queryClient.invalidateQueries({ queryKey: queryKeys.presets.all() }),
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
@@ -167,7 +167,7 @@ export function useCreatePreset() {
 	return useMutation({
 		mutationFn: (body: CreatePresetBody) =>
 			call(contract.presets.create, () => api.presets.create({ body })),
-		onSuccess: () => invalidatePresets(queryClient),
+		onSuccess: () => afterPresetWrite(queryClient),
 	});
 }
 
@@ -180,7 +180,7 @@ export function useUpdatePreset() {
 			call(contract.presets.update, () =>
 				api.presets.update({ params: { id }, body: patch }),
 			),
-		onSuccess: () => invalidatePresets(queryClient),
+		onSuccess: () => afterPresetWrite(queryClient),
 	});
 }
 
@@ -516,17 +516,28 @@ export function useApplyPreset() {
 				}),
 			),
 		onSuccess: (_roster, { missionId }) =>
-			Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: queryKeys.roster.list(missionId),
-				}),
-				queryClient.invalidateQueries({
-					queryKey: missionKeys.detail(missionId),
-				}),
-				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
-				queryClient.invalidateQueries({ queryKey: queryKeys.presets.all() }),
-			]),
+			afterPresetApplied(queryClient, missionId),
 	});
+}
+
+/** An apply changes the mission's roster and detail, and is logged. */
+export function afterPresetApplied(
+	queryClient: QueryClient,
+	missionId: string,
+) {
+	return Promise.all([
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.roster.list(missionId),
+		}),
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.missions.detail(missionId),
+		}),
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.roster.byTemplateAll(),
+		}),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+		queryClient.invalidateQueries({ queryKey: queryKeys.presets.all() }),
+	]);
 }
 
 /** "Apply 6 agents", "Apply 1 agent": what the stepper's button does. */

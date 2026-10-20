@@ -41,7 +41,8 @@ function DrivePage() {
 	const state: DriveState = {
 		folder: search.folder,
 		file: search.file,
-		view: search.view ?? "list",
+		// Cards on the canvas by default; the list is the toggle.
+		view: search.view ?? "grid",
 		kind: search.kind as DriveState["kind"],
 		q: search.q,
 		sort: search.sort ?? "newest",
@@ -58,7 +59,7 @@ function DrivePage() {
 							const merged = { ...prev, ...next };
 							return {
 								...merged,
-								view: merged.view === "list" ? undefined : merged.view,
+								view: merged.view === "grid" ? undefined : merged.view,
 								sort: merged.sort === "newest" ? undefined : merged.sort,
 								q: merged.q === "" ? undefined : merged.q,
 							};

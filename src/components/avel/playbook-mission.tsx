@@ -141,7 +141,7 @@ function TemplatePanel({ missionId }: { missionId: string }) {
 						<span
 							data-testid="mission-playbook-template-ref"
 							title={label.full}
-							className="inline-flex items-center gap-1.5 type-mono-small text-foreground"
+							className="inline-flex items-center gap-1.5 type-mono text-foreground"
 						>
 							<Workflow
 								aria-hidden="true"

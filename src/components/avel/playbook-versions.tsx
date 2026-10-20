@@ -40,7 +40,7 @@ export function PlaybookVersions({
 /** When it was written: the date, with the full instant on hover. */
 function Written({ at }: { at: string }) {
 	return (
-		<time dateTime={at} title={at} className="type-mono-small text-text-subtle">
+		<time dateTime={at} title={at} className="type-mono text-text-subtle">
 			{at.slice(0, 10)}
 		</time>
 	);
@@ -51,7 +51,7 @@ function VersionDates({ rows }: { rows: Playbook[] }) {
 		<ol className="flex flex-col gap-1">
 			{rows.map((v, i) => (
 				<li key={v.version} className="flex items-center justify-between gap-2">
-					<span className="type-mono-small text-foreground">
+					<span className="type-mono text-foreground">
 						{`v${v.version}`}
 						{i === 0 ? (
 							<span className="ml-2 font-sans type-caption text-text-subtle">
@@ -75,7 +75,7 @@ function VersionHistory({ rows }: { rows: Playbook[] }) {
 					<li
 						key={v.version}
 						data-testid={`playbook-version-${v.version}`}
-						className="plate flex flex-col gap-2 rounded-md p-4"
+						className="flex flex-col gap-2 p-4 rounded-card border border-border bg-app-panel shadow-card"
 					>
 						<p className="flex items-baseline gap-3">
 							<span className="type-mono text-foreground">{`v${v.version}`}</span>

@@ -7,12 +7,15 @@ import {
 	type BoardSectionQuery,
 	ClientBoard,
 } from "@/components/avel/client-board";
-import { ClientTable } from "@/components/avel/client-list";
+import { ClientTable, loadedClients } from "@/components/avel/client-list";
 import { useClientOverlays } from "@/components/avel/client-overlays";
 import { ClientSearch } from "@/components/avel/client-search";
+import { DataPanel } from "@/components/avel/data-panel";
 import { EmptyState } from "@/components/avel/empty-state";
+import { Paging, PanelFooter } from "@/components/avel/panel-footer";
 import { type ViewOption, ViewToggle } from "@/components/avel/view-toggle";
 import { Button } from "@/components/ui/button";
+import { tabsListVariants } from "@/components/ui/tabs";
 import {
 	clientCountLabel,
 	clientSearchText,
@@ -164,49 +167,76 @@ function ClientsPage() {
 					}
 				/>
 			) : (
-				<div
-					data-testid="clients-page"
-					className="flex min-w-0 flex-1 flex-col gap-5"
-				>
-					<div
-						data-testid="clients-toolbar"
-						className="flex flex-wrap items-center gap-3"
+				// One panel, as every list page: its search, status and view in
+				// the header's toolbar, the clients in the body, and when they
+				// were read (with the table's paging) in the footer band.
+				<div data-testid="clients-page" className="flex min-w-0 flex-col">
+					<DataPanel
+						data-testid="clients-panel"
+						title="Clients"
+						count={total}
+						toolbar={
+							<div
+								data-testid="clients-toolbar"
+								className="flex w-full flex-wrap items-center gap-2"
+							>
+								<div className="w-full sm:w-72">
+									<ClientSearch value={search.q ?? ""} onChange={setQuery} />
+								</div>
+								<StatusFilter
+									value={search.status}
+									onChange={(status) => setSearch({ status })}
+								/>
+								<ViewToggle
+									options={CLIENT_VIEWS}
+									view={view}
+									onChange={(next) =>
+										setSearch({ view: next === "table" ? "table" : undefined })
+									}
+									testIdPrefix="clients-view"
+									className="sm:ml-auto"
+								/>
+							</div>
+						}
+						footer={
+							<PanelFooter
+								data-testid="clients-read-age"
+								queries={board ? sections.map((s) => s.query) : [table]}
+							>
+								{board || !table.data ? null : (
+									<Paging
+										testIdPrefix="clients"
+										loaded={loadedClients(table.data).length}
+										total={listTotal(table.data)}
+										hasMore={table.hasNextPage}
+										loadingMore={table.isFetchingNextPage}
+										onLoadMore={() => table.fetchNextPage()}
+									/>
+								)}
+							</PanelFooter>
+						}
 					>
-						<div className="w-full sm:w-80">
-							<ClientSearch value={search.q ?? ""} onChange={setQuery} />
-						</div>
-						<StatusFilter
-							value={search.status}
-							onChange={(status) => setSearch({ status })}
-						/>
-						<ViewToggle
-							options={CLIENT_VIEWS}
-							view={view}
-							onChange={(next) =>
-								setSearch({ view: next === "table" ? "table" : undefined })
-							}
-							testIdPrefix="clients-view"
-							className="sm:ml-auto"
-						/>
-					</div>
-					{view === "table" ? (
-						<ClientTable
-							query={table}
-							search={search.q}
-							status={search.status}
-							onClearSearch={() => setQuery("")}
-							now={now}
-						/>
-					) : (
-						<ClientBoard
-							sections={sections}
-							search={search.q}
-							filtered={search.status !== undefined}
-							onClearSearch={() => setQuery("")}
-							actions={actions}
-							now={now}
-						/>
-					)}
+						{view === "table" ? (
+							<ClientTable
+								query={table}
+								search={search.q}
+								status={search.status}
+								onClearSearch={() => setQuery("")}
+								now={now}
+							/>
+						) : (
+							<div className="p-4">
+								<ClientBoard
+									sections={sections}
+									search={search.q}
+									filtered={search.status !== undefined}
+									onClearSearch={() => setQuery("")}
+									actions={actions}
+									now={now}
+								/>
+							</div>
+						)}
+					</DataPanel>
 				</div>
 			)}
 			{modals}
@@ -231,8 +261,8 @@ function sumOf(totals: (number | undefined)[]): number | undefined {
 }
 
 /**
- * All, Active or Closed, as pressed-state buttons. The choice is sent as the
- * list's `status`, so the server filters and counts.
+ * All, Active or Closed, as a v3 segmented control. The choice is sent as
+ * the list's `status`, so the server filters and counts.
  */
 function StatusFilter({
 	value,
@@ -246,7 +276,7 @@ function StatusFilter({
 		<fieldset
 			aria-labelledby={legendId}
 			data-testid="clients-status"
-			className="inline-flex items-center gap-0.5 rounded-sm border border-border p-0.5"
+			className={tabsListVariants({ variant: "default" })}
 		>
 			<legend id={legendId} className="sr-only">
 				Status
@@ -254,8 +284,8 @@ function StatusFilter({
 			{STATUS_OPTIONS.map(({ id, label }) => (
 				<Button
 					key={label}
-					size="sm"
-					variant={value === id ? "secondary" : "ghost"}
+					type="button"
+					variant="segment"
 					aria-pressed={value === id}
 					data-testid={`clients-status-${id ?? "all"}`}
 					onClick={() => onChange(id)}

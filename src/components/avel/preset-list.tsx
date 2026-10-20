@@ -1,17 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import type { Preset } from "avel-server/contract";
-import { Search, SearchX } from "lucide-react";
-import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { SearchX } from "lucide-react";
+import type { KeyboardEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { tabsListVariants } from "@/components/ui/tabs";
 import { listTotal } from "@/lib/api/clients";
 import {
 	agentCount,
 	CUT_LABEL,
 	loadedPresets,
-	PRESET_SEARCH_MAX,
 	type PresetCut,
 	presetSearchText,
 	type usePresets,
@@ -19,9 +18,6 @@ import {
 import { cn } from "@/lib/utils";
 import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
-
-/** The search writes to the URL this long after the last keystroke. */
-const PRESET_SEARCH_DEBOUNCE_MS = 300;
 
 const CUTS: PresetCut[] = ["horizontal", "vertical"];
 
@@ -112,57 +108,6 @@ export function noMatchCopy(
 		: `No team${cutText} has “${q}” in its name.`;
 }
 
-/**
- * Searches presets by name. The URL's `?q` is the source of truth, so a
- * search is a link; typing updates it after a short pause.
- */
-export function PresetSearch({
-	value,
-	onChange,
-}: {
-	value: string;
-	onChange: (value: string) => void;
-}) {
-	const id = useId();
-	const [text, setText] = useState(value);
-	const latest = useRef(onChange);
-	latest.current = onChange;
-
-	// Follows the URL when it changes from outside, such as Clear filters.
-	useEffect(() => setText(value), [value]);
-
-	useEffect(() => {
-		if (text === value) return;
-		const timer = window.setTimeout(
-			() => latest.current(text),
-			PRESET_SEARCH_DEBOUNCE_MS,
-		);
-		return () => window.clearTimeout(timer);
-	}, [text, value]);
-
-	return (
-		<div className="relative">
-			<label htmlFor={id} className="sr-only">
-				Search teams
-			</label>
-			<Search
-				aria-hidden="true"
-				className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-text-subtle"
-			/>
-			<Input
-				id={id}
-				type="search"
-				data-testid="presets-search"
-				placeholder="Search by name"
-				maxLength={PRESET_SEARCH_MAX}
-				value={text}
-				onChange={(event) => setText(event.target.value)}
-				className="pl-8"
-			/>
-		</div>
-	);
-}
-
 /** All, Horizontal or Vertical: one pressed at a time, as the URL's `?cut`. */
 export function CutFilter({
 	value,
@@ -176,17 +121,20 @@ export function CutFilter({
 		...CUTS.map((cut) => ({ cut, label: CUT_LABEL[cut], id: cut })),
 	];
 	return (
-		<fieldset data-testid="presets-cut" className="flex gap-1">
+		// v3 .segmented: one track, the pressed cut a chip above it.
+		<fieldset
+			data-testid="presets-cut"
+			className={tabsListVariants({ variant: "default" })}
+		>
 			<legend className="sr-only">Cut</legend>
 			{options.map((option) => (
 				<Button
 					key={option.id}
-					variant="ghost"
-					size="sm"
+					type="button"
+					variant="segment"
 					aria-pressed={value === option.cut}
 					data-testid={`presets-cut-${option.id}`}
 					onClick={() => onChange(option.cut)}
-					className="aria-pressed:bg-state-selected"
 				>
 					{option.label}
 				</Button>
@@ -247,9 +195,9 @@ function PresetRows({
 							// The router marks the active link aria-current="page" itself.
 							data-selected={selected || undefined}
 							className={cn(
-								"focus-inset relative flex flex-col gap-1 rounded-sm px-3 py-2 transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover",
+								"focus-inset relative flex flex-col gap-1 rounded-control px-3 py-2 transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised",
 								selected &&
-									"bg-state-selected before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent hover:bg-state-selected",
+									"bg-selected before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent hover:bg-selected",
 							)}
 						>
 							<span className="flex items-center gap-2">
@@ -260,7 +208,7 @@ function PresetRows({
 									{CUT_LABEL[preset.cut]}
 								</Badge>
 							</span>
-							<span className="type-mono-small text-text-muted">
+							<span className="type-mono text-text-muted">
 								{`${agentCount(preset.agents.length)} · v${preset.version}`}
 							</span>
 						</Link>

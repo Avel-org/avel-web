@@ -1,9 +1,10 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import type { Client, MissionListItem } from "avel-server/contract";
 import {
 	Clock,
 	Link as LinkIcon,
 	LogOut,
+	Maximize2,
 	Moon,
 	PanelLeftClose,
 	PanelLeftOpen,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Kbd } from "@/components/ui/badge";
 import {
 	CommandDialog,
 	CommandEmpty,
@@ -23,6 +25,7 @@ import {
 	CommandShortcut,
 } from "@/components/ui/command";
 import { useSignOut } from "@/lib/auth";
+import { NOT_YET } from "@/lib/capabilities";
 import { useTheme } from "@/lib/theme";
 import { type RecentEntry, useRecent } from "./command-recent";
 import {
@@ -56,6 +59,7 @@ export function CommandPalette({
 	const signOut = useSignOut();
 	const [recent, addRecent] = useRecent();
 	const [search, setSearch] = useState("");
+	const panelMission = usePanelMission();
 
 	const close = () => {
 		onOpenChange(false);
@@ -65,13 +69,10 @@ export function CommandPalette({
 	const openEntry = (entry: RecentEntry) => {
 		close();
 		addRecent(entry);
+		// A mission opens its full page (audit F6): the panel is for
+		// scanning a list, the page for acting on one mission.
 		if (entry.kind === "page") navigate({ to: entry.to });
-		else {
-			navigate({
-				to: "/missions",
-				search: { mission: entry.id, origin: entry.origin },
-			});
-		}
+		else navigate({ to: "/missions/$id", params: { id: entry.id } });
 	};
 
 	const handlers: CommandHandlers = {
@@ -113,6 +114,12 @@ export function CommandPalette({
 			close();
 			void signOut();
 		},
+		openFullPage: panelMission
+			? () => {
+					close();
+					navigate({ to: "/missions/$id", params: { id: panelMission } });
+				}
+			: undefined,
 	};
 
 	return (
@@ -132,6 +139,20 @@ export function CommandPalette({
 			/>
 		</CommandDialog>
 	);
+}
+
+/**
+ * The mission whose side panel is open on /missions, if any. The panel is
+ * for scanning; its full page is for acting (audit F6), and the command menu
+ * and G F open it.
+ */
+export function usePanelMission(): string | undefined {
+	return useLocation({
+		select: (location) =>
+			location.pathname === "/missions"
+				? (location.search as { mission?: string }).mission
+				: undefined,
+	});
 }
 
 /**
@@ -164,6 +185,8 @@ export type CommandHandlers = {
 	toggleSidebar?: () => void;
 	copyLink: () => void;
 	signOut: () => void;
+	/** Present while a mission's side panel is open: opens its full page. */
+	openFullPage?: () => void;
 };
 
 /**
@@ -230,23 +253,29 @@ export function CommandMenu({
 						<Plus aria-hidden="true" />
 						New client
 					</CommandItem>
+					{/* A disabled item states its reason in its own text (ruling 20). */}
 					<CommandItem
 						value="New mission"
-						disabled
+						reason={NOT_YET["mission.create"]}
 						data-testid="command-new-mission"
 					>
 						<Plus aria-hidden="true" />
-						{/* A disabled item states its reason in its own text (ruling 20). */}
-						<span className="flex flex-col">
-							New mission
-							<span className="type-caption">
-								The contract cannot create missions yet.
-							</span>
-						</span>
+						New mission
 					</CommandItem>
 				</CommandGroup>
 
 				<CommandGroup heading="Actions" data-testid="command-group-actions">
+					{handlers.openFullPage ? (
+						<CommandItem
+							value="Open full page"
+							data-testid="command-open-full-page"
+							onSelect={handlers.openFullPage}
+						>
+							<Maximize2 aria-hidden="true" />
+							Open full page
+							<CommandShortcut className="type-mono">G F</CommandShortcut>
+						</CommandItem>
+					) : null}
 					<CommandItem
 						value={`Switch to ${nextTheme} theme`}
 						data-testid="command-theme"
@@ -271,7 +300,7 @@ export function CommandMenu({
 								<PanelLeftClose aria-hidden="true" />
 							)}
 							{sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-							<CommandShortcut className="type-mono-small">⌘B</CommandShortcut>
+							<CommandShortcut className="type-mono">⌘B</CommandShortcut>
 						</CommandItem>
 					) : null}
 					<CommandItem
@@ -346,12 +375,7 @@ function CommandFooter() {
 		>
 			{hints.map(([action, key, name]) => (
 				<span key={action} className="flex items-center gap-1.5">
-					<kbd
-						aria-label={name}
-						className="type-mono-small rounded-xs border border-border-strong px-1 text-text-muted"
-					>
-						{key}
-					</kbd>
+					<Kbd aria-label={name}>{key}</Kbd>
 					{`to ${action}`}
 				</span>
 			))}

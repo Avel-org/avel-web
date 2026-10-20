@@ -24,8 +24,10 @@ import {
 import { SkillDiscover } from "./catalog-skill-discover";
 import { SkillInspector } from "./catalog-skill-inspector";
 import { NewSkillForm } from "./catalog-skill-new";
-import { SkillSidebar } from "./catalog-skill-sidebar";
+import { SkillSidebar, SkillToolbar } from "./catalog-skill-sidebar";
+import { DataPanel } from "./data-panel";
 import { EmptyState } from "./empty-state";
+import { PanelFooter } from "./panel-footer";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
 /*
@@ -46,7 +48,9 @@ export function SkillsActions({ view }: { view: SkillsView | undefined }) {
 				size="sm"
 				variant="outline"
 				// The selected fill marks the open view; outline alone barely changed.
-				className={cn(view === "discover" && "border-accent bg-state-selected")}
+				className={cn(
+					view === "discover" && "border-selected-border bg-selected",
+				)}
 				asChild
 			>
 				<Link
@@ -94,70 +98,94 @@ export function CatalogSkills({
 	const slug = view === undefined ? selected : undefined;
 	const showing = view !== undefined || selected !== undefined;
 	return (
-		<div data-testid="catalog-skills" className="flex min-h-0 flex-1 gap-6">
+		<div data-testid="catalog-skills" className="flex min-h-0 flex-1 gap-4">
 			<div
 				data-testid="catalog-skills-list-pane"
 				className={cn(
-					"flex w-full flex-col gap-3 lg:w-80 lg:shrink-0",
+					"flex w-full flex-col lg:w-80 lg:shrink-0",
 					// Below lg the right pane replaces the list: two panes need the width.
 					showing && "max-lg:hidden",
 				)}
 			>
-				<Surface
-					data-testid="catalog-skills-surface"
-					query={query}
-					isEmpty={(data) => loadedRows(data).length === 0}
-					loading={
-						<CatalogListSkeleton data-testid="catalog-skills-skeleton" />
-					}
-					empty={
-						<EmptyState
-							data-testid="catalog-skills-empty"
-							compact
-							icon={Sparkles}
-							title="No skills yet"
-							description="A skill is text an agent reads, or a tool its room provides. Write one, or import one from a source."
-							action={
-								<Button size="sm" variant="outline" asChild>
-									<Link
-										to="/catalog/skills"
-										search={{ view: "new" }}
-										data-testid="catalog-skills-empty-new"
-									>
-										<Plus aria-hidden="true" />
-										New skill
-									</Link>
-								</Button>
-							}
+				{/* The list is the page's panel: when it was read, how many are
+					    shown and Load more in its footer band. */}
+				<DataPanel
+					data-testid="catalog-skills-panel"
+					title="Skills"
+					count={query.data?.pages[0]?.meta.total}
+					toolbar={
+						<SkillToolbar
+							skills={query.data ? loadedRows(query.data) : []}
+							q={q}
+							draftsOnly={draftsOnly}
+							onFilter={onFilter}
 						/>
 					}
-					error={ErrorState}
+					footer={
+						<PanelFooter
+							data-testid="catalog-skills-read-age"
+							queries={[query]}
+						>
+							{query.data ? (
+								<CatalogListFooter
+									loaded={loadedRows(query.data).length}
+									total={query.data.pages[0]?.meta.total}
+									hasMore={query.hasNextPage}
+									loadingMore={query.isFetchingNextPage}
+									onLoadMore={() => query.fetchNextPage()}
+									data-testid="catalog-skills-list-footer"
+								/>
+							) : null}
+						</PanelFooter>
+					}
 				>
-					{(data) => (
-						<>
-							<SkillSidebar
-								skills={loadedRows(data)}
-								selected={slug}
-								q={q}
-								draftsOnly={draftsOnly}
-								onFilter={onFilter}
-							/>
-							<CatalogListFooter
-								loaded={loadedRows(data).length}
-								total={data.pages[0]?.meta.total}
-								hasMore={query.hasNextPage}
-								loadingMore={query.isFetchingNextPage}
-								onLoadMore={() => query.fetchNextPage()}
-								data-testid="catalog-skills-list-footer"
-							/>
-						</>
-					)}
-				</Surface>
+					<div className="p-3">
+						<Surface
+							data-testid="catalog-skills-surface"
+							query={query}
+							isEmpty={(data) => loadedRows(data).length === 0}
+							loading={
+								<CatalogListSkeleton data-testid="catalog-skills-skeleton" />
+							}
+							empty={
+								<EmptyState
+									data-testid="catalog-skills-empty"
+									compact
+									icon={Sparkles}
+									title="No skills yet"
+									description="A skill is text an agent reads, or a tool its room provides. Write one, or import one from a source."
+									action={
+										<Button size="sm" variant="outline" asChild>
+											<Link
+												to="/catalog/skills"
+												search={{ view: "new" }}
+												data-testid="catalog-skills-empty-new"
+											>
+												<Plus aria-hidden="true" />
+												New skill
+											</Link>
+										</Button>
+									}
+								/>
+							}
+							error={ErrorState}
+						>
+							{(data) => (
+								<SkillSidebar
+									skills={loadedRows(data)}
+									selected={slug}
+									q={q}
+									draftsOnly={draftsOnly}
+								/>
+							)}
+						</Surface>
+					</div>
+				</DataPanel>
 			</div>
 			<div
 				data-testid="catalog-skills-detail-pane"
 				className={cn(
-					"flex min-w-0 flex-1 flex-col gap-4 lg:border-l lg:border-border lg:pl-6",
+					"flex min-w-0 flex-1 flex-col gap-4",
 					!showing && "max-lg:hidden",
 				)}
 			>
@@ -230,8 +258,8 @@ function SkillInspectorSkeleton() {
 		>
 			<Skeleton className="h-7 w-64" />
 			<Skeleton className="h-4 w-40" />
-			<Skeleton className="h-32 w-full rounded-md" />
-			<Skeleton className="h-48 w-full rounded-md" />
+			<Skeleton className="h-32 w-full rounded-card" />
+			<Skeleton className="h-48 w-full rounded-card" />
 		</div>
 	);
 }

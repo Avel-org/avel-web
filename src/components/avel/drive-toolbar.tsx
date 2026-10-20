@@ -1,7 +1,6 @@
-import { LayoutGrid, List, Search } from "lucide-react";
+import { LayoutGrid, List } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -9,8 +8,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { tabsListVariants } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { KIND } from "./drive-files";
 import { FILE_KINDS, type FileKind } from "./drive-placeholders";
+import { SearchField } from "./search-field";
 
 /*
  * The toolbar: search, kind chips, sort and the List | Grid toggle. Real
@@ -46,31 +48,20 @@ export function DriveToolbar({
 	counts: Record<FileKind, number> & { all: number };
 	testId?: string;
 }) {
-	const searchId = useId();
 	const sortId = useId();
 	return (
 		<div data-testid={testId} className="flex flex-col gap-3">
 			<div className="flex flex-wrap items-center gap-2">
-				<div className="relative min-w-48 flex-1">
-					<label htmlFor={searchId} className="sr-only">
-						Search files
-					</label>
-					<Search
-						aria-hidden="true"
-						className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-text-subtle"
-					/>
-					<Input
-						id={searchId}
-						type="search"
-						data-testid={`${testId}-search`}
-						placeholder="Search by name"
-						value={controls.q ?? ""}
-						onChange={(event) =>
-							onChange({ q: event.target.value || undefined })
-						}
-						className="h-8 pl-8"
-					/>
-				</div>
+				{/* The shared search field, as on Teams: one look for every search. */}
+				<SearchField
+					value={controls.q ?? ""}
+					onChange={(q) => onChange({ q: q || undefined })}
+					label="Search files"
+					placeholder="Search by name"
+					shortcut="/"
+					className="min-w-48 flex-1"
+					data-testid={`${testId}-search`}
+				/>
 				<div className="flex items-center gap-2">
 					<label htmlFor={sortId} className="type-caption text-text-subtle">
 						Sort
@@ -98,7 +89,7 @@ export function DriveToolbar({
 				</div>
 				<fieldset
 					data-testid={`${testId}-view`}
-					className="inline-flex items-center gap-0.5 rounded-sm border border-border p-0.5"
+					className={tabsListVariants({ variant: "default" })}
 				>
 					<legend className="sr-only">View</legend>
 					{(
@@ -109,8 +100,8 @@ export function DriveToolbar({
 					).map(([id, label, Icon]) => (
 						<Button
 							key={id}
-							size="sm"
-							variant={controls.view === id ? "secondary" : "ghost"}
+							type="button"
+							variant="segment"
 							aria-pressed={controls.view === id}
 							data-testid={`${testId}-view-${id}`}
 							onClick={() => onChange({ view: id })}
@@ -123,7 +114,7 @@ export function DriveToolbar({
 			</div>
 			<fieldset
 				data-testid={`${testId}-kinds`}
-				className="flex flex-wrap items-center gap-1"
+				className={cn(tabsListVariants({ variant: "default" }), "flex-wrap")}
 			>
 				<legend className="sr-only">Kind</legend>
 				{([undefined, ...FILE_KINDS] as const).map((kind) => {
@@ -131,17 +122,16 @@ export function DriveToolbar({
 					return (
 						<Button
 							key={kind ?? "all"}
-							size="sm"
-							variant={pressed ? "secondary" : "ghost"}
+							type="button"
+							variant="segment"
 							aria-pressed={pressed}
 							data-testid={`${testId}-kind-${kind ?? "all"}`}
 							onClick={() => onChange({ kind })}
-							className="rounded-full"
 						>
 							{kind ? KIND[kind].plural : "All"}
 							<span
 								data-testid={`${testId}-kind-${kind ?? "all"}-count`}
-								className="type-mono-small text-text-subtle tabular-nums"
+								className="type-mono text-text-subtle tabular-nums"
 							>
 								{kind ? counts[kind] : counts.all}
 							</span>

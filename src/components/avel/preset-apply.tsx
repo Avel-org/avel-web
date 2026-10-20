@@ -7,16 +7,16 @@ import {
 } from "avel-server/contract";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApiClient } from "@/lib/api";
 import { rosterQuery } from "@/lib/api/coherence";
 import type { ApiError } from "@/lib/api/errors";
 import { usePlaybook } from "@/lib/api/playbooks";
 import {
+	agentCount,
 	appliedCoherenceInput,
 	applyLabel,
+	CUT_LABEL,
 	loadedPresets,
 	missingTemplateIds,
 	useApplyPreset,
@@ -25,6 +25,7 @@ import {
 import { PRECONDITION_COPY } from "@/lib/error-map";
 import { ActionModal } from "./action-modal";
 import { type MissionListParams, missionListQuery } from "./mission-data";
+import { OptionCards } from "./option-cards";
 import { CoherenceView, useCoherenceInput } from "./playbook-coherence";
 import { agentName, fieldText } from "./preset-compare";
 import { type Names, useAllTemplates } from "./preset-detail";
@@ -32,8 +33,9 @@ import { ErrorState, Surface, type SurfaceQuery } from "./surface";
 import { useOpenGeneration } from "./use-open-generation";
 import { type Change, WhatChanges } from "./what-changes";
 
-const STEPS = ["Mission", "Preview"] as const;
-const PRESET_STEPS = ["Team", "Preview"] as const;
+// Short nouns, so v3's pills: "1 · Mission", "2 · Replace or add".
+const STEPS = ["Mission", "Replace or add"] as const;
+const PRESET_STEPS = ["Team", "Replace or add"] as const;
 
 /** What the preview reads of the mission: its roster, cut and playbook. */
 type ApplyTarget = Pick<MissionListItem, "id" | "cut" | "type">;
@@ -191,6 +193,7 @@ export function ApplyPresetSteps({
 			description={`${preset.name}, v${preset.version}: its agents become the mission's roster entries, a copy the mission can then edit.`}
 			dirty={missionId !== ""}
 			steps={STEPS}
+			stepStyle="pills"
 			step={step}
 			onBack={() => setStep(0)}
 			submitLabel={step === 0 ? "Preview" : applyLabel(n)}
@@ -227,6 +230,7 @@ export function ApplyPresetSteps({
 				<MissionPicker
 					missions={missions}
 					loading={missionsLoading}
+					rosterCount={roster.data?.length}
 					value={missionId}
 					onChange={(id) => {
 						setMissionId(id);
@@ -355,6 +359,7 @@ export function ApplyToMissionSteps({
 			description="A team's agents become this mission's roster entries, a copy the mission can then edit."
 			dirty={presetId !== ""}
 			steps={PRESET_STEPS}
+			stepStyle="pills"
 			step={step}
 			onBack={() => setStep(0)}
 			submitLabel={step === 0 ? "Preview" : applyLabel(n)}
@@ -394,6 +399,7 @@ export function ApplyToMissionSteps({
 				<PresetPicker
 					presets={presets}
 					loading={presetsLoading}
+					rosterCount={roster.data?.length}
 					error={list.status === "error"}
 					value={presetId}
 					onChange={(id) => {
@@ -419,12 +425,15 @@ export function ApplyToMissionSteps({
 function PresetPicker({
 	presets,
 	loading,
+	rosterCount,
 	error,
 	value,
 	onChange,
 }: {
 	presets: Preset[];
 	loading: boolean;
+	/** The mission's roster, once read. */
+	rosterCount: number | undefined;
 	error: boolean;
 	value: string;
 	onChange: (id: string) => void;
@@ -461,46 +470,42 @@ function PresetPicker({
 		);
 	}
 	return (
-		<fieldset className="flex flex-col gap-2">
-			<legend className="type-small font-medium text-foreground">Teams</legend>
-			<RadioGroup
-				data-testid="loadout-apply-presets"
-				value={value}
-				onValueChange={onChange}
-				className="flex flex-col gap-1"
-			>
-				{presets.map((p) => (
-					<label
-						key={p.id}
-						htmlFor={`apply-preset-${p.id}`}
-						className="flex items-center gap-3 rounded-sm border border-border px-3 py-2 has-[[data-state=checked]]:bg-state-selected"
-					>
-						<RadioGroupItem
-							id={`apply-preset-${p.id}`}
-							value={p.id}
-							data-testid={`loadout-apply-preset-${p.id}`}
-						/>
-						<span className="type-small min-w-0 flex-1 truncate text-foreground">
-							{p.name}
-						</span>
-						<span className="type-mono-small text-text-subtle">
-							{`v${p.version} · ${p.agents.length} ${p.agents.length === 1 ? "agent" : "agents"}`}
-						</span>
-					</label>
-				))}
-			</RadioGroup>
-		</fieldset>
+		<OptionCards
+			legend="Teams"
+			data-testid="loadout-apply-presets"
+			value={value}
+			onChange={onChange}
+			options={presets.map((p) => ({
+				value: p.id,
+				title: p.name,
+				meta: (
+					<>
+						<span>{CUT_LABEL[p.cut]}</span>
+						<span>{agentCount(p.agents.length)}</span>
+						<span className="type-mono">{`v${p.version}`}</span>
+					</>
+				),
+				detail:
+					p.id === value
+						? `Its ${agentCount(p.agents.length)} join this mission's roster${rosterCount ? `, which has ${agentCount(rosterCount)} now` : ""}.`
+						: undefined,
+				"data-testid": `loadout-apply-preset-${p.id}`,
+			}))}
+		/>
 	);
 }
 
 function MissionPicker({
 	missions,
 	loading,
+	rosterCount,
 	value,
 	onChange,
 }: {
 	missions: MissionListItem[];
 	loading: boolean;
+	/** The chosen mission's roster, once read. */
+	rosterCount: number | undefined;
 	value: string;
 	onChange: (id: string) => void;
 }) {
@@ -526,34 +531,33 @@ function MissionPicker({
 		);
 	}
 	return (
-		<fieldset className="flex flex-col gap-2">
-			<legend className="type-small font-medium text-foreground">
-				Draft missions
-			</legend>
-			<RadioGroup
-				data-testid="preset-apply-missions"
-				value={value}
-				onValueChange={onChange}
-				className="flex flex-col gap-1"
-			>
-				{missions.map((m) => (
-					<label
-						key={m.id}
-						htmlFor={`apply-${m.id}`}
-						className="flex items-center gap-3 rounded-sm border border-border px-3 py-2 has-[[data-state=checked]]:bg-state-selected"
-					>
-						<RadioGroupItem
-							id={`apply-${m.id}`}
-							value={m.id}
-							data-testid={`preset-apply-mission-${m.id}`}
-						/>
-						<span className="type-small min-w-0 flex-1 truncate text-foreground">
-							{missionLabel(m)}
-						</span>
-					</label>
-				))}
-			</RadioGroup>
-		</fieldset>
+		<OptionCards
+			legend="Draft missions"
+			data-testid="preset-apply-missions"
+			value={value}
+			onChange={onChange}
+			options={missions.map((m) => ({
+				value: m.id,
+				title: m.type,
+				meta: (
+					<>
+						<span>{m.client ? m.client.name : "Internal"}</span>
+						<span>{`Sprint ${m.sprintN}`}</span>
+						<span>{CUT_LABEL[m.cut]}</span>
+					</>
+				),
+				// The list carries no roster count: it is read for the one chosen.
+				detail:
+					m.id === value
+						? rosterCount === undefined
+							? "Reading its roster."
+							: rosterCount === 0
+								? "Its roster is empty: the team's agents will be its first."
+								: `Its roster has ${agentCount(rosterCount)}. Next, choose to replace them.`
+						: undefined,
+				"data-testid": `preset-apply-mission-${m.id}`,
+			}))}
+		/>
 	);
 }
 
@@ -578,23 +582,39 @@ function Preview({
 	const { before, after, missing } = useCoherencePair(mission, preset, replace);
 	return (
 		<div className="flex flex-col gap-4">
-			{occupied ? (
-				<label
-					data-testid="preset-apply-replace"
-					htmlFor="preset-apply-replace-box"
-					className="flex items-start gap-3 rounded-sm border border-gate-warn-line bg-gate-warn-soft px-3 py-2"
-				>
-					<Checkbox
-						id="preset-apply-replace-box"
-						checked={replace}
-						onCheckedChange={(checked) => onReplace(checked === true)}
-						data-testid="preset-apply-replace-box"
-					/>
-					<span className="type-small text-foreground">
-						{`Replace the ${rosterCount} ${rosterCount === 1 ? "agent" : "agents"} already on this roster. They are removed, and this can't be undone.`}
-					</span>
-				</label>
-			) : null}
+			{/* A team applies only to an empty roster (422 roster_not_empty),
+			    so Add is offered only there, and Replace only where there is
+			    something to replace. Replace is never chosen for the operator. */}
+			<div data-testid={occupied ? "preset-apply-replace" : "preset-apply-add"}>
+				<OptionCards
+					legend="Replace or add"
+					data-testid="preset-apply-mode"
+					columns={2}
+					value={occupied ? (replace ? "replace" : "") : "add"}
+					onChange={(mode) => onReplace(mode === "replace")}
+					options={[
+						{
+							value: "add",
+							title: "Add to the roster",
+							detail: `The team's ${agentCount(preset.agents.length)} become the roster's entries.`,
+							disabledReason: occupied
+								? `${PRECONDITION_COPY.roster_not_empty.what} A team applies only to an empty roster.`
+								: undefined,
+							"data-testid": "preset-apply-add-box",
+						},
+						{
+							value: "replace",
+							title: "Replace the roster",
+							detail: `The ${agentCount(rosterCount)} on it now are removed, then the team's ${agentCount(preset.agents.length)} are added. This can't be undone.`,
+							irreversible: true,
+							disabledReason: occupied
+								? undefined
+								: "The roster is empty: there is nothing to replace.",
+							"data-testid": "preset-apply-replace-box",
+						},
+					]}
+				/>
+			</div>
 			<div className="grid gap-4 md:grid-cols-2">
 				<section
 					data-testid="preset-apply-before"

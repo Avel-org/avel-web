@@ -51,7 +51,7 @@ export function SkillDiscover() {
 			className="flex flex-col gap-4 pb-6"
 		>
 			<header className="flex flex-col gap-1">
-				<h2 id="discover-title" className="type-h2 text-foreground">
+				<h2 id="discover-title" className="type-page text-foreground">
 					Discover
 				</h2>
 				<p className="type-body text-text-muted">
@@ -145,7 +145,7 @@ function DiscoverIndex({
 									</span>
 									<Badge variant="outline">{source.kind}</Badge>
 								</h3>
-								<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-sm border border-border bg-app-band">
+								<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-control border border-border bg-app-band">
 									{rows.map((entry) => (
 										<RegistryEntryRow key={entry.id} entry={entry} />
 									))}
@@ -171,7 +171,7 @@ function RegistryEntryRow({ entry }: { entry: SampleRegistryEntry }) {
 				<span className="type-small font-medium text-foreground">
 					{entry.name}
 				</span>
-				<span className="type-mono-small truncate text-text-subtle">
+				<span className="type-mono truncate text-text-subtle">
 					{entry.path}
 				</span>
 				<span className="type-caption text-text-muted">

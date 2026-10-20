@@ -13,7 +13,9 @@ import {
 	planAnchor,
 	useMissionPlan,
 } from "@/lib/api/mission-plans";
+import { PanelFooter } from "./panel-footer";
 import { blockCopy, useCoherence, warningCopy } from "./playbook-coherence";
+import { SectionPanel } from "./section-panel";
 import { Surface, type SurfaceQuery } from "./surface";
 
 /** What stands between the mission and shipping, one row each. */
@@ -137,14 +139,11 @@ function UnblockBody({
 					}
 				: { status: "pending" };
 	return (
-		<section
-			aria-label="What unblocks shipping"
+		<SectionPanel
+			title="What unblocks shipping"
 			data-testid="unblock-card"
-			className="plate flex flex-col gap-3 rounded-md border p-4"
+			footer={<PanelFooter data-testid="unblock-read-age" queries={[plan]} />}
 		>
-			<h2 className="type-panel-title text-foreground">
-				What unblocks shipping
-			</h2>
 			<Surface
 				data-testid="unblock-rows"
 				query={query}
@@ -212,6 +211,6 @@ function UnblockBody({
 					</ul>
 				)}
 			</Surface>
-		</section>
+		</SectionPanel>
 	);
 }

@@ -12,12 +12,19 @@ import {
 	useMissionDispatches,
 	useMissionReports,
 } from "@/lib/api/dispatches";
-import { useApiClient } from "@/lib/api/provider";
+import { QUERY_STALE_MS, useApiClient } from "@/lib/api/provider";
 import { CompletionReportView, type DispatchAgent } from "./completion-report";
-import { DispatchBoard, type RenderControls } from "./dispatch-board";
+import {
+	DispatchBoard,
+	DispatchCardSkeleton,
+	type RenderControls,
+	type RenderEvidence,
+} from "./dispatch-board";
 import { DispatchControlsLive } from "./dispatch-controls";
+import { DispatchEvidence } from "./dispatch-evidence";
 import { NewDispatch } from "./dispatch-new";
 import { missionDetailQuery } from "./mission-data";
+import { ReadAge } from "./read-age";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, Surface } from "./surface";
 
@@ -75,6 +82,14 @@ export function MissionDispatches({
 	const renderReport = (dispatch: Dispatch) => (
 		<DispatchReport dispatch={dispatch} byId={byId} producers={producers} />
 	);
+	// A closed card leads with its evidence once its report is in the list.
+	const renderEvidence: RenderEvidence = (dispatch) => {
+		const report =
+			dispatch.reportId === null ? undefined : byId.get(dispatch.reportId);
+		return report ? (
+			<DispatchEvidence dispatch={dispatch} report={report} />
+		) : null;
+	};
 	// Only an active mission's dispatches start or halt one by one; a
 	// halted mission has already stopped its running ones.
 	const renderControls: RenderControls | undefined =
@@ -88,16 +103,32 @@ export function MissionDispatches({
 		<SectionPanel
 			title="Dispatches"
 			data-testid="mission-section-dispatches"
+			count={dispatches.data?.length}
 			actions={<NewDispatch mission={mission} />}
+			footer={
+				// How fresh the board is: polling while a dispatch waits or runs,
+				// then final (audit F1).
+				dispatches.status === "success" ? (
+					<ReadAge
+						readAt={dispatches.dataUpdatedAt}
+						staleAfterMs={QUERY_STALE_MS}
+						onRefresh={() => {
+							dispatches.refetch();
+						}}
+						refreshing={dispatches.isFetching}
+						polling={moving ? "polling" : "final"}
+						data-testid="mission-dispatches-read-age"
+					/>
+				) : undefined
+			}
 		>
 			<Surface
 				data-testid="mission-dispatches"
 				query={dispatches}
 				loading={
-					<div className="grid gap-4 lg:grid-cols-3">
-						<Skeleton className="h-32 w-full" />
-						<Skeleton className="h-32 w-full" />
-						<Skeleton className="h-32 w-full" />
+					<div className="flex flex-col gap-2">
+						<DispatchCardSkeleton />
+						<DispatchCardSkeleton />
 					</div>
 				}
 				empty={
@@ -118,6 +149,7 @@ export function MissionDispatches({
 						now={now}
 						renderReport={renderReport}
 						renderControls={renderControls}
+						renderEvidence={renderEvidence}
 					/>
 				)}
 			</Surface>

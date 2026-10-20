@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import type {
-	ExportStatus,
 	MissionDetail,
 	needsYouReason,
 	RosterEntry,
@@ -14,6 +13,14 @@ import type { ApiError } from "@/lib/api/errors";
 import { entryName, useRoster, waveTitle } from "@/lib/api/roster";
 import { cn } from "@/lib/utils";
 import { MissionSpendBar } from "./dispatch-budget";
+import { FindingsPanel } from "./findings-panel";
+import { GatePanel } from "./gate-panel";
+import {
+	EXPORT_LIFECYCLE,
+	EXPORT_STATUS_LABEL,
+	Lifecycle,
+	MISSION_LIFECYCLE,
+} from "./lifecycle";
 import { ClientName, MissionStatusPill } from "./mission-columns";
 import { useMission } from "./mission-data";
 import { Brief, RecentActivity } from "./mission-details";
@@ -21,10 +28,8 @@ import { MissionDispatches } from "./mission-dispatches";
 import { MissionRowsSkeleton } from "./mission-panels";
 import {
 	MISSING_ROUTE,
-	type SampleStageState,
 	sampleExports,
 	sampleHaltReason,
-	sampleStages,
 } from "./mission-placeholders";
 import { ORIGIN_LABEL } from "./mission-search";
 import { MissionStartLive } from "./mission-start";
@@ -34,6 +39,7 @@ import {
 	quietDays,
 	quietText,
 } from "./mission-watch";
+import { PanelFooter } from "./panel-footer";
 import { PlanLink } from "./plan-page";
 import { PlanReadiness } from "./plan-readiness";
 import { UnblockCard } from "./plan-unblock";
@@ -113,91 +119,11 @@ export function nowBanner(mission: MissionDetail, now: number): Now | null {
 	return null;
 }
 
-/** Where a stage stands, in a glyph and a word. */
-export type StageState =
-	| "done"
-	| "current"
-	| "waiting-on-you"
-	| "not-started"
-	| "failed"
-	| "closed";
-
-const STAGE: Record<StageState, { tone: StatusTone; label: string }> = {
-	done: { tone: "pass", label: "Done" },
-	current: { tone: "pending", label: "In progress" },
-	"waiting-on-you": { tone: "warn", label: "Waiting on you" },
-	"not-started": { tone: "stale", label: "Not started" },
-	failed: { tone: "block", label: "Failed" },
-	closed: { tone: "stale", label: "Closed" },
-};
-
-/**
- * Verify and Ship, read from the real last export's status. Keyed on the
- * contract's union, so a new status fails the build until it is placed.
- */
-export const DELIVERY_STAGES = {
-	pending: { verify: "not-started", ship: "not-started" },
-	rendering: { verify: "current", ship: "not-started" },
-	verifying: { verify: "current", ship: "not-started" },
-	previewing: { verify: "current", ship: "not-started" },
-	previewed: { verify: "waiting-on-you", ship: "not-started" },
-	delivering: { verify: "done", ship: "current" },
-	"pr-open": { verify: "done", ship: "waiting-on-you" },
-	done: { verify: "done", ship: "done" },
-	closed: { verify: "done", ship: "closed" },
-	failed: { verify: "failed", ship: "not-started" },
-} as const satisfies Record<
-	ExportStatus,
-	{ verify: StageState; ship: StageState }
->;
-
-export function deliveryStages(status: ExportStatus | undefined): {
-	verify: StageState;
-	ship: StageState;
-} {
-	return status
-		? DELIVERY_STAGES[status]
-		: { verify: "not-started", ship: "not-started" };
-}
-
 // ---------------------------------------------------------------------------
 // Pieces.
 
 // The sample pill lives in sample-data.tsx, shared with the catalog pages.
 export { SampleData };
-
-/** A sample stage in the track's words: "waiting" is "not started". */
-const fromSample = (state: SampleStageState): StageState =>
-	state === "waiting" ? "not-started" : state;
-
-function Stage({ name, state }: { name: string; state: StageState }) {
-	const { tone, label } = STAGE[state];
-	return (
-		<li
-			data-testid={`mission-stage-${name.toLowerCase()}`}
-			data-state={state}
-			className="flex min-w-0 flex-1 flex-col gap-1"
-		>
-			<span
-				className={cn(
-					"h-1 rounded-full",
-					state === "done"
-						? "bg-gate-pass"
-						: state === "failed"
-							? "bg-gate-block"
-							: state === "current" || state === "waiting-on-you"
-								? "bg-accent"
-								: "bg-border-strong",
-				)}
-			/>
-			<span className="type-small font-medium text-foreground">{name}</span>
-			<span className="inline-flex items-center gap-1 type-caption text-text-muted">
-				<StatusGlyph tone={tone} />
-				{label}
-			</span>
-		</li>
-	);
-}
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
 	return (
@@ -256,89 +182,111 @@ function MissionContent({
 	mission: MissionDetail;
 	now: number;
 }) {
+	// The page's own read, shared by key: the footers of the panels drawn
+	// from the mission's record say when it was read.
+	const record = useMission(mission.id);
+	const readAge = (testId: string) => (
+		<PanelFooter data-testid={testId} queries={[record]} />
+	);
+	// The dashboard's two stacks (missions-dashboard.tsx): the mission and its
+	// work in the main 8 columns, its facts in the side 4. On a phone they
+	// stack, main first.
 	return (
-		<div data-testid="mission-page-content" className="flex flex-col gap-4">
-			<Header mission={mission} />
-			<NowBanner mission={mission} now={now} />
-			<UnblockCard mission={mission} />
-			<ProgressTrack mission={mission} />
-			<MissionDispatches mission={mission} now={now} />
-			<div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-				<div className="flex min-w-0 flex-col gap-4">
-					<Exports mission={mission} now={now} />
-					<SectionPanel
-						title="Activity"
-						data-testid="mission-section-activity-page"
-						actions={
-							<Button
-								variant="ghost"
-								size="sm"
-								data-testid="mission-activity-full-log"
-								disabledReason="Needs per-mission activity paging"
+		<div
+			data-testid="mission-page-content"
+			className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start"
+		>
+			<div
+				data-testid="mission-page-main"
+				className="flex min-w-0 flex-col gap-4 lg:col-span-8"
+			>
+				<Header mission={mission} now={now} />
+				<UnblockCard mission={mission} />
+				{/* Module 9: the gate's runs, then the findings it raised. */}
+				<GatePanel missionId={mission.id} />
+				<FindingsPanel missionId={mission.id} />
+				<MissionDispatches mission={mission} now={now} />
+				<SectionPanel
+					title="Brief"
+					data-testid="mission-section-brief-page"
+					actions={<PlanLink missionId={mission.id} />}
+				>
+					<PlanReadiness missionId={mission.id} compact />
+					<Brief brief={mission.brief} />
+				</SectionPanel>
+			</div>
+			<div
+				data-testid="mission-page-side"
+				className="flex min-w-0 flex-col gap-4 lg:col-span-4"
+			>
+				<Spend mission={mission} />
+				<Team mission={mission} />
+				<SectionPanel
+					title="Playbook"
+					data-testid="mission-section-playbook-page"
+					actions={
+						// Always: the mission's playbook page also shows its template
+						// and says so when no playbook matches.
+						<Button asChild variant="ghost" size="sm">
+							<Link
+								to="/missions/$id/playbook"
+								params={{ id: mission.id }}
+								data-testid="mission-playbook-open"
 							>
-								Full log
-							</Button>
-						}
-					>
-						<RecentActivity mission={mission} now={now} />
-					</SectionPanel>
-				</div>
-				<div className="flex min-w-0 flex-col gap-4">
-					<Repository mission={mission} />
-					<Team mission={mission} />
-					<SectionPanel
-						title="Playbook"
-						data-testid="mission-section-playbook-page"
-						actions={
-							// Always: the mission's playbook page also shows its template
-							// and says so when no playbook matches.
-							<Button asChild variant="ghost" size="sm">
-								<Link
-									to="/missions/$id/playbook"
-									params={{ id: mission.id }}
-									data-testid="mission-playbook-open"
-								>
-									Open
-									<ArrowUpRight aria-hidden="true" />
-								</Link>
-							</Button>
-						}
-					>
-						{mission.playbook ? (
-							<dl className="flex flex-col gap-2">
-								<Field label="Name">{mission.playbook.name}</Field>
-								<Field label="Mission type">
-									<span className="type-mono-small">
-										{mission.playbook.missionType}
-									</span>
-								</Field>
-							</dl>
-						) : (
-							<p className="type-small text-text-subtle">
-								No live playbook for this mission type.
-							</p>
-						)}
-					</SectionPanel>
-					<Spend mission={mission} />
-					<SectionPanel
-						title="Brief"
-						data-testid="mission-section-brief-page"
-						actions={<PlanLink missionId={mission.id} />}
-					>
-						<PlanReadiness missionId={mission.id} compact />
-						<Brief brief={mission.brief} />
-					</SectionPanel>
-				</div>
+								Open
+								<ArrowUpRight aria-hidden="true" />
+							</Link>
+						</Button>
+					}
+				>
+					{mission.playbook ? (
+						<dl className="flex flex-col gap-2">
+							<Field label="Name">{mission.playbook.name}</Field>
+							<Field label="Mission type">
+								<span className="type-mono">
+									{mission.playbook.missionType}
+								</span>
+							</Field>
+						</dl>
+					) : (
+						<p className="type-small text-text-subtle">
+							No live playbook for this mission type.
+						</p>
+					)}
+				</SectionPanel>
+				<Repository mission={mission} />
+				<Exports
+					mission={mission}
+					now={now}
+					footer={readAge("mission-exports-read-age")}
+				/>
+				<SectionPanel
+					title="Activity"
+					data-testid="mission-section-activity-page"
+					footer={readAge("mission-activity-read-age")}
+					actions={
+						<Button
+							variant="ghost"
+							size="sm"
+							data-testid="mission-activity-full-log"
+							disabledReason="Needs per-mission activity paging"
+						>
+							Full log
+						</Button>
+					}
+				>
+					<RecentActivity mission={mission} now={now} />
+				</SectionPanel>
 			</div>
 		</div>
 	);
 }
 
-function Header({ mission }: { mission: MissionDetail }) {
+function Header({ mission, now }: { mission: MissionDetail; now: number }) {
 	return (
 		<header
 			data-testid="mission-page-header"
-			className="plate flex flex-col gap-3 rounded-md p-4"
+			className="flex flex-col gap-3 p-4 rounded-card border border-border bg-app-panel shadow-card"
 		>
 			<div className="flex flex-wrap items-center gap-2">
 				<MissionStatusPill status={mission.status} />
@@ -351,7 +299,14 @@ function Header({ mission }: { mission: MissionDetail }) {
 					<span className="type-caption text-text-subtle">Mission id</span>
 				</HiddenId>
 			</div>
-			<p className="flex flex-wrap items-center gap-x-2 type-h2 text-foreground">
+			<Lifecycle
+				spec={MISSION_LIFECYCLE}
+				current={mission.status}
+				label="Mission lifecycle"
+				data-testid="mission-lifecycle"
+			/>
+			<NowBanner mission={mission} now={now} />
+			<p className="flex flex-wrap items-center gap-x-2 type-page text-foreground">
 				{mission.client ? (
 					<>
 						<ClientName mission={mission} />
@@ -367,10 +322,10 @@ function Header({ mission }: { mission: MissionDetail }) {
 			</p>
 			<dl className="flex flex-wrap gap-x-6 gap-y-2">
 				<Field label="Type">
-					<span className="type-mono-small">{mission.type}</span>
+					<span className="type-mono">{mission.type}</span>
 				</Field>
 				<Field label="Sprint">
-					<span className="type-mono-small">{mission.sprintN}</span>
+					<span className="type-mono">{mission.sprintN}</span>
 				</Field>
 				<Field label="Origin">{ORIGIN_LABEL[mission.origin]}</Field>
 			</dl>
@@ -380,24 +335,52 @@ function Header({ mission }: { mission: MissionDetail }) {
 	);
 }
 
+const NOW_TONE = {
+	"needs-you": "warn",
+	halted: "block",
+	"in-flight": "pending",
+	quiet: "pending",
+} as const satisfies Record<Now["kind"], StatusTone>;
+
+const NOW_TEXT = {
+	"needs-you": "text-gate-warn",
+	halted: "text-gate-block",
+	"in-flight": "text-gate-pending",
+	quiet: "text-text-subtle",
+} as const satisfies Record<Now["kind"], string>;
+
 function NowBanner({ mission, now }: { mission: MissionDetail; now: number }) {
 	const banner = nowBanner(mission, now);
 	if (!banner) return null;
+	// A slim v3 .banner inside the header, under the lifecycle. Only the
+	// operator's turn warns and a halt blocks; a delivery moving or a quiet
+	// mission is news, not a warning, so it stays neutral.
 	return (
 		<section
 			aria-label="Now"
 			data-testid="mission-now"
 			data-kind={banner.kind}
 			className={cn(
-				"flex flex-wrap items-center gap-3 rounded-md border px-4 py-3",
+				"flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-control border px-3 py-2",
 				banner.kind === "needs-you"
-					? "border-gate-warn-line bg-gate-warn-soft"
+					? "border-gate-warn-line bg-gate-warn-banner"
 					: banner.kind === "halted"
 						? "border-gate-block-line bg-gate-block-soft"
-						: "border-border bg-card",
+						: "border-border bg-app-band",
 			)}
 		>
-			<span className="type-body font-medium text-foreground">
+			<StatusGlyph
+				tone={NOW_TONE[banner.kind]}
+				className={NOW_TEXT[banner.kind]}
+			/>
+			<span
+				className={cn(
+					"type-small",
+					banner.kind === "needs-you" || banner.kind === "halted"
+						? "font-medium text-foreground"
+						: "text-text-muted",
+				)}
+			>
 				{banner.text}
 			</span>
 			{banner.kind === "halted" ? (
@@ -412,74 +395,67 @@ function NowBanner({ mission, now }: { mission: MissionDetail; now: number }) {
 				</span>
 			) : null}
 			{banner.kind === "needs-you" ? (
-				<Button
-					size="sm"
-					className="ml-auto"
-					data-testid="mission-now-open-export"
-					disabledReason="Needs the export routes"
+				// v3 UX 7: the action sits at the end, or wraps under the text on
+				// a phone, aligned right.
+				<div
+					data-testid="mission-now-actions"
+					className="ml-auto flex shrink-0 items-center gap-2.5 max-sm:basis-full max-sm:justify-end"
 				>
-					Open export
-				</Button>
+					<Button
+						size="sm"
+						data-testid="mission-now-open-export"
+						disabledReason="Needs the export routes"
+					>
+						Open export
+					</Button>
+				</div>
 			) : null}
 		</section>
 	);
 }
 
-function ProgressTrack({ mission }: { mission: MissionDetail }) {
-	const early = sampleStages(mission.id, mission.lastExport !== null);
-	const late = deliveryStages(mission.lastExport?.status);
-	return (
-		<section
-			aria-label="Progress"
-			data-testid="mission-progress"
-			className="plate flex flex-col gap-3 rounded-md p-4 md:flex-row md:items-start"
-		>
-			<div
-				data-testid="mission-progress-early"
-				className="flex min-w-0 flex-[3] flex-col gap-2 rounded-sm border border-dashed border-border p-2"
-			>
-				<SampleData missing={MISSING_ROUTE.stages} />
-				<ol className="flex gap-3">
-					<Stage name="Plan" state={fromSample(early.plan)} />
-					<Stage name="Assemble" state={fromSample(early.assemble)} />
-					<Stage name="Execute" state={fromSample(early.execute)} />
-				</ol>
-			</div>
-			<div
-				data-testid="mission-progress-delivery"
-				className="flex min-w-0 flex-[2] p-2"
-			>
-				<ol className="flex w-full gap-3">
-					<Stage name="Verify" state={late.verify} />
-					<Stage name="Ship" state={late.ship} />
-				</ol>
-			</div>
-		</section>
-	);
-}
-
-function Exports({ mission, now }: { mission: MissionDetail; now: number }) {
+function Exports({
+	mission,
+	now,
+	footer,
+}: {
+	mission: MissionDetail;
+	now: number;
+	footer: ReactNode;
+}) {
 	const last = mission.lastExport;
 	return (
-		<SectionPanel title="Exports" data-testid="mission-section-exports">
+		<SectionPanel
+			title="Exports"
+			data-testid="mission-section-exports"
+			footer={footer}
+		>
 			{/* The newest export is real: the contract's lastExport. */}
 			<ul className="flex flex-col">
 				{last ? (
 					<li
 						data-testid="mission-export-latest"
-						className="flex flex-wrap items-center gap-3 py-2"
+						className="flex flex-col gap-3 py-2"
 					>
-						<StatusPill
-							size="sm"
-							tone={exportStatusTone(last.status)}
-							label={last.status}
+						<span className="flex flex-wrap items-center gap-3">
+							<StatusPill
+								size="sm"
+								tone={exportStatusTone(last.status)}
+								label={EXPORT_STATUS_LABEL[last.status]}
+							/>
+							<span className="type-mono text-text-subtle">
+								{last.targetKind}
+							</span>
+							<span className="type-caption text-text-muted">
+								{`In ${last.status} for ${shortDuration(now - Date.parse(last.statusChangedAt))}`}
+							</span>
+						</span>
+						<Lifecycle
+							spec={EXPORT_LIFECYCLE}
+							current={last.status}
+							label="Export lifecycle"
+							data-testid="mission-export-lifecycle"
 						/>
-						<span className="type-mono-small text-text-subtle">
-							{last.targetKind}
-						</span>
-						<span className="type-caption text-text-muted">
-							{`In ${last.status} for ${shortDuration(now - Date.parse(last.statusChangedAt))}`}
-						</span>
 					</li>
 				) : (
 					<li className="py-2 type-small text-text-subtle">No export yet.</li>
@@ -487,7 +463,7 @@ function Exports({ mission, now }: { mission: MissionDetail; now: number }) {
 			</ul>
 			<div
 				data-testid="mission-exports-earlier"
-				className="mt-3 flex flex-col gap-2 rounded-sm border border-dashed border-border p-2"
+				className="mt-3 flex flex-col gap-2 rounded-control border border-dashed border-border p-2"
 			>
 				<SampleData missing={MISSING_ROUTE.exports} />
 				<ul className="flex flex-col divide-y divide-border">
@@ -502,7 +478,7 @@ function Exports({ mission, now }: { mission: MissionDetail; now: number }) {
 								tone={exportStatusTone(sample.status)}
 								label={sample.status}
 							/>
-							<span className="type-mono-small text-text-subtle">
+							<span className="type-mono text-text-subtle">
 								{sample.targetKind}
 							</span>
 							<span className="type-caption text-text-muted">
@@ -542,13 +518,13 @@ function Repository({ mission }: { mission: MissionDetail }) {
 						href={mission.repoUrl}
 						target="_blank"
 						rel="noreferrer"
-						className="type-mono-small break-all text-accent-text underline-offset-4 hover:underline"
+						className="py-1.5 -my-1.5 type-mono break-all text-accent-text underline-offset-4 hover:underline"
 					>
 						{mission.repoUrl}
 					</a>
 				</Field>
 				<Field label="Cut">
-					<span className="type-mono-small">{mission.cut}</span>
+					<span className="type-mono">{mission.cut}</span>
 					<span className="text-text-subtle">{` (${mission.cutSource})`}</span>
 				</Field>
 				{mission.cutRationale ? (
@@ -567,6 +543,8 @@ function Team({ mission }: { mission: MissionDetail }) {
 		<SectionPanel
 			title="Team"
 			data-testid="mission-section-team"
+			// Mounted with the list, so an empty team starts no roster read.
+			footer={agents > 0 ? <RosterReadAge missionId={mission.id} /> : undefined}
 			actions={
 				// The roster is built on the loadout screen; the overview links there.
 				<Button asChild variant="ghost" size="sm">
@@ -596,6 +574,12 @@ function Team({ mission }: { mission: MissionDetail }) {
  * an empty team starts no read. The loadout's own cache entry, so an edit
  * there shows here at once.
  */
+/** The read age of the roster the Team list reads: the same cache entry. */
+function RosterReadAge({ missionId }: { missionId: string }) {
+	const roster = useRoster(missionId);
+	return <PanelFooter data-testid="mission-team-read-age" queries={[roster]} />;
+}
+
 function TeamRoster({ missionId }: { missionId: string }) {
 	const roster = useRoster(missionId);
 	return (
@@ -636,7 +620,7 @@ export function TeamEntries({ entries }: { entries: readonly RosterEntry[] }) {
 					<span className="flex shrink-0 items-center gap-2">
 						{entry.waves.length > 0 ? (
 							<span
-								className="type-mono-small text-text-subtle"
+								className="type-mono text-text-subtle"
 								title={entry.waves.map(waveTitle).join(", ")}
 							>
 								{entry.waves.join(" ")}

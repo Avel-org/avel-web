@@ -24,7 +24,6 @@ import {
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { InlineModals } from "@/components/avel/action-modal";
-import { missionKeys } from "@/components/avel/mission-data";
 import { GATE_DOCS } from "@/components/avel/playbook-gate-docs";
 import {
 	fieldCheck,
@@ -354,9 +353,12 @@ function everything(p: Preset, missions: MissionListItem[] = [ITEM]): Seed[] {
 		),
 		set(queryKeys.roster.template(ATLAS.id), ATLAS),
 		set(queryKeys.roster.template(NEMI.id), NEMI),
-		set(missionKeys.list(listParams("client") as never), pages([])),
-		set(missionKeys.list(listParams("internal") as never), pages(missions)),
-		set(missionKeys.detail(ITEM.id), DETAIL),
+		set(queryKeys.missions.list(listParams("client") as never), pages([])),
+		set(
+			queryKeys.missions.list(listParams("internal") as never),
+			pages(missions),
+		),
+		set(queryKeys.missions.detail(ITEM.id), DETAIL),
 		set(queryKeys.missionPlans.detail(ITEM.id), plan(null)),
 		set(queryKeys.roster.list(ITEM.id), [ENTRY]),
 	];

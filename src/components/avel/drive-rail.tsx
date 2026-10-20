@@ -5,7 +5,8 @@ import {
 	HardDrive,
 	Users,
 } from "lucide-react";
-import { useId } from "react";
+import { useId, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
 	Select,
 	SelectContent,
@@ -37,7 +38,7 @@ type FolderItem = {
 };
 
 /** Every folder, in rail order. */
-export function folderItems(): FolderItem[] {
+function folderItems(): FolderItem[] {
 	const items: FolderItem[] = [
 		{ value: undefined, label: "All files", depth: 0, folder: { kind: "all" } },
 		{
@@ -75,12 +76,18 @@ export function FolderRail({
 	files,
 	current,
 	onChange,
+	holding = false,
+	onDropFile,
 }: {
 	files: readonly SampleFile[];
 	current: string | undefined;
 	onChange: (folder: string | undefined) => void;
+	/** A file is held: every folder but All files takes it. */
+	holding?: boolean;
+	onDropFile?: (folder: string) => void;
 }) {
 	const items = folderItems();
+	const [over, setOver] = useState<string | null>(null);
 	return (
 		<nav
 			aria-label="Folders"
@@ -89,6 +96,9 @@ export function FolderRail({
 		>
 			{items.map((item, i) => {
 				const selected = item.value === current;
+				// All files is every folder at once, not a place a file can go.
+				const target = holding && item.value !== undefined;
+				const hovered = target && over === item.value;
 				const Icon =
 					item.folder.kind === "all"
 						? HardDrive
@@ -108,14 +118,33 @@ export function FolderRail({
 							type="button"
 							data-testid={`drive-folder-${item.value ?? "all"}`}
 							aria-current={selected ? "true" : undefined}
+							data-target={target || undefined}
+							data-over={hovered || undefined}
 							onClick={() => onChange(item.value)}
+							onDragOver={(event) => {
+								if (!target) return;
+								event.preventDefault();
+								event.dataTransfer.dropEffect = "move";
+								setOver(item.value ?? null);
+							}}
+							onDragLeave={() => setOver(null)}
+							onDrop={(event) => {
+								if (!target || item.value === undefined) return;
+								event.preventDefault();
+								setOver(null);
+								onDropFile?.(item.value);
+							}}
 							className={cn(
-								"focus-inset relative flex w-full items-center gap-2 rounded-sm py-1.5 pr-2 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover",
+								"focus-inset relative flex w-full items-center gap-2 rounded-control py-1.5 pr-2 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised",
 								item.depth === 0 && "pl-2",
 								item.depth === 1 && "pl-3",
 								item.depth === 2 && "pl-8",
 								selected &&
-									"bg-state-selected before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent hover:bg-state-selected",
+									"bg-selected before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent hover:bg-selected",
+								// While a file is held each folder is a target, dashed;
+								// the one under it takes the lanes' drop state.
+								target && "outline-1 outline-border-strong outline-dashed",
+								hovered && "bg-selected outline-selected-border outline-solid",
 							)}
 						>
 							{item.depth === 2 ? (
@@ -140,12 +169,12 @@ export function FolderRail({
 							>
 								{item.label}
 							</span>
-							<span
+							<Badge
+								variant="count"
 								data-testid={`drive-folder-count-${item.value ?? "all"}`}
-								className="type-mono-small text-text-subtle tabular-nums"
 							>
 								{countIn(files, item.folder)}
-							</span>
+							</Badge>
 						</button>
 					</div>
 				);
@@ -161,9 +190,16 @@ const ALL = "all";
 export function FolderSelect({
 	current,
 	onChange,
+	fieldLabel = "Folder",
+	visibleLabel = false,
+	"data-testid": testId = "drive-folder-select",
 }: {
 	current: string | undefined;
 	onChange: (folder: string | undefined) => void;
+	/** What the select is for: "Folder", or "Move to" in a file's panel. */
+	fieldLabel?: string;
+	visibleLabel?: boolean;
+	"data-testid"?: string;
 }) {
 	const id = useId();
 	const items = folderItems();
@@ -171,19 +207,17 @@ export function FolderSelect({
 		items.find((item) => item.value === current)?.label ?? "All files";
 	return (
 		<div className="flex items-center gap-2">
-			<label htmlFor={id} className="sr-only">
-				Folder
+			<label
+				htmlFor={id}
+				className={visibleLabel ? "type-caption text-text-subtle" : "sr-only"}
+			>
+				{fieldLabel}
 			</label>
 			<Select
 				value={current ?? ALL}
 				onValueChange={(next) => onChange(next === ALL ? undefined : next)}
 			>
-				<SelectTrigger
-					id={id}
-					size="sm"
-					data-testid="drive-folder-select"
-					className="w-52"
-				>
+				<SelectTrigger id={id} size="sm" data-testid={testId} className="w-52">
 					<SelectValue>{label}</SelectValue>
 				</SelectTrigger>
 				<SelectContent>

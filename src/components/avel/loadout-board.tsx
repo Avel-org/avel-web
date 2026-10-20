@@ -19,6 +19,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { tabsListVariants } from "@/components/ui/tabs";
 import type { ApiError } from "@/lib/api";
 import { adjacentWave, isRosterable, moveWave } from "@/lib/api/presets";
 import {
@@ -35,7 +36,6 @@ import { describeError, PRECONDITION_COPY } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
 import { HoverCard } from "./hover-card";
 import { focusParam } from "./loadout-coherence";
-import { territoryTone } from "./preset-board";
 import type { AllTemplates } from "./preset-detail";
 import { useFlip } from "./preset-flip";
 
@@ -265,7 +265,7 @@ export function LoadoutBoard({
 					<div
 						role="alert"
 						data-testid="loadout-board-failure"
-						className="flex flex-wrap items-center gap-2 rounded-md border border-gate-block-line bg-gate-block-soft px-3 py-2"
+						className="flex flex-wrap items-center gap-2 rounded-card border border-gate-block-line bg-gate-block-soft px-3 py-2"
 					>
 						<p className="type-small mr-auto text-foreground">
 							{`${copy.what} ${copy.next}`}
@@ -418,19 +418,19 @@ function WaveColumn({
 			onDragLeave={() => setOver(false)}
 			onDrop={drop}
 			className={cn(
-				"plate flex min-h-48 min-w-0 flex-col gap-1.5 rounded-md border p-2 transition-colors duration-(--duration-micro) ease-avel",
-				over && "border-accent",
-				held?.at === wave && "bg-state-selected",
+				"flex min-h-48 min-w-0 flex-col gap-1.5 p-2 transition-colors duration-(--duration-micro) ease-avel rounded-card border border-border bg-app-panel shadow-card",
+				over && "border-selected-border",
+				held?.at === wave && "bg-selected",
 				blocked && "border-gate-block-line bg-gate-block-soft",
 			)}
 		>
 			<h3 className="flex items-baseline justify-between gap-1">
-				<span className="type-mono-small text-foreground">{wave}</span>
+				<span className="type-mono text-foreground">{wave}</span>
 				<span className="type-caption min-w-0 flex-1 truncate text-text-subtle">
 					{WAVE_NAME[wave]}
 				</span>
 				<span
-					className="type-mono-small tabular-nums text-text-subtle"
+					className="type-mono tabular-nums text-text-subtle"
 					title={`${active} active of ${inWave.length}`}
 				>
 					{`${active}/${inWave.length}`}
@@ -486,11 +486,13 @@ function WaveColumn({
 							data-loadout-focus={marker}
 							data-active={entry.active || undefined}
 							className={cn(
-								"flex flex-col gap-1 rounded-sm border bg-card px-2 py-1.5",
-								territoryTone(entry.territory),
-								!entry.active && "border-dashed opacity-(--opacity-disabled)",
-								isSelected && "bg-state-selected",
-								isHeld && "shadow-e2",
+								"flex flex-col gap-1 rounded-control border bg-card px-2 py-1.5",
+								"border-border",
+								// Idle: v3's absent look, a dashed edge on the band, at
+								// full contrast; it is still a chip that can move.
+								!entry.active && "border-dashed bg-app-band",
+								isSelected && "border-selected-border bg-selected",
+								isHeld && "shadow-drag",
 							)}
 						>
 							<button
@@ -511,7 +513,8 @@ function WaveColumn({
 									if (editable) onSelect({ entryId: entry.id, wave });
 								}}
 								onKeyDown={keys}
-								className="flex min-w-0 flex-col text-left focus-inset"
+								// At least 24px to pick up (v3 UX 1), even with no territory line.
+								className="flex min-h-6 min-w-0 flex-col justify-center text-left focus-inset"
 							>
 								<span className="type-caption truncate font-medium text-foreground">
 									{entry.agentTemplate.name}
@@ -593,27 +596,30 @@ function Palette({
 		<section
 			aria-label="Available agents"
 			data-testid="loadout-palette"
-			className="plate flex min-w-0 flex-col gap-2 rounded-md border p-3"
+			className="flex min-w-0 flex-col gap-2 p-3 rounded-card border border-border bg-app-panel shadow-card"
 		>
-			<h3 className="type-panel-title text-foreground">Available agents</h3>
+			<h3 className="type-title text-foreground">Available agents</h3>
 			<fieldset className="flex flex-wrap items-center gap-1">
 				<legend id={legend} className="sr-only">
 					Wave to add to
 				</legend>
 				<span className="type-caption text-text-subtle">to wave</span>
-				{WAVES.map((w) => (
-					<Button
-						key={w}
-						size="sm"
-						variant="ghost"
-						aria-pressed={wave === w}
-						data-testid={`loadout-palette-wave-${w}`}
-						onClick={() => setWave(w)}
-						className="type-mono-small aria-pressed:bg-state-selected"
-					>
-						{w}
-					</Button>
-				))}
+				{/* One value from five: a v3 segmented control. */}
+				<div className={tabsListVariants({ variant: "default" })}>
+					{WAVES.map((w) => (
+						<Button
+							key={w}
+							type="button"
+							variant="segment"
+							aria-pressed={wave === w}
+							data-testid={`loadout-palette-wave-${w}`}
+							onClick={() => setWave(w)}
+							className="type-mono"
+						>
+							{w}
+						</Button>
+					))}
+				</div>
 			</fieldset>
 			{templates.status === "pending" ? (
 				<p
@@ -699,7 +705,7 @@ function TemplatePreview({ template }: { template: AgentTemplate }) {
 	return (
 		<div className="flex flex-col gap-1">
 			<p className="type-small font-medium text-foreground">{template.name}</p>
-			<p className="type-mono-small text-text-subtle">{template.slug}</p>
+			<p className="type-mono text-text-subtle">{template.slug}</p>
 			<p className="type-caption text-text-muted">
 				{KIND_LABELS[template.kind]}
 			</p>

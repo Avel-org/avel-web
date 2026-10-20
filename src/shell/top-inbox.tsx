@@ -139,7 +139,7 @@ export function InboxBadge({ total }: { total: number }) {
 		<span
 			aria-hidden="true"
 			data-testid="global-inbox-badge"
-			className="type-mono-small absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-gate-warn-line bg-gate-warn-soft px-1 text-gate-warn"
+			className="type-mono absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-gate-warn-line bg-gate-warn-soft px-1 text-gate-warn"
 		>
 			{total > 99 ? "99+" : total}
 		</span>
@@ -155,7 +155,7 @@ export function InboxPanel({
 	const nothing = sections.every((s) => s.inbox?.count === 0);
 	return (
 		<div className="flex flex-col">
-			<p className="type-panel-title border-b border-border px-3 py-2 text-foreground">
+			<p className="type-title border-b border-border px-3 py-2 text-foreground">
 				Needs you
 			</p>
 			{nothing ? (
@@ -204,7 +204,7 @@ function InboxSection({
 			<p className="type-caption mb-1 flex justify-between text-text-subtle">
 				<span>{ORIGIN_LABEL[origin]} missions</span>
 				{inbox ? (
-					<span data-testid={`${testid}-count`} className="type-mono-small">
+					<span data-testid={`${testid}-count`} className="type-mono">
 						{inbox.count}
 					</span>
 				) : null}
@@ -234,11 +234,13 @@ function InboxSection({
 				<ul className="flex flex-col">
 					{inbox.missions.map((mission) => (
 						<li key={mission.id}>
+							{/* A mission that needs you opens its full page, where it is
+							    acted on (audit F6); list rows open the panel. */}
 							<Link
-								to="/missions"
-								search={{ mission: mission.id, origin }}
+								to="/missions/$id"
+								params={{ id: mission.id }}
 								data-testid={`global-inbox-mission-${mission.id}`}
-								className="flex items-center gap-2 rounded-sm px-1 py-1.5 hover:bg-state-hover"
+								className="flex items-center gap-2 rounded-control px-1 py-1.5 hover:bg-app-raised"
 							>
 								<span className="type-small min-w-0 flex-1 truncate text-foreground">
 									{missionLabel(mission)}

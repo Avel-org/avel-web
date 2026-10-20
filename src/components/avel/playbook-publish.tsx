@@ -99,7 +99,7 @@ export function PublishConfirm({
 					{body.name}
 				</BodyRow>
 				<BodyRow name="wavesApplicable" label="Waves">
-					<span className="type-mono-small">
+					<span className="type-mono">
 						{body.wavesApplicable.length === 0
 							? "None"
 							: body.wavesApplicable.join(" ")}
@@ -122,7 +122,7 @@ export function PublishConfirm({
 					{DELIVERABLE_LABEL[body.deliverable]}
 				</BodyRow>
 				<BodyRow name="requiredFields" label="Required fields">
-					<span className="type-mono-small">
+					<span className="type-mono">
 						{body.requiredFields.length === 0
 							? "None"
 							: body.requiredFields.join(", ")}

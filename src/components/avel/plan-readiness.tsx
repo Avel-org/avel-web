@@ -17,7 +17,7 @@ import { ErrorState, Surface } from "./surface";
  */
 
 const SEGMENT_CLASS: Record<SegmentState, string> = {
-	solid: "bg-gate-pass",
+	solid: "bg-gate-pass-solid",
 	// Built from the gate warn tokens; see bg-hatch-warn in app.css.
 	hatched: "bg-hatch-warn",
 	empty: "border border-dashed border-gate-pending-line",
@@ -102,7 +102,7 @@ function FullSkeleton() {
 	return (
 		<div
 			data-testid="plan-readiness-skeleton"
-			className="plate flex flex-col gap-3 rounded-md border p-4"
+			className="flex flex-col gap-3 p-4 rounded-card border border-border bg-app-panel shadow-card"
 		>
 			<Skeleton className="h-5 w-28" />
 			<Skeleton className="h-3 w-full rounded-xs" />
@@ -191,11 +191,11 @@ function FullReadiness({ readiness }: { readiness: Readiness }) {
 	return (
 		<section
 			aria-label="Plan readiness"
-			className="plate flex flex-col gap-4 rounded-md border p-4"
+			className="flex flex-col gap-4 p-4 rounded-card border border-border bg-app-panel shadow-card"
 		>
 			<div className="flex flex-col gap-1.5">
 				<div className="flex items-baseline justify-between gap-2">
-					<h2 className="type-panel-title text-foreground">Readiness</h2>
+					<h2 className="type-title text-foreground">Readiness</h2>
 					<p
 						data-testid="plan-readiness-counts"
 						className="type-caption text-text-subtle tabular-nums"
@@ -215,7 +215,7 @@ function FullReadiness({ readiness }: { readiness: Readiness }) {
 						className="flex flex-col gap-1"
 					>
 						<div className="flex flex-wrap items-center gap-2">
-							<span className="type-mono-small text-foreground">{m.id}</span>
+							<span className="type-mono text-foreground">{m.id}</span>
 							<span className="type-small text-foreground">{m.name}</span>
 							<span className="flex flex-wrap gap-1">
 								{m.requirementIds.map((rid, j) => (
@@ -283,13 +283,13 @@ function RequirementChip({
 	return (
 		<span
 			data-state={state ?? "missing"}
-			className="type-mono-small inline-flex items-center gap-1 rounded-xs border border-border px-1.5 py-0.5 text-text-muted"
+			className="type-mono inline-flex items-center gap-1 rounded-xs border border-border px-1.5 py-0.5 text-text-muted"
 		>
 			<span
 				aria-hidden="true"
 				className={cn(
 					"size-2 rounded-full",
-					state ? SEGMENT_CLASS[state] : "bg-gate-block",
+					state ? SEGMENT_CLASS[state] : "bg-gate-block-solid",
 				)}
 			/>
 			{id}

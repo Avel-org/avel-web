@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { QueryClient } from "@tanstack/react-query";
 import {
 	createMemoryHistory,
@@ -9,7 +10,10 @@ import { type Playbook, playbookSchema } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { InlineModals } from "@/components/avel/action-modal";
-import { PlaybookBuilderBody } from "@/components/avel/playbook-builder";
+import {
+	BUILDER_HINT,
+	PlaybookBuilderBody,
+} from "@/components/avel/playbook-builder";
 import { gateSummary } from "@/components/avel/playbook-list";
 import { draftOf, draftReducer } from "@/components/avel/playbook-pipeline";
 import { PublishConfirm } from "@/components/avel/playbook-publish";
@@ -210,6 +214,13 @@ describe("/playbooks", () => {
 		expect(tagOf(table, "playbook-row-link-discovery")).toContain(
 			'href="/playbooks/discovery"',
 		);
+		// The whole row opens the playbook: its link is stretched over it.
+		expect(tagOf(table, "playbook-row-link-discovery")).toContain(
+			"after:absolute after:inset-0",
+		);
+		expect(tagOf(table, `playbook-table-row-${DISCOVERY.id}`)).toMatch(
+			/\brelative\b/,
+		);
 		expect(table).toContain(">Template booking<");
 		expect(table).toContain(">Pull request<");
 		expect(table).toContain(">Recommendation<");
@@ -251,6 +262,29 @@ describe("/playbooks", () => {
 	});
 });
 
+/** The body alone, inside a memory router so its links resolve. */
+const body = async (over: Parameters<typeof PlaybookBuilderBody>[0]) => {
+	const root = createRootRoute({
+		component: () => (
+			<ApiOverrideProvider queryClient={new QueryClient()}>
+				<ApiProvider>
+					<TooltipProvider>
+						<InlineModals>
+							<PlaybookBuilderBody {...over} />
+						</InlineModals>
+					</TooltipProvider>
+				</ApiProvider>
+			</ApiOverrideProvider>
+		),
+	});
+	const router = createRouter({
+		routeTree: root,
+		history: createMemoryHistory({ initialEntries: ["/"] }),
+	});
+	await router.load();
+	return renderToString(<RouterProvider router={router} />);
+};
+
 describe("/playbooks/$missionType, the builder", () => {
 	const PAGE = "/playbooks/template-booking";
 
@@ -263,10 +297,14 @@ describe("/playbooks/$missionType, the builder", () => {
 		expect(element(html, "playbook-version-pill")).toContain(">v3<");
 	});
 
-	it("has Builder, Runs and Versions tabs; Runs and Versions are not built", async () => {
+	it("has one view control, Builder | Runs | Versions, on Builder", async () => {
 		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		expect(html.match(/data-testid="playbook-tab"/g)).toHaveLength(1);
 		expect(tagOf(html, "playbook-tab-builder")).toContain(
-			'aria-selected="true"',
+			'aria-pressed="true"',
+		);
+		expect(element(html, "playbook-builder-content")).not.toContain(
+			'role="tablist"',
 		);
 		expect(html).toContain('data-testid="playbook-tab-runs"');
 		expect(html).toContain('data-testid="playbook-tab-versions"');
@@ -321,7 +359,11 @@ describe("/playbooks/$missionType, the builder", () => {
 
 	it("shows the whole playbook's properties with nothing selected", async () => {
 		const panel = element(
-			await render(PAGE, withPlaybook(FULL_BUILD)),
+			await body({
+				playbook: FULL_BUILD,
+				preflight: null,
+				initialDetails: true,
+			}),
 			"playbook-panel",
 		);
 		expect(tagOf(panel, "playbook-prop-name")).toContain(
@@ -349,7 +391,11 @@ describe("/playbooks/$missionType, the builder", () => {
 
 	it("leaves the edit controls live: only Publish waits on a write route", async () => {
 		const panel = element(
-			await render(PAGE, withPlaybook(FULL_BUILD)),
+			await body({
+				playbook: FULL_BUILD,
+				preflight: null,
+				initialDetails: true,
+			}),
 			"playbook-panel",
 		);
 		expect(tagOf(panel, "playbook-prop-wave-A")).not.toMatch(/\sdisabled=""/);
@@ -375,9 +421,17 @@ describe("/playbooks/$missionType, the builder", () => {
 	});
 
 	it("says so for no gates and no required fields", async () => {
-		const html = await render("/playbooks/discovery", withPlaybook(DISCOVERY));
+		const html = await body({
+			playbook: DISCOVERY,
+			preflight: null,
+			initialDetails: true,
+		});
 		expect(element(html, "playbook-panel")).toContain("No gates declared.");
 		expect(element(html, "playbook-panel")).toContain("None required.");
+		// The canvas's empty gates lane says where to add one.
+		expect(element(html, "playbook-segment-gate-empty")).toContain(
+			"No gates. Add one in Details.",
+		);
 	});
 
 	it("answers a type with no playbook with NOT_FOUND and a way back", async () => {
@@ -400,27 +454,6 @@ describe("/playbooks/$missionType, the builder", () => {
 });
 
 describe("the builder with a draft", () => {
-	/** The body alone, inside a memory router so its links resolve. */
-	const body = async (over: Parameters<typeof PlaybookBuilderBody>[0]) => {
-		const root = createRootRoute({
-			component: () => (
-				<ApiOverrideProvider queryClient={new QueryClient()}>
-					<ApiProvider>
-						<TooltipProvider>
-							<PlaybookBuilderBody {...over} />
-						</TooltipProvider>
-					</ApiProvider>
-				</ApiOverrideProvider>
-			),
-		});
-		const router = createRouter({
-			routeTree: root,
-			history: createMemoryHistory({ initialEntries: ["/"] }),
-		});
-		await router.load();
-		return renderToString(<RouterProvider router={router} />);
-	};
-
 	it("shows unpublished changes, with Revert and Publish both live", async () => {
 		const html = await body({
 			playbook: FULL_BUILD,
@@ -456,20 +489,21 @@ describe("the builder with a draft", () => {
 		);
 	});
 
-	it("draws live connectors on, keeps skipped ones dashed, and staggers the nodes", async () => {
+	it("keeps skipped connectors dashed, and draws the pipeline still (v3 has no motion at rest)", async () => {
 		const html = await body({ playbook: FULL_BUILD, preflight: null });
 		const lines = html.match(/<line[^>]*>/g) ?? [];
-		// A to C run, D and E are skipped: the connectors out of D and E stay dashed.
-		const drawn = lines.filter((l) => l.includes("animate-draw-on"));
+		// A to C run, D and E are skipped: the connectors out of D and E are dashed.
 		const dashed = lines.filter((l) => l.includes('stroke-dasharray="3 3"'));
 		expect(dashed).toHaveLength(2);
-		expect(drawn).toHaveLength(lines.length - 2);
-		expect(drawn.every((l) => /--draw-length:\s*\d+px/.test(l))).toBe(true);
-		const wave = element(html, "playbook-node-wave-B");
-		expect(wave).toMatch(/class="animate-node-in" style="--i:\s*1"/);
+		expect(lines.length).toBeGreaterThan(2);
+		// No entrance: connectors carry no style, nodes no animation.
+		expect(lines.filter((l) => l.includes("style="))).toEqual([]);
+		const node = element(html, "playbook-node-wave-B");
+		expect(node).not.toMatch(/animate-|style="/);
+		expect(node).not.toContain("opacity-");
 	});
 
-	it("slides the banner down, and says the version publishing makes", async () => {
+	it("raises a warn banner, and says the version publishing makes", async () => {
 		const html = text(
 			await body({
 				playbook: FULL_BUILD,
@@ -480,10 +514,14 @@ describe("the builder with a draft", () => {
 				}),
 			}),
 		);
-		expect(tagOf(html, "playbook-dirty")).toContain("animate-slide-down");
+		// v3 .banner: the warn banner ground on the warn line, arriving still.
+		const dirty = tagOf(html, "playbook-dirty");
+		expect(dirty).toContain("border-gate-warn-line bg-gate-warn-banner");
+		expect(dirty).not.toContain("animate-");
 		const next = element(html, "playbook-next-version");
 		expect(next).toContain(">v3<");
-		expect(next).toMatch(/animate-tick-up[^>]*>v4</);
+		expect(next).toContain(">v4<");
+		expect(next).not.toContain("animate-");
 	});
 
 	it("puts the caller's pre-flight in the panel", async () => {
@@ -631,5 +669,122 @@ describe("versions", () => {
 		);
 		expect(element(html, "playbook-version-changes-3")).toContain("Waves");
 		expect(element(html, "playbook-version-2")).toContain("The first version.");
+	});
+});
+
+describe("the playbook canvas (Teams' canvas language)", () => {
+	const PAGE = "/playbooks/template-booking";
+
+	it("lays the pipeline on the shared dot-grid band, three lanes with pre-flight docked", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		const canvas = tagOf(html, "playbook-canvas");
+		for (const cls of ["bg-app-band", "rounded-dialog", "bg-size-[20px_20px]"])
+			expect(canvas).toContain(cls);
+		for (const kind of ["wave", "gate", "deliverable"])
+			expect(element(html, "playbook-canvas")).toContain(
+				`data-testid="playbook-segment-${kind}"`,
+			);
+		expect(element(html, "playbook-canvas")).toContain(
+			'data-testid="playbook-preflight"',
+		);
+	});
+
+	it("draws one surface for both builders, never a copy of its classes", () => {
+		for (const file of [
+			"src/components/avel/preset-kanban.tsx",
+			"src/components/avel/playbook-builder.tsx",
+		]) {
+			const source = readFileSync(file, "utf8");
+			expect(source, file).toContain("<CanvasSurface");
+			expect(source, file).not.toContain("radial-gradient");
+		}
+	});
+
+	it("explains the canvas once, until dismissed", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		expect(element(html, "playbook-hint")).toContain(
+			BUILDER_HINT.replaceAll("'", "&#x27;"),
+		);
+		expect(tagOf(html, "playbook-hint-dismiss")).toContain(
+			'aria-label="Dismiss the hint"',
+		);
+	});
+
+	it("names the playbook and its version in the header, linking out to the list", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		const identity = tagOf(html, "playbook-identity");
+		expect(identity).toMatch(/^<a/);
+		expect(identity).toContain('href="/playbooks"');
+		expect(element(html, "playbook-identity")).toContain(">Template booking<");
+		expect(element(html, "playbook-canvas-header")).toContain(
+			'data-testid="playbook-version-pill"',
+		);
+	});
+
+	it("keeps Details closed until asked, and has nothing to publish while untouched", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		expect(element(html, "playbook-canvas-header")).toContain(
+			'data-testid="playbook-details"',
+		);
+		expect(html).not.toContain('data-testid="playbook-panel"');
+		expect(html).not.toContain('data-testid="playbook-publish"');
+	});
+
+	it("puts Publish in the header once dirty, the one primary, and Discard in the banner", async () => {
+		const html = await body({
+			playbook: FULL_BUILD,
+			preflight: null,
+			initialDraft: draftReducer(draftOf(FULL_BUILD), {
+				type: "toggleWave",
+				wave: "D",
+			}),
+		});
+		expect(element(html, "playbook-canvas-header")).toContain(
+			'data-testid="playbook-publish"',
+		);
+		expect(tagOf(html, "playbook-publish")).toContain('data-variant="default"');
+		expect(html.match(/data-testid="playbook-publish"/g)).toHaveLength(1);
+		const banner = element(html, "playbook-dirty");
+		expect(banner).not.toContain("playbook-publish");
+		expect(element(banner, "playbook-revert")).toContain("Discard");
+	});
+
+	it("draws steps as v3 cards: selected in the selected state, gates as pills", async () => {
+		const html = await body({
+			playbook: FULL_BUILD,
+			preflight: null,
+			initialSelected: "wave-B",
+		});
+		const selected = tagOf(html, "playbook-node-wave-B");
+		expect(selected).toMatch(/^<button/);
+		expect(selected).toContain("border-selected-border bg-selected");
+		expect(tagOf(html, "playbook-node-wave-A")).toContain("shadow-card");
+		expect(tagOf(html, "playbook-node-gate-qa")).toContain("rounded-full");
+		expect(tagOf(html, "playbook-node-wave-D")).toContain("border-dashed");
+	});
+
+	it("never draws a gate in the block tone at rest: red is for a failure", async () => {
+		const html = await render(PAGE, withPlaybook(FULL_BUILD));
+		for (const id of ["gate-phase1-close", "gate-qa", "gate-security"])
+			expect(element(html, `playbook-node-${id}`), id).not.toMatch(
+				/gate-block/,
+			);
+		expect(element(html, "playbook-node-gate-qa")).toMatch(
+			/data-glyph="stop"[^>]*fill-text-muted/,
+		);
+		expect(element(html, "playbook-node-gate-security")).toMatch(
+			/data-glyph="pass"[^>]*fill="none"[^>]*stroke-gate-warn/,
+		);
+	});
+
+	it("opens Details with a selected step", async () => {
+		const html = await body({
+			playbook: FULL_BUILD,
+			preflight: null,
+			initialSelected: "deliverable",
+		});
+		expect(element(html, "playbook-panel-heading")).toContain(
+			"Delivers Pull request",
+		);
 	});
 });

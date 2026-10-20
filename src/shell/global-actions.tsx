@@ -1,4 +1,5 @@
 import { Command } from "lucide-react";
+import { Kbd } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
@@ -37,12 +38,7 @@ export function GlobalActions() {
 				<TooltipContent sideOffset={6}>
 					<span className="flex items-center gap-2">
 						Command menu
-						<kbd
-							data-testid="global-search-shortcut"
-							className="type-mono-small rounded-xs border border-border-strong px-1 text-text-muted"
-						>
-							{palette.shortcut}
-						</kbd>
+						<Kbd data-testid="global-search-shortcut">{palette.shortcut}</Kbd>
 					</span>
 				</TooltipContent>
 			</Tooltip>

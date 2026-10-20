@@ -8,17 +8,16 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Badge } from "@/components/ui/badge";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 /*
- * The entity banner (ruling 38): the deep band at the head of one entity's
+ * The entity banner: the header at the head of one entity's
  * page. Back to its list, its tile, its name and state, one line of facts,
- * its numbers, its actions, and the tabs that split the page below. Its face
- * is banner-surface (app.css): the band lit by an accent glow behind the
- * tile, under a fading grid. Everything inside it uses the banner's own
- * tokens (bg-banner, text-banner-*), which are deep on dark and light on
- * .light (ruling 41).
+ * its numbers, its actions, and the tabs that split the page below. It is a
+ * flat v3 card: no glow and no grid, because v3 has no decorative hues; the
+ * name's size and the facts' quieter line carry the hierarchy.
  *
  * The top bar keeps the page's h1 and its crumbs. The banner repeats the
  * name large, as the screen's heading people see, and hides it from screen
@@ -68,19 +67,14 @@ export function EntityBanner({
 			ref={ref}
 			data-testid={testId}
 			aria-label={name}
-			className="relative isolate overflow-hidden rounded-lg border border-banner-line banner-surface text-banner-text"
+			className="overflow-hidden rounded-card border border-border bg-app-panel text-text shadow-card"
 		>
-			<span
-				aria-hidden="true"
-				data-testid={`${testId}-grid`}
-				className="pointer-events-none absolute inset-0 -z-10 banner-grid"
-			/>
 			<div className="flex flex-col gap-5 px-4 pt-4 md:px-8 md:pt-6">
 				<Link
 					to={back.to}
 					search={back.search}
 					data-testid={`${testId}-back`}
-					className="inline-flex w-fit items-center gap-1.5 rounded-xs type-caption text-banner-muted transition-colors duration-(--duration-micro) ease-avel hover:text-banner-text"
+					className="py-1.5 -my-1.5 inline-flex w-fit items-center gap-1.5 rounded-xs type-caption text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:text-text"
 				>
 					<ArrowLeft aria-hidden="true" className="size-3.5" />
 					{back.label}
@@ -93,7 +87,7 @@ export function EntityBanner({
 								<p
 									aria-hidden="true"
 									data-testid={`${testId}-name`}
-									className="type-h1 truncate text-banner-text"
+									className="type-display truncate text-text"
 								>
 									{name}
 								</p>
@@ -101,7 +95,7 @@ export function EntityBanner({
 							</div>
 							<p
 								data-testid={`${testId}-facts`}
-								className="type-small text-banner-muted"
+								className="type-small text-text-muted"
 							>
 								{facts}
 							</p>
@@ -126,7 +120,7 @@ export function EntityBanner({
 				</div>
 				<TabsList
 					aria-label={tabsLabel}
-					className="no-scrollbar -mx-4 h-11! w-auto max-w-none justify-start gap-1 overflow-x-auto rounded-none border-t border-banner-line px-3 md:-mx-8 md:px-7"
+					className="no-scrollbar -mx-4 h-11! w-auto max-w-none justify-start gap-1 overflow-x-auto rounded-none border-t border-border px-3 md:-mx-8 md:px-7"
 				>
 					{tabs.map((tab) => (
 						<TabsTrigger
@@ -134,16 +128,16 @@ export function EntityBanner({
 							value={tab.id}
 							aria-keyshortcuts={tab.shortcut}
 							data-testid={`${testId}-tab-${tab.id}`}
-							className="h-full flex-none rounded-none px-3 text-banner-muted after:bottom-0! hover:text-banner-text data-[state=active]:text-banner-text"
+							className="h-full flex-none rounded-none px-3 text-text-muted after:bottom-0! hover:text-text data-[state=active]:text-text"
 						>
 							{tab.label}
 							{tab.count === undefined ? null : (
-								<span
+								<Badge
+									variant="count"
 									data-testid={`${testId}-tab-${tab.id}-count`}
-									className="rounded-full bg-banner-raised px-1.5 type-mono-small text-banner-muted tabular-nums"
 								>
 									{tab.count}
-								</span>
+								</Badge>
 							)}
 						</TabsTrigger>
 					))}
@@ -153,7 +147,11 @@ export function EntityBanner({
 	);
 }
 
-/** A state on the banner: a dot and a word, the dot lit only when live. */
+/**
+ * A state on the banner: a dot and a word, the dot lit only when live. It is
+ * a v3 pill on the pending ground; the dot takes the pass solid only when
+ * the entity is working, so colour repeats what the word says.
+ */
 export function BannerStatus({
 	label,
 	live,
@@ -167,13 +165,13 @@ export function BannerStatus({
 		<span
 			data-testid={testId}
 			data-live={live || undefined}
-			className="inline-flex h-6 items-center gap-1.5 rounded-full border border-banner-line bg-banner-raised px-2 type-caption font-medium text-banner-text"
+			className="inline-flex h-[22px] items-center gap-[5px] rounded-sm bg-gate-pending-soft px-2 type-caption font-medium text-text"
 		>
 			<span
 				aria-hidden="true"
 				className={cn(
 					"size-1.5 rounded-full",
-					live ? "bg-banner-live" : "bg-banner-muted",
+					live ? "bg-gate-pass-solid" : "bg-gate-pending-solid",
 				)}
 			/>
 			{label}
@@ -199,15 +197,15 @@ export function BannerStat({
 	return (
 		<div
 			data-testid={testId}
-			className="flex flex-col-reverse gap-0.5 border-l border-banner-line px-5 first:border-l-0 first:pl-0"
+			className="flex flex-col-reverse gap-0.5 border-l border-border px-5 first:border-l-0 first:pl-0"
 		>
-			<dt className="type-caption text-banner-muted">{label}</dt>
-			<dd className="type-h1 text-banner-text tabular-nums">
+			<dt className="type-caption text-text-muted">{label}</dt>
+			<dd className="type-metric text-text">
 				{link ? (
 					<Link
 						{...link}
 						data-testid={`${testId}-link`}
-						className="rounded-xs underline-offset-4 decoration-banner-line transition-colors duration-(--duration-micro) ease-avel hover:underline"
+						className="rounded-xs underline-offset-4 decoration-border transition-colors duration-(--duration-micro) ease-avel hover:underline"
 					>
 						{value}
 						<span className="sr-only">{` ${label}`}</span>
@@ -221,17 +219,10 @@ export function BannerStat({
 }
 
 /**
- * A button on the banner: the outline pill in the banner's colours. Disabled
- * buttons still state their reason (ruling 11), through the shared Button.
- */
-export const BANNER_BUTTON =
-	"border border-banner-line bg-banner-raised text-banner-text hover:bg-banner-line hover:text-banner-text";
-
-/**
  * The entity's tile on the banner: an icon for what kind of thing it is (or
- * its initials, where a page has no icon for it), on the accent fill, which
- * reads the same on the band in both themes, where a theme-toned tile would
- * not. Decorative: the name and facts say the same.
+ * its initials, where a page has no icon for it), on v3's ringed tile. It is
+ * neutral: the accent is for what the operator can act on, and the tile is
+ * decorative (the name and facts say the same).
  */
 export function BannerTile({
 	icon: Icon,
@@ -251,11 +242,11 @@ export function BannerTile({
 			aria-hidden="true"
 			data-testid={testId}
 			className={cn(
-				"inline-flex shrink-0 items-center justify-center bg-accent font-semibold text-accent-ink",
+				"inline-flex shrink-0 items-center justify-center border border-border bg-app-well font-semibold text-text-muted",
 				size === "lg"
-					? "size-16 rounded-lg shadow-[0_0_0_1px_var(--color-banner-line),0_8px_24px_-6px_var(--color-accent)]"
-					: "size-8 rounded-sm type-small",
-				size === "lg" && Icon === undefined && "type-h1",
+					? "size-16 rounded-card"
+					: "size-tile-md rounded-tile type-small",
+				size === "lg" && Icon === undefined && "type-display",
 			)}
 		>
 			{Icon ? (
@@ -355,7 +346,7 @@ export function PinnedBanner({
 				aria-hidden={!shown}
 				inert={!shown}
 				className={cn(
-					"absolute inset-x-0 top-0 flex h-12 items-center gap-3 rounded-b-md border border-t-0 border-banner-line bg-banner pr-1 pl-3 text-banner-text shadow-e2 transition-[opacity,translate] duration-(--duration-micro) ease-avel",
+					"absolute inset-x-0 top-0 flex h-12 items-center gap-3 rounded-b-card border border-t-0 border-border bg-app-panel pr-1 pl-3 text-text shadow-popover transition-[opacity,translate] duration-(--duration-micro) ease-avel",
 					shown
 						? "translate-y-0 opacity-100"
 						: "pointer-events-none -translate-y-1 opacity-0",
@@ -380,17 +371,15 @@ export function PinnedBanner({
 							data-testid={`${testId}-tab-${tab.id}`}
 							onClick={() => onSelect(tab.id)}
 							className={cn(
-								"focus-inset relative flex flex-none items-center gap-1.5 px-3 type-small transition-colors duration-(--duration-micro) ease-avel hover:text-banner-text",
+								"focus-inset relative flex flex-none items-center gap-1.5 px-3 type-small transition-colors duration-(--duration-micro) ease-avel hover:text-text",
 								tab.id === value
-									? "text-banner-text after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent"
-									: "text-banner-muted",
+									? "text-text after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent"
+									: "text-text-muted",
 							)}
 						>
 							{tab.label}
 							{tab.count === undefined ? null : (
-								<span className="rounded-full bg-banner-raised px-1.5 type-mono-small text-banner-muted tabular-nums">
-									{tab.count}
-								</span>
+								<Badge variant="count">{tab.count}</Badge>
 							)}
 						</button>
 					))}

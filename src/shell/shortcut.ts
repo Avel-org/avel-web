@@ -51,6 +51,67 @@ export function useKeyShortcut(key: string, onPress: () => void) {
 	}, [key, onPress]);
 }
 
+/** How long the second key of a sequence such as G F may wait for. */
+const SEQUENCE_MS = 1000;
+
+/**
+ * True when a key pressed at `target` is text, not a shortcut: a field, a
+ * contenteditable, or a dialog. A dialog that marks itself
+ * `data-allow-shortcuts` (the mission details sheet, which G F exists for)
+ * still takes them, unless the key is in a field inside it.
+ */
+export function isTypingTarget(target: EventTarget | null): boolean {
+	// Read by shape, not instanceof, so it is testable without a DOM.
+	const el = target as Partial<
+		Pick<HTMLElement, "isContentEditable" | "closest">
+	> | null;
+	if (!el || typeof el.closest !== "function") return false;
+	if (el.isContentEditable) return true;
+	if (el.closest("input, textarea, select") !== null) return true;
+	const dialog = el.closest("[role=dialog]");
+	return dialog !== null && !dialog.hasAttribute("data-allow-shortcuts");
+}
+
+/**
+ * Calls `onPress` on two plain keys pressed in turn, such as G then F, unless
+ * the operator is typing: a field, a contenteditable or a modifier held means
+ * the keys are text. Absent `onPress` turns it off.
+ */
+export function useSequenceShortcut(
+	first: string,
+	second: string,
+	onPress: (() => void) | undefined,
+) {
+	useEffect(() => {
+		if (!onPress) return;
+		let armedAt = 0;
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (
+				isTypingTarget(event.target) ||
+				event.metaKey ||
+				event.ctrlKey ||
+				event.altKey ||
+				event.repeat
+			) {
+				armedAt = 0;
+				return;
+			}
+			const key = event.key.toLowerCase();
+			if (
+				key === second &&
+				armedAt > 0 &&
+				event.timeStamp - armedAt < SEQUENCE_MS
+			) {
+				armedAt = 0;
+				event.preventDefault();
+				onPress();
+			} else armedAt = key === first ? event.timeStamp : 0;
+		};
+		window.addEventListener("keydown", onKeyDown);
+		return () => window.removeEventListener("keydown", onKeyDown);
+	}, [first, second, onPress]);
+}
+
 /** ⌘K or Ctrl K opens the command palette. */
 export function useCommandShortcut(onOpen: () => void) {
 	useKeyShortcut("k", onOpen);

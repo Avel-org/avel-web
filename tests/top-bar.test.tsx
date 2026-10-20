@@ -9,8 +9,8 @@ import type { MissionListItem } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { missionKeys } from "@/components/avel/mission-data";
 import { ApiOverrideProvider } from "@/lib/api";
+import { queryKeys } from "@/lib/api/keys";
 import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "../src/routeTree.gen";
 import {
@@ -158,13 +158,13 @@ describe("the inbox", () => {
 		).toHaveLength(5);
 		expect(clientSection).toContain("Preview ready to review");
 		expect(clientSection).not.toContain(ID(20));
-		// Client is the Missions page's default origin, which the route leaves
-		// out of its URLs; an internal mission's link must name its origin.
+		// A mission that needs you lands on its full page, where it is acted
+		// on (audit F6), whatever its origin; list rows keep the panel.
 		expect(tagOf(html, `global-inbox-mission-${ID(1)}`)).toContain(
-			`href="/missions?mission=${ID(1)}"`,
+			`href="/missions/${ID(1)}"`,
 		);
 		expect(tagOf(html, `global-inbox-mission-${ID(20)}`)).toContain(
-			`href="/missions?mission=${ID(20)}&amp;origin=internal"`,
+			`href="/missions/${ID(20)}"`,
 		);
 		expect(tagOf(html, "global-inbox-open")).toContain(
 			'href="/missions?status=needs-you"',
@@ -224,7 +224,7 @@ async function renderWithInbox(counts: { client: number; internal: number }) {
 		const rows = Array.from({ length: Math.min(counts[origin], 5) }, (_, i) =>
 			needing(i + (origin === "client" ? 1 : 40), origin),
 		);
-		queryClient.setQueryData(missionKeys.list(inboxParams(origin)), {
+		queryClient.setQueryData(queryKeys.missions.list(inboxParams(origin)), {
 			pages: [
 				{
 					data: rows,

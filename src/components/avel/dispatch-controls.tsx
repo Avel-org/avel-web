@@ -150,7 +150,7 @@ export function DispatchControls({
 	return (
 		<div
 			data-testid={`dispatch-card-controls-${id}`}
-			className="flex flex-col gap-2 border-t border-border pt-2.5"
+			className="flex flex-col gap-1.5 border-t border-border pt-2"
 		>
 			{status === "queued" ? (
 				<Button

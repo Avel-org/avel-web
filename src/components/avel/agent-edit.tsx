@@ -412,7 +412,7 @@ export function TextEditForm({
 					aria-live="polite"
 					data-testid={`${testId}-count`}
 					className={cn(
-						"type-mono-small tabular-nums",
+						"type-mono tabular-nums",
 						length > max ? "text-destructive" : "text-text-subtle",
 					)}
 				>
@@ -693,7 +693,7 @@ export function AgentRolesEdit({ agent }: { agent: AgentTemplate }) {
 					{agent.roles.map((role) => (
 						<li
 							key={role}
-							className="rounded-full border border-border px-2 py-0.5 type-caption text-text-muted"
+							className="inline-flex h-[22px] items-center rounded-sm bg-gate-pending-soft px-2 type-caption text-gate-pending"
 						>
 							{ROLE_LABELS[role]}
 						</li>
@@ -877,7 +877,7 @@ export function AgentPathsEdit({ agent }: { agent: AgentTemplate }) {
 			) : (
 				<ul
 					data-testid="agent-edit-paths-value"
-					className="flex flex-col gap-0.5 type-mono-small text-foreground"
+					className="flex flex-col gap-0.5 type-mono text-foreground"
 				>
 					{agent.writablePaths.map((path) => (
 						<li key={path} className="break-all">

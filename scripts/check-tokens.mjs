@@ -13,7 +13,7 @@ const source = readFileSync("src/styles/app.css", "utf8").replace(
 	"\n",
 );
 
-// Every top-level `@theme static { … }` and `.light { … }` block. Blocks close
+// Every top-level `@theme static { … }` and `.dark { … }` block. Blocks close
 // with a brace at column 0, and token values never contain one.
 function blocks(header) {
 	const found = [];
@@ -31,7 +31,7 @@ function names(body) {
 // Every @theme block except `inline` aliases, whether or not it says static,
 // so a block that loses `static` is still checked rather than skipped.
 const themeBlocks = blocks("@theme(?: static)?");
-const lightBlocks = blocks("\\.light");
+const darkBlocks = blocks("\\.dark");
 
 const unstatic = [...source.matchAll(/^@theme([^{]*)\{/gm)]
 	.map((m) => (m[1] ?? "").trim().split(/\s+/))
@@ -45,9 +45,9 @@ if (unstatic.length > 0) {
 	process.exit(1);
 }
 
-if (themeBlocks.length === 0 || lightBlocks.length === 0) {
+if (themeBlocks.length === 0 || darkBlocks.length === 0) {
 	console.error(
-		"check-tokens: found no `@theme static` or `.light` block in app.css. The parser no longer matches the file, so this check would pass vacuously.",
+		"check-tokens: found no `@theme static` or `.dark` block in app.css. The parser no longer matches the file, so this check would pass vacuously.",
 	);
 	process.exit(1);
 }
@@ -75,12 +75,12 @@ for (const name of themeBlocks.flatMap(names)) {
 	if (!built.includes(`${name}:`)) missing.push(name);
 }
 
-// Light overrides must survive inside a .light rule, not merely somewhere.
-const lightRules = [...built.matchAll(/\.light\s*\{([^}]*)\}/g)]
+// Dark overrides must survive inside a .dark rule, not merely somewhere.
+const darkRules = [...built.matchAll(/\.dark\s*\{([^}]*)\}/g)]
 	.map((m) => m[1])
 	.join(";");
-for (const name of lightBlocks.flatMap(names)) {
-	if (!lightRules.includes(`${name}:`)) missing.push(`${name} (in .light)`);
+for (const name of darkBlocks.flatMap(names)) {
+	if (!darkRules.includes(`${name}:`)) missing.push(`${name} (in .dark)`);
 }
 
 if (missing.length > 0) {
@@ -92,7 +92,7 @@ if (missing.length > 0) {
 }
 
 const total =
-	themeBlocks.flatMap(names).length + lightBlocks.flatMap(names).length;
+	themeBlocks.flatMap(names).length + darkBlocks.flatMap(names).length;
 console.log(
 	`check-tokens: all ${total} token declarations present in the build.`,
 );

@@ -7,13 +7,11 @@ import type {
 } from "avel-server/contract";
 import { WAVES } from "avel-server/contract";
 import { Rows3, SquareKanban } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { catalogTotal } from "@/lib/api/catalog";
 import { loadedPlaybooks, type usePlaybooks } from "@/lib/api/playbooks";
 import { cn } from "@/lib/utils";
 import { linkFor } from "@/shell/nav";
-import { type DataColumn, DataTable } from "./data-table";
+import { type DataColumn, DataTable, STRETCHED_LINK } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
 import type { ViewOption } from "./view-toggle";
@@ -62,7 +60,10 @@ const COLUMNS: DataColumn<Playbook>[] = [
 				to="/playbooks/$missionType"
 				params={{ missionType: row.missionType }}
 				data-testid={`playbook-row-link-${row.missionType}`}
-				className="font-medium text-foreground underline-offset-4 hover:underline"
+				className={cn(
+					"font-medium text-foreground underline-offset-4 hover:underline",
+					STRETCHED_LINK,
+				)}
 			>
 				{row.name}
 			</Link>
@@ -121,7 +122,10 @@ export const PLAYBOOK_VIEWS = [
 	{ id: "table", label: "Table", icon: Rows3 },
 ] as const satisfies readonly ViewOption<PlaybookView>[];
 
-/** The list, a page at a time. The route owns the query; this renders it. */
+/**
+ * The list, a page at a time, as the body of the page's Playbooks panel. The
+ * route owns the query and the panel, whose footer carries the paging.
+ */
 export function PlaybookList({
 	query,
 	view = "board",
@@ -130,7 +134,7 @@ export function PlaybookList({
 	view?: PlaybookView;
 }) {
 	return (
-		<div data-testid="playbooks" className="flex flex-col gap-4 pb-6">
+		<div data-testid="playbooks" className="flex flex-col">
 			<Surface
 				data-testid="playbook-list"
 				query={query}
@@ -148,45 +152,19 @@ export function PlaybookList({
 			>
 				{(data) => {
 					const rows = loadedPlaybooks(data);
-					const total = catalogTotal(data);
-					return (
-						<div className="flex flex-col gap-2">
-							{view === "table" ? (
-								<DataTable
-									label="Playbooks"
-									data-testid="playbook-table"
-									columns={COLUMNS}
-									rows={rows}
-									getRowId={(row) => row.id}
-								/>
-							) : (
-								<PlaybookBoard playbooks={rows} />
-							)}
-							{total !== undefined || query.hasNextPage ? (
-								<div className="flex items-center justify-between gap-2 px-3">
-									{total === undefined ? (
-										<span />
-									) : (
-										<p
-											data-testid="playbooks-showing"
-											className="type-caption text-text-subtle tabular-nums"
-										>
-											{`Showing ${rows.length} of ${total}`}
-										</p>
-									)}
-									{query.hasNextPage ? (
-										<Button
-											variant="ghost"
-											size="sm"
-											data-testid="playbooks-load-more"
-											disabled={query.isFetchingNextPage}
-											onClick={() => query.fetchNextPage()}
-										>
-											{query.isFetchingNextPage ? "Loading" : "Load more"}
-										</Button>
-									) : null}
-								</div>
-							) : null}
+					return view === "table" ? (
+						<DataTable
+							label="Playbooks"
+							data-testid="playbook-table"
+							columns={COLUMNS}
+							rows={rows}
+							getRowId={(row) => row.id}
+							linkedRows
+							viewKey="playbooks"
+						/>
+					) : (
+						<div className="p-4">
+							<PlaybookBoard playbooks={rows} />
 						</div>
 					);
 				}}
@@ -214,7 +192,11 @@ function PlaybookListSkeleton() {
 /**
  * The board: a card per playbook, each a link to its builder. A strip of the
  * five waves (the ones it runs filled), its gate count by policy and its
- * deliverable, so the shape of the process reads before opening it.
+ * deliverable, so the shape of the process reads before opening it. Each
+ * card is a v3 card that answers hover as a row link does (UX 5): the edge
+ * and ground step up, nothing lifts. A wave it runs is a solid neutral cell,
+ * one it skips dashed: a fact about the playbook, not a selection, so no
+ * accent.
  */
 export function PlaybookBoard({
 	playbooks,
@@ -234,17 +216,17 @@ export function PlaybookBoard({
 							to="/playbooks/$missionType"
 							params={{ missionType: playbook.missionType }}
 							data-testid={`playbook-card-${playbook.missionType}`}
-							className="plate plate-interactive flex h-full flex-col gap-3 rounded-md p-4"
+							className="flex h-full flex-col gap-3 rounded-card border border-border bg-app-panel p-4 shadow-card transition-colors duration-(--duration-micro) ease-avel hover:border-border-strong hover:bg-app-raised"
 						>
 							<span className="flex items-baseline justify-between gap-2">
 								<span className="type-body font-medium text-foreground">
 									{playbook.name}
 								</span>
-								<span className="type-mono-small text-text-subtle">
+								<span className="type-mono text-text-subtle">
 									{`v${playbook.version}`}
 								</span>
 							</span>
-							<span className="type-mono-small text-text-muted">
+							<span className="type-mono text-text-muted">
 								{playbook.missionType}
 							</span>
 							<span
@@ -257,9 +239,9 @@ export function PlaybookBoard({
 										data-wave={wave}
 										data-runs={runs.has(wave)}
 										className={cn(
-											"flex h-6 flex-1 items-center justify-center rounded-xs border type-mono-small",
+											"flex h-6 flex-1 items-center justify-center rounded-xs border type-mono",
 											runs.has(wave)
-												? "border-accent bg-accent-soft text-foreground"
+												? "border-border-strong bg-app-well text-text"
 												: "border-dashed border-border text-text-subtle",
 										)}
 									>

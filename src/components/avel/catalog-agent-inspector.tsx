@@ -33,12 +33,13 @@ import { inWaveOrder, SampleRegion, teamsOf, Wrap } from "./catalog-sample";
 import { CodeView } from "./code-view";
 import { type DataColumn, DataTable } from "./data-table";
 import { InlineExpand } from "./inline-expand";
+import { ROW_LINK_GROUP, RowChevron } from "./row-link";
 import { ShortHash } from "./short-hash";
 import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
 /*
- * The parts of an agent's page (ruling 38) that read one template: its
+ * The parts of an agent's page that read one template: its
  * overview, identity, manifest and versions. Read-only throughout: an
  * identity is generated from roles, so the only way to change one is to
  * change a role it covers. The template's own fields are live; its measures,
@@ -86,16 +87,16 @@ function Metric({
 	return (
 		<div
 			data-testid={testId}
-			className="flex flex-col gap-1 rounded-sm border border-border bg-app-raised p-3"
+			className="flex flex-col gap-1 rounded-control border border-border bg-app-raised p-3"
 		>
 			<span title={meaning} className="type-caption text-text-subtle">
 				{label}
 			</span>
-			<span className="type-h2 text-foreground tabular-nums">{value}</span>
+			<span className="type-page text-foreground tabular-nums">{value}</span>
 			<span
 				data-testid={`${testId}-change`}
 				className={cn(
-					"type-mono-small tabular-nums",
+					"type-mono tabular-nums",
 					change ? TONE_CLASS[change.tone] : "text-text-subtle",
 				)}
 			>
@@ -187,10 +188,10 @@ function StatusBox({ overview }: { overview: SampleOverview }) {
 			data-testid="catalog-agent-status"
 			data-ok={status.ok}
 			className={cn(
-				"flex items-start gap-2 rounded-sm border p-3",
+				"flex items-start gap-2 rounded-control border p-3",
 				status.ok
 					? "border-gate-pass-line bg-gate-pass-soft"
-					: "border-gate-warn-line bg-gate-warn-soft",
+					: "border-gate-warn-line bg-gate-warn-banner",
 			)}
 		>
 			{status.ok ? (
@@ -239,7 +240,7 @@ function EdgeRow({
 				type="button"
 				data-testid={`catalog-agent-edge-row-${edge.from}-${edge.to}`}
 				onClick={() => onOpen(slug)}
-				className="focus-inset flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover"
+				className={`${ROW_LINK_GROUP} focus-inset flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised`}
 			>
 				{direction === "in" ? (
 					<>
@@ -248,13 +249,13 @@ function EdgeRow({
 							aria-hidden="true"
 							className="size-3.5 text-text-subtle"
 						/>
-						<span className="type-mono-small min-w-0 truncate text-text-muted">
+						<span className="type-mono min-w-0 truncate text-text-muted">
 							{artifacts}
 						</span>
 					</>
 				) : (
 					<>
-						<span className="type-mono-small min-w-0 truncate text-text-muted">
+						<span className="type-mono min-w-0 truncate text-text-muted">
 							{artifacts}
 						</span>
 						<ArrowRight
@@ -265,6 +266,7 @@ function EdgeRow({
 					</>
 				)}
 				<span className="sr-only">{`, open ${name}`}</span>
+				<RowChevron className="ml-auto" />
 			</button>
 		</li>
 	);
@@ -288,7 +290,7 @@ function Handoffs({
 			what="Which agents hand this one files, and which agents it hands files to, each file with its hash."
 			data-testid="catalog-agent-edges"
 		>
-			<h3 className="type-panel-title text-foreground">Handoffs</h3>
+			<h3 className="type-title text-foreground">Handoffs</h3>
 			<p className="type-caption text-text-subtle">
 				The files this agent reads from other agents, and the files it writes
 				for them.
@@ -436,7 +438,7 @@ function IdentityRead({
 					className="flex flex-col gap-2"
 				>
 					<Skeleton className="h-4 w-1/3" />
-					<Skeleton className="h-40 w-full rounded-sm" />
+					<Skeleton className="h-40 w-full rounded-control" />
 				</div>
 			}
 			empty={null}
@@ -461,7 +463,7 @@ export function IdentityText({
 			{agent.identityStale ? (
 				<p
 					data-testid="catalog-agent-identity-stale"
-					className="flex items-start gap-2 rounded-sm border border-gate-warn-line bg-gate-warn-soft px-3 py-2 type-small text-foreground"
+					className="flex items-start gap-2 rounded-control border border-gate-warn-line bg-gate-warn-banner px-3 py-2 type-small text-foreground"
 				>
 					<CircleAlert
 						aria-hidden="true"
@@ -470,7 +472,7 @@ export function IdentityText({
 					{staleLine(version.ref, agent.staleInputs)}
 				</p>
 			) : null}
-			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-mono-small text-text-muted">
+			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-mono text-text-muted">
 				<span
 					data-testid="catalog-agent-identity-ref"
 					className="text-foreground"
@@ -501,7 +503,7 @@ export function IdentityText({
 				data-testid="catalog-agent-identity-tokens"
 				data-over={over || undefined}
 				className={cn(
-					"type-mono-small tabular-nums",
+					"type-mono tabular-nums",
 					over ? "text-gate-block" : "text-text-muted",
 				)}
 			>
@@ -516,7 +518,7 @@ export function IdentityText({
 					/>
 					<p
 						data-testid="catalog-agent-depth-tokens"
-						className="type-mono-small text-text-muted tabular-nums"
+						className="type-mono text-text-muted tabular-nums"
 					>
 						{`depth.md: ${version.depthTokens} / ${IDENTITY_TOKEN_CAP} tokens`}
 					</p>
@@ -553,7 +555,7 @@ export function ManifestTab({ agent }: { agent: AgentTemplate }) {
 			<div data-testid="catalog-agent-manifest" className="flex flex-col gap-2">
 				<div
 					data-testid="catalog-agent-manifest-text"
-					className="flex flex-col gap-0.5 rounded-xs border border-border bg-app-recessed p-3 type-mono-small"
+					className="flex flex-col gap-0.5 rounded-xs border border-border bg-app-well p-3 type-mono"
 				>
 					<Line k="kind">
 						{agent.kind}
@@ -598,7 +600,7 @@ function ActionsRegion({ agent }: { agent: AgentTemplate }) {
 			what="What this agent may read, do and suggest through AVEL's API, set by the family each of its roles belongs to."
 			data-testid="catalog-agent-actions"
 		>
-			<h3 className="type-panel-title text-foreground">Allowed actions</h3>
+			<h3 className="type-title text-foreground">Allowed actions</h3>
 			{rows.length === 0 ? (
 				<p className="type-small text-text-subtle">
 					Its roles are run by code, not by a model, so it has no API access.
@@ -686,7 +688,7 @@ function Discipline({ history }: { history: SampleAgentHistory }) {
 	];
 	return (
 		<div data-testid="catalog-agent-discipline" className="flex flex-col gap-2">
-			<h3 className="type-panel-title text-foreground">Discipline</h3>
+			<h3 className="type-title text-foreground">Discipline</h3>
 			<p className="type-caption text-text-subtle">
 				How well the agent keeps to its rules, across all of its work. Client
 				and internal runs are counted separately.
@@ -758,7 +760,7 @@ const OUTCOME_COLUMNS: DataColumn<SampleOutcome>[] = [
 function Outcome({ history }: { history: SampleAgentHistory }) {
 	return (
 		<div data-testid="catalog-agent-outcome" className="flex flex-col gap-2">
-			<h3 className="type-panel-title text-foreground">Outcome</h3>
+			<h3 className="type-title text-foreground">Outcome</h3>
 			<p className="type-caption text-text-subtle">
 				What the work cost and how it went, for one territory on one mission
 				template per row. Each row stands alone; rows are never added up.
@@ -803,7 +805,7 @@ function Reconstructed({ history }: { history: SampleAgentHistory }) {
 			data-testid="catalog-agent-reconstructed"
 			className="flex flex-col gap-2"
 		>
-			<h3 className="type-panel-title text-foreground">Reconstructed runs</h3>
+			<h3 className="type-title text-foreground">Reconstructed runs</h3>
 			<p className="type-caption text-text-subtle">
 				Their version was worked out later from git history, not recorded when
 				they ran. Their findings still count, but they are left out of every
@@ -823,12 +825,8 @@ function Reconstructed({ history }: { history: SampleAgentHistory }) {
 							attested
 							data-testid="catalog-reconstructed-pill"
 						/>
-						<span className="type-mono-small text-foreground">
-							{run.mission}
-						</span>
-						<span className="type-mono-small text-text-subtle">
-							{run.commit}
-						</span>
+						<span className="type-mono text-foreground">{run.mission}</span>
+						<span className="type-mono text-text-subtle">{run.commit}</span>
 						<span className="type-small text-text-muted">{run.findings}</span>
 					</li>
 				))}

@@ -9,25 +9,21 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useState } from "react";
 import type { z } from "zod";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { MISSION_STATUS_TONE } from "./mission-columns";
+import { tabsListVariants } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
 	type Direction,
-	includesArchived,
-	NEEDS_YOU,
 	ORIGIN_LABEL,
 	ORIGINS,
 	SORT_DIRECTION,
 	SORT_LABEL,
 	SORTS,
 	type Sort,
-	STATUS_ORDER,
-	STATUS_PANEL,
-	type StatusFilter,
 	type View,
 } from "./mission-search";
-import { StatusGlyph, type StatusTone } from "./status-pill";
 
 const route = getRouteApi("/missions");
 
@@ -39,82 +35,6 @@ export type MissionCounts = {
 	byStatus: z.infer<typeof missionStatusCounts>;
 	needsYou: number;
 };
-
-/**
- * The status strip: All, Needs you, and one chip per status, each with its
- * count from meta.counts (which ignores the status filter, so every chip
- * keeps its number while one is chosen). Until counts arrive, each says "—",
- * never a zero it cannot vouch for. The pressed chip is the URL's `status`.
- * Archived appears only while archived missions are included.
- */
-export function MissionStatusStrip({ counts }: { counts?: MissionCounts }) {
-	const search = route.useSearch();
-	const navigate = route.useNavigate();
-	const total = counts
-		? Object.values(counts.byStatus).reduce((sum, n) => sum + n, 0)
-		: undefined;
-	const chips: {
-		id: StatusFilter;
-		label: string;
-		tone: StatusTone | null;
-		count?: number;
-	}[] = [
-		{ id: "all", label: "All", tone: null, count: total },
-		{
-			id: "needs-you",
-			label: NEEDS_YOU.label,
-			tone: "warn",
-			count: counts?.needsYou,
-		},
-		...STATUS_ORDER.filter(
-			(status) => status !== "archived" || includesArchived(search),
-		).map((status) => ({
-			id: status,
-			label: STATUS_PANEL[status].label,
-			tone: MISSION_STATUS_TONE[status],
-			count: counts?.byStatus[status],
-		})),
-	];
-
-	return (
-		<fieldset
-			data-testid="missions-status-strip"
-			// min-w-0: a fieldset is min-content wide by default, which would stop
-			// the strip scrolling sideways on a phone.
-			className="no-scrollbar -mx-4 flex min-w-0 gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0"
-		>
-			<legend className="sr-only">Filter by status</legend>
-			{chips.map((chip) => (
-				<button
-					key={chip.id}
-					type="button"
-					aria-pressed={search.status === chip.id}
-					data-testid={`missions-status-${chip.id}`}
-					onClick={() =>
-						navigate({ search: (prev) => ({ ...prev, status: chip.id }) })
-					}
-					className="inline-flex h-8 shrink-0 items-center gap-2 rounded-full border border-border px-3 type-small whitespace-nowrap text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover hover:text-foreground aria-pressed:border-transparent aria-pressed:bg-state-selected aria-pressed:text-foreground"
-				>
-					{chip.tone ? <StatusGlyph tone={chip.tone} /> : null}
-					{chip.label}
-					<span
-						data-testid={`missions-status-${chip.id}-count`}
-						className="type-mono-small text-text-subtle"
-					>
-						{chip.count === undefined ? (
-							<>
-								<span aria-hidden="true">—</span>
-								<span className="sr-only">, count not available</span>
-							</>
-						) : (
-							chip.count
-						)}
-					</span>
-				</button>
-			))}
-		</fieldset>
-	);
-}
 
 /**
  * The direction after a flip. Flipping back to the sort's own direction
@@ -153,22 +73,24 @@ function Segmented<T extends string>({
 	return (
 		<fieldset
 			data-testid={testId}
-			className="field-inset inline-flex h-9 min-w-0 shrink-0 items-center gap-0.5 rounded-full border border-border bg-app-band p-0.5"
+			className={cn(
+				tabsListVariants({ variant: "default" }),
+				"min-w-0 shrink-0",
+			)}
 		>
 			<legend className="sr-only">{legend}</legend>
 			{options.map((option) => (
-				<button
+				<Button
 					key={option.value}
 					type="button"
+					variant="segment"
 					aria-pressed={value === option.value}
 					data-testid={`${testId}-${option.value}`}
 					onClick={() => onChange(option.value)}
-					// 6px outer radius minus 2px padding: concentric at 4px.
-					className="inline-flex h-full items-center gap-1.5 rounded-full px-3.5 type-small aria-pressed:surface-steel text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:text-foreground aria-pressed:bg-card aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:shadow-e1 [&>svg]:size-4"
 				>
 					{option.icon ? <option.icon aria-hidden="true" /> : null}
 					{option.label}
-				</button>
+				</Button>
 			))}
 			{trailing ? (
 				<>
@@ -251,11 +173,15 @@ export function MissionFilterBar({
 	return (
 		<div
 			data-testid="missions-filter-bar"
-			className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center"
+			// The Missions panel's header toolbar: one row of controls that
+			// wraps, never a bar of its own.
+			className="flex min-w-0 flex-wrap items-center gap-2"
 		>
-			<div className="relative min-w-0 flex-1 md:max-w-sm">
+			<div className="relative w-full min-w-0 sm:w-56">
+				{/* The short placeholder fits the toolbar; the label and the
+				    title carry what it matches. */}
 				<label htmlFor={inputId} className="sr-only">
-					Search missions
+					Search missions by client, engagement or type
 				</label>
 				<Search
 					aria-hidden="true"
@@ -265,7 +191,8 @@ export function MissionFilterBar({
 					id={inputId}
 					type="search"
 					data-testid="missions-search"
-					placeholder="Search by client, engagement or type"
+					placeholder="Search missions"
+					title="Search by client, engagement or type"
 					value={draft}
 					onChange={(event) => setDraft(event.target.value)}
 					className="pl-9"
@@ -285,7 +212,7 @@ export function MissionFilterBar({
 					Show archived
 				</label>
 			</div>
-			<div className="flex flex-wrap items-center gap-2 md:ml-auto">
+			<div className="flex flex-wrap items-center gap-2">
 				<Segmented
 					legend="View"
 					testId="missions-view"
@@ -312,9 +239,11 @@ export function MissionFilterBar({
 						// The sort's direction, as the track's last segment. Flipping
 						// back to the sort's own direction leaves the URL, so the
 						// default link stays plain.
-						<button
+						<Button
 							type="button"
+							variant="segment"
 							data-testid="missions-direction"
+							className="px-1.5"
 							aria-label={
 								shown === "asc"
 									? "Sorted ascending. Sort descending"
@@ -328,14 +257,13 @@ export function MissionFilterBar({
 									}),
 								})
 							}
-							className="inline-flex aspect-square h-full items-center justify-center rounded-full text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover hover:text-foreground [&>svg]:size-4"
 						>
 							{shown === "asc" ? (
 								<ArrowUpNarrowWide aria-hidden="true" />
 							) : (
 								<ArrowDownWideNarrow aria-hidden="true" />
 							)}
-						</button>
+						</Button>
 					}
 				/>
 			</div>

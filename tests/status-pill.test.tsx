@@ -26,7 +26,7 @@ describe("StatusPill", () => {
 			for (const cls of [
 				`text-gate-${tone}`,
 				`bg-gate-${tone}-soft`,
-				`border-gate-${tone}-line`,
+				`ring-gate-${tone}-line`,
 			]) {
 				expect(root).toMatch(new RegExp(`(?:"|\\s)${cls}(?:"|\\s)`));
 			}
@@ -64,7 +64,7 @@ describe("StatusPill", () => {
 		expect(tagOf(pill("pass", { size: "sm" }), "status-pill")).toMatch(
 			/\bh-5\b/,
 		);
-		expect(tagOf(pill("pass"), "status-pill")).toMatch(/\bh-6\b/);
+		expect(tagOf(pill("pass"), "status-pill")).toMatch(/\bh-\[22px\]/);
 	});
 });
 

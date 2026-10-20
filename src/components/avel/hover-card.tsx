@@ -57,7 +57,7 @@ export function HoverCard({
 					data-testid={testId}
 					data-state={open ? "open" : "closed"}
 					aria-describedby={open ? cardId : undefined}
-					className="inline-flex"
+					className="inline-flex max-w-full"
 					onPointerEnter={() => later(true, OPEN_DELAY)}
 					onPointerLeave={() => later(false, CLOSE_DELAY)}
 					onFocus={() => later(true, OPEN_DELAY)}

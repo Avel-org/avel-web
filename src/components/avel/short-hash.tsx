@@ -86,7 +86,7 @@ export function ShortHash({
 			<code
 				title={value}
 				data-full={value}
-				className="type-mono-small text-text-muted"
+				className="type-mono text-text-muted"
 			>
 				{/* Not selectable, so a hand copy takes only the full value. */}
 				<span aria-hidden="true" className="select-none tabular-nums">

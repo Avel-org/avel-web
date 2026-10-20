@@ -1,8 +1,12 @@
 import { getRouteApi } from "@tanstack/react-router";
 import type { MissionListItem, MissionStatus } from "avel-server/contract";
-import { useMemo } from "react";
+import { ChevronRight } from "lucide-react";
+import { type ReactNode, useId, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useStoredState } from "@/lib/stored";
+import { cn } from "@/lib/utils";
 import { DataPanel, type DataPanelTone } from "./data-panel";
 import { DataTable } from "./data-table";
 import { MissionCard, missionColumns, needsYouColumn } from "./mission-columns";
@@ -21,6 +25,7 @@ import {
 	showsNeedsYou,
 	visibleStatuses,
 } from "./mission-search";
+import { StatusGlyph } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
 const route = getRouteApi("/missions");
@@ -46,14 +51,22 @@ export function MissionRowsSkeleton({
 }) {
 	return (
 		<div data-testid={testId} className="flex flex-col divide-y divide-border">
-			{Array.from({ length: rows }, (_, i) => (
-				// Placeholders in a fixed order: the index is their identity.
-				// biome-ignore lint/suspicious/noArrayIndexKey: static placeholder rows
-				<div key={i} className="flex h-10 items-center gap-4 px-4">
-					<Skeleton className="h-3 w-16" />
+			{/* A mission row's shape (v3 UX 8, .skel-row): its subject, the
+			    status pill (.skel-pill) and the time column at the end.
+			    Placeholders in a fixed order: the position is their identity. */}
+			{Array.from({ length: rows }, (_, i) => `row-${i}`).map((key) => (
+				<div
+					key={key}
+					data-testid={`${testId}-row`}
+					className="flex h-10 items-center gap-3 px-4"
+				>
 					<Skeleton className="h-3 w-40" />
-					<Skeleton className="h-3 w-24" />
-					<Skeleton className="ml-auto h-3 w-20" />
+					<Skeleton className="h-3 w-16" />
+					<Skeleton
+						data-testid={`${testId}-pill`}
+						className="h-[22px] w-16 rounded-sm"
+					/>
+					<Skeleton className="ml-auto h-3 w-24" />
 				</div>
 			))}
 		</div>
@@ -99,23 +112,39 @@ export function LoadMore({
  * status in the order an operator acts on them. Each panel pages its own
  * query; its badge is the status's count from meta.counts. A status filter
  * shows only its panel.
+ *
+ * `nested`, inside a panel that already frames the list (the Missions page's
+ * Missions panel), sets each group as a sub-section instead: an eyebrow
+ * heading and a hairline, never a panel inside a panel.
  */
 export function MissionPanels({
 	params,
 	counts,
 	now,
 	onOpen,
+	nested = false,
 }: {
 	/** The page's filters, without a status: each panel adds its own. */
 	params: MissionListParams;
 	counts?: MissionCounts;
 	now: number;
 	onOpen: (mission: MissionListItem) => void;
+	nested?: boolean;
 }) {
 	const search = route.useSearch();
 	return (
-		<div data-testid="missions-panels" className="flex flex-col gap-4">
-			{showsNeedsYou(search.status) ? (
+		<div
+			data-testid="missions-panels"
+			data-nested={nested || undefined}
+			className={cn(
+				"flex flex-col",
+				nested ? "divide-y divide-border" : "gap-4",
+			)}
+		>
+			{/* Nested in the Missions page's grid, the side column's Needs you
+			    panel already lists these, so the list starts at the statuses;
+			    pressing the Needs you card still narrows it to them. */}
+			{showsNeedsYou(search.status) && !(nested && search.status === "all") ? (
 				<MissionPanel
 					panel="needs-you"
 					title={NEEDS_YOU.label}
@@ -126,6 +155,7 @@ export function MissionPanels({
 					empty="Nothing needs you right now."
 					now={now}
 					onOpen={onOpen}
+					nested={nested}
 				/>
 			) : null}
 			{visibleStatuses(search).map((status) => (
@@ -140,6 +170,7 @@ export function MissionPanels({
 					empty={`No ${STATUS_PANEL[status].label.toLowerCase()} missions.`}
 					now={now}
 					onOpen={onOpen}
+					nested={nested}
 				/>
 			))}
 		</div>
@@ -156,6 +187,7 @@ function MissionPanel({
 	empty,
 	now,
 	onOpen,
+	nested,
 }: {
 	panel: PanelId;
 	title: string;
@@ -166,20 +198,23 @@ function MissionPanel({
 	empty: string;
 	now: number;
 	onOpen: (mission: MissionListItem) => void;
+	nested: boolean;
 }) {
 	const list = useMissionList(params);
 	const testId = `missions-panel-${panel}`;
 	// A status panel needs no status column: the panel says it. The needs-you
-	// lens keeps it, and adds why.
+	// lens keeps it, and adds why, except nested in the narrower Missions
+	// panel, where why repeats the last export's pill.
 	const columns = useMemo(() => {
 		const all = missionColumns(now);
-		return panel === "needs-you"
-			? [...all, needsYouColumn()]
-			: all.filter((column) => column.id !== "status");
-	}, [now, panel]);
+		if (panel !== "needs-you")
+			return all.filter((column) => column.id !== "status");
+		return nested ? all : [...all, needsYouColumn()];
+	}, [now, panel, nested]);
 
+	const Group = nested ? SubSection : DataPanel;
 	return (
-		<DataPanel
+		<Group
 			data-testid={testId}
 			title={title}
 			tone={tone}
@@ -190,6 +225,9 @@ function MissionPanel({
 			<Surface
 				data-testid={`${testId}-list`}
 				query={asSurface(list)}
+				// Nested, the Missions panel's footer says when the list was
+				// read; a read age per group would repeat it.
+				freshness={nested ? undefined : {}}
 				loading={<MissionRowsSkeleton rows={3} testId={`${testId}-skeleton`} />}
 				empty={
 					<p
@@ -210,6 +248,10 @@ function MissionPanel({
 							rows={rows}
 							getRowId={(mission) => mission.id}
 							density="compact"
+							// Nested, the table scrolls sideways inside the panel
+							// rather than being clipped by it; a sticky header
+							// would make the page its scroll scope instead.
+							stickyHeader={!nested}
 							onRowClick={onOpen}
 							renderCard={(mission) => (
 								<MissionCard mission={mission} now={now} />
@@ -219,6 +261,89 @@ function MissionPanel({
 					</>
 				)}
 			</Surface>
-		</DataPanel>
+		</Group>
 	);
 }
+
+/**
+ * A group inside a panel: the eyebrow heading with the group's glyph and
+ * count, a hairline above it (from the list's dividers), and the same
+ * collapse as a panel's, remembered under the same key.
+ */
+function SubSection({
+	title,
+	count,
+	tone,
+	defaultOpen,
+	storageKey,
+	children,
+	"data-testid": testId,
+}: {
+	title: string;
+	count?: number;
+	tone: DataPanelTone;
+	defaultOpen: boolean;
+	storageKey: string;
+	children: ReactNode;
+	"data-testid": string;
+}) {
+	const bodyId = useId();
+	const titleId = useId();
+	const [stored, setStored] = useStoredState(
+		storageKey,
+		defaultOpen ? "open" : "closed",
+		["open", "closed"] as const,
+	);
+	const open = stored === "open";
+	return (
+		<section
+			data-testid={testId}
+			data-state={open ? "open" : "closed"}
+			aria-labelledby={titleId}
+		>
+			<button
+				type="button"
+				data-testid={`${testId}-toggle`}
+				aria-expanded={open}
+				aria-controls={bodyId}
+				onClick={() => setStored(open ? "closed" : "open")}
+				className="focus-inset flex h-10 w-full items-center gap-2 px-4 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised"
+			>
+				<ChevronRight
+					aria-hidden="true"
+					className={cn(
+						"size-3.5 shrink-0 text-text-subtle transition-transform duration-(--duration-state) ease-avel",
+						open && "rotate-90",
+					)}
+				/>
+				{tone === "neutral" ? null : (
+					<StatusGlyph tone={tone} className={GLYPH_TEXT[tone]} />
+				)}
+				<h3 id={titleId} className="type-eyebrow">
+					{title}
+				</h3>
+				<Badge variant="count" data-testid={`${testId}-count`}>
+					{count === undefined ? "—" : count}
+				</Badge>
+			</button>
+			<div
+				id={bodyId}
+				data-testid={`${testId}-body`}
+				inert={!open}
+				className={cn(
+					"grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows] duration-(--duration-state) ease-avel",
+					open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+				)}
+			>
+				<div className="min-h-0 min-w-0 overflow-clip">{children}</div>
+			</div>
+		</section>
+	);
+}
+
+const GLYPH_TEXT = {
+	warn: "text-gate-warn",
+	pending: "text-gate-pending",
+	block: "text-gate-block",
+	pass: "text-gate-pass",
+} as const satisfies Record<Exclude<DataPanelTone, "neutral">, string>;

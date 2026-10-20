@@ -128,9 +128,9 @@ function Section({
 	return (
 		<section
 			data-testid={`primitives-${title.toLowerCase().replace(/\W+/g, "-")}`}
-			className="flex flex-col gap-3 rounded-md border border-border bg-card p-5"
+			className="flex flex-col gap-3 rounded-card border border-border bg-card p-5"
 		>
-			<h2 className="font-display text-sm font-medium">{title}</h2>
+			<h2 className="type-title">{title}</h2>
 			<div className="flex flex-wrap items-center gap-3">{children}</div>
 		</section>
 	);
@@ -149,8 +149,8 @@ function PrimitivesPage() {
 	return (
 		<div className="flex max-w-none flex-col gap-4">
 			<div className="flex items-center justify-between gap-4">
-				<h1 className="font-display text-2xl font-medium">Primitives</h1>
-				<div className="flex items-center gap-2 text-sm text-text-muted">
+				<h1 className="type-display">Primitives</h1>
+				<div className="flex items-center gap-2 type-small text-text-muted">
 					<span id="theme-label">Light theme</span>
 					<Switch
 						aria-labelledby="theme-label"
@@ -186,10 +186,7 @@ function PrimitivesPage() {
 				>
 					Deliver
 				</Button>
-				<span
-					data-testid="hold-count"
-					className="font-mono text-xs text-text-muted"
-				>
+				<span data-testid="hold-count" className="type-mono text-text-muted">
 					confirmed {confirmed}
 				</span>
 			</Section>
@@ -219,19 +216,19 @@ function PrimitivesPage() {
 			</Section>
 
 			<Section title="Choices">
-				<div className="flex items-center gap-2 text-sm">
+				<div className="flex items-center gap-2 type-small">
 					<Checkbox id="c1" defaultChecked />
 					<label htmlFor="c1">Checked</label>
 				</div>
-				<div className="flex items-center gap-2 text-sm">
+				<div className="flex items-center gap-2 type-small">
 					<Checkbox id="c2" />
 					<label htmlFor="c2">Unchecked</label>
 				</div>
-				<div className="flex items-center gap-2 text-sm">
+				<div className="flex items-center gap-2 type-small">
 					<Switch id="s1" defaultChecked />
 					<label htmlFor="s1">Switch</label>
 				</div>
-				<div className="flex items-center gap-2 text-sm">
+				<div className="flex items-center gap-2 type-small">
 					<Switch
 						id="s2"
 						checked
@@ -239,7 +236,7 @@ function PrimitivesPage() {
 					/>
 					<label htmlFor="s2">Switch, disabled with a reason</label>
 				</div>
-				<RadioGroup defaultValue="warn" className="flex gap-4 text-sm">
+				<RadioGroup defaultValue="warn" className="flex gap-4 type-small">
 					<div className="flex items-center gap-2">
 						<RadioGroupItem value="mandatory" id="r1" />
 						<label htmlFor="r1">mandatory</label>
@@ -258,15 +255,21 @@ function PrimitivesPage() {
 						<TabsTrigger value="blast">Blast radius</TabsTrigger>
 						<TabsTrigger value="activity">Activity</TabsTrigger>
 					</TabsList>
-					<TabsContent value="gates" className="pt-2 text-sm text-text-muted">
+					<TabsContent
+						value="gates"
+						className="pt-2 type-small text-text-muted"
+					>
 						Gate results.
 					</TabsContent>
-					<TabsContent value="blast" className="pt-2 text-sm text-text-muted">
+					<TabsContent
+						value="blast"
+						className="pt-2 type-small text-text-muted"
+					>
 						What a delivery would do.
 					</TabsContent>
 					<TabsContent
 						value="activity"
-						className="pt-2 text-sm text-text-muted"
+						className="pt-2 type-small text-text-muted"
 					>
 						Everything that happened.
 					</TabsContent>
@@ -284,7 +287,7 @@ function PrimitivesPage() {
 					<PopoverTrigger asChild>
 						<Button variant="outline">Popover</Button>
 					</PopoverTrigger>
-					<PopoverContent className="text-sm">
+					<PopoverContent className="type-small">
 						Read 4 minutes ago.
 					</PopoverContent>
 				</Popover>
@@ -301,9 +304,12 @@ function PrimitivesPage() {
 						<DropdownMenuItem variant="destructive">Revoke</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
+				{/* Audit D7: danger is outlined where it sits beside other work,
+				    and filled only as the final confirm, inside a dialog that
+				    has already said what happens. */}
 				<Dialog>
 					<DialogTrigger asChild>
-						<Button variant="outline" data-testid="open-dialog">
+						<Button variant="destructive" data-testid="open-dialog">
 							Dialog
 						</Button>
 					</DialogTrigger>
@@ -315,7 +321,12 @@ function PrimitivesPage() {
 							</DialogDescription>
 						</DialogHeader>
 						<DialogFooter showCloseButton>
-							<Button variant="destructive">Revoke</Button>
+							<Button
+								variant="destructive-confirm"
+								data-testid="dialog-confirm-revoke"
+							>
+								Revoke connection
+							</Button>
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>
@@ -365,7 +376,7 @@ function PrimitivesPage() {
 					<TableBody>
 						{ROWS.map((row) => (
 							<TableRow key={row.path}>
-								<TableCell className="font-mono text-xs">{row.path}</TableCell>
+								<TableCell className="type-mono">{row.path}</TableCell>
 								<TableCell>
 									<Badge variant="tag">{row.sha}</Badge>
 								</TableCell>
@@ -385,8 +396,8 @@ function PrimitivesPage() {
 				<Avatar>
 					<AvatarFallback>AX</AvatarFallback>
 				</Avatar>
-				<ScrollArea className="h-24 w-48 rounded-sm border border-border">
-					<div className="p-3 font-mono text-xs leading-6">
+				<ScrollArea className="h-24 w-48 rounded-control border border-border">
+					<div className="p-3 type-mono">
 						{Array.from({ length: 12 }, (_, i) => `line ${i + 1}`).map(
 							(line) => (
 								<div key={line}>{line}</div>
@@ -702,7 +713,7 @@ function Ruling35Showcase() {
 				visible={3}
 				getKey={(gate) => gate}
 				noun="gates"
-				render={(gate) => <span className="type-mono-small">{gate}</span>}
+				render={(gate) => <span className="type-mono">{gate}</span>}
 			/>
 			<p className="type-small text-text-muted">
 				Hover or tab to{" "}
@@ -711,22 +722,20 @@ function Ruling35Showcase() {
 					trigger={
 						<a
 							href="#atlas"
-							className="text-accent-text underline-offset-4 hover:underline"
+							className="inline-block py-1 text-accent-text underline-offset-4 hover:underline"
 						>
 							atlas
 						</a>
 					}
 				>
 					<p className="type-small font-medium text-foreground">Atlas</p>
-					<p className="type-mono-small text-text-muted">
-						schema, contract · wave A
-					</p>
+					<p className="type-mono text-text-muted">schema, contract · wave A</p>
 				</HoverCard>{" "}
 				for its preview.
 			</p>
 			<div className="flex gap-2">
-				<div className="landed h-8 w-24 rounded-sm border border-border" />
-				<div className="bg-hatch-warn h-8 w-24 rounded-sm" />
+				<div className="landed h-8 w-24 rounded-control border border-border" />
+				<div className="bg-hatch-warn h-8 w-24 rounded-control" />
 			</div>
 		</div>
 	);

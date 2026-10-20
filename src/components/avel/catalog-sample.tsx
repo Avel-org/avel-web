@@ -63,7 +63,7 @@ export function SampleRegion({
 			data-sample-region={missing}
 			data-what={what}
 			className={cn(
-				"flex min-w-0 flex-col gap-2 rounded-sm border border-dashed border-border p-2",
+				"flex min-w-0 flex-col gap-2 rounded-control border border-dashed border-border p-2",
 				className,
 			)}
 		>
@@ -144,7 +144,7 @@ export function RoleTag({ role }: { role: Role }) {
 			className="gap-1.5"
 		>
 			<span data-testid="catalog-role-label">{ROLE_LABELS[role]}</span>
-			<span className="type-mono-small text-text-subtle">{role}</span>
+			<span className="type-mono text-text-subtle">{role}</span>
 			{automated ? (
 				<span
 					data-testid="catalog-role-automated"
@@ -158,7 +158,7 @@ export function RoleTag({ role }: { role: Role }) {
 }
 
 const LINK =
-	"rounded-xs text-accent-text underline-offset-4 transition-colors duration-(--duration-micro) ease-avel hover:underline";
+	"py-1.5 -my-1.5 rounded-xs text-accent-text underline-offset-4 transition-colors duration-(--duration-micro) ease-avel hover:underline";
 
 /** A link to an agent's page. */
 export function AgentLink({ agent }: { agent: AgentTemplate }) {

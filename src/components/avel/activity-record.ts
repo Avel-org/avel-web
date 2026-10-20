@@ -114,6 +114,31 @@ export const INVERSE = {
 	"completion_report.filed": null,
 	// A judge files a finding once; the gate decides it, nothing undoes it.
 	"finding.opened": null,
+	// An upload is the operator's document as sent; a purge deletes its bytes.
+	// Neither is undone from the log.
+	"file.uploaded": null,
+	"file.purged": null,
+	// A gate run is a receipt of what was judged at one commit: rerun, never undo.
+	"mission.gate_run": null,
+	// A triage stands until a new one; the log offers no inverse.
+	"finding.confirmed": null,
+	"finding.dismissed": null,
+	// Canon's sessions, questions, memory and drafts: each is undone by a new
+	// decision in its own place (reopen, a new answer, keep or remove, a
+	// revise), never by replaying the log.
+	"canon_session.opened": null,
+	"canon_session.closed": null,
+	"canon_session.halted": null,
+	"canon_question.asked": null,
+	"canon_question.answered": null,
+	"canon_question.acknowledged": null,
+	"canon_question.dismissed": null,
+	"client_memory.proposed": null,
+	"client_memory.kept": null,
+	"client_memory.edited": null,
+	"client_memory.removed": null,
+	"client_memory.written": null,
+	"intake.drafted_by_canon": null,
 } as const satisfies Record<ActivityAction, Inverse | null>;
 
 /** Every entry is Applied while avel-server logs no refusals (ruling 36). */

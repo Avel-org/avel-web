@@ -1,5 +1,6 @@
 import {
 	infiniteQueryOptions,
+	type QueryClient,
 	queryOptions,
 	useInfiniteQuery,
 	useMutation,
@@ -159,7 +160,7 @@ export function useCreateClient() {
 	return useMutation({
 		mutationFn: (body: CreateClientBody) =>
 			call(contract.clients.create, () => api.clients.create({ body })),
-		onSuccess: () => invalidateClients(queryClient),
+		onSuccess: () => afterClientWrite(queryClient),
 	});
 }
 
@@ -172,7 +173,7 @@ export function useUpdateClient() {
 			call(contract.clients.update, () =>
 				api.clients.update({ params: { id }, body: patch }),
 			),
-		onSuccess: () => invalidateClients(queryClient),
+		onSuccess: () => afterClientUpdated(queryClient),
 	});
 }
 
@@ -186,7 +187,25 @@ export function useCreateEngagement() {
 	return useMutation({
 		mutationFn: (body: CreateEngagementBody) =>
 			call(contract.engagements.create, () => api.engagements.create({ body })),
-		onSuccess: () => invalidateBoth(queryClient),
+		onSuccess: () => afterEngagementWrite(queryClient),
+	});
+}
+
+/** One engagement, for its name and the client it belongs to. */
+export function engagementQuery(api: ApiClient, id: string) {
+	return queryOptions({
+		queryKey: queryKeys.engagements.detail(id),
+		queryFn: () =>
+			call(contract.engagements.get, () =>
+				api.engagements.get({ params: { id } }),
+			),
+	});
+}
+
+export function useEngagement(id: string | null) {
+	return useQuery({
+		...engagementQuery(useApiClient(), id ?? ""),
+		enabled: id !== null,
 	});
 }
 
@@ -199,15 +218,41 @@ export function useCloseEngagement() {
 			call(contract.engagements.close, () =>
 				api.engagements.close({ params: { id } }),
 			),
-		onSuccess: () => invalidateBoth(queryClient),
+		onSuccess: () => afterEngagementClosed(queryClient),
 	});
+}
+
+/**
+ * A close revokes the engagement's live connections in the same transaction,
+ * so the connections list reads again with the engagement lists: otherwise
+ * Settings > Connections shows a revoked connection as live.
+ */
+export function afterEngagementClosed(queryClient: QueryClient) {
+	return Promise.all([
+		afterEngagementWrite(queryClient),
+		queryClient.invalidateQueries({ queryKey: queryKeys.connections.all() }),
+		// Its missions can no longer start: their readiness reads it (audit F2).
+		queryClient.invalidateQueries({ queryKey: queryKeys.missions.all() }),
+	]);
+}
+
+/**
+ * A client's missions show its name, and their readiness its status, so an
+ * update reads them again with the lists (audit F2). A new client has no
+ * missions, so a create does not.
+ */
+export function afterClientUpdated(queryClient: QueryClient) {
+	return Promise.all([
+		afterClientWrite(queryClient),
+		queryClient.invalidateQueries({ queryKey: queryKeys.missions.all() }),
+	]);
 }
 
 /**
  * Every client write adds a row to the activity log, so the log refreshes
  * with the lists: otherwise /activity serves a cached page without it.
  */
-function invalidateClients(queryClient: ReturnType<typeof useQueryClient>) {
+export function afterClientWrite(queryClient: QueryClient) {
 	return Promise.all([
 		queryClient.invalidateQueries({ queryKey: queryKeys.clients.all() }),
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
@@ -215,7 +260,7 @@ function invalidateClients(queryClient: ReturnType<typeof useQueryClient>) {
 }
 
 /** Engagement writes change both lists and add an activity row. */
-function invalidateBoth(queryClient: ReturnType<typeof useQueryClient>) {
+export function afterEngagementWrite(queryClient: QueryClient) {
 	return Promise.all([
 		queryClient.invalidateQueries({ queryKey: queryKeys.clients.all() }),
 		queryClient.invalidateQueries({ queryKey: queryKeys.engagements.all() }),
@@ -434,6 +479,7 @@ export function fieldErrors(error: unknown): Record<string, string> {
 export const CLIENT_TABS = [
 	"overview",
 	"engagements",
+	"intakes",
 	"drive",
 	"activity",
 ] as const;

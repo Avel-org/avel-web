@@ -134,7 +134,7 @@ export function ClientBoard({
 			error={ErrorState}
 		>
 			{(loaded) => (
-				<div className="flex flex-col gap-8">
+				<div className="flex flex-col gap-6">
 					{loaded
 						// An empty Closed section says nothing worth a heading,
 						// unless the filter asked for it.
@@ -182,15 +182,18 @@ function BoardSection({
 					aria-hidden="true"
 					className={cn(
 						"size-2 rounded-full",
-						status === "active" ? "bg-gate-pass" : "bg-text-subtle",
+						status === "active"
+							? "bg-gate-pass-solid"
+							: "bg-gate-pending-solid",
 					)}
 				/>
-				<h2 id={headingId} className="type-panel-title text-foreground">
+				{/* A sub-section of the Clients panel: an eyebrow, not a title. */}
+				<h3 id={headingId} className="type-eyebrow">
 					{label}
-				</h2>
+				</h3>
 				<span
 					data-testid={`client-section-${status}-count`}
-					className="type-mono-small text-text-subtle tabular-nums"
+					className="type-mono text-text-subtle tabular-nums"
 				>
 					{total ?? clients.length}
 				</span>
@@ -207,7 +210,7 @@ function BoardSection({
 				<ul
 					aria-label={`${label} clients`}
 					data-testid={`client-cards-${status}`}
-					className="stagger-in grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-4"
+					className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-4"
 				>
 					{clients.map((client) => (
 						<li key={client.id} className="min-w-0">
@@ -252,19 +255,21 @@ export function ClientCard({
 			aria-labelledby={titleId}
 			data-testid={`client-card-${client.id}`}
 			data-status={client.status}
-			className="plate plate-interactive group relative flex h-full flex-col overflow-hidden rounded-md border"
+			// v3's option card: a hairline that strengthens on hover, the raised
+			// fill under the pointer, and no lift.
+			className="group relative flex h-full flex-col overflow-hidden rounded-card border border-border bg-app-panel shadow-card transition-colors duration-(--duration-micro) ease-avel hover:border-border-strong hover:bg-app-raised"
 		>
-			<header className="surface-steel groove-b flex items-start gap-3 bg-app-band px-4 py-3">
+			<header className="flex items-start gap-3 border-b border-border px-4 py-2.5">
 				<ClientTile name={client.name} closed={closed} />
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<h3 id={titleId} className="type-panel-title truncate">
+					<h3 id={titleId} className="type-title truncate">
 						{/* The link's box covers the card, so a click anywhere opens
 						    the client; the menu and buttons sit above it. */}
 						<Link
 							to="/clients/$id"
 							params={{ id: client.id }}
 							data-testid={`client-card-open-${client.id}`}
-							className="rounded-xs text-foreground after:absolute after:inset-0 after:content-['']"
+							className="rounded-xs text-text after:absolute after:inset-0 after:content-['']"
 						>
 							{client.name}
 						</Link>
@@ -286,7 +291,7 @@ export function ClientCard({
 					<ClientCardMenu client={client} actions={actions} />
 				</div>
 			</header>
-			<div className="flex flex-1 flex-col gap-3 px-4 py-3">
+			<div className="flex flex-1 flex-col gap-2.5 px-4 py-2.5">
 				<EngagementMeter client={client} />
 				{client.engagementCount > 0 ? (
 					<EngagementStack client={client} />
@@ -365,7 +370,7 @@ function CardMissions({ client }: { client: Client }) {
 			<span
 				data-testid={`client-card-missions-${client.id}`}
 				data-state={count.status}
-				className="type-mono-small text-text-muted tabular-nums"
+				className="type-mono text-text-muted tabular-nums"
 			>
 				{count.status === "success" && count.data !== undefined ? (
 					missionCount(count.data)
@@ -385,6 +390,8 @@ function CardMissions({ client }: { client: Client }) {
 /**
  * The client's engagements as a row of segments, active first, from the
  * row's own counts: no request, and the same numbers the list summary uses.
+ * Active takes the pass solid, as its pill does; closed is the neutral the
+ * v3 chart track uses, since a closed engagement is no state to watch.
  */
 export function EngagementMeter({ client }: { client: Client }) {
 	const { active, closed, more } = engagementMeter(client);
@@ -399,7 +406,7 @@ export function EngagementMeter({ client }: { client: Client }) {
 				<span className="type-caption text-text-subtle">Engagements</span>
 				<span
 					data-testid={`client-meter-label-${client.id}`}
-					className="type-mono-small text-text-muted tabular-nums"
+					className="type-mono text-text-muted tabular-nums"
 				>
 					{engagementSummary(client)}
 				</span>
@@ -414,7 +421,7 @@ export function EngagementMeter({ client }: { client: Client }) {
 								// biome-ignore lint/suspicious/noArrayIndexKey: segments are positions, not items
 								key={`a${i}`}
 								data-segment="active"
-								className="grow-x flex-1 rounded-full bg-gate-pass"
+								className="flex-1 rounded-full bg-gate-pass-solid"
 							/>
 						))}
 						{Array.from({ length: closed }, (_, i) => (
@@ -422,13 +429,13 @@ export function EngagementMeter({ client }: { client: Client }) {
 								// biome-ignore lint/suspicious/noArrayIndexKey: segments are positions, not items
 								key={`c${i}`}
 								data-segment="closed"
-								className="grow-x flex-1 rounded-full bg-border-strong"
+								className="flex-1 rounded-full bg-border-strong"
 							/>
 						))}
 					</>
 				)}
 				{more > 0 ? (
-					<span className="type-mono-small -mt-1 pl-1 leading-none text-text-subtle">{`+${more}`}</span>
+					<span className="type-mono -mt-1 pl-1 leading-none text-text-subtle">{`+${more}`}</span>
 				) : null}
 			</div>
 		</div>
@@ -449,8 +456,8 @@ function EngagementStack({ client }: { client: Client }) {
 			isEmpty={(data) => data.pages.every((page) => page.data.length === 0)}
 			loading={
 				<div className="flex flex-col gap-1">
-					<Skeleton className="h-7 w-full rounded-sm" />
-					<Skeleton className="h-7 w-4/5 rounded-sm" />
+					<Skeleton className="h-7 w-full rounded-control" />
+					<Skeleton className="h-7 w-4/5 rounded-control" />
 				</div>
 			}
 			empty={<p className="type-small text-text-subtle">No engagements yet.</p>}
@@ -489,13 +496,13 @@ function EngagementLine({ engagement }: { engagement: Engagement }) {
 		<li
 			data-testid={`client-card-engagement-${engagement.id}`}
 			data-status={engagement.status}
-			className="flex min-w-0 items-center gap-2 rounded-sm bg-app-recessed px-2 py-1.5"
+			className="flex min-w-0 items-center gap-2 rounded-control bg-app-well px-2 py-1"
 		>
 			<span
 				aria-hidden="true"
 				className={cn(
 					"size-1.5 shrink-0 rounded-full",
-					active ? "bg-gate-pass" : "bg-text-subtle",
+					active ? "bg-gate-pass-solid" : "bg-gate-pending-solid",
 				)}
 			/>
 			<span
@@ -507,7 +514,7 @@ function EngagementLine({ engagement }: { engagement: Engagement }) {
 				{engagement.name}
 				<span className="sr-only">{active ? ", active" : ", closed"}</span>
 			</span>
-			<span className="type-mono-small shrink-0 text-text-subtle">
+			<span className="type-mono shrink-0 text-text-subtle">
 				<span className="sr-only">Started </span>
 				<time dateTime={engagement.startedAt}>
 					{isoDate(engagement.startedAt)}
@@ -606,9 +613,9 @@ function NewClientCard({ onClick }: { onClick: () => void }) {
 			type="button"
 			data-testid="client-card-new"
 			onClick={onClick}
-			className="flex h-full min-h-48 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border-strong p-4 text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover hover:text-foreground"
+			className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border-strong bg-app-band p-4 text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:border-border-strong hover:bg-app-raised hover:text-text"
 		>
-			<span className="inline-flex size-10 items-center justify-center rounded-sm border border-border bg-app-recessed">
+			<span className="inline-flex size-tile-md items-center justify-center rounded-tile border border-border bg-app-panel">
 				<Plus aria-hidden="true" className="size-4" />
 			</span>
 			<span className="type-body font-medium">New client</span>
@@ -632,20 +639,20 @@ export function ClientBoardSkeleton() {
 					<div
 						key={i}
 						data-testid="client-board-skeleton-card"
-						className="plate flex flex-col overflow-hidden rounded-md border"
+						className="flex flex-col overflow-hidden rounded-card border border-border bg-app-panel shadow-card"
 					>
-						<div className="flex items-center gap-3 border-b border-border bg-app-band px-4 py-3">
-							<Skeleton className="size-10 rounded-sm" />
+						<div className="flex items-center gap-3 border-b border-border px-4 py-3">
+							<Skeleton className="size-10 rounded-control" />
 							<span className="flex flex-1 flex-col gap-1.5">
 								<Skeleton className="h-4 w-32" />
 								<Skeleton className="h-3 w-24" />
 							</span>
-							<Skeleton className="h-5 w-14 rounded-full" />
+							<Skeleton className="h-5 w-14 rounded-sm" />
 						</div>
 						<div className="flex flex-col gap-2 px-4 py-3">
 							<Skeleton className="h-1.5 w-full rounded-full" />
-							<Skeleton className="h-7 w-full rounded-sm" />
-							<Skeleton className="h-7 w-4/5 rounded-sm" />
+							<Skeleton className="h-7 w-full rounded-control" />
+							<Skeleton className="h-7 w-4/5 rounded-control" />
 						</div>
 						<div className="border-t border-border px-4 py-2">
 							<Skeleton className="h-3 w-28" />

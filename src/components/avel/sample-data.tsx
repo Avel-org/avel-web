@@ -6,7 +6,9 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * The dashed pill on every sample section (ruling 29). Its tooltip names the
+ * The dashed pill on every sample section (ruling 29, audit F8), in v3's
+ * pill shape: neutral, with the dashed edge that marks a placeholder. Its
+ * tooltip names the
  * route the section waits for; screen readers get the same words. Each page
  * names its routes in its own placeholder module (mission-placeholders.ts,
  * catalog-placeholders.ts), so `missing` is a plain string here.
@@ -38,7 +40,9 @@ export function SampleData({
 					data-testid="sample-data"
 					data-missing={missing}
 					className={cn(
-						"inline-flex shrink-0 cursor-default items-center self-start rounded-full border border-dashed border-border-strong px-2 py-0.5 type-caption text-text-muted",
+						// 22px tall like every pill; the ::after reaches 24px for the
+						// pointer (v3 UX 1) without moving anything.
+						"relative inline-flex h-[22px] shrink-0 cursor-default items-center self-start rounded-sm border border-dashed border-border-strong px-2 type-caption font-medium text-text-muted after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-['']",
 						className,
 					)}
 				>

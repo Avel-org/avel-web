@@ -173,8 +173,7 @@ function SkillsBody({
 				className="flex flex-col gap-2"
 			>
 				<h3 className="type-caption text-text-subtle">
-					On this mission{" "}
-					<span className="type-mono-small">{attached.length}</span>
+					On this mission <span className="type-mono">{attached.length}</span>
 				</h3>
 				{attached.length === 0 ? (
 					<p
@@ -274,9 +273,9 @@ function SkillsBody({
 					role="alert"
 					data-testid="mission-skills-error"
 					className={cn(
-						"flex flex-col gap-1 rounded-sm border px-3 py-2",
+						"flex flex-col gap-1 rounded-control border px-3 py-2",
 						copy === SKILL_ALREADY_ATTACHED
-							? "border-gate-warn-line bg-gate-warn-soft"
+							? "border-gate-warn-line bg-gate-warn-banner"
 							: "border-gate-block-line bg-gate-block-soft",
 					)}
 				>
@@ -305,7 +304,7 @@ function SkillRow({
 	return (
 		<li
 			data-testid={testId}
-			className="flex items-start justify-between gap-3 rounded-sm border border-border px-2.5 py-2"
+			className="flex items-start justify-between gap-3 rounded-control border border-border px-2.5 py-2"
 		>
 			<div className="flex min-w-0 flex-col gap-1">
 				<span className="flex flex-wrap items-center gap-1.5">
@@ -349,7 +348,7 @@ function Recipients({
 					data-active={entry.active}
 					title={entry.active ? undefined : "Idle: turn it on to dispatch it"}
 					className={cn(
-						"rounded-xs border border-border px-1 type-mono-small",
+						"rounded-xs border border-border px-1 type-mono",
 						entry.active ? "text-foreground" : "border-dashed text-text-subtle",
 					)}
 				>

@@ -27,14 +27,16 @@ import {
 } from "@/components/avel/dispatch-controls";
 import {
 	bodyOf,
+	DISPATCH_STEPS,
 	dispatchFieldOf,
 	draftProblems,
 	initialDraft,
 	NewDispatch,
 	NewDispatchForm,
 	refusedAgentsLine,
+	refusedStep,
+	stepOf,
 } from "@/components/avel/dispatch-new";
-import { missionKeys } from "@/components/avel/mission-data";
 import {
 	DispatchReport,
 	producersOf,
@@ -59,6 +61,7 @@ import { routeTree } from "@/routeTree.gen";
 import { PREVIEW_USER, SignedInProvider } from "@/shell/auth-gate";
 import { signedIn } from "./auth-session";
 import { inProviders, seededClient } from "./catalog-fixtures";
+import { tagOf } from "./render-page";
 import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 // ---------------------------------------------------------------------------
@@ -342,7 +345,9 @@ describe("reading a mission's dispatches", () => {
 		const qc = seededClient();
 		qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [RUNNING]);
 		qc.setQueryData(queryKeys.dispatches.reports(MISSION_ID), [REPORT]);
-		await qc.invalidateQueries({ queryKey: missionKeys.detail(MISSION_ID) });
+		await qc.invalidateQueries({
+			queryKey: queryKeys.missions.detail(MISSION_ID),
+		});
 		for (const key of [
 			queryKeys.dispatches.list(MISSION_ID),
 			queryKeys.dispatches.reports(MISSION_ID),
@@ -445,13 +450,14 @@ describe("the New dispatch form", () => {
 		expect(dispatchFieldOf(["other"])).toBeNull();
 	});
 
-	const form = (error: ApiError | null) =>
+	const form = (error: ApiError | null, initialStep = 0) =>
 		renderToString(
 			<TooltipProvider>
 				<InlineModals>
 					<NewDispatchForm
 						entries={[LEON, ATLAS]}
 						brief={BRIEF}
+						initialStep={initialStep}
 						pending={false}
 						error={error}
 						onSubmit={() => {}}
@@ -460,20 +466,64 @@ describe("the New dispatch form", () => {
 			</TooltipProvider>,
 		);
 
-	it("renders the prefilled fields", () => {
+	it("steps through Agent, Brief and Ceilings as v3 step pills", () => {
 		const html = form(null);
+		const pills = [
+			...html.matchAll(
+				/data-testid="dispatch-new-modal-step-\d"[^>]*>([^<]+)</g,
+			),
+		].map((m) => m[1]);
+		expect(pills).toEqual(["1 · Agent", "2 · Brief", "3 · Ceilings"]);
+		expect(tagOf(html, "dispatch-new-modal-step-0")).toContain(
+			'aria-current="step"',
+		);
+		expect(tagOf(html, "dispatch-new-modal-step-0")).toContain("bg-selected");
+		expect(visibleText(html)).toContain("Next: Brief");
+		expect(visibleText(form(null, 2))).toContain("Queue the dispatch");
+		expect(DISPATCH_STEPS).toEqual(["Agent", "Brief", "Ceilings"]);
+	});
+
+	it("picks the agent from v3 option cards: tile, name, territory, the first pressed", () => {
+		const html = form(null);
+		const leon = tagOf(html, `dispatch-new-agent-option-${LEON.id}`);
+		expect(leon).toContain('aria-pressed="true"');
+		expect(leon).toContain('type="button"');
+		for (const cls of [
+			"rounded-card",
+			"aria-pressed:border-selected-border",
+			"aria-pressed:bg-selected",
+		])
+			expect(leon).toContain(cls);
+		expect(tagOf(html, `dispatch-new-agent-option-${ATLAS.id}`)).toContain(
+			'aria-pressed="false"',
+		);
+		expect(html).not.toContain('role="combobox"');
+		// Only the agent is asked for on the first step.
+		expect(html).not.toContain("dispatch-new-module");
+		expect(html).not.toContain("dispatch-new-estimate");
+	});
+
+	it("renders the prefilled fields, step by step", () => {
+		expect(visibleText(form(null, 1))).toContain("Book a slot");
+		const html = form(null, 2);
 		expect(html).toMatch(
 			/data-testid="dispatch-new-estimate"[^>]*value="40000"|value="40000"[^>]*data-testid="dispatch-new-estimate"/,
 		);
 		expect(html).toMatch(
 			/data-testid="dispatch-new-minutes"[^>]*value="60"|value="60"[^>]*data-testid="dispatch-new-minutes"/,
 		);
-		expect(visibleText(html)).toContain("Book a slot");
 		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
 	});
 
+	it("puts each field on one step, and a refusal on the earliest step it names", () => {
+		expect(stepOf("rosterEntryId")).toBe(0);
+		expect(stepOf("requirementIds")).toBe(1);
+		expect(stepOf("wallClockMinutes")).toBe(2);
+		expect(refusedStep(null, [LEON])).toBeNull();
+	});
+
 	it("puts a 400's body issues on their fields, in our words", () => {
-		const html = form(
+		const refused = (body: { path: (string | number)[]; message: string }[]) =>
 			new ApiError({
 				method: "POST",
 				path: "/api/missions/:id/dispatches",
@@ -482,24 +532,29 @@ describe("the New dispatch form", () => {
 				code: "VALIDATION_FAILED",
 				message: "for logs",
 				requestId: "req_v",
-				details: {
-					body: [
-						{ path: ["wallClockMinutes"], message: "server words" },
-						{
-							path: ["briefRef", "requirementIds", 0],
-							message: "server words",
-						},
-					],
-				},
-			}),
+				details: { body },
+			});
+		const both = refused([
+			{ path: ["wallClockMinutes"], message: "server words" },
+			{ path: ["briefRef", "requirementIds", 0], message: "server words" },
+		]);
+		// Sent from the last step, it lands on the earliest step it names.
+		expect(refusedStep(both, [LEON])).toBe(1);
+		const html = form(both, 2);
+		const at = (h: string, id: string) =>
+			visibleText(h.slice(h.indexOf(`data-testid="${id}"`)));
+		expect(tagOf(html, "dispatch-new-modal-step-1")).toContain(
+			'aria-current="step"',
 		);
-		const at = (id: string) =>
-			visibleText(html.slice(html.indexOf(`data-testid="${id}"`)));
-		expect(at("dispatch-new-minutes-error")).toMatch(
-			/^ ?A whole number of minutes, up to 480\./,
-		);
-		expect(at("dispatch-new-requirements-error")).toMatch(
+		expect(at(html, "dispatch-new-requirements-error")).toMatch(
 			/^ ?Choose requirements of that module\./,
+		);
+		const minutes = form(
+			refused([{ path: ["wallClockMinutes"], message: "server words" }]),
+			2,
+		);
+		expect(at(minutes, "dispatch-new-minutes-error")).toMatch(
+			/^ ?A whole number of minutes, up to 480\./,
 		);
 		expect(html).not.toContain("server words");
 	});
@@ -611,7 +666,7 @@ describe("the Dispatches section", () => {
 
 	it("puts the board and New dispatch on an active mission's page, with no visible id", async () => {
 		const html = await renderMission((qc) => {
-			qc.setQueryData(missionKeys.detail(MISSION_ID).slice(), mission());
+			qc.setQueryData(queryKeys.missions.detail(MISSION_ID).slice(), mission());
 			qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [RUNNING, DONE]);
 			qc.setQueryData(queryKeys.dispatches.reports(MISSION_ID), [REPORT]);
 		});
@@ -626,9 +681,28 @@ describe("the Dispatches section", () => {
 		expect(visibleText(html)).toContain("$4.75");
 	});
 
+	it("leads a closed card with its report's evidence, and says the board polls while one runs", async () => {
+		const html = await renderMission((qc) => {
+			qc.setQueryData(queryKeys.missions.detail(MISSION_ID).slice(), mission());
+			qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [RUNNING, DONE]);
+			qc.setQueryData(queryKeys.dispatches.reports(MISSION_ID), [REPORT]);
+		});
+		const s = section(html) ?? "";
+		// The closed card's evidence comes before its brief line (audit F5).
+		const card = s.slice(s.indexOf(`data-testid="dispatch-card-${DONE_ID}"`));
+		expect(card).toContain(`data-testid="dispatch-evidence-${DONE_ID}"`);
+		// A running card has no report yet, so no evidence.
+		expect(s).not.toContain(`dispatch-evidence-${RUNNING_ID}`);
+		// Polling while a dispatch runs (audit F1); never "Live".
+		expect(tagOf(html, "mission-dispatches-read-age")).toContain(
+			'data-polling="true"',
+		);
+		expect(visibleText(s)).not.toMatch(/\bLive\b/);
+	});
+
 	it("offers Start on a queued card and Halt on a running one, and the mission Halt counts the running", async () => {
 		const html = await renderMission((qc) => {
-			qc.setQueryData(missionKeys.detail(MISSION_ID).slice(), mission());
+			qc.setQueryData(queryKeys.missions.detail(MISSION_ID).slice(), mission());
 			qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [
 				QUEUED,
 				RUNNING,
@@ -649,7 +723,7 @@ describe("the Dispatches section", () => {
 	it("offers neither Start nor Halt on a halted mission's cards", async () => {
 		const html = await renderMission((qc) => {
 			qc.setQueryData(
-				missionKeys.detail(MISSION_ID).slice(),
+				queryKeys.missions.detail(MISSION_ID).slice(),
 				mission({ status: "halted" }),
 			);
 			qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [QUEUED, DONE]);
@@ -664,7 +738,7 @@ describe("the Dispatches section", () => {
 	it("leaves a draft with no dispatches without the section", async () => {
 		const html = await renderMission((qc) => {
 			qc.setQueryData(
-				missionKeys.detail(MISSION_ID).slice(),
+				queryKeys.missions.detail(MISSION_ID).slice(),
 				mission({ status: "draft" }),
 			);
 			qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), []);
@@ -675,7 +749,7 @@ describe("the Dispatches section", () => {
 	it("says no dispatch ran on a halted mission without any, and offers no New dispatch", async () => {
 		const html = await renderMission((qc) => {
 			qc.setQueryData(
-				missionKeys.detail(MISSION_ID).slice(),
+				queryKeys.missions.detail(MISSION_ID).slice(),
 				mission({ status: "halted" }),
 			);
 			qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), []);
@@ -708,24 +782,23 @@ describe("starting and halting a dispatch", () => {
 		]);
 	});
 
-	it("a move refreshes the mission (its dispatches and reports), the dispatch and the log", async () => {
+	it("a move refreshes the mission (its dispatches and reports) and the log", async () => {
 		const qc = seededClient();
-		qc.setQueryData(missionKeys.detail(MISSION_ID).slice(), mission());
+		qc.setQueryData(queryKeys.missions.detail(MISSION_ID).slice(), mission());
 		qc.setQueryData(queryKeys.dispatches.list(MISSION_ID), [RUNNING]);
 		qc.setQueryData(queryKeys.dispatches.reports(MISSION_ID), []);
-		qc.setQueryData(queryKeys.dispatches.detail(RUNNING_ID), RUNNING);
-		qc.setQueryData(queryKeys.dispatches.detail(DONE_ID), DONE);
+		qc.setQueryData(queryKeys.dispatches.moving(MISSION_ID), [RUNNING]);
 		qc.setQueryData(queryKeys.activity.all(), {});
 		qc.setQueryData(queryKeys.roster.list(MISSION_ID), [LEON]);
-		await afterDispatchMoved(qc, MISSION_ID, RUNNING_ID);
+		await afterDispatchMoved(qc, MISSION_ID);
 		const stale = (key: readonly unknown[]) =>
 			qc.getQueryState(key)?.isInvalidated;
-		expect(stale(missionKeys.detail(MISSION_ID))).toBe(true);
+		expect(stale(queryKeys.missions.detail(MISSION_ID))).toBe(true);
 		expect(stale(queryKeys.dispatches.list(MISSION_ID))).toBe(true);
 		expect(stale(queryKeys.dispatches.reports(MISSION_ID))).toBe(true);
-		expect(stale(queryKeys.dispatches.detail(RUNNING_ID))).toBe(true);
+		// The dashboard's live read sits under the mission too.
+		expect(stale(queryKeys.dispatches.moving(MISSION_ID))).toBe(true);
 		expect(stale(queryKeys.activity.all())).toBe(true);
-		expect(stale(queryKeys.dispatches.detail(DONE_ID))).toBe(false);
 		expect(stale(queryKeys.roster.list(MISSION_ID))).toBe(false);
 	});
 

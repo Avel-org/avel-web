@@ -332,6 +332,7 @@ export function activityEntry(
 		actorKind: "operator",
 		actorUserId: ID(1),
 		actorRosterEntryId: null,
+		actorCanonSessionId: null,
 		action:
 			entityType === "client"
 				? "client.updated"
@@ -348,6 +349,7 @@ export function activityEntry(
 			kind: "operator",
 			userId: "00000000-0000-4000-8000-000000000900",
 			rosterEntryId: null,
+			canonSessionId: null,
 			display: "ada",
 			agent: null,
 		},

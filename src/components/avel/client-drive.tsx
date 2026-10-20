@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { SampleRegion } from "./catalog-sample";
+import { DataPanel } from "./data-panel";
 import { visibleFiles } from "./drive-browser";
 import { DropZone, FileGrid, FileList, NoteCards } from "./drive-files";
 import { FilePanelSheet } from "./drive-panel";
@@ -24,15 +25,30 @@ import { type DriveControls, DriveToolbar } from "./drive-toolbar";
 /** The Notes tab after the client's own notes field: note documents as cards. */
 export function ClientNotesDrive({ clientId }: { clientId: string }) {
 	const notes = useMemo(() => sampleNotesForClient(clientId), [clientId]);
+	// The panel anatomy; samples have no read time, so the footer only counts.
 	return (
-		<SampleRegion
-			missing={DRIVE_MISSING.notes}
-			title="Notes from the Drive"
-			what="Call notes and decisions kept as documents for this client. Canon reads them when drafting an intake."
-			data-testid="client-notes-drive"
+		<DataPanel
+			data-testid="client-notes-panel"
+			title="Notes"
+			count={notes.length}
+			footer={
+				<>
+					<span />
+					<Showing shown={notes.length} total={notes.length} />
+				</>
+			}
 		>
-			<NoteCards notes={notes} />
-		</SampleRegion>
+			<div className="p-4">
+				<SampleRegion
+					missing={DRIVE_MISSING.notes}
+					title="Notes from the Drive"
+					what="Call notes and decisions kept as documents for this client. Canon reads them when drafting an intake."
+					data-testid="client-notes-drive"
+				>
+					<NoteCards notes={notes} />
+				</SampleRegion>
+			</div>
+		</DataPanel>
 	);
 }
 
@@ -60,31 +76,49 @@ export function ClientFilesDrive({ clientId }: { clientId: string }) {
 	const file = files.find((f) => f.id === selected);
 
 	return (
-		<div data-testid="client-files" className="flex flex-col gap-3">
-			<DriveToolbar
-				testId="client-files-toolbar"
-				controls={controls}
-				onChange={(next) => setControls((prev) => ({ ...prev, ...next }))}
-				counts={counts}
-			/>
-			<DropZone data-testid="client-files-drop" />
-			<SampleRegion
-				missing={DRIVE_MISSING.files}
-				title="Client files"
-				what="Documents for this client and its engagements, engagement files tagged. Never readable by another client's agents."
-				data-testid="client-files-drive"
-			>
-				{controls.view === "grid" ? (
-					<FileGrid files={shown} selectedId={selected} onOpen={setSelected} />
-				) : (
-					<FileList
-						files={shown}
-						onOpen={setSelected}
-						scopeOf={scopeOf}
-						data-testid="client-file-list"
-					/>
-				)}
-			</SampleRegion>
+		<DataPanel
+			data-testid="client-files"
+			title="Files"
+			count={files.length}
+			toolbar={
+				<DriveToolbar
+					testId="client-files-toolbar"
+					controls={controls}
+					onChange={(next) => setControls((prev) => ({ ...prev, ...next }))}
+					counts={counts}
+				/>
+			}
+			footer={
+				<>
+					<span />
+					<Showing shown={shown.length} total={files.length} />
+				</>
+			}
+		>
+			<div className="flex flex-col gap-3 p-4">
+				<DropZone data-testid="client-files-drop" />
+				<SampleRegion
+					missing={DRIVE_MISSING.files}
+					title="Client files"
+					what="Documents for this client and its engagements, engagement files tagged. Never readable by another client's agents."
+					data-testid="client-files-drive"
+				>
+					{controls.view === "grid" ? (
+						<FileGrid
+							files={shown}
+							selectedId={selected}
+							onOpen={setSelected}
+						/>
+					) : (
+						<FileList
+							files={shown}
+							onOpen={setSelected}
+							scopeOf={scopeOf}
+							data-testid="client-file-list"
+						/>
+					)}
+				</SampleRegion>
+			</div>
 			{file ? (
 				<FilePanelSheet
 					file={file}
@@ -92,6 +126,14 @@ export function ClientFilesDrive({ clientId }: { clientId: string }) {
 					open
 				/>
 			) : null}
-		</div>
+		</DataPanel>
+	);
+}
+
+function Showing({ shown, total }: { shown: number; total: number }) {
+	return (
+		<span className="type-caption text-text-subtle tabular-nums">
+			{`Showing ${shown} of ${total}`}
+		</span>
 	);
 }

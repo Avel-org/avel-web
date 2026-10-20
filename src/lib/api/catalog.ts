@@ -274,11 +274,19 @@ export function useUpdateAgentTemplate() {
 /**
  * Every update writes a version and an activity row, so the template reads
  * (lists, by slug, by id, access, identity versions) and the log refresh.
+ * Its roles decide each roster entry's access on every mission, so those
+ * read again too (audit F2).
  */
 export function afterAgentUpdate(queryClient: QueryClient) {
 	return Promise.all([
 		queryClient.invalidateQueries({
 			queryKey: queryKeys.catalog.agentTemplatesAll(),
+		}),
+		queryClient.invalidateQueries({
+			predicate: ({ queryKey }) =>
+				queryKey[0] === "missions" &&
+				queryKey[1] === "roster" &&
+				queryKey[3] === "access",
 		}),
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 	]);

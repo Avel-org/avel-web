@@ -20,10 +20,17 @@ declare module "@tanstack/react-query" {
 const ApiClientContext = createContext<ApiClient | null>(null);
 
 /**
+ * How long a read stays fresh. Past it a query refetches on its next use,
+ * and a region with `freshness` marks its value stale (audit F1).
+ */
+export const QUERY_STALE_MS = 30_000;
+
+/**
  * The app's QueryClient. Every failed query and mutation passes through one
  * onError, so a 401 anywhere re-checks the session and NOT_OPERATOR marks the
  * operator as refused, without any page wiring it (src/lib/auth.ts).
  */
+
 export function createAppQueryClient(): QueryClient {
 	const onError = (error: unknown) => handleAuthFailure(client, error);
 	const client: QueryClient = new QueryClient({
@@ -34,7 +41,7 @@ export function createAppQueryClient(): QueryClient {
 				// A failure that retrying cannot fix should show at once.
 				// <Surface>'s error state offers Try again where it can help.
 				retry: false,
-				staleTime: 30_000,
+				staleTime: QUERY_STALE_MS,
 			},
 		},
 	});

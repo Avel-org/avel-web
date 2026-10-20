@@ -102,7 +102,7 @@ function PresetDetailBody({
 
 			<header className="flex items-start gap-3">
 				<div className="flex min-w-0 flex-1 flex-col gap-1.5">
-					<h2 id={titleId} className="type-h2 truncate text-foreground">
+					<h2 id={titleId} className="type-page truncate text-foreground">
 						{preset.name}
 					</h2>
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -111,7 +111,7 @@ function PresetDetailBody({
 						</Badge>
 						<span
 							data-testid="preset-detail-version"
-							className="type-mono-small text-text-muted"
+							className="type-mono text-text-muted"
 						>
 							{`v${preset.version} · updated ${isoDate(preset.updatedAt)}`}
 						</span>
@@ -136,7 +136,7 @@ function PresetDetailBody({
 
 			<section aria-labelledby={agentsId} className="flex flex-col gap-3">
 				<div className="flex items-baseline justify-between gap-2">
-					<h3 id={agentsId} className="type-panel-title text-foreground">
+					<h3 id={agentsId} className="type-title text-foreground">
 						Agents
 					</h3>
 					<span
@@ -258,7 +258,7 @@ function PresetAgentsTable({ agents }: { agents: PresetAgent[] }) {
 							<TableCell>
 								<TemplateCell id={agent.agentTemplateId} names={names} />
 							</TableCell>
-							<TableCell className="type-mono-small">
+							<TableCell className="type-mono">
 								{agent.waves.length === 0 ? (
 									<Muted>None</Muted>
 								) : (
@@ -272,7 +272,7 @@ function PresetAgentsTable({ agents }: { agents: PresetAgent[] }) {
 								<Wrap>{agent.territory ?? <Muted>Whole project</Muted>}</Wrap>
 							</TableCell>
 							<TableCell
-								className="type-mono-small"
+								className="type-mono"
 								data-testid={`preset-agent-paths-${i}`}
 							>
 								{agent.writablePaths === null ? (
@@ -287,7 +287,7 @@ function PresetAgentsTable({ agents }: { agents: PresetAgent[] }) {
 									</span>
 								)}
 							</TableCell>
-							<TableCell className="type-mono-small text-right tabular-nums">
+							<TableCell className="type-mono text-right tabular-nums">
 								{agent.estimatedTokens === null ? (
 									<Muted>Not set</Muted>
 								) : (
@@ -318,7 +318,7 @@ function TemplateCell({ id, names }: { id: string; names: Names }) {
 				<span className="type-body text-foreground">
 					<Wrap>{label.name}</Wrap>
 				</span>
-				<span className="type-mono-small text-text-subtle">{label.slug}</span>
+				<span className="type-mono text-text-subtle">{label.slug}</span>
 			</span>
 		);
 	}

@@ -3,9 +3,12 @@ import { activityActorKind, activityEntityType } from "avel-server/contract";
 import { z } from "zod";
 import { ActivityFilterBar } from "@/components/avel/activity-filters";
 import { ActivityLog } from "@/components/avel/activity-log";
+import { DataPanel } from "@/components/avel/data-panel";
+import { Paging, PanelFooter } from "@/components/avel/panel-footer";
 import {
 	type ActivityFilters,
 	activityCountLabel,
+	loadedActivity,
 	useActivity,
 } from "@/lib/api/activity";
 import { useNow } from "@/lib/use-now";
@@ -61,8 +64,28 @@ function ActivityPage() {
 				total === undefined ? undefined : activityCountLabel(total, filtered)
 			}
 		>
-			<div className="flex flex-1 flex-col gap-4">
-				<ActivityFilterBar filters={filters} onChange={setFilters} />
+			{/* One panel, as every list page: the filters in its toolbar, the
+			    paging and read age in its footer band. */}
+			<DataPanel
+				data-testid="activity-panel"
+				title="Activity"
+				count={total}
+				toolbar={<ActivityFilterBar filters={filters} onChange={setFilters} />}
+				footer={
+					<PanelFooter data-testid="activity-read-age" queries={[activity]}>
+						{activity.data ? (
+							<Paging
+								testIdPrefix="activity"
+								loaded={loadedActivity(activity.data).length}
+								total={total}
+								hasMore={activity.hasNextPage}
+								loadingMore={activity.isFetchingNextPage}
+								onLoadMore={() => activity.fetchNextPage()}
+							/>
+						) : null}
+					</PanelFooter>
+				}
+			>
 				<ActivityLog
 					query={activity}
 					filtered={filtered}
@@ -73,7 +96,7 @@ function ActivityPage() {
 						navigate({ search: (prev) => ({ ...prev, entry }), replace: true })
 					}
 				/>
-			</div>
+			</DataPanel>
 		</Page>
 	);
 }

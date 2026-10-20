@@ -14,10 +14,16 @@ import {
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+	dayLabel,
+	groupByDay,
+	shortStamp,
+} from "@/components/avel/activity-audit";
+import {
 	ACTION_COPY,
 	ACTOR_KIND_LABEL,
 	ENTITY_LABEL,
 } from "@/components/avel/activity-copy";
+import { COMMON_ENTITIES } from "@/components/avel/activity-filters";
 import { ActivityLog } from "@/components/avel/activity-log";
 import { ApiOverrideProvider } from "@/lib/api";
 import {
@@ -51,6 +57,7 @@ function entry(
 		actorKind: "operator",
 		actorUserId: ID(900),
 		actorRosterEntryId: null,
+		actorCanonSessionId: null,
 		action: "client.created",
 		entityType: "client",
 		entityId: ID(100 + n),
@@ -62,6 +69,7 @@ function entry(
 			kind: "operator",
 			userId: ID(900),
 			rosterEntryId: null,
+			canonSessionId: null,
 			display: "octo-operator",
 			agent: null,
 		},
@@ -210,6 +218,7 @@ describe("the Activity page", () => {
 				kind: "system",
 				userId: null,
 				rosterEntryId: null,
+				canonSessionId: null,
 				display: "AVEL runner",
 				agent: null,
 			},
@@ -225,12 +234,17 @@ describe("the Activity page", () => {
 				`data-testid="activity-action-${mission.id}"[^>]*>Mission status changed<`,
 			),
 		);
-		// A mission opens its page; a client opens selected on Clients.
+		// A mission and a client each open their own page, directly, not
+		// through the old /clients?client= redirect.
 		expect(tagOf(html, `activity-target-${mission.id}`)).toContain(
 			`href="/missions/${ID(201)}"`,
 		);
 		expect(tagOf(html, `activity-target-${client.id}`)).toContain(
-			`href="/clients?client=${client.entityId}"`,
+			`href="/clients/${client.entityId}"`,
+		);
+		// Inline links reach 24px for the pointer without moving the text.
+		expect(tagOf(html, `activity-target-${mission.id}`)).toMatch(
+			/class="py-1\.5 -my-1\.5 /,
 		);
 		// No page for an engagement: plain text, not a link.
 		expect(tagOf(html, `activity-target-${engagement.id}`)).toMatch(/^<span/);
@@ -255,6 +269,7 @@ describe("who acted", () => {
 				kind: "operator",
 				userId: ID(901),
 				rosterEntryId: null,
+				canonSessionId: null,
 				display: "javaris500",
 				agent: null,
 			},
@@ -263,10 +278,12 @@ describe("who acted", () => {
 			actorKind: "agent",
 			actorUserId: null,
 			actorRosterEntryId: ID(902),
+			actorCanonSessionId: null,
 			actor: {
 				kind: "agent",
 				userId: null,
 				rosterEntryId: ID(902),
+				canonSessionId: null,
 				display: "Atlas · scheduling",
 				agent: {
 					templateId: ID(903),
@@ -283,6 +300,7 @@ describe("who acted", () => {
 				kind: "system",
 				userId: null,
 				rosterEntryId: null,
+				canonSessionId: null,
 				display: "AVEL runner",
 				agent: null,
 			},
@@ -317,6 +335,11 @@ describe("who acted", () => {
 				`data-testid="activity-actor-agent-${agent.id}"[^>]*>Atlas</a>`,
 			),
 		);
+		// Each actor leads with its mark: a person, an agent's tile, the runner (audit F3).
+		for (const row of [operator, agent, system])
+			expect(tagOf(html, `activity-actor-mark-${row.id}`)).toContain(
+				`data-actor-mark="${row.actor.kind}"`,
+			);
 		expect(html).not.toContain(`activity-actor-agent-${operator.id}`);
 		expect(html).not.toContain(`activity-actor-agent-${system.id}`);
 		// Not as a name, not anywhere.
@@ -393,39 +416,102 @@ describe("filtering", () => {
 		).toEqual({ entityType: undefined, actorKind: undefined });
 	});
 
-	it("shows the filters chosen in the URL", async () => {
+	it("shows the filters chosen in the URL, as pressed segments", async () => {
 		const html = await renderActivity("/activity?entityType=mission", {
 			filters: { entityType: "mission" },
 			rows: [entry(1, { entityType: "mission" })],
 		});
-		// A chosen value names its filter; an unset one says "All".
-		expect(html).toMatch(
-			/data-testid="activity-filter-entity"[\s\S]*?>Entity: Mission</,
+		expect(tagOf(html, "activity-filter-entity-mission")).toContain(
+			'aria-pressed="true"',
 		);
-		expect(html).toMatch(
-			/data-testid="activity-filter-actor"[\s\S]*?>All actors</,
+		expect(tagOf(html, "activity-filter-entity-all")).toContain(
+			'aria-pressed="false"',
+		);
+		// No actor chosen: All is the pressed one.
+		expect(tagOf(html, "activity-filter-actor-all")).toContain(
+			'aria-pressed="true"',
 		);
 	});
 
-	it("names each filter once set, and keeps both triggers one fixed width", async () => {
-		const html = await renderActivity(
-			"/activity?entityType=user&actorKind=agent",
-			{ filters: { entityType: "user", actorKind: "agent" }, rows: [] },
+	it("names the actors as people read them, one segment each", async () => {
+		const html = await renderActivity("/activity?actorKind=agent", {
+			filters: { actorKind: "agent" },
+			rows: [],
+		});
+		const row = within(html, "activity-filter-actor");
+		const labels = [
+			...row.matchAll(/data-variant="segment"[^>]*>([^<]+)</g),
+		].map((m) => m[1]);
+		expect(labels).toEqual(["All", "You", "Agents", "Runner", "Canon"]);
+		expect(tagOf(html, "activity-filter-actor-agent")).toContain(
+			'aria-pressed="true"',
 		);
-		expect(html).toMatch(
-			/data-testid="activity-filter-entity"[\s\S]*?>Entity: User</,
+	});
+
+	it("keeps every entity reachable: the common ones as segments, the rest under More", async () => {
+		// User is no common entity: More names it, pressed, and All is not.
+		const html = await renderActivity("/activity?entityType=user", {
+			filters: { entityType: "user" },
+			rows: [],
+		});
+		expect(within(html, "activity-filter-entity-more")).toContain(">User<");
+		expect(tagOf(html, "activity-filter-entity-more")).toContain(
+			'aria-pressed="true"',
 		);
-		expect(html).toMatch(
-			/data-testid="activity-filter-actor"[\s\S]*?>Actor: Agent</,
+		expect(tagOf(html, "activity-filter-entity-all")).toContain(
+			'aria-pressed="false"',
 		);
-		// The same fixed width set or unset, so a choice never moves the other.
 		const unset = await renderActivity("/activity", { filters: {}, rows: [] });
-		for (const page of [html, unset]) {
-			for (const id of ["activity-filter-entity", "activity-filter-actor"]) {
-				expect(tagOf(page, id)).toMatch(/\sw-48\b/);
-				expect(tagOf(page, id)).not.toMatch(/\sw-fit\b/);
-			}
-		}
+		expect(within(unset, "activity-filter-entity-more")).toContain(">More<");
+		for (const v of COMMON_ENTITIES)
+			expect(unset).toContain(`data-testid="activity-filter-entity-${v}"`);
+	});
+});
+
+describe("the log by day, with its record docked", () => {
+	const NOW = Date.parse("2026-10-19T12:00:00.000Z");
+
+	it("heads each day in words: Today, Yesterday, then weekday and date", () => {
+		expect(dayLabel("2026-10-19T08:00:00.000Z", NOW)).toBe("Today");
+		expect(dayLabel("2026-10-18T23:00:00.000Z", NOW)).toBe("Yesterday");
+		expect(dayLabel("2026-10-17T02:13:51.730Z", NOW)).toBe("Sat 17 Oct");
+		// The year only when it isn't this one.
+		expect(dayLabel("2025-12-31T08:00:00.000Z", NOW)).toBe("Wed 31 Dec 2025");
+	});
+
+	it("stamps a record with a short absolute time, never a breaking ISO", () => {
+		expect(shortStamp("2026-10-17T02:13:51.730Z")).toBe("17 Oct, 02:13");
+	});
+
+	it("cuts the log into runs of one day, in its order", () => {
+		const groups = groupByDay([
+			{ at: "2026-10-19T09:00:00.000Z" },
+			{ at: "2026-10-19T08:00:00.000Z" },
+			{ at: "2026-10-18T22:00:00.000Z" },
+		]);
+		expect(groups.map((g) => [g.day, g.entries.length])).toEqual([
+			["2026-10-19", 2],
+			["2026-10-18", 1],
+		]);
+	});
+
+	it("leads each row with its actor's mark, under a sticky day heading", async () => {
+		const one = entry(1);
+		const html = await renderActivity("/activity", {
+			filters: {},
+			rows: [one],
+		});
+		const table = within(html, "activity-audit");
+		const day = one.at.slice(0, 10);
+		expect(table).toContain(`data-testid="activity-day-${day}"`);
+		expect(table).toMatch(
+			/<th scope="colgroup"[^>]*class="[^"]*sticky[^"]*type-eyebrow/,
+		);
+		const row = within(table, `activity-row-${one.id}`);
+		// The first cell holds the mark.
+		expect(row.indexOf("activity-actor-mark-")).toBeLessThan(
+			row.indexOf("activity-action-"),
+		);
 	});
 });
 
@@ -519,3 +605,10 @@ describe("which entity", () => {
 		expect(visibleText(target(unnamed)).trim()).toBe("Mission");
 	});
 });
+
+/** The markup from an element with this test id onwards. */
+function within(html: string, testid: string): string {
+	const at = html.indexOf(`data-testid="${testid}"`);
+	expect(at, testid).toBeGreaterThan(-1);
+	return html.slice(html.lastIndexOf("<", at));
+}

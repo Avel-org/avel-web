@@ -1,6 +1,6 @@
 import type { Dispatch } from "avel-server/contract";
 import { cn } from "@/lib/utils";
-import { HALT_REASON_LABEL } from "./dispatch-labels";
+import { HaltActor } from "./actor";
 
 /*
  * What a dispatch has used against what it was given (module 6): tokens
@@ -59,10 +59,13 @@ export function budgetTone(
 	return dispatch.softCeilingCrossed ? "warn" : "ok";
 }
 
+// Neutral below the soft ceiling, warn above it, block when halted (audit
+// D4). Never the accent: a budget is a machine state, not something to act
+// on (audit D3).
 const FILL: Record<BudgetTone, string> = {
-	ok: "bg-accent",
-	warn: "bg-gate-warn",
-	halted: "bg-gate-block",
+	ok: "bg-gate-pending-solid",
+	warn: "bg-gate-warn-solid",
+	halted: "bg-gate-block-solid",
 };
 
 /** A share of the track, 0 to 100, for a left offset or a width. */
@@ -71,15 +74,63 @@ function percent(value: number, max: number): number {
 	return Math.min(100, (value / max) * 100);
 }
 
-/** The token track: used as a fill, the estimate and soft ceiling as marks. */
-function TokenTrack({ dispatch }: { dispatch: Dispatch }) {
+/**
+ * The token track's model (audit D4): it ends at the hard ceiling, where the
+ * runner halts, or at the tokens used if a count ever passed it. The fill and
+ * both marks are shares of that end, 0 to 100, and the fill class is the
+ * tone's. Shared, so a compact row draws the same track from the same model.
+ */
+export type TokenTrackModel = {
+	max: number;
+	tone: BudgetTone;
+	fillClass: string;
+	usedPercent: number;
+	estimatePercent: number;
+	softPercent: number;
+};
+
+/** What a token track reads: a dispatch's budget, or a Canon session's. */
+export type TokenBudget = Pick<
+	Dispatch,
+	| "status"
+	| "softCeilingCrossed"
+	| "tokensUsed"
+	| "estimatedTokens"
+	| "tokenSoftCeiling"
+	| "tokenHardCeiling"
+>;
+
+export function tokenTrack(dispatch: TokenBudget): TokenTrackModel {
 	const max = Math.max(dispatch.tokenHardCeiling, dispatch.tokensUsed, 1);
 	const tone = budgetTone(dispatch);
+	return {
+		max,
+		tone,
+		fillClass: FILL[tone],
+		usedPercent: percent(dispatch.tokensUsed, max),
+		estimatePercent: percent(dispatch.estimatedTokens, max),
+		softPercent: percent(dispatch.tokenSoftCeiling, max),
+	};
+}
+
+/**
+ * The token track: used as a fill, the estimate and soft ceiling as marks.
+ * Shared by a dispatch and a Canon session; its test ids are
+ * `${testIdPrefix}-track-${id}`, `-fill-`, `-estimate-mark-`, `-soft-mark-`.
+ */
+export function TokenTrack({
+	budget: dispatch,
+	id,
+	testIdPrefix = "dispatch-budget",
+}: {
+	budget: TokenBudget;
+	id: string;
+	testIdPrefix?: string;
+}) {
+	const { max, tone, fillClass, usedPercent, estimatePercent, softPercent } =
+		tokenTrack(dispatch);
 	return (
-		<div
-			className="relative h-2"
-			data-testid={`dispatch-budget-track-${dispatch.id}`}
-		>
+		<div className="relative h-2" data-testid={`${testIdPrefix}-track-${id}`}>
 			{/* The native meter speaks; the drawing beside it only shows. */}
 			<meter
 				className="sr-only"
@@ -95,23 +146,23 @@ function TokenTrack({ dispatch }: { dispatch: Dispatch }) {
 				className="absolute inset-0 overflow-hidden rounded-full bg-border"
 			>
 				<div
-					data-testid={`dispatch-budget-fill-${dispatch.id}`}
+					data-testid={`${testIdPrefix}-fill-${id}`}
 					data-tone={tone}
-					className={cn("h-full rounded-full", FILL[tone])}
-					style={{ width: `${percent(dispatch.tokensUsed, max)}%` }}
+					className={cn("h-full rounded-full", fillClass)}
+					style={{ width: `${usedPercent}%` }}
 				/>
 			</div>
 			<span
 				aria-hidden="true"
-				data-testid={`dispatch-budget-estimate-mark-${dispatch.id}`}
+				data-testid={`${testIdPrefix}-estimate-mark-${id}`}
 				className="absolute -inset-y-0.5 w-px bg-text-muted"
-				style={{ left: `${percent(dispatch.estimatedTokens, max)}%` }}
+				style={{ left: `${estimatePercent}%` }}
 			/>
 			<span
 				aria-hidden="true"
-				data-testid={`dispatch-budget-soft-mark-${dispatch.id}`}
-				className="absolute -inset-y-0.5 w-px bg-gate-warn"
-				style={{ left: `${percent(dispatch.tokenSoftCeiling, max)}%` }}
+				data-testid={`${testIdPrefix}-soft-mark-${id}`}
+				className="absolute -inset-y-0.5 w-px bg-gate-warn-solid"
+				style={{ left: `${softPercent}%` }}
 			/>
 		</div>
 	);
@@ -138,7 +189,7 @@ export function DispatchBudget({
 			data-tone={budgetTone(dispatch)}
 			className="flex flex-col gap-1.5"
 		>
-			<TokenTrack dispatch={dispatch} />
+			<TokenTrack budget={dispatch} id={dispatch.id} />
 			<p
 				data-testid={`dispatch-budget-tokens-${dispatch.id}`}
 				className="type-small text-text-muted"
@@ -157,12 +208,12 @@ export function DispatchBudget({
 				className="type-caption text-text-subtle"
 			>
 				{"Soft limit "}
-				<span className="type-mono-small tabular-nums">
+				<span className="type-mono tabular-nums">
 					{formatTokens(dispatch.tokenSoftCeiling)}
 				</span>
 				{soft ? ` (${soft})` : null}
 				{" · Hard limit "}
-				<span className="type-mono-small tabular-nums">
+				<span className="type-mono tabular-nums">
 					{formatTokens(dispatch.tokenHardCeiling)}
 				</span>
 				{hard ? ` (${hard})` : null}
@@ -176,13 +227,11 @@ export function DispatchBudget({
 				</p>
 			) : null}
 			{dispatch.status === "halted" && dispatch.haltReason !== null ? (
-				<p
+				<HaltActor
+					reason={dispatch.haltReason}
 					data-testid={`dispatch-budget-halt-${dispatch.id}`}
-					data-reason={dispatch.haltReason}
-					className="type-small font-medium text-gate-block"
-				>
-					{HALT_REASON_LABEL[dispatch.haltReason]}
-				</p>
+					className="font-medium text-gate-block"
+				/>
 			) : null}
 			<p className="type-small flex flex-wrap gap-x-3 text-text-muted">
 				<span data-testid={`dispatch-budget-spend-${dispatch.id}`}>

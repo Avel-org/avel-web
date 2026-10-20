@@ -253,7 +253,7 @@ function LoadoutWorkspace({
 			{readOnlyReason ? (
 				<p
 					data-testid="loadout-read-only"
-					className="type-small rounded-md border border-border-strong bg-app-band px-3 py-2 text-foreground"
+					className="type-small rounded-card border border-border-strong bg-app-band px-3 py-2 text-foreground"
 				>
 					{readOnlyReason}
 				</p>
@@ -366,7 +366,7 @@ function BlockBanner({
 			role="alert"
 			data-testid="loadout-block"
 			data-wave={block.wave ?? undefined}
-			className="flex items-start gap-3 rounded-md border border-gate-block-line bg-gate-block-soft px-4 py-3"
+			className="flex items-start gap-3 rounded-card border border-gate-block-line bg-gate-block-soft px-4 py-3"
 		>
 			<OctagonX
 				aria-hidden="true"
@@ -413,16 +413,14 @@ function LoadoutTable({ roster }: { roster: readonly RosterEntry[] }) {
 						<TableCell className="type-small">
 							{e.active ? "Active" : "Idle"}
 						</TableCell>
-						<TableCell className="type-mono-small">
-							{e.waves.join(" · ")}
-						</TableCell>
-						<TableCell className="type-mono-small text-right tabular-nums">
+						<TableCell className="type-mono">{e.waves.join(" · ")}</TableCell>
+						<TableCell className="type-mono text-right tabular-nums">
 							{tokens(e.estimatedTokens)}
 						</TableCell>
-						<TableCell className="type-mono-small text-right tabular-nums">
+						<TableCell className="type-mono text-right tabular-nums">
 							{tokens(e.tokenSoftCeiling)}
 						</TableCell>
-						<TableCell className="type-mono-small text-right tabular-nums">
+						<TableCell className="type-mono text-right tabular-nums">
 							{tokens(e.tokenHardCeiling)}
 						</TableCell>
 					</TableRow>

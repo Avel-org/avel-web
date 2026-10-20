@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import type { MissionListItem, MissionStatus } from "avel-server/contract";
 import { Rocket } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { useClientMissions } from "@/lib/api/clients";
 import { EmptyState } from "./empty-state";
 import { MISSION_STATUS_TONE } from "./mission-columns";
 import { STATUS_ORDER, STATUS_PANEL } from "./mission-search";
+import { ROW_LINK_GROUP, RowChevron } from "./row-link";
 import { StatusGlyph, StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
@@ -67,25 +67,6 @@ export function ClientMissions({
 								<MissionRow key={mission.id} mission={mission} />
 							))}
 						</ul>
-						{query.hasNextPage ? (
-							<div className="flex items-center justify-between gap-2">
-								<p
-									data-testid="client-missions-showing"
-									className="type-caption text-text-subtle tabular-nums"
-								>
-									{`Showing ${missions.length} of ${first?.meta.total ?? missions.length}`}
-								</p>
-								<Button
-									variant="ghost"
-									size="sm"
-									data-testid="client-missions-load-more"
-									disabled={query.isFetchingNextPage}
-									onClick={() => query.fetchNextPage()}
-								>
-									{query.isFetchingNextPage ? "Loading" : "Load more"}
-								</Button>
-							</div>
-						) : null}
 					</div>
 				);
 			}}
@@ -114,11 +95,11 @@ function MissionStatusCounts({ counts }: { counts: StatusCounts }) {
 					key={status}
 					data-testid={`client-missions-strip-${status}`}
 					data-count={counts[status]}
-					className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 type-caption text-text-muted"
+					className="inline-flex h-[22px] items-center gap-[5px] rounded-sm border border-border px-2 type-caption text-text-muted"
 				>
 					<StatusGlyph tone={MISSION_STATUS_TONE[status]} />
 					{STATUS_PANEL[status].label}
-					<span className="type-mono-small text-text-subtle tabular-nums">
+					<span className="type-mono text-text-subtle tabular-nums">
 						{counts[status]}
 					</span>
 				</li>
@@ -135,7 +116,7 @@ function MissionRow({ mission }: { mission: MissionListItem }) {
 				to="/missions/$id"
 				params={{ id: mission.id }}
 				data-testid={`client-mission-${mission.id}`}
-				className="flex min-w-0 items-center gap-3 rounded-xs px-1 py-2.5 transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover"
+				className={`${ROW_LINK_GROUP} flex min-w-0 items-center gap-3 rounded-control px-2 py-1.5 transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised`}
 			>
 				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span
@@ -155,6 +136,7 @@ function MissionRow({ mission }: { mission: MissionListItem }) {
 					label={STATUS_PANEL[mission.status].label}
 					data-testid={`client-mission-status-${mission.id}`}
 				/>
+				<RowChevron />
 			</Link>
 		</li>
 	);

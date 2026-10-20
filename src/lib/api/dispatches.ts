@@ -4,6 +4,7 @@ import {
 	queryOptions,
 	useInfiniteQuery,
 	useMutation,
+	useQueries,
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
@@ -15,7 +16,6 @@ import {
 	type DispatchStatus,
 	MAX_PAGE_SIZE,
 } from "avel-server/contract";
-import { missionKeys } from "@/components/avel/mission-data";
 import { type ApiClient, call, callPage } from "./client";
 import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
@@ -80,26 +80,102 @@ export function missionDispatchesQuery(api: ApiClient, missionId: string) {
 	});
 }
 
+/**
+ * A mission's queued and running dispatches only: two status-filtered reads,
+ * not its whole history, for the Missions dashboard. It polls while either
+ * holds a row, and stops once both are empty.
+ */
+export function movingDispatchesQuery(api: ApiClient, missionId: string) {
+	const page = (status: "queued" | "running") =>
+		callPage(contract.dispatches.list, () =>
+			api.dispatches.list({
+				params: { id: missionId },
+				query: { limit: MAX_PAGE_SIZE, status },
+			}),
+		).then((p) => p.data);
+	return queryOptions({
+		queryKey: queryKeys.dispatches.moving(missionId),
+		queryFn: async () => {
+			const [running, queued] = await Promise.all([
+				page("running"),
+				page("queued"),
+			]);
+			return [...running, ...queued];
+		},
+		refetchInterval: (query) => pollWhile(inMotion(query.state.data)),
+	});
+}
+
 /** Every dispatch on the mission, newest first. */
 export function useMissionDispatches(missionId: string) {
 	return useQuery(missionDispatchesQuery(useApiClient(), missionId));
 }
 
-export function dispatchQuery(api: ApiClient, id: string) {
-	return queryOptions({
-		queryKey: queryKeys.dispatches.detail(id),
-		queryFn: () =>
-			call(contract.dispatches.get, () =>
-				api.dispatches.get({ params: { id } }),
-			),
-		refetchInterval: (query) =>
-			pollWhile(query.state.data ? inMotion([query.state.data]) : false),
-	});
+/**
+ * What is in motion across several missions, for the Missions dashboard.
+ * There is no cross-mission dispatch route, so it reads each mission's
+ * queued and running dispatches (movingDispatchesQuery, two small
+ * status-filtered reads, never the whole history), and each polls itself
+ * while one is queued or running. Nothing
+ * here is pushed: `polling` says whether any list is still being re-read,
+ * so the page can say "Updating every 5 s" and, after, "Final" (audit F1).
+ */
+export type LiveDispatches = {
+	/** Queued and running dispatches, running first, newest first within. */
+	moving: Dispatch[];
+	/** True while any mission's list is re-read every DISPATCH_POLL_MS. */
+	polling: boolean;
+	/** The oldest read among the lists, so the age never flatters. 0 if none. */
+	readAt: number;
+	status: "pending" | "error" | "success";
+	refetch: () => void;
+	isFetching: boolean;
+};
+
+/** One mission list's read, as the merge needs it. */
+type ListRead = {
+	data?: Dispatch[];
+	dataUpdatedAt: number;
+	status: "pending" | "error" | "success";
+	isFetching: boolean;
+	refetch: () => unknown;
+};
+
+/** Merges each mission's dispatch read into one live view. Pure, so it tests. */
+export function liveOf(results: readonly ListRead[]): LiveDispatches {
+	const moving = results
+		.flatMap((r) => r.data ?? [])
+		.filter((d) => d.status === "queued" || d.status === "running")
+		.sort(
+			(a, b) =>
+				Number(b.status === "running") - Number(a.status === "running") ||
+				b.createdAt.localeCompare(a.createdAt),
+		);
+	const read = results.map((r) => r.dataUpdatedAt).filter((at) => at > 0);
+	return {
+		moving,
+		polling: results.some((r) => inMotion(r.data)),
+		readAt: read.length ? Math.min(...read) : 0,
+		status: results.some((r) => r.status === "error")
+			? "error"
+			: results.some((r) => r.status === "pending")
+				? "pending"
+				: "success",
+		refetch: () => {
+			for (const r of results) r.refetch();
+		},
+		isFetching: results.some((r) => r.isFetching),
+	};
 }
 
-/** One dispatch, polled while it waits or runs. */
-export function useDispatch(id: string) {
-	return useQuery(dispatchQuery(useApiClient(), id));
+export function useLiveDispatches(
+	missionIds: readonly string[],
+): LiveDispatches {
+	const api = useApiClient();
+	return useQueries({
+		queries: missionIds.map((id) => movingDispatchesQuery(api, id)),
+		combine: liveOf,
+	});
 }
 
 export function missionReportsQuery(api: ApiClient, missionId: string) {
@@ -272,7 +348,9 @@ export function afterDispatchCreated(
 	missionId: string,
 ) {
 	return Promise.all([
-		queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) }),
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.missions.detail(missionId),
+		}),
 		queryClient.invalidateQueries({
 			queryKey: queryKeys.dispatches.byTemplateAll(),
 		}),
@@ -310,18 +388,17 @@ export function haltDispatchRequest(api: ApiClient, id: string) {
 /**
  * A started or halted dispatch changes lanes, moves the mission's spend,
  * files a report (a halt) and logs an activity row: the mission's detail
- * (its dispatches and reports under it), the one dispatch, its agent's
- * list across missions and the log read again.
+ * (its dispatches, reports and live reads under it), its agent's list
+ * across missions and the log read again. No page reads one dispatch alone,
+ * so there is no per-dispatch entry to refresh.
  */
 export function afterDispatchMoved(
 	queryClient: QueryClient,
 	missionId: string,
-	id: string,
 ) {
 	return Promise.all([
-		queryClient.invalidateQueries({ queryKey: missionKeys.detail(missionId) }),
 		queryClient.invalidateQueries({
-			queryKey: queryKeys.dispatches.detail(id),
+			queryKey: queryKeys.missions.detail(missionId),
 		}),
 		queryClient.invalidateQueries({
 			queryKey: queryKeys.dispatches.byTemplateAll(),
@@ -335,7 +412,7 @@ export function useStartDispatch(missionId: string) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (id: string) => startDispatchRequest(api, id),
-		onSuccess: (_, id) => afterDispatchMoved(queryClient, missionId, id),
+		onSuccess: () => afterDispatchMoved(queryClient, missionId),
 	});
 }
 
@@ -344,6 +421,6 @@ export function useHaltDispatch(missionId: string) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (id: string) => haltDispatchRequest(api, id),
-		onSuccess: (_, id) => afterDispatchMoved(queryClient, missionId, id),
+		onSuccess: () => afterDispatchMoved(queryClient, missionId),
 	});
 }

@@ -6,7 +6,6 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import { contract } from "avel-server/contract";
-import { missionKeys } from "@/components/avel/mission-data";
 import { type ApiClient, call } from "./client";
 import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
@@ -45,7 +44,12 @@ export function useMissionReadiness(missionId: string, enabled = true) {
  */
 export function afterStatusChange(queryClient: QueryClient) {
 	return Promise.all([
-		queryClient.invalidateQueries({ queryKey: missionKeys.all() }),
+		queryClient.invalidateQueries({ queryKey: queryKeys.missions.all() }),
+		// A halt stops the mission's running dispatches: each agent's runs
+		// across missions read again (audit F2).
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.dispatches.byTemplateAll(),
+		}),
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 	]);
 }

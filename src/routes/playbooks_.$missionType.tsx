@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { PlaybookBuilder } from "@/components/avel/playbook-builder";
-import { StatusPill } from "@/components/avel/status-pill";
-import { usePlaybook } from "@/lib/api/playbooks";
 import { Page } from "../shell/page";
 
 // Not nested under /playbooks (the trailing underscore): the list renders a
@@ -34,28 +32,14 @@ function PlaybookRoute() {
 	return (
 		<Page
 			title={missionType}
-			definition="The process this kind of mission follows. Edit it on the canvas or in Properties."
-			actions={<VersionPill missionType={missionType} />}
+			definition="The process this kind of mission follows. Edit it on the canvas or in Details."
 		>
 			<div
 				data-testid="playbook-page"
-				className={landed ? "landed rounded-md" : undefined}
+				className={landed ? "landed rounded-card" : undefined}
 			>
-				<PlaybookBuilder missionType={missionType} />
+				<PlaybookBuilder missionType={missionType} linkOut />
 			</div>
 		</Page>
 	);
-}
-
-/** The stored version, once the playbook is loaded. */
-function VersionPill({ missionType }: { missionType: string }) {
-	const playbook = usePlaybook(missionType);
-	return playbook.data ? (
-		<StatusPill
-			size="sm"
-			tone="pass"
-			label={`v${playbook.data.version}`}
-			data-testid="playbook-version-pill"
-		/>
-	) : null;
 }

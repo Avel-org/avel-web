@@ -15,6 +15,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { TableViewControls, useTableView } from "./data-table-view";
 
 /**
  * One column of a DataTable. The table is typed by its columns: `cell` gets
@@ -32,6 +33,8 @@ export type DataColumn<T> = {
 	mono?: boolean;
 	/** Shows a sort control in the header when the table has onSortChange. */
 	sortable?: boolean;
+	/** The column's name in the Columns menu, where the header is not text. */
+	label?: string;
 };
 
 export type SortState = { column: string; direction: "asc" | "desc" } | null;
@@ -56,20 +59,27 @@ const ALIGN = { start: "text-left", center: "text-center", end: "text-right" };
  *   mounted, so closing still animates.
  * - `onRowClick` makes rows actionable by pointer and by keyboard (Enter or
  *   Space on the focused row).
+ * - `linkedRows` says each row holds one link that opens it, styled with
+ *   STRETCHED_LINK: the link covers the row, so the whole row opens it and
+ *   answers hover, and the link stays the one tab stop (v3 UX 5).
  * - Below md, `renderCard` replaces the table with stacked cards.
+ * - `viewKey` gives the table a toolbar: Row density and a Columns menu
+ *   (data-table-view.tsx), remembered per table under that key.
  */
 export function DataTable<T>({
 	label,
-	columns,
+	columns: allColumns,
 	rows,
 	getRowId,
-	density = "comfortable",
+	density: initialDensity = "comfortable",
 	stickyHeader = true,
 	sort = null,
 	onSortChange,
 	renderDetail,
 	onRowClick,
+	linkedRows = false,
 	renderCard,
+	viewKey,
 	"data-testid": testId,
 }: {
 	/** What the table lists, for screen readers. Rendered as a hidden caption. */
@@ -83,9 +93,21 @@ export function DataTable<T>({
 	onSortChange?: (next: SortState) => void;
 	renderDetail?: (row: T) => ReactNode;
 	onRowClick?: (row: T) => void;
+	linkedRows?: boolean;
 	renderCard?: (row: T) => ReactNode;
+	/** Remembers this table's columns and density in this browser. */
+	viewKey?: string;
 	"data-testid": string;
 }) {
+	const tableView = useTableView(
+		viewKey,
+		allColumns.map((c) => c.id),
+		initialDensity,
+	);
+	const columns = tableView.enabled
+		? tableView.shown.flatMap((id) => allColumns.filter((c) => c.id === id))
+		: allColumns;
+	const density = tableView.density;
 	const detailPrefix = useId();
 	const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 	const toggle = (id: string) => {
@@ -100,7 +122,7 @@ export function DataTable<T>({
 	const span = columns.length + (renderDetail ? 1 : 0);
 
 	const table = (
-		<table data-slot="table" className="w-full caption-bottom text-sm">
+		<table data-slot="table" className="w-full caption-bottom type-body">
 			<caption className="sr-only">{label}</caption>
 			<TableHeader>
 				<TableRow className="hover:bg-transparent">
@@ -132,7 +154,13 @@ export function DataTable<T>({
 								data-testid={`${testId}-row-${id}`}
 								data-expanded={renderDetail ? open : undefined}
 								className={cn(
-									onRowClick && "focus-inset cursor-pointer",
+									// Only a row that opens something answers hover (v3 UX 5):
+									// one that does not would promise a click it ignores.
+									onRowClick
+										? "focus-inset cursor-pointer"
+										: linkedRows
+											? "relative"
+											: "hover:bg-transparent",
 									renderDetail && open && "border-b-0",
 								)}
 								// A clickable row needs a keyboard path with the same result as a click.
@@ -163,7 +191,7 @@ export function DataTable<T>({
 												toggle(id);
 											}}
 											onKeyDown={(event) => event.stopPropagation()}
-											className="flex size-7 items-center justify-center rounded-full text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover hover:text-foreground"
+											className="flex size-7 items-center justify-center rounded-full text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised hover:text-foreground"
 										>
 											<ChevronRight
 												aria-hidden="true"
@@ -204,7 +232,7 @@ export function DataTable<T>({
 											)}
 										>
 											<div className="min-h-0 overflow-clip">
-												<div className="bg-app-recessed px-3 py-3 pl-13">
+												<div className="bg-app-well px-3 py-3 pl-13">
 													{opened.current.has(id) ? renderDetail(row) : null}
 												</div>
 											</div>
@@ -229,6 +257,19 @@ export function DataTable<T>({
 					: "[--row-pad:var(--row-comfortable)]",
 			)}
 		>
+			{tableView.enabled ? (
+				<TableViewControls
+					data-testid={`${testId}-view`}
+					columns={allColumns.map((c) => ({
+						id: c.id,
+						label: c.label ?? (typeof c.header === "string" ? c.header : c.id),
+					}))}
+					view={tableView.view}
+					onView={tableView.save}
+					density={density}
+					onDensity={tableView.setDensity}
+				/>
+			) : null}
 			<div
 				data-testid={`${testId}-table`}
 				className={cn(
@@ -257,6 +298,9 @@ export function DataTable<T>({
 		</div>
 	);
 }
+
+/** A row's opening link, stretched over the row (see `linkedRows`). */
+export const STRETCHED_LINK = "after:absolute after:inset-0 after:content-['']";
 
 // The header sits under the page's sticky top bar, above the rows.
 const STICKY = "sticky top-(--topbar-height) z-(--z-raised)";
@@ -304,7 +348,8 @@ function HeaderCell<T>({
 						})
 					}
 					className={cn(
-						"inline-flex items-center gap-1 rounded-full transition-colors duration-(--duration-micro) ease-avel hover:text-foreground",
+						// 24px to hit (v3 UX 1); the margin takes the padding back.
+						"-my-1 inline-flex items-center gap-1 rounded-control py-1 transition-colors duration-(--duration-micro) ease-avel hover:text-foreground",
 						align === "end" && "flex-row-reverse",
 						direction && "text-foreground",
 					)}

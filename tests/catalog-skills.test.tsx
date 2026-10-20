@@ -638,7 +638,7 @@ describe("the sidebar", () => {
 		}
 	});
 
-	it("marks drafts with a dot and dims retired skills", async () => {
+	it("marks drafts with a dot and quiets retired skills to the subtle ink", async () => {
 		const html = await page();
 		for (const s of SKILLS) {
 			const row = element(html, `skill-row-${s.slug}`);
@@ -646,11 +646,12 @@ describe("the sidebar", () => {
 				s.status === "draft",
 			);
 			expect(
-				classes(html, `skill-row-${s.slug}`).includes(
-					"opacity-(--opacity-disabled)",
-				),
+				/\btext-text-subtle\b/.test(tagOf(row, "skill-row-name")),
 				s.slug,
 			).toBe(s.status === "retired");
+			expect(classes(html, `skill-row-${s.slug}`).join(" ")).not.toMatch(
+				/opacity/,
+			);
 		}
 	});
 
@@ -1060,17 +1061,16 @@ describe("visual-pass fixes", () => {
 	it("marks the open Discover view with the selected fill and aria-current", async () => {
 		const open = tagOf(await page("?view=discover"), "skills-discover");
 		expect(open).toContain('aria-current="page"');
-		expect(open).toMatch(/\bbg-state-selected\b/);
-		// The accent edge, as on a selected sidebar row; it outranks the
-		// outline's own border-strong.
+		expect(open).toMatch(/\bbg-selected\b/);
+		// v3's selected edge; it outranks the outline's own border-strong.
 		expect(classes(await page("?view=discover"), "skills-discover")).toContain(
-			"border-accent",
+			"border-selected-border",
 		);
 		expect(open).not.toMatch(/\bborder-border-strong\b/);
 		const shut = tagOf(await page(), "skills-discover");
 		expect(shut).not.toContain("aria-current");
-		expect(shut).not.toMatch(/\bbg-state-selected\b/);
-		expect(shut).not.toMatch(/\bborder-accent\b/);
+		expect(shut).not.toMatch(/\bbg-selected\b/);
+		expect(shut).not.toMatch(/\bborder-selected-border\b/);
 	});
 });
 

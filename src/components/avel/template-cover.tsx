@@ -4,7 +4,7 @@ import type {
 	TemplateScope,
 } from "avel-server/contract";
 import { Building2, Sprout, TriangleAlert } from "lucide-react";
-import { type CSSProperties, type ReactNode, useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { SCOPE_LABEL, STARTING_STATE_LABEL } from "@/lib/api/templates";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +12,11 @@ import { cn } from "@/lib/utils";
  * A template's cover (ruling 48). The contract has no image for a template,
  * so the cover is drawn: an inline SVG made from its scope (the motif) and
  * its starting state (the ground), varied per slug by a hash, so each
- * template keeps the same picture on every render and every machine. Every
- * colour is a banner or accent token, as the entity banner's are, so it
- * reads the same in both themes. The art is decoration: it is aria-hidden,
- * and the chips over it and the card around it say the same in words.
+ * template keeps the same picture on every render and every machine. It sits
+ * on a flat band with a hairline under it, drawn in neutral inks only: v3 has
+ * no decorative hues, and the accent is kept for what the operator can act
+ * on. The art is decoration: it is aria-hidden, and the chips over it and the
+ * card around it say the same in words, unreadable included.
  *
  * `image` is the slot for a real screenshot, should the manifest gain one.
  * It is a prop, never read from a field the contract does not have.
@@ -53,15 +54,16 @@ const COVER_H = 176;
 /** A whole-pixel value, so server and browser print the same attribute. */
 const px = (n: number) => Math.round(n * 10) / 10;
 
-// The art's classes: token fills and strokes only.
-const FACE = "fill-banner stroke-banner-muted/50";
-const RAISED = "fill-banner-raised";
-const INK = "fill-banner-muted/40";
-const LINE = "fill-none stroke-banner-muted/50";
-const FAINT = "fill-none stroke-banner-line";
-const ACCENT = "fill-accent";
-const ACCENT_LINE = "fill-none stroke-accent";
-const ACCENT_SOFT = "fill-accent/20 stroke-accent";
+// The art's classes: neutral token fills and strokes only. The "lit" part of
+// a motif is a stronger ink, not a hue.
+const FACE = "fill-app-panel stroke-text-muted/50";
+const RAISED = "fill-app-raised";
+const INK = "fill-text-muted/40";
+const LINE = "fill-none stroke-text-muted/50";
+const FAINT = "fill-none stroke-border";
+const LIT = "fill-text-subtle";
+const LIT_LINE = "fill-none stroke-text-subtle";
+const LIT_SOFT = "fill-app-raised stroke-text-subtle";
 
 type Rand = () => number;
 
@@ -76,13 +78,7 @@ function FullStack({ rand }: { rand: Rand }) {
 	return (
 		<g>
 			{/* The database: a cylinder at the base. */}
-			<rect
-				x={-34}
-				y={20}
-				width={80}
-				height={26}
-				className="fill-banner-line"
-			/>
+			<rect x={-34} y={20} width={80} height={26} className="fill-border" />
 			<path d="M -40 18 v 20 a 40 7 0 0 0 80 0 v -20" className={FACE} />
 			<ellipse cx={0} cy={18} rx={40} ry={7} className={FACE} />
 			<path d="M -40 28 a 40 7 0 0 0 80 0" className={LINE} />
@@ -93,7 +89,7 @@ function FullStack({ rand }: { rand: Rand }) {
 				width={92}
 				height={22}
 				rx={3}
-				className="fill-banner-line"
+				className="fill-border"
 			/>
 			<rect x={-46} y={-16} width={92} height={22} rx={3} className={FACE} />
 			<path d="M -30 -5 H 30" className={LINE} />
@@ -103,7 +99,7 @@ function FullStack({ rand }: { rand: Rand }) {
 					cx={x}
 					cy={-5}
 					r={4}
-					className={i === lit ? ACCENT : FACE}
+					className={i === lit ? LIT : FACE}
 				/>
 			))}
 			{/* The screen: a window on top. */}
@@ -113,7 +109,7 @@ function FullStack({ rand }: { rand: Rand }) {
 				width={112}
 				height={28}
 				rx={3}
-				className="fill-banner-line"
+				className="fill-border"
 			/>
 			<rect x={-56} y={-56} width={112} height={28} rx={3} className={FACE} />
 			{[-50, -45, -40].map((x) => (
@@ -125,7 +121,7 @@ function FullStack({ rand }: { rand: Rand }) {
 				width={38}
 				height={12}
 				rx={1.5}
-				className={ACCENT_SOFT}
+				className={LIT_SOFT}
 			/>
 			<rect x={-4} y={-46} width={30} height={4} rx={1} className={INK} />
 			<rect x={-4} y={-38} width={46} height={4} rx={1} className={INK} />
@@ -133,7 +129,7 @@ function FullStack({ rand }: { rand: Rand }) {
 			<path
 				d="M 0 -28 V -16 M 0 6 V 11"
 				strokeDasharray="2 2"
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 			/>
 		</g>
 	);
@@ -150,7 +146,7 @@ function Frontend({ rand }: { rand: Rand }) {
 				width={144}
 				height={96}
 				rx={5}
-				className="fill-banner-line"
+				className="fill-border"
 			/>
 			<rect x={-72} y={-50} width={144} height={96} rx={5} className={FACE} />
 			<path d="M -72 -38 H 72" className={LINE} />
@@ -185,7 +181,7 @@ function Frontend({ rand }: { rand: Rand }) {
 						width={100}
 						height={28}
 						rx={2}
-						className={ACCENT_SOFT}
+						className={LIT_SOFT}
 					/>
 					<rect x={-28} y={-24} width={44} height={4} rx={1} className={INK} />
 					{[0, 1, 2].map((i) => (
@@ -196,7 +192,7 @@ function Frontend({ rand }: { rand: Rand }) {
 							width={30}
 							height={38}
 							rx={2}
-							className={i === lit ? ACCENT_LINE : RAISED}
+							className={i === lit ? LIT_LINE : RAISED}
 						/>
 					))}
 				</>
@@ -216,7 +212,7 @@ function Frontend({ rand }: { rand: Rand }) {
 						width={132}
 						height={26}
 						rx={2}
-						className={ACCENT_SOFT}
+						className={LIT_SOFT}
 					/>
 					<rect x={-56} y={-12} width={52} height={4} rx={1} className={INK} />
 					<rect x={-56} y={-4} width={34} height={4} rx={1} className={INK} />
@@ -228,7 +224,7 @@ function Frontend({ rand }: { rand: Rand }) {
 							width={42}
 							height={28}
 							rx={2}
-							className={i === lit ? ACCENT_LINE : RAISED}
+							className={i === lit ? LIT_LINE : RAISED}
 						/>
 					))}
 				</>
@@ -255,8 +251,8 @@ function Backend({ rand }: { rand: Rand }) {
 			{racksAt.map((rack) => (
 				<path key={rack.x} d={`M ${rack.x} -46 V -38`} className={LINE} />
 			))}
-			<circle cx={0} cy={-52} r={5} className={ACCENT_SOFT} />
-			<path d="M 0 -47 V -46" className={ACCENT_LINE} />
+			<circle cx={0} cy={-52} r={5} className={LIT_SOFT} />
+			<path d="M 0 -47 V -46" className={LIT_LINE} />
 			{racksAt.map((rack) => {
 				const x = rack.x - 17;
 				return (
@@ -267,7 +263,7 @@ function Backend({ rand }: { rand: Rand }) {
 							width={34}
 							height={84}
 							rx={2}
-							className="fill-banner-line"
+							className="fill-border"
 						/>
 						<rect
 							x={x}
@@ -291,7 +287,7 @@ function Backend({ rand }: { rand: Rand }) {
 									cx={x + 25}
 									cy={-29.5 + u * 13}
 									r={1.75}
-									className={rack.lit === u ? ACCENT : INK}
+									className={rack.lit === u ? LIT : INK}
 								/>
 								<rect
 									x={x + 7}
@@ -320,7 +316,7 @@ function Integration({ rand }: { rand: Rand }) {
 				width={46}
 				height={58}
 				rx={3}
-				className="fill-banner-line"
+				className="fill-border"
 			/>
 			<rect x={x} y={-32} width={46} height={58} rx={3} className={FACE} />
 			{[-24, -16, -8].map((y) => (
@@ -343,17 +339,17 @@ function Integration({ rand }: { rand: Rand }) {
 			{block(34)}
 			<path
 				d={`M -34 -12 C -14 -12 -14 ${hubY} -12 ${hubY} M 12 ${hubY} C 14 ${hubY} 14 -12 34 -12`}
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 			/>
 			<path
 				d={`M -34 12 C -14 12 -14 ${hubY} -12 ${hubY} M 12 ${hubY} C 14 ${hubY} 14 12 34 12`}
 				strokeDasharray="3 3"
 				className={LINE}
 			/>
-			<circle cx={0} cy={hubY} r={12} className={ACCENT_SOFT} />
+			<circle cx={0} cy={hubY} r={12} className={LIT_SOFT} />
 			<path
 				d={`M -4 ${hubY - 5} V ${hubY - 1} M 4 ${hubY - 5} V ${hubY - 1} M -6 ${hubY - 1} H 6 V ${hubY + 2} a 6 6 0 0 1 -12 0 Z`}
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 			/>
 		</g>
 	);
@@ -371,7 +367,7 @@ function Data({ rand }: { rand: Rand }) {
 				d="M -74 -10 a 24 6 0 0 0 48 0 M -74 10 a 24 6 0 0 0 48 0"
 				className={LINE}
 			/>
-			<path d="M -22 0 H -14" strokeDasharray="2 2" className={ACCENT_LINE} />
+			<path d="M -22 0 H -14" strokeDasharray="2 2" className={LIT_LINE} />
 			<path d="M -10 42 H 78" className={LINE} />
 			{bars.map((bar, i) => (
 				<rect
@@ -381,12 +377,12 @@ function Data({ rand }: { rand: Rand }) {
 					width={10}
 					height={bar.h}
 					rx={1.5}
-					className={i === top ? ACCENT : FACE}
+					className={i === top ? LIT : FACE}
 				/>
 			))}
 			<polyline
 				points={bars.map((bar) => `${bar.x + 5},${px(34 - bar.h)}`).join(" ")}
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 			/>
 		</g>
 	);
@@ -407,7 +403,7 @@ function Automation({ rand }: { rand: Rand }) {
 				cy={-2}
 				r={40}
 				strokeDasharray="10 8"
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 			/>
 			{nodes.map((node, i) => (
 				<rect
@@ -417,16 +413,16 @@ function Automation({ rand }: { rand: Rand }) {
 					width={18}
 					height={18}
 					rx={4}
-					className={i === lit ? ACCENT_SOFT : FACE}
+					className={i === lit ? LIT_SOFT : FACE}
 				/>
 			))}
 			<circle cx={0} cy={-2} r={16} className={FACE} />
 			<path
 				d="M 0 -2 V -12 M 0 -2 L 8 3"
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 				strokeLinecap="round"
 			/>
-			<circle cx={0} cy={-2} r={1.75} className={ACCENT} />
+			<circle cx={0} cy={-2} r={1.75} className={LIT} />
 		</g>
 	);
 }
@@ -471,7 +467,7 @@ function Migration({ rand }: { rand: Rand }) {
 				width={44}
 				height={60}
 				rx={3}
-				className="fill-banner-line"
+				className="fill-border"
 			/>
 			<rect x={36} y={-30} width={44} height={60} rx={3} className={FACE} />
 			{cells.map((i) => {
@@ -484,18 +480,18 @@ function Migration({ rand }: { rand: Rand }) {
 						width={14}
 						height={14}
 						rx={1.5}
-						className={i < 6 - moved ? RAISED : ACCENT_SOFT}
+						className={i < 6 - moved ? RAISED : LIT_SOFT}
 					/>
 				);
 			})}
 			<path
 				d="M -32 -14 Q 0 -60 32 -14"
 				strokeDasharray="3 3"
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 			/>
 			<path
 				d="M 26 -20 L 32 -14 L 34 -22"
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 				strokeLinecap="round"
 			/>
 			{[0.3, 0.5, 0.7].map((t) => {
@@ -509,7 +505,7 @@ function Migration({ rand }: { rand: Rand }) {
 						width={8}
 						height={8}
 						rx={1}
-						className={ACCENT}
+						className={LIT}
 						opacity={0.4 + t * 0.6}
 					/>
 				);
@@ -528,7 +524,7 @@ function Audit({ rand }: { rand: Rand }) {
 				width={72}
 				height={94}
 				rx={3}
-				className="fill-banner-line"
+				className="fill-border"
 			/>
 			<path d="M -56 -50 H -4 L 16 -30 V 44 H -56 Z" className={FACE} />
 			<path d="M -4 -50 V -30 H 16" className={LINE} />
@@ -543,12 +539,12 @@ function Audit({ rand }: { rand: Rand }) {
 							width={8}
 							height={8}
 							rx={1.5}
-							className={on ? ACCENT_SOFT : LINE}
+							className={on ? LIT_SOFT : LINE}
 						/>
 						{on ? (
 							<path
 								d={`M -46.5 ${y} l 2 2 l 3.5 -4`}
-								className={ACCENT_LINE}
+								className={LIT_LINE}
 								strokeLinecap="round"
 							/>
 						) : null}
@@ -563,12 +559,12 @@ function Audit({ rand }: { rand: Rand }) {
 					</g>
 				);
 			})}
-			<circle cx={28} cy={14} r={22} strokeWidth={3} className={ACCENT_SOFT} />
+			<circle cx={28} cy={14} r={22} strokeWidth={3} className={LIT_SOFT} />
 			<path
 				d="M 44 30 L 60 46"
 				strokeWidth={6}
 				strokeLinecap="round"
-				className={ACCENT_LINE}
+				className={LIT_LINE}
 			/>
 		</g>
 	);
@@ -608,7 +604,7 @@ function OpenField({ width, vx }: { width: number; vx: number }) {
 						cx={cx}
 						cy={y}
 						r={0.9}
-						className="fill-banner-line"
+						className="fill-border"
 					/>
 				)),
 			)}
@@ -657,7 +653,7 @@ function Existing({
 					patternUnits="userSpaceOnUse"
 					patternTransform="rotate(45)"
 				>
-					<path d="M 0 0 V 6" className="stroke-banner-line" strokeWidth={2} />
+					<path d="M 0 0 V 6" className="stroke-border" strokeWidth={2} />
 				</pattern>
 			</defs>
 			{blocks.map((b) => (
@@ -669,7 +665,7 @@ function Existing({
 					height={b.h}
 					fill={`url(#${hatch})`}
 					strokeDasharray="3 2"
-					className="stroke-banner-muted/30"
+					className="stroke-text-muted/30"
 				/>
 			))}
 			<path d={`M 0 ${ground} H ${width}`} className={LINE} />
@@ -678,7 +674,7 @@ function Existing({
 				y={ground}
 				width={width}
 				height={COVER_H - ground}
-				className="fill-banner-raised"
+				className="fill-app-raised"
 			/>
 		</g>
 	);
@@ -744,7 +740,7 @@ export function CoverArt({
 			}
 			strokeWidth={1.25}
 			strokeLinejoin="round"
-			className="absolute inset-0 size-full transition-transform duration-(--duration-enter) ease-avel motion-safe:group-hover/card:-translate-y-0.5"
+			className="absolute inset-0 size-full"
 		>
 			{!known ? (
 				<EmptySlot cx={cx} />
@@ -769,8 +765,9 @@ export function CoverArt({
 	);
 }
 
+// v3's tag shape, on the panel so it reads over the art.
 const CHIP =
-	"inline-flex h-6 items-center gap-1 rounded-xs border border-banner-line bg-banner/85 px-2 type-caption font-medium text-banner-text backdrop-blur-sm [&_svg]:size-3.5";
+	"inline-flex h-[22px] items-center gap-1 rounded-sm border border-border bg-app-panel px-2 type-caption font-medium text-text [&_svg]:size-3";
 
 const STATE_ICON = {
 	greenfield: Sprout,
@@ -812,12 +809,10 @@ export function TemplateCover({
 			data-testid={testId}
 			data-readable={template.readable}
 			data-cover={shown ? "image" : "generated"}
-			style={
-				{
-					"--cover-glow-x": `${Math.round(20 + (coverSeed(template.slug) % 60))}%`,
-				} as CSSProperties
-			}
-			className={cn("template-cover relative overflow-hidden", className)}
+			className={cn(
+				"relative overflow-hidden border-b border-border bg-app-band",
+				className,
+			)}
 		>
 			{shown ? (
 				<img

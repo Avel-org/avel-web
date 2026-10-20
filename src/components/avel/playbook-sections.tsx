@@ -31,6 +31,7 @@ import { missionLabel } from "@/shell/command-search";
 import { DetailModal } from "./action-modal";
 import { MissionStatusPill } from "./mission-columns";
 import { missionDetailQuery, rowsOf, useMissionList } from "./mission-data";
+import { PanelFooter } from "./panel-footer";
 import { blockCopy, useCoherence, warningCopy } from "./playbook-coherence";
 import { GATE_DOCS, POLICY_DOCS, VOCABULARY_DOC } from "./playbook-gate-docs";
 import { DELIVERABLE_LABEL, POLICY_LABEL } from "./playbook-list";
@@ -89,7 +90,7 @@ function GatesSection({ draft }: { draft: PlaybookDraft }) {
 								data-testid={`playbook-gate-row-${gate}`}
 								className="grid gap-2 py-3 md:grid-cols-[10rem_7rem_minmax(0,1fr)]"
 							>
-								<span className="type-mono-small text-foreground">{gate}</span>
+								<span className="type-mono text-foreground">{gate}</span>
 								<span>
 									<Badge variant="outline">{POLICY_LABEL[policy]}</Badge>
 								</span>
@@ -186,6 +187,12 @@ function WavesSection({ draft }: { draft: PlaybookDraft }) {
 			title="Waves and who can staff them"
 			description="Agents by the waves they declare. A wave this playbook runs needs one of them on the roster."
 			data-testid="playbook-section-waves"
+			footer={
+				<PanelFooter
+					data-testid="playbook-waves-read-age"
+					queries={[templates]}
+				/>
+			}
 		>
 			<Surface
 				data-testid="playbook-waves-templates"
@@ -207,15 +214,13 @@ function WavesSection({ draft }: { draft: PlaybookDraft }) {
 										data-testid={`playbook-wave-col-${wave}`}
 										data-runs={runs}
 										className={cn(
-											"flex min-w-0 flex-col gap-1.5 rounded-sm border p-2",
+											"flex min-w-0 flex-col gap-1.5 rounded-control border p-2",
 											runs
-												? "border-accent"
-												: "border-dashed border-border opacity-60",
+												? "border-border-strong bg-app-well"
+												: "border-dashed border-border",
 										)}
 									>
-										<span className="type-mono-small text-foreground">
-											{wave}
-										</span>
+										<span className="type-mono text-foreground">{wave}</span>
 										{byWave[wave].length === 0 ? (
 											<span className="type-caption text-text-subtle">
 												None
@@ -348,6 +353,12 @@ function PresetFitSection({
 			title="Default team"
 			description="The squad a mission of this type starts from, run through coherence against this playbook."
 			data-testid="playbook-section-preset"
+			footer={
+				<PanelFooter
+					data-testid="playbook-preset-read-age"
+					queries={[preset]}
+				/>
+			}
 		>
 			<Surface
 				data-testid="playbook-preset-fit"
@@ -392,12 +403,12 @@ function PresetFit({
 				<span className="type-small font-medium text-foreground">
 					{preset.name}
 				</span>
-				<span className="type-mono-small text-text-subtle">{`v${preset.version}`}</span>
+				<span className="type-mono text-text-subtle">{`v${preset.version}`}</span>
 				<Link
 					to="/presets"
 					search={{ preset: preset.id }}
 					data-testid="playbook-preset-open"
-					className="ml-auto type-small text-accent-text underline-offset-4 hover:underline"
+					className="py-1.5 -my-1.5 ml-auto type-small text-accent-text underline-offset-4 hover:underline"
 				>
 					Open team
 				</Link>
@@ -414,11 +425,11 @@ function PresetFit({
 						className={cn(
 							"flex flex-col items-center gap-0.5 rounded-xs border py-1",
 							draft.wavesApplicable.includes(wave)
-								? "border-accent"
-								: "border-dashed border-border opacity-60",
+								? "border-border-strong bg-app-well"
+								: "border-dashed border-border",
 						)}
 					>
-						<span className="type-mono-small text-foreground">{wave}</span>
+						<span className="type-mono text-foreground">{wave}</span>
 						<span className="type-caption text-text-muted">
 							{perWave[wave]}
 						</span>
@@ -496,6 +507,12 @@ function MissionsSection({
 			title="Missions of this type"
 			description="Each one's status, the required fields it carries, and its coherence against the stored playbook."
 			data-testid="playbook-section-missions"
+			footer={
+				<PanelFooter
+					data-testid="playbook-missions-read-age"
+					queries={[client, internal]}
+				/>
+			}
 		>
 			{failed?.error ? (
 				<ErrorState
@@ -566,7 +583,7 @@ function MissionRow({
 				<Link
 					to="/missions/$id/playbook"
 					params={{ id: item.id }}
-					className="type-small text-accent-text underline-offset-4 hover:underline"
+					className="py-1.5 -my-1.5 type-small text-accent-text underline-offset-4 hover:underline"
 				>
 					{missionLabel(item)}
 				</Link>

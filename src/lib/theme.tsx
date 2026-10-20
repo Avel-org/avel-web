@@ -3,14 +3,15 @@ import { useStoredState } from "@/lib/stored";
 import { cn } from "@/lib/utils";
 
 /**
- * The theme lives on the app wrapper as `.light`, never on <html>
+ * The theme lives on the app wrapper as `.dark`, never on <html>
  * (DAY-ONE-FRONTEND.md, SHADCN-PRINCIPLES.md section 6). Radix portals render
- * to <body> by default, which is outside that wrapper, so a light-mode dialog
- * would render dark. ThemeRoot therefore owns a portal container inside the
+ * to <body> by default, which is outside that wrapper, so a dark-mode dialog
+ * would render light. ThemeRoot therefore owns a portal container inside the
  * themed subtree, and every primitive that portals renders into it.
  */
-export type Theme = "dark" | "light";
-const THEMES: readonly Theme[] = ["dark", "light"];
+/** Light is the default (design system v3 is light-first). */
+export type Theme = "light" | "dark";
+const THEMES: readonly Theme[] = ["light", "dark"];
 
 const ThemeContext = createContext<{
 	theme: Theme;
@@ -20,7 +21,11 @@ const ThemeContext = createContext<{
 const PortalContainerContext = createContext<HTMLElement | null>(null);
 
 export function ThemeRoot({ children }: { children: ReactNode }) {
-	const [theme, setTheme] = useStoredState<Theme>("avel.theme", "dark", THEMES);
+	const [theme, setTheme] = useStoredState<Theme>(
+		"avel.theme",
+		"light",
+		THEMES,
+	);
 	const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
 		null,
 	);
@@ -30,7 +35,7 @@ export function ThemeRoot({ children }: { children: ReactNode }) {
 			<PortalContainerContext.Provider value={portalContainer}>
 				<div
 					data-theme={theme}
-					className={cn("app", theme === "light" && "light")}
+					className={cn("app", theme === "dark" && "dark")}
 				>
 					{children}
 					<div data-slot="portal-root" ref={setPortalContainer} />

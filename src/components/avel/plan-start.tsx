@@ -197,10 +197,10 @@ export function StartPlanForm({
 							<div
 								key={key}
 								data-testid={`plan-start-dropped-${key}`}
-								className="flex flex-col gap-0.5 rounded-sm border border-border px-2 py-1.5"
+								className="flex flex-col gap-0.5 rounded-control border border-border px-2 py-1.5"
 							>
-								<dt className="type-mono-small text-text-subtle">{key}</dt>
-								<dd className="type-mono-small break-words text-text-muted">
+								<dt className="type-mono text-text-subtle">{key}</dt>
+								<dd className="type-mono break-words text-text-muted">
 									{storedPreview(raw[key])}
 								</dd>
 							</div>

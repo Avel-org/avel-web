@@ -1,4 +1,5 @@
 import {
+	type QueryClient,
 	queryOptions,
 	useMutation,
 	useQuery,
@@ -14,7 +15,6 @@ import {
 	updateMissionPlanBody,
 } from "avel-server/contract";
 import type { z } from "zod";
-import { missionKeys } from "@/components/avel/mission-data";
 import { type ApiClient, call } from "./client";
 import { ApiError } from "./errors";
 import { queryKeys } from "./keys";
@@ -74,16 +74,27 @@ export function useSaveMissionPlan(missionId: string) {
 			call(contract.missionPlans.update, () =>
 				api.missionPlans.update({ params: { id: missionId }, body }),
 			),
-		onSuccess: (plan) => {
-			queryClient.setQueryData(queryKeys.missionPlans.detail(missionId), plan);
-			return Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: missionKeys.detail(missionId),
-				}),
-				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
-			]);
-		},
+		onSuccess: (plan) => afterPlanSaved(queryClient, missionId, plan),
 	});
+}
+
+/**
+ * The answer is the stored plan with its new check, so it goes straight into
+ * the cache; the mission's own brief changed and the save logged
+ * mission.plan_updated, so both read again.
+ */
+export function afterPlanSaved(
+	queryClient: QueryClient,
+	missionId: string,
+	plan: MissionPlan,
+) {
+	queryClient.setQueryData(queryKeys.missionPlans.detail(missionId), plan);
+	return Promise.all([
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.missions.detail(missionId),
+		}),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
 }
 
 // Pure functions below: no React, no network, so they are tested directly.

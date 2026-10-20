@@ -29,6 +29,7 @@ import {
 	SkillStatusPill,
 } from "./catalog-sample";
 import { type CodeTone, CodeView } from "./code-view";
+import { Reason } from "./reason";
 import { SectionPanel } from "./section-panel";
 import { ShortHash } from "./short-hash";
 import { StatusPill } from "./status-pill";
@@ -126,7 +127,7 @@ function Header({ skill }: { skill: Skill }) {
 				data-testid="skill-header-facts"
 				className="flex min-w-0 flex-1 flex-col gap-2"
 			>
-				<h2 id="skill-title" className="type-h2 text-foreground">
+				<h2 id="skill-title" className="type-page text-foreground">
 					{skill.name}
 				</h2>
 				<p
@@ -171,22 +172,20 @@ function Facts({ skill }: { skill: Skill }) {
 			<div className="flex flex-col gap-3">
 				<dl className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-x-6 gap-y-3">
 					<CatalogField label="Layer">
-						<span className="type-mono-small">{skill.layer}</span>
+						<span className="type-mono">{skill.layer}</span>
 					</CatalogField>
 					<CatalogField label="Type">
-						<span className="type-mono-small">{skill.type}</span>
+						<span className="type-mono">{skill.type}</span>
 					</CatalogField>
 					<CatalogField label="Status">
 						<SkillStatusPill status={skill.status} data-testid="skill-status" />
 					</CatalogField>
 					<CatalogField label="Version">
-						<span className="type-mono-small">{`v${skill.version}`}</span>
+						<span className="type-mono">{`v${skill.version}`}</span>
 					</CatalogField>
 					<CatalogField label="Reviewed">
 						{skill.reviewedAt ? (
-							<span className="type-mono-small">
-								{skill.reviewedAt.slice(0, 10)}
-							</span>
+							<span className="type-mono">{skill.reviewedAt.slice(0, 10)}</span>
 						) : (
 							<span className="text-text-subtle">Not reviewed</span>
 						)}
@@ -196,9 +195,7 @@ function Facts({ skill }: { skill: Skill }) {
 							data-testid="skill-description-length"
 							data-length={skill.description.length}
 						>
-							<span className="type-mono-small">
-								{skill.description.length}
-							</span>{" "}
+							<span className="type-mono">{skill.description.length}</span>{" "}
 							<span className="text-text-muted">
 								characters, loaded on every dispatch
 							</span>
@@ -257,7 +254,7 @@ function Facts({ skill }: { skill: Skill }) {
 							</ul>
 						</CatalogField>
 						<CatalogField label="Io shape">
-							<span data-testid="skill-io" className="type-mono-small">
+							<span data-testid="skill-io" className="type-mono">
 								{`reads ${skill.ioShape.reads} → returns ${skill.ioShape.returns}`}
 							</span>
 						</CatalogField>
@@ -317,12 +314,9 @@ function Attach({ skill }: { skill: Skill }) {
 			<div className="flex flex-col gap-3">
 				{/* Said once, readable without hovering; each switch still has it
 				    in its tooltip and aria-describedby. */}
-				<p
-					data-testid="skill-attach-reason"
-					className="rounded-sm border border-border bg-app-band px-3 py-2 type-small text-text-muted"
-				>
+				<Reason data-testid="skill-attach-reason">
 					{`Read-only for now. ${SKILL_WRITE_REASON.attach}.`}
-				</p>
+				</Reason>
 				<SampleRegion
 					missing={CATALOG_MISSING.roleAttachments}
 					title="Attaches to"
@@ -376,7 +370,7 @@ export function RoleToggleCard({
 			aria-label={label}
 			data-testid={`skill-team-${team}`}
 			data-firm={firm || undefined}
-			className="surface-steel flex flex-col gap-2 rounded-sm border border-border bg-app-band p-3"
+			className="flex flex-col gap-2 rounded-card border border-border bg-app-well p-3"
 		>
 			<header className="flex items-baseline justify-between gap-2 border-b border-border pb-1.5">
 				<h3 title={meaning} className="type-small font-medium text-foreground">
@@ -406,7 +400,7 @@ export function RoleToggleCard({
 						<li key={role} className="flex items-center gap-2">
 							<label
 								htmlFor={id}
-								className="type-mono-small min-w-0 flex-1 text-foreground"
+								className="type-mono min-w-0 flex-1 text-foreground"
 							>
 								{role}
 							</label>
@@ -525,7 +519,7 @@ function Carriers({
 			{agents.map((agent) => (
 				<li key={agent.id} className="flex flex-wrap items-center gap-2">
 					<AgentLink agent={agent} />
-					<span className="type-mono-small text-text-subtle">
+					<span className="type-mono text-text-subtle">
 						{ROLES.filter(
 							(role) => agent.roles.includes(role) && roles.includes(role),
 						).join(", ")}

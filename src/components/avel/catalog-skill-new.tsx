@@ -45,7 +45,7 @@ export function NewSkillForm() {
 			className="flex flex-col gap-4 pb-6"
 		>
 			<header className="flex flex-col gap-1">
-				<h2 id="new-skill-title" className="type-h2 text-foreground">
+				<h2 id="new-skill-title" className="type-page text-foreground">
 					New skill
 				</h2>
 				<p className="type-body text-text-muted">
@@ -55,7 +55,7 @@ export function NewSkillForm() {
 			</header>
 			<form
 				data-testid="skill-new-form"
-				className="plate flex flex-col gap-4 rounded-md border p-4"
+				className="flex flex-col gap-4 p-4 rounded-card border border-border bg-app-panel shadow-card"
 				onSubmit={(event) => event.preventDefault()}
 			>
 				<Field label="Name" testid="skill-new-name">
@@ -88,7 +88,7 @@ export function NewSkillForm() {
 								aria-live="polite"
 								className="type-caption text-text-subtle"
 							>
-								<span className="type-mono-small">{description.length}</span>
+								<span className="type-mono">{description.length}</span>
 								{" characters, loaded on every dispatch"}
 							</p>
 						</div>
@@ -99,7 +99,7 @@ export function NewSkillForm() {
 						<Textarea
 							{...props}
 							rows={10}
-							className="type-mono-small"
+							className="type-mono"
 							value={content}
 							onChange={(event) => setContent(event.target.value)}
 						/>

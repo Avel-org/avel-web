@@ -37,7 +37,6 @@ import {
 } from "@/lib/api/catalog";
 import type { ApiError } from "@/lib/api/errors";
 import { useSessionState } from "@/lib/auth";
-import { cn } from "@/lib/utils";
 import { AgentTools } from "./agent-access";
 import { AgentActivity } from "./agent-activity";
 import {
@@ -58,7 +57,6 @@ import { sampleHistory } from "./catalog-placeholders";
 import { teamsOf } from "./catalog-sample";
 import { EmptyState } from "./empty-state";
 import {
-	BANNER_BUTTON,
 	BannerStat,
 	BannerStatus,
 	type BannerTab,
@@ -66,11 +64,12 @@ import {
 	EntityBanner,
 	PinnedBanner,
 } from "./entity-banner";
+import { PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
 /*
- * One agent template's page (ruling 38): the entity banner, then one tab at a
+ * One agent template's page: the entity banner, then one tab at a
  * time. The agent's own fields and the banner's numbers are live. Its
  * measures and versions are labelled samples (ruling 32) until their routes
  * exist; memory is not built, and says which module builds it.
@@ -230,10 +229,10 @@ export function AgentDetail({
 			loading={
 				<div
 					data-testid="agent-detail-skeleton"
-					className="flex flex-col gap-6"
+					className="flex flex-col gap-4"
 				>
-					<Skeleton className="h-48 w-full rounded-md" />
-					<Skeleton className="h-64 w-full rounded-md" />
+					<Skeleton className="h-48 w-full rounded-card" />
+					<Skeleton className="h-64 w-full rounded-card" />
 				</div>
 			}
 			empty={null}
@@ -292,6 +291,9 @@ function AgentPage({
 	onMission: (mission: string | undefined) => void;
 }) {
 	const session = useSessionState();
+	// The page's own read, shared by key, for the footers of the panels that
+	// show the agent's fields.
+	const record = useAgentTemplate(agent.slug);
 	const me = session.status === "signed-in" ? session.user.id : undefined;
 	const tabs = useTabs(agent, mission);
 	const icon = agentIcon(agent);
@@ -304,7 +306,7 @@ function AgentPage({
 			data-testid="agent-detail"
 			data-agent={agent.slug}
 			// Tab panels shrink to the canvas; a wide table scrolls inside its own frame.
-			className="min-w-0 gap-6 [&>*]:min-w-0"
+			className="min-w-0 gap-4 [&>*]:min-w-0"
 		>
 			{/* Zero height, so its -mb-6 takes back the gap the column gives it. */}
 			<PinnedBanner
@@ -333,13 +335,19 @@ function AgentPage({
 			<TabsContent value="overview">
 				{/* Panels take their own height: a short manifest never stretches
 				    beside a long identity. */}
-				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-					<div className="flex min-w-0 flex-col gap-6">
+				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+					<div className="flex min-w-0 flex-col gap-4">
 						<SectionPanel
 							title="Identity"
 							description="The instructions this agent works from, written from its roles. To change them, change a role."
 							actions={<RegenerateIdentity agent={agent} />}
 							data-testid="agent-identity-panel"
+							footer={
+								<PanelFooter
+									data-testid="agent-identity-read-age"
+									queries={[record]}
+								/>
+							}
 						>
 							<IdentityTab agent={agent} />
 						</SectionPanel>
@@ -349,6 +357,12 @@ function AgentPage({
 						title="Manifest"
 						description="This agent's settings. Changing its roles or files leaves the identity out of date until it is regenerated."
 						data-testid="agent-manifest-panel"
+						footer={
+							<PanelFooter
+								data-testid="agent-manifest-read-age"
+								queries={[record]}
+							/>
+						}
 					>
 						{/* Each editor saves on its own and names its own field. */}
 						<div className="flex flex-col gap-5">
@@ -365,8 +379,8 @@ function AgentPage({
 				<AgentTools agent={agent} mission={mission} onMission={onMission} />
 			</TabsContent>
 			<TabsContent value="performance">
-				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-					<div className="flex min-w-0 flex-col gap-6">
+				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+					<div className="flex min-w-0 flex-col gap-4">
 						{/* Live: every run from the dispatches route. The measures
 						    below wait for the gate, so they stay labelled samples. */}
 						<AgentPerformance agent={agent} />
@@ -472,7 +486,7 @@ function AgentActions({ agent }: { agent: AgentTemplate }) {
 		<>
 			<Button
 				size="sm"
-				className={cn(BANNER_BUTTON)}
+				variant="outline"
 				data-testid="agent-ask"
 				disabledReason="You can ask an agent questions once Canon's chat is built (module 14)."
 			>
@@ -481,7 +495,7 @@ function AgentActions({ agent }: { agent: AgentTemplate }) {
 			</Button>
 			<Button
 				size="sm"
-				className={cn(BANNER_BUTTON)}
+				variant="outline"
 				data-testid="agent-pause"
 				disabledReason="Pausing needs the runner that starts and stops agents (module 6)."
 			>

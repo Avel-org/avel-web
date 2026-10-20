@@ -16,7 +16,7 @@ import type { ActivityActor } from "avel-server/contract";
  * It keeps the size and colour of the text around it.
  */
 const LINK_CLASS =
-	"underline decoration-border underline-offset-2 hover:text-foreground hover:decoration-current";
+	"py-1.5 -my-1.5 underline decoration-border underline-offset-2 hover:text-foreground hover:decoration-current";
 
 /** An agent: its name to its catalog page, then its territory, secondary. */
 export function AgentActor({

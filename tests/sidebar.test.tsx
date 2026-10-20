@@ -93,37 +93,57 @@ function sidebar(html: string): string {
 const count = (html: string, needle: string) => html.split(needle).length - 1;
 
 describe("the current page", () => {
-	it("is marked once, by a glow on the right edge, with no fill", async () => {
+	it("is marked once, by the v3 chip with a glow on its right edge", async () => {
 		const html = sidebar(await app("/missions"));
 		expect(count(html, 'aria-current="page"')).toBe(1);
 		expect(count(html, 'data-testid="nav-active-mark"')).toBe(1);
 		const row = element(html, "nav-missions");
 		expect(row).toContain('aria-current="page"');
 		expect(row).toContain('data-testid="nav-active-mark"');
+		// The row stays transparent over its mark, hovered too.
+		expect(decoded(tag(html, "nav-missions"))).toContain(
+			"aria-[current=page]:hover:bg-transparent",
+		);
 		expect(tag(html, "nav-missions")).not.toMatch(
 			/aria-\[current=page\]:bg-(?!transparent)/,
 		);
 	});
 
-	/** A glow layer's shape and its opacity in each theme. */
+	it("draws the chip with a border edge, since shadow-btn owns box-shadow", async () => {
+		const mark = tag(sidebar(await app("/missions")), "nav-active-mark");
+		expect(mark).toContain(
+			"overflow-hidden rounded-control border border-border bg-chip shadow-btn",
+		);
+		expect(mark).not.toMatch(/\bring-1\b/);
+	});
+
+	/** A glow layer's shape and its accent strength in each theme. */
 	async function glow(testid: string) {
-		const layer = tag(sidebar(await app("/missions")), testid);
-		const shape = layer.match(/\[--glow-shape:ellipse_(\d+)%_(\d+)%\]/);
+		const layer = decoded(tag(sidebar(await app("/missions")), testid));
+		const shape = layer.match(/ellipse_(\d+)%_(\d+)%_at_100%_50%/);
+		const strength = (prefix: string) =>
+			Number(
+				layer.match(
+					new RegExp(
+						`(?:^|\\s|")${prefix}bg-\\[radial-gradient\\([^\\s"]*var\\(--color-accent\\)_(\\d+)%`,
+					),
+				)?.[1],
+			);
 		return {
 			layer,
 			width: Number(shape?.[1]),
 			height: Number(shape?.[2]),
-			dark: Number(layer.match(/\sopacity-(\d+)\b/)?.[1]),
-			light: Number(layer.match(/in-\[\.light\]:opacity-(\d+)\b/)?.[1]),
+			light: strength(""),
+			dark: strength("in-\\[\\.dark\\]:"),
 		};
 	}
 
-	it("glows from the right edge only, with no line", async () => {
+	it("glows from the right edge only, in the accent, with no line", async () => {
 		const row = element(sidebar(await app("/missions")), "nav-missions");
 		for (const testid of ["nav-active-core", "nav-active-wash"]) {
 			const { layer } = await glow(testid);
-			expect(layer).toContain(
-				"radial-gradient(var(--glow-shape)_at_100%_50%,var(--color-accent),transparent)",
+			expect(layer).toMatch(
+				/radial-gradient\(ellipse_\d+%_\d+%_at_100%_50%,color-mix\(in_oklab,var\(--color-accent\)_\d+%,transparent\),transparent\)/,
 			);
 		}
 		// No hard line: no solid fill and no thin bar anywhere in the row.
@@ -148,18 +168,19 @@ describe("the current page", () => {
 		}
 	});
 
-	it("glows stronger in light mode, where the accent reads fainter", async () => {
+	it("glows stronger in light, the default, where the accent reads fainter", async () => {
 		const core = await glow("nav-active-core");
 		const wash = await glow("nav-active-wash");
 		expect(core.light).toBeGreaterThan(core.dark);
 		expect(wash.light).toBeGreaterThan(wash.dark);
+		expect(core.layer).not.toContain("in-[.light]");
 	});
 
-	it("keeps the current row's accent icon and medium label", async () => {
+	it("puts the current row's icon in the accent, and its label in full colour", async () => {
 		const row = decoded(tag(sidebar(await app("/missions")), "nav-missions"));
-		expect(row).toContain('aria-current="page"');
 		expect(row).toContain("aria-[current=page]:[&>svg]:text-accent-text");
-		expect(row).toContain("aria-[current=page]:font-medium");
+		expect(row).toContain("aria-[current=page]:text-text");
+		expect(row).not.toContain("font-medium");
 	});
 
 	it("is the only aria-current on the page: the footer adds no second link", async () => {
@@ -176,12 +197,17 @@ describe("parents (ruling 13)", () => {
 			/^<button[^>]*aria-expanded="true"/,
 		);
 		expect(tag(html, "nav-agents-children")).toContain("data-expanded");
+		expect(tag(html, "nav-skills")).toContain('aria-current="page"');
 		expect(element(html, "nav-skills")).toContain(
 			'data-testid="nav-active-mark"',
 		);
-		// Open, the parent itself does not repeat the mark.
+		// Open, the parent does not repeat the mark; its icon still says
+		// where the page is.
 		expect(element(html, "nav-agents", "</button>")).not.toContain(
 			"nav-active-mark",
+		);
+		expect(decoded(tag(html, "nav-agents"))).toContain(
+			"text-text [&>svg]:text-accent-text",
 		);
 	});
 
@@ -207,7 +233,7 @@ describe("parents (ruling 13)", () => {
 
 	it("hangs children off a ruler, without icons", async () => {
 		const html = sidebar(await app("/catalog/skills"));
-		// Ruling 30: a 1px line under the parent's icon, at the strong hairline.
+		// A 1px guide line under the parent's icon, at the strong hairline.
 		expect(tag(html, "nav-agents-ruler")).toMatch(
 			/class="[^"]*ml-5[^"]*border-l border-border-strong/,
 		);
@@ -215,73 +241,34 @@ describe("parents (ruling 13)", () => {
 		expect(element(html, "nav-missions")).toContain("<svg");
 	});
 
-	it("ticks the ruler at every child, and marks the current one in accent", async () => {
-		const ruler = decoded(
-			element(
-				sidebar(await app("/catalog/skills")),
-				"nav-agents-ruler",
-				"</ul>",
-			),
-		);
-		const ticks = [
-			...ruler.matchAll(/<li data-testid="nav-ruler-tick" class="([^"]+)"/g),
-		];
-		expect(ticks.length).toBeGreaterThan(1);
-		for (const [, cls] of ticks) {
-			// A 4px tick at the row's middle, off the line.
-			expect(cls).toContain(
-				"before:absolute before:top-1/2 before:left-0 before:z-10 before:h-px before:w-1 before:bg-border-strong",
-			);
-			// 6px, in accent, at the current child's row.
-			expect(cls).toContain(
-				"has-[[aria-current=page]]:before:w-1.5 has-[[aria-current=page]]:before:bg-accent",
-			);
-		}
-	});
-
-	it("sets children at 32px and 14px, under the parent's label", async () => {
+	it("sets children at 32px and 13px, under the parent's label", async () => {
 		const row = tag(sidebar(await app("/catalog/skills")), "nav-skills");
-		expect(row).toContain("h-8 pr-3 pl-[17px] type-small font-[450]");
+		expect(row).toContain("h-8 pr-3 pl-[17px] type-small");
 	});
 });
 
 describe("type and rhythm", () => {
-	it("sets rows at weight 450, muted, and current at 500 in full colour", async () => {
+	it("sets rows muted at the body weight, and the current one in full colour", async () => {
 		const row = decoded(tag(sidebar(await app("/missions")), "nav-clients"));
-		expect(row).toContain("type-body font-[450] text-text-muted");
-		expect(row).toContain("aria-[current=page]:font-medium");
-		expect(row).toContain("aria-[current=page]:text-foreground");
+		expect(row).toContain("type-body text-text-muted");
+		expect(row).not.toContain("font-[450]");
+		expect(row).toContain("aria-[current=page]:text-text");
 		expect(row).toContain("aria-[current=page]:[&>svg]:text-accent-text");
-		// Hover is a soft steel plate fill.
-		expect(row).toContain("hover:bg-state-hover");
+		// Hover is the raised fill (v3 .nav-item:hover).
+		expect(row).toContain("hover:bg-app-raised hover:text-text");
 	});
 
-	it("engraves the group labels", async () => {
+	it("labels the groups with the eyebrow", async () => {
 		const html = sidebar(await app("/missions"));
 		const labels = [...html.matchAll(/<h2 class="([^"]+)"/g)].map((m) => m[1]);
 		expect(labels).toHaveLength(3);
-		for (const cls of labels) {
-			expect(cls).toMatch(/\bengraved\b/);
-			expect(cls).toContain("type-caption text-text-subtle");
-		}
-	});
-
-	it("brushes the sidebar's frame", async () => {
-		expect(tag(sidebar(await app("/missions")), "sidebar-body")).toMatch(
-			/class="brushed /,
-		);
-	});
-
-	it("sets no Inter-only font features, now that the face is Geist (ruling 28)", async () => {
-		expect(
-			decoded(tag(sidebar(await app("/missions")), "sidebar-body")),
-		).not.toContain("font-feature-settings");
+		for (const cls of labels) expect(cls).toContain("type-eyebrow");
 	});
 
 	it("puts 16px between groups and 2px between rows", async () => {
 		const html = sidebar(await app("/missions"));
 		expect(tag(html, "sidebar-nav")).toMatch(/\bflex-col gap-4\b/);
-		expect(html).toMatch(/<h2 class="[^"]*type-caption text-text-subtle/);
+		expect(html).toMatch(/<h2 class="[^"]*type-eyebrow/);
 		expect(html).toMatch(/<\/h2><ul class="flex flex-col gap-0\.5">/);
 	});
 
@@ -302,10 +289,10 @@ describe("type and rhythm", () => {
 
 	it("fades in a soft hover fill over 120ms and brightens the icon", async () => {
 		const row = decoded(tag(sidebar(await app("/missions")), "nav-clients"));
-		expect(row).toContain("hover:bg-state-hover");
+		expect(row).toContain("hover:bg-app-raised");
 		expect(row).toContain("duration-(--duration-micro) ease-avel");
 		expect(row).toContain("[&>svg]:text-text-subtle");
-		expect(row).toContain("hover:[&>svg]:text-foreground");
+		expect(row).toContain("hover:[&>svg]:text-text");
 	});
 
 	it("rotates the chevron over the state duration", async () => {
@@ -352,11 +339,11 @@ describe("the sidebar's furniture", () => {
 	it("draws the operator as a card, with a ringed avatar on the centre line", async () => {
 		const html = sidebar(await app("/missions"));
 		const card = tag(html, "operator-menu");
-		// A machined card at rest (ruling 30), a raised plate on hover.
+		// A v3 card at rest; on hover it answers like a .row-link.
 		expect(card).toContain(
-			"surface-steel rounded-md border border-border bg-app-band",
+			"rounded-card border border-border bg-app-panel shadow-card",
 		);
-		expect(card).toContain("hover:bg-app-raised");
+		expect(card).toContain("hover:border-border-strong hover:bg-app-raised");
 		// 8px footer padding + 1px border + 3px puts the avatar 12px in.
 		expect(card).toContain("pl-[3px]");
 		expect(tag(html, "operator-avatar")).toContain(
@@ -390,7 +377,7 @@ describe("the sidebar's furniture", () => {
 });
 
 describe("moving between pages", () => {
-	it("draws the glow as one indicator, positioned inside the nav", async () => {
+	it("draws the chip and glow as one indicator, positioned inside the nav", async () => {
 		const html = sidebar(await app("/missions"));
 		expect(tag(html, "sidebar-nav")).toMatch(
 			/class="[^"]*\bgroup\/nav\b[^"]*\brelative\b/,
@@ -398,8 +385,11 @@ describe("moving between pages", () => {
 		expect(count(html, 'data-testid="nav-indicator"')).toBe(1);
 		const indicator = tag(html, "nav-indicator");
 		// Placed by its measured box, left and width included, so a nested
-		// row's plate starts at the ruler.
+		// row's chip starts at the guide line.
 		expect(indicator).toMatch(/\babsolute top-0 left-0\b/);
+		expect(indicator).toContain(
+			"overflow-hidden rounded-control border border-border bg-chip shadow-btn",
+		);
 		expect(decoded(indicator)).toContain(
 			'style="transform:translate(0px, 0px);width:0;height:0"',
 		);
@@ -408,14 +398,9 @@ describe("moving between pages", () => {
 		);
 	});
 
-	it("rides the glow on a machined plate, under the label", async () => {
+	it("keeps the row's own mark under its label", async () => {
 		const html = sidebar(await app("/missions"));
-		const plate =
-			"surface-steel rounded-sm border border-border bg-app-raised overflow-hidden";
-		expect(tag(html, "nav-indicator")).toContain(plate);
 		const mark = tag(html, "nav-active-mark");
-		expect(mark).toContain(plate);
-		// Under the label: behind it in the row's own isolated stack.
 		expect(mark).toContain("absolute inset-0 -z-10");
 		expect(tag(html, "nav-missions")).toMatch(/class="relative isolate /);
 	});
@@ -440,20 +425,10 @@ describe("moving between pages", () => {
 		expect(mark).toContain("group-data-[indicator=ready]/nav:opacity-0");
 	});
 
-	it("enters each page with a fade and a 4px rise that leaves no transform", async () => {
-		const { readFileSync } = await import("node:fs");
-		const css = readFileSync(
-			new URL("../src/styles/app.css", import.meta.url),
-			"utf8",
-		);
-		const keyframes = css.slice(css.indexOf("@keyframes avelFadeIn"));
-		expect(keyframes).toMatch(
-			/from\s*\{\s*opacity: 0;\s*transform: translateY\(4px\);/,
-		);
-		expect(keyframes).toMatch(/to\s*\{\s*opacity: 1;\s*transform: none;/);
-		expect(tag(await app("/missions"), "page-enter")).toContain(
-			"animate-page-in",
-		);
+	it("mounts each page fresh, with no entrance animation (v3 has no motion at rest)", async () => {
+		const enter = tag(await app("/missions"), "page-enter");
+		expect(enter).toContain('class="flex flex-1 flex-col"');
+		expect(enter).not.toMatch(/animate-/);
 	});
 });
 
@@ -500,8 +475,9 @@ describe("the canvas (ruling 17)", () => {
 		expect(shell).toMatch(/\bh-dvh overflow-hidden\b/);
 		expect(shell).toContain("pt-[env(safe-area-inset-top)]");
 		const canvas = tag(html, "canvas");
-		expect(canvas).toContain("overflow-hidden bg-card");
-		expect(canvas).toContain("md:rounded-(--radius-canvas)");
+		expect(canvas).toContain("overflow-hidden bg-app-panel");
+		expect(canvas).toContain("md:shadow-card");
+		expect(canvas).toContain("md:rounded-dialog");
 		// Inset on all four sides (ruling 17): with no left inset the canvas's
 		// left corners and border sat flush on the sidebar, lopsided against
 		// the 8px on the other three sides.
@@ -511,18 +487,14 @@ describe("the canvas (ruling 17)", () => {
 		const scroller = tag(html, "canvas-scroll");
 		expect(scroller).toMatch(/^<main id="main"/);
 		expect(scroller).toContain("app-scroll");
+		// The containing block for sr-only boxes, so none stretches the document.
+		expect(scroller).toMatch(/\brelative\b/);
 		expect(scroller).toContain("overflow-y-auto");
 		expect(tag(html, "skip-link")).toContain('href="#main"');
 	});
 
 	it("has no border on the sidebar: the gap is the seam", async () => {
 		expect(tag(await app("/missions"), "sidebar")).not.toContain("border-r");
-	});
-
-	it("enters each page with the page-in animation", async () => {
-		expect(tag(await app("/missions"), "page-enter")).toContain(
-			"animate-page-in",
-		);
 	});
 
 	it("lines the brand row up with the top bar across the seam", async () => {

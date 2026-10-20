@@ -10,13 +10,11 @@ import type {
 } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import {
-	DISPATCH_STATUS_LABEL,
-	HALT_REASON_LABEL,
-	VERSION_SOURCE_LABEL,
-} from "./dispatch-labels";
+import { ActorMark, FILED_BY_ACTOR, HaltActor } from "./actor";
+import { DISPATCH_STATUS_LABEL } from "./dispatch-labels";
 import { HiddenId, ShortHash } from "./short-hash";
 import { StatusPill, type StatusTone } from "./status-pill";
+import { VersionChip } from "./version-chip";
 
 /*
  * A completion report (module 8): how one dispatch ended, what it read and
@@ -112,33 +110,25 @@ function AgentVersion({
 					to="/catalog/agents/$slug"
 					params={{ slug }}
 					data-testid="report-agent-link"
-					className="font-medium text-foreground underline-offset-4 hover:underline"
+					className="py-1.5 -my-1.5 font-medium text-foreground underline-offset-4 hover:underline"
 				>
 					{agent?.name ?? slug}
 				</Link>
 			) : (
 				<span className="font-medium text-foreground">Agent</span>
 			)}
-			{ref ? (
-				<span data-testid="report-agent-ref" className="type-mono-small">
-					{ref}
-				</span>
-			) : null}
+			<VersionChip
+				versionRef={ref}
+				source={report.versionSource}
+				data-testid="report-version"
+			/>
 			<ShortHash
 				value={report.agentVersionSha256}
 				label={`the hash of ${ref ?? "the agent version"}`}
 				data-testid="report-agent-hash"
 			/>
-			{report.versionSource === "reconstructed" ? (
-				<span
-					data-testid="report-version-source"
-					className="type-caption text-gate-warn"
-				>
-					{VERSION_SOURCE_LABEL.reconstructed}
-				</span>
-			) : null}
 			<span className="type-caption">
-				Model <span className="type-mono-small">{report.model}</span>
+				Model <span className="type-mono">{report.model}</span>
 			</span>
 		</div>
 	);
@@ -167,9 +157,7 @@ function ArtifactList({
 					data-testid={`${testId}-${i}`}
 					className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5"
 				>
-					<span className="type-mono-small break-all text-foreground">
-						{a.path}
-					</span>
+					<span className="type-mono break-all text-foreground">{a.path}</span>
 					<ShortHash value={a.sha256} label={`the hash of ${a.path}`} />
 				</li>
 			))}
@@ -184,7 +172,7 @@ function BlockerItem({ blocker, index }: { blocker: Blocker; index: number }) {
 			data-testid={testId}
 			data-provisioning-gap={blocker.provisioningGap || undefined}
 			className={cn(
-				"flex flex-col gap-1 rounded-md border px-3 py-2",
+				"flex flex-col gap-1 rounded-card border px-3 py-2",
 				blocker.provisioningGap ? "border-gate-warn-line" : "border-border",
 			)}
 		>
@@ -231,10 +219,10 @@ function MismatchItem({
 	return (
 		<li
 			data-testid={testId}
-			className="flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-md border border-gate-block-line bg-gate-block-soft px-3 py-2 type-small text-foreground"
+			className="flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-card border border-gate-block-line bg-gate-block-soft px-3 py-2 type-small text-foreground"
 		>
 			<span>Read</span>
-			<span className="type-mono-small break-all">{mismatch.path}</span>
+			<span className="type-mono break-all">{mismatch.path}</span>
 			<span>at</span>
 			<ShortHash
 				value={mismatch.readSha256}
@@ -247,7 +235,7 @@ function MismatchItem({
 					to="/catalog/agents/$slug"
 					params={{ slug: producer.slug }}
 					data-testid={`${testId}-producer`}
-					className="font-medium underline-offset-4 hover:underline"
+					className="py-1.5 -my-1.5 font-medium underline-offset-4 hover:underline"
 				>
 					{producer.name}
 				</Link>
@@ -311,18 +299,23 @@ export function CompletionReportView({
 						data-testid="report-status"
 					/>
 					{report.status === "halted" && report.haltReason ? (
-						<span
+						<HaltActor
+							reason={report.haltReason}
 							data-testid="report-halt-reason"
-							className="type-small text-foreground"
-						>
-							{HALT_REASON_LABEL[report.haltReason]}
-						</span>
+						/>
 					) : null}
-					<span
-						data-testid="report-filed-by"
-						className="type-caption text-text-muted"
-					>
-						{FILED_BY_LABEL[report.filedBy]}
+					<span className="inline-flex items-center gap-1.5">
+						<ActorMark
+							kind={FILED_BY_ACTOR[report.filedBy]}
+							name={dispatch?.agent.name}
+							data-testid="report-filed-by-mark"
+						/>
+						<span
+							data-testid="report-filed-by"
+							className="type-caption text-text-muted"
+						>
+							{FILED_BY_LABEL[report.filedBy]}
+						</span>
 					</span>
 				</div>
 				<AgentVersion report={report} agent={dispatch?.agent} />
@@ -429,7 +422,7 @@ export function CompletionReportView({
 						{fileTypesTouched.map((t) => (
 							<li
 								key={t}
-								className="rounded-xs border border-border px-1.5 type-mono-small text-text-muted"
+								className="rounded-xs border border-border px-1.5 type-mono text-text-muted"
 							>
 								{t}
 							</li>

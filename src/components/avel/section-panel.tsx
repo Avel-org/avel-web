@@ -1,58 +1,53 @@
-import { type ComponentProps, type ReactNode, useId } from "react";
-import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
+import { DataPanel } from "./data-panel";
 
 /**
- * A titled panel on a page (AVEL-DESIGN.md section 10). The header strip sits
- * on the band surface, one step above the panel, so the title reads as a
- * header rather than as the panel's first row. The title is an h2 because the
- * top bar owns the page's h1.
+ * A titled region on a detail page (AVEL-DESIGN.md section 10), in the one
+ * panel anatomy every page shares (DataPanel): a 48px header with the title,
+ * a count when given, the collapse chevron and the actions at its end; the
+ * body, its description first; and a footer band for when its data was read
+ * (PanelFooter) or its paging. The title is an h2: the top bar owns the h1.
  */
 export function SectionPanel({
 	title,
 	description,
 	actions,
+	count,
+	footer,
 	children,
 	className,
 	"data-testid": testId = "section-panel",
-	...props
-}: Omit<ComponentProps<"section">, "title"> & {
+}: {
 	title: string;
 	description?: string;
 	actions?: ReactNode;
+	/** A number the section counts; without one the header shows no badge. */
+	count?: number;
+	footer?: ReactNode;
 	children: ReactNode;
+	/** Layout only (a grid span). */
+	className?: string;
 	"data-testid"?: string;
 }) {
-	const titleId = useId();
 	return (
-		<section
-			aria-labelledby={titleId}
+		<DataPanel
 			data-testid={testId}
-			className={cn("plate overflow-hidden rounded-md border", className)}
-			{...props}
+			title={title}
+			count={count}
+			hideCount={count === undefined}
+			actions={actions}
+			footer={footer}
+			className={className}
 		>
-			{/* The header is the plate's band: a step above the body, with a
-			    machined groove under it. Its title is engraved like a stamped
-			    label, the one place prose text carries the engrave shadow. */}
-			<header
-				data-testid="section-panel-header"
-				className="surface-steel groove-b flex items-center justify-between gap-4 bg-app-band px-4 py-3 lg:px-5"
+			<div
+				data-testid={`${testId}-content`}
+				className="flex flex-col gap-3 p-4"
 			>
-				<div className="flex min-w-0 flex-col">
-					<h2
-						id={titleId}
-						className="type-panel-title engraved text-foreground"
-					>
-						{title}
-					</h2>
-					{description ? <p className="type-caption">{description}</p> : null}
-				</div>
-				{actions ? (
-					<div className="flex shrink-0 items-center gap-2">{actions}</div>
+				{description ? (
+					<p className="type-small text-text-muted">{description}</p>
 				) : null}
-			</header>
-			<div data-testid="section-panel-body" className="p-4 lg:p-5">
 				{children}
 			</div>
-		</section>
+		</DataPanel>
 	);
 }

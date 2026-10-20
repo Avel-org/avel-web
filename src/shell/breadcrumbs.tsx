@@ -117,7 +117,7 @@ export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
 	if (crumbs.length === 0) return null;
 	return (
 		<Breadcrumb data-testid="breadcrumbs">
-			<BreadcrumbList className="text-xs sm:gap-1.5">
+			<BreadcrumbList className="sm:gap-1.5">
 				{crumbs.map((crumb, i) => (
 					<Fragment key={crumb.to}>
 						{i > 0 ? <BreadcrumbSeparator /> : null}

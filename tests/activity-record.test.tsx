@@ -39,6 +39,7 @@ function entry(
 		actorKind: "operator",
 		actorUserId: ID(900),
 		actorRosterEntryId: null,
+		actorCanonSessionId: null,
 		action: "client.created",
 		entityType: "client",
 		entityId: ID(100 + n),
@@ -50,6 +51,7 @@ function entry(
 			kind: "operator",
 			userId: ID(900),
 			rosterEntryId: null,
+			canonSessionId: null,
 			display: "octo-operator",
 			agent: null,
 		},
@@ -63,10 +65,12 @@ const ADDED = entry(1, {
 	actorKind: "agent",
 	actorUserId: null,
 	actorRosterEntryId: ID(501),
+	actorCanonSessionId: null,
 	actor: {
 		kind: "agent",
 		userId: null,
 		rosterEntryId: ID(501),
+		canonSessionId: null,
 		display: "Atlas",
 		agent: {
 			templateId: ID(520),

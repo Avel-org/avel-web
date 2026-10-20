@@ -168,7 +168,7 @@ function ResolveLink({
 			params={{ id: missionId }}
 			search={(prev) => ({ ...prev, focus: param })}
 			data-testid={`loadout-resolve-${param}`}
-			className="inline-flex items-center gap-1 type-caption text-accent-text underline-offset-4 hover:underline"
+			className="py-1.5 -my-1.5 inline-flex items-center gap-1 type-caption text-accent-text underline-offset-4 hover:underline"
 		>
 			{label}
 			<ArrowRight aria-hidden="true" className="size-3" />
@@ -201,7 +201,7 @@ function LoadoutIssues({
 				<li
 					data-testid="loadout-coherence-block"
 					data-wave={block.wave ?? "none"}
-					className="flex flex-col gap-1.5 rounded-sm border border-gate-block-line bg-gate-block-soft p-2"
+					className="flex flex-col gap-1.5 rounded-control border border-gate-block-line bg-gate-block-soft p-2"
 				>
 					<span className="flex items-start gap-2 type-small text-foreground">
 						<StatusGlyph tone="block" className="mt-1" />
@@ -224,7 +224,7 @@ function LoadoutIssues({
 									to="/playbooks/$missionType"
 									params={{ missionType }}
 									data-testid="loadout-resolve-playbook"
-									className="inline-flex items-center gap-1 type-caption text-accent-text underline-offset-4 hover:underline"
+									className="py-1.5 -my-1.5 inline-flex items-center gap-1 type-caption text-accent-text underline-offset-4 hover:underline"
 								>
 									Resolve in the playbook
 									<ArrowRight aria-hidden="true" className="size-3" />
@@ -238,7 +238,7 @@ function LoadoutIssues({
 				<li
 					key={warning.code}
 					data-testid={`loadout-warning-${warning.code}`}
-					className="flex flex-col gap-1.5 rounded-sm border border-gate-warn-line bg-gate-warn-soft p-2"
+					className="flex flex-col gap-1.5 rounded-control border border-gate-warn-line bg-gate-warn-banner p-2"
 				>
 					<span className="flex items-start gap-2 type-small text-foreground">
 						<StatusGlyph tone="warn" className="mt-1" />

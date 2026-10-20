@@ -18,6 +18,11 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { TemplateCover } from "@/components/avel/template-cover";
 import {
+	draftFor,
+	filterTemplates,
+	recentTemplates,
+} from "@/components/avel/template-list";
+import {
 	type ApiClient,
 	ApiError,
 	ApiOverrideProvider,
@@ -26,10 +31,12 @@ import {
 import { PLAYBOOK_PAGE_SIZE } from "@/lib/api/playbooks";
 import {
 	type MissionOrigin,
-	templateMissionKeys,
+	TEMPLATE_MISSIONS_PAGE,
 	templateMissionsQuery,
 } from "@/lib/api/templates";
 import { SessionSourceProvider } from "@/lib/auth";
+import { NOT_YET } from "@/lib/capabilities";
+import { templatesSubtitle } from "@/routes/templates";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
 import { preset } from "./presets-fixtures";
@@ -195,7 +202,9 @@ const withMissions =
 	(origin: MissionOrigin, rows: MissionListItem[], total = rows.length): Seed =>
 	(client) =>
 		client.setQueryData(
-			templateMissionKeys.list("template-booking", origin).slice(),
+			queryKeys.templateMissions
+				.list("template-booking", origin, TEMPLATE_MISSIONS_PAGE)
+				.slice(),
 			{
 				pages: [
 					{
@@ -270,115 +279,58 @@ describe("/templates, the board", () => {
 		expect(text(html)).toContain("3 templates");
 	});
 
-	it("builds each card from its sections, cover first", async () => {
+	it("sets each card at the reference's density: tile, name, two lines, tags, numbers", async () => {
 		const html = await render(
 			"/templates",
 			withTemplates([BOOKING]),
 			withLinks,
 		);
 		const card = text(element(html, "template-card-template-booking"));
-		const sections = [
-			...card.matchAll(
-				/data-testid="template-card-(cover|title|starts|runs|footer)-template-booking"/g,
-			),
-		].map((m) => m[1]);
-		expect(sections).toEqual(["cover", "title", "starts", "runs", "footer"]);
-		// Title: name, slug, status, and the commit in the tab, whole on hover.
+		expect(card).toContain('data-testid="template-card-tile-template-booking"');
 		expect(card).toContain(">Booking<");
-		expect(
-			text(element(html, "template-card-slug-template-booking")),
-		).toContain(">template-booking<");
-		expect(
-			text(element(html, "template-card-status-template-booking")),
-		).toContain("Readable");
-		const tab = text(element(html, "template-card-tab-template-booking"));
-		expect(tab).toContain(`>${SHA.slice(0, 7)}<`);
-		expect(tab).toContain(`title="${SHA}"`);
-		expect(tab).toContain('aria-label="Copy the latest commit"');
-		expect(visibleText(tab)).not.toContain(SHA);
-		// Starts as: the starting state in a sentence, then the scope.
-		expect(
-			text(element(html, "template-card-state-sentence-template-booking")),
-		).toContain("Starts from an empty repository.");
+		// Two lines of what it is: the contract has no description, so the
+		// scope's and starting state's own sentences (docs/TEMPLATES.md).
+		const description = element(
+			html,
+			"template-card-description-template-booking",
+		);
+		expect(description).toContain("line-clamp-2");
+		expect(text(description)).toContain(
+			"Schema through UI. Starts from an empty repository.",
+		);
 		expect(
 			text(element(html, "template-card-scope-template-booking")),
-		).toContain("Schema through UI.");
-		// Footer: the count and the Open affordance.
+		).toContain(">Full stack<");
+		expect(
+			text(element(html, "template-card-state-template-booking")),
+		).toContain(">Greenfield<");
+		// Footer: its real numbers, missions and the playbook's gates.
 		expect(
 			text(element(html, "template-card-missions-template-booking")),
 		).toContain(">3 missions<");
 		expect(
-			text(element(html, "template-card-open-template-booking")),
-		).toContain("Open");
+			text(element(html, "template-card-gates-template-booking")),
+		).toContain(">2 gates<");
+		// The reference's invented numbers never appear (audit D1).
+		expect(visibleText(html)).not.toMatch(
+			/teams?\b.*\d|h\/week|Featured|\bAI\b/,
+		);
 	});
 
-	it("draws a cover from the scope and starting state, chips over it, the art hidden", async () => {
+	it("opens the page from the whole card, with one link in it", async () => {
 		const html = await render(
 			"/templates",
 			withTemplates([BOOKING, AUDIT]),
 			withLinks,
 		);
-		const booking = element(html, "template-card-cover-template-booking-art");
-		expect(booking).toContain('aria-hidden="true"');
-		expect(booking).toContain('data-scope="full-stack"');
-		expect(booking).toContain('data-ground="greenfield"');
-		expect(booking).toContain('data-motif="full-stack"');
-		const audit = element(html, "template-card-cover-template-audit-art");
-		expect(audit).toContain('data-ground="brownfield"');
-		expect(audit).toContain('data-motif="audit"');
-		expect(
-			text(element(html, "template-card-cover-template-booking-scope")),
-		).toContain(">Full stack<");
-		expect(
-			text(element(html, "template-card-cover-template-booking-state")),
-		).toContain(">Greenfield<");
-		expect(
-			text(element(html, "template-card-cover-template-audit-state")),
-		).toContain(">Brownfield<");
-		// The card names the template in text; the art adds no words.
-		expect(booking).not.toMatch(/<text[\s>]/);
-	});
-
-	it("links its playbook and its default team, never nested in the card's link", async () => {
-		const html = await render(
-			"/templates",
-			withTemplates([BOOKING, AUDIT]),
-			withLinks,
-		);
-		expect(tagOf(html, "template-playbook-template-booking")).toContain(
-			'href="/playbooks/template-booking"',
-		);
-		expect(text(element(html, "template-playbook-template-booking"))).toContain(
-			">Template booking<",
-		);
-		expect(
-			text(element(html, "template-playbook-meta-template-booking")),
-		).toContain(">v4 · 2 gates<");
-		const team = tagOf(html, "template-team-template-booking");
-		expect(team).toContain(`href="/presets?preset=${TEAM.id}"`);
-		expect(text(element(html, "template-team-template-booking"))).toContain(
-			"Booking squad",
-		);
-		// The card's own link holds only the name: no link inside a link.
-		expect(
-			element(html, "template-card-link-template-booking").match(/<a[\s>]/g),
-		).toHaveLength(1);
-		// Three links on the card: the stretched title, the playbook, the team.
 		expect(
 			element(html, "template-card-template-booking").match(/<a[\s>]/g),
-		).toHaveLength(3);
+		).toHaveLength(1);
 		expect(tagOf(html, "template-card-link-template-booking")).toContain(
 			"after:absolute",
 		);
-		expect(tagOf(html, "template-playbook-template-booking")).toContain("z-10");
-		expect(tagOf(html, "template-team-template-booking")).toContain("z-10");
-		// A template with no playbook says so, and has no team.
-		expect(text(element(html, "template-playbook-template-audit"))).toContain(
+		expect(text(element(html, "template-card-gates-template-audit"))).toContain(
 			"No playbook",
-		);
-		expect(html).not.toContain('data-testid="template-team-template-audit"');
-		expect(text(element(html, "template-team-none-template-audit"))).toContain(
-			"No default team",
 		);
 	});
 
@@ -388,26 +340,185 @@ describe("/templates, the board", () => {
 		expect(card).toContain('data-readable="false"');
 		expect(text(card)).toContain("AVEL could not read this repository");
 		expect(text(card)).toContain(">template-legacy<");
-		expect(card).not.toContain('data-testid="template-card-sha"');
 		expect(
-			text(element(html, "template-card-status-template-legacy")),
-		).toContain("Not readable");
-		// A muted cover, its art an empty slot: no scope or ground is guessed.
-		const cover = element(html, "template-card-cover-template-legacy");
-		expect(cover).toContain('data-readable="false"');
-		expect(cover).toContain('data-ground="unknown"');
-		expect(cover).not.toContain("data-motif");
-		expect(
-			text(element(html, "template-card-cover-template-legacy-unreadable")),
+			text(element(html, "template-card-unreadable-template-legacy")),
 		).toContain("Not readable");
 	});
 
 	it("never says No playbook before the playbooks are read", async () => {
 		const html = await render("/templates", withTemplates([AUDIT]));
-		expect(html).toContain(
-			'data-testid="template-playbook-template-audit-loading"',
-		);
+		expect(
+			text(element(html, "template-card-gates-template-audit")),
+		).not.toContain("No playbook");
 		expect(text(html)).not.toContain("No playbook");
+	});
+
+	it("subtitles the count and the real missions built from them", async () => {
+		const html = await render(
+			"/templates",
+			withTemplates([BOOKING, AUDIT, LEGACY]),
+			withLinks,
+		);
+		expect(text(element(html, "topbar-subtitle"))).toContain(
+			"3 templates · 4 missions built from them",
+		);
+		expect(templatesSubtitle([AUDIT])).toBe(
+			"1 template · no missions built from them yet",
+		);
+	});
+});
+
+describe("/templates, Recently used", () => {
+	const used =
+		(slug: string, origin: MissionOrigin, at: string | null): Seed =>
+		(client) =>
+			client.setQueryData(
+				["missions", "byTemplate", slug, { origin, limit: 1 }],
+				{
+					data: at ? [{ ...CLIENT_MISSION, lastActivityAt: at }] : [],
+					meta: { nextCursor: null, total: at ? 1 : 0, counts: NO_COUNTS },
+				},
+			);
+
+	it("shows the templates with the newest mission activity, each as a wider card", async () => {
+		const html = await render(
+			"/templates",
+			withTemplates([BOOKING, AUDIT, LEGACY]),
+			withLinks,
+			used("template-booking", "client", "2026-10-06T09:00:00.000Z"),
+			used("template-booking", "internal", "2026-10-08T09:00:00.000Z"),
+			used("template-legacy", "client", "2026-10-01T09:00:00.000Z"),
+			used("template-legacy", "internal", null),
+		);
+		const row = element(html, "templates-recent");
+		// Booking (Oct 8, its newest origin) before Legacy (Oct 1); Audit has
+		// no missions, so it is never read and never listed.
+		expect(row.indexOf("template-recent-template-booking")).toBeLessThan(
+			row.indexOf("template-recent-template-legacy"),
+		);
+		expect(row).not.toContain("template-recent-template-audit");
+		// The cover band, then the flow: scope, playbook and version, team.
+		expect(row).toContain(
+			'data-testid="template-recent-cover-template-booking"',
+		);
+		const flow = text(element(html, "template-recent-flow-template-booking"));
+		expect(flow).toContain(">Full stack<");
+		expect(flow).toContain(">Template booking<");
+		expect(flow).toContain(">Playbook v4<");
+		expect(flow).toContain("Booking squad");
+		// New mission is there, and disabled with the one reason.
+		const create = tagOf(html, "template-recent-new-mission-template-booking");
+		expect(create).toMatch(/\sdisabled=""/);
+		expect(html).toContain(NOT_YET["mission.create"]);
+	});
+
+	it("is absent until a template has been used", async () => {
+		const html = await render("/templates", withTemplates([AUDIT]), withLinks);
+		expect(html).not.toContain('data-testid="templates-recent"');
+	});
+
+	it("ranks by the newest activity, at most three", () => {
+		const t = (slug: string) => ({ ...BOOKING, slug });
+		const last = new Map([
+			["a", "2026-10-01T00:00:00.000Z"],
+			["b", "2026-10-04T00:00:00.000Z"],
+			["c", "2026-10-03T00:00:00.000Z"],
+			["d", "2026-10-02T00:00:00.000Z"],
+		]);
+		expect(
+			recentTemplates([t("a"), t("b"), t("c"), t("d"), t("e")], last).map(
+				(r) => r.template.slug,
+			),
+		).toEqual(["b", "c", "d"]);
+	});
+});
+
+describe("/templates, the filters", () => {
+	it("offers each scope and starting state present, with counts, as segmented controls", async () => {
+		const html = await render(
+			"/templates",
+			withTemplates([BOOKING, AUDIT, LEGACY]),
+			withLinks,
+		);
+		const scope = text(element(html, "templates-scope"));
+		expect(scope).toMatch(/All<span[^>]*>3</);
+		expect(scope).toMatch(/Full stack<span[^>]*>1</);
+		expect(scope).toMatch(/Audit<span[^>]*>1</);
+		expect(scope).not.toContain("Frontend");
+		expect(tagOf(html, "templates-scope-all")).toContain('aria-pressed="true"');
+		expect(text(element(html, "templates-state"))).toMatch(
+			/Brownfield<span[^>]*>1</,
+		);
+	});
+
+	it("narrows the board to the URL's scope, and says when nothing matches", async () => {
+		const html = await render(
+			"/templates?scope=audit",
+			withTemplates([BOOKING, AUDIT]),
+			withLinks,
+		);
+		expect(tagOf(html, "templates-scope-audit")).toContain(
+			'aria-pressed="true"',
+		);
+		const board = element(html, "template-board");
+		expect(board).toContain("template-card-template-audit");
+		expect(board).not.toContain("template-card-template-booking");
+		const none = await render(
+			"/templates?q=nothing-like-this",
+			withTemplates([BOOKING, AUDIT]),
+			withLinks,
+		);
+		expect(none).toContain('data-testid="templates-no-match"');
+	});
+
+	it("puts the search under / and says so", async () => {
+		const html = await render(
+			"/templates",
+			withTemplates([BOOKING]),
+			withLinks,
+		);
+		// The shared SearchField: its "/" and its key hint.
+		expect(tagOf(html, "templates-search-input")).toContain(
+			'aria-keyshortcuts="/"',
+		);
+		expect(text(element(html, "templates-search-kbd"))).toContain(">/<");
+	});
+
+	it("keeps a typed trailing space when the trimmed q comes back from the URL", () => {
+		// The debounce writes "web" for "web ": the draft must not lose its space.
+		expect(draftFor("web ", "web")).toBe("web ");
+		// A different q (Back, a link) replaces the draft.
+		expect(draftFor("web ", "booking")).toBe("booking");
+		expect(draftFor("web", "")).toBe("");
+	});
+
+	it("filters and sorts by name, slug and scope; most missions first by default", () => {
+		const none = new Map<string, string>();
+		const rows = [AUDIT, BOOKING, LEGACY];
+		expect(
+			filterTemplates(rows, { q: "", sort: "missions" }, none).map(
+				(t) => t.slug,
+			),
+		).toEqual(["template-booking", "template-legacy", "template-audit"]);
+		expect(
+			filterTemplates(rows, { q: "", sort: "name" }, none).map((t) => t.slug),
+		).toEqual(["template-audit", "template-booking", "template-legacy"]);
+		expect(
+			filterTemplates(rows, { q: "full stack", sort: "name" }, none).map(
+				(t) => t.slug,
+			),
+		).toEqual(["template-booking"]);
+		expect(
+			filterTemplates(
+				rows,
+				{ state: "brownfield", q: "", sort: "name" },
+				none,
+			).map((t) => t.slug),
+		).toEqual(["template-audit"]);
+		const last = new Map([["template-legacy", "2026-10-09T00:00:00.000Z"]]);
+		expect(
+			filterTemplates(rows, { q: "", sort: "recent" }, last)[0]?.slug,
+		).toBe("template-legacy");
 	});
 });
 
@@ -433,6 +544,22 @@ describe("/templates?view=table", () => {
 			'data-testid="template-row-unreadable-template-legacy"',
 		);
 		expect(table).toContain(">Unknown<");
+	});
+
+	it("opens a row from anywhere on it, and keeps the cell links and Copy their own", async () => {
+		const html = await render(
+			"/templates?view=table",
+			withTemplates([BOOKING]),
+			withLinks,
+		);
+		const table = element(html, "template-table");
+		// The name link stretches over the row (v3 UX 5).
+		expect(tagOf(table, "template-row-link-template-booking")).toMatch(
+			/class="[^"]*after:absolute[^"]*after:inset-0/,
+		);
+		// Every other control in the row sits above that stretch.
+		const raised = [...table.matchAll(/class="[^"]*\brelative z-10\b/g)];
+		expect(raised.length).toBeGreaterThanOrEqual(2);
 	});
 });
 
@@ -538,6 +665,11 @@ describe("/templates/$slug, one template's page", () => {
 			">2 missions<",
 		);
 		expect(html).toContain('data-testid="template-missions-client-more"');
+		// No loose line above the panels: each panel says what it counts.
+		expect(html).not.toContain("template-missions-total");
+		expect(text(element(html, "template-missions-client-panel"))).toContain(
+			"Deleted missions are not counted.",
+		);
 		expect(tagOf(html, "template-missions-internal")).toContain(
 			'data-state="empty"',
 		);
@@ -685,19 +817,31 @@ describe("TemplateCover", () => {
 		expect(tagOf(html, "cover")).toContain('data-cover="generated"');
 	});
 
-	it("puts the template's cover on its card and its page", async () => {
+	it("shows the manifest's cover on the template's page, and the drawn art on its card", async () => {
 		const board = await render(
 			"/templates",
 			withTemplates([COVERED, AUDIT]),
 			withLinks,
+			(client) =>
+				client.setQueryData(
+					[
+						"missions",
+						"byTemplate",
+						"template-booking",
+						{ origin: "client", limit: 1 },
+					],
+					{
+						data: [CLIENT_MISSION],
+						meta: { nextCursor: null, total: 1, counts: NO_COUNTS },
+					},
+				),
 		);
-		expect(
-			tagOf(board, "template-card-cover-template-booking-image"),
-		).toContain(`alt="${COVER.alt}"`);
-		// A template whose manifest names none keeps the drawn art.
-		expect(board).toContain(
-			'data-testid="template-card-cover-template-audit-art"',
+		// The card keeps the drawn art on the flat band: a repository's own
+		// image brings its own colours (v3: no decorative hues).
+		expect(tagOf(board, "template-recent-cover-template-booking")).toContain(
+			'data-cover="generated"',
 		);
+		expect(board).not.toContain(COVER.url);
 		const page = await render(
 			"/templates/template-booking",
 			withTemplate(COVERED),

@@ -15,7 +15,6 @@ import type { Gate } from "avel-server/contract";
 export const MISSING_ROUTE = {
 	exports: "exports.list",
 	haltReason: "a halt reason on the mission",
-	stages: "per-stage mission progress",
 } as const;
 
 export type MissingRoute = (typeof MISSING_ROUTE)[keyof typeof MISSING_ROUTE];
@@ -44,26 +43,6 @@ function sequence(id: string): () => number {
 
 const pick = <T>(next: () => number, items: readonly T[]): T =>
 	items[Math.floor(next() * items.length)] as T;
-
-/** Plan, Assemble and Execute: the stages before an export exists. */
-export type SampleStageState = "done" | "current" | "waiting";
-export type SampleStages = {
-	plan: SampleStageState;
-	assemble: SampleStageState;
-	execute: SampleStageState;
-};
-
-/**
- * The early stages. Once a mission has an export, all three are behind it;
- * before that, one of them is current.
- */
-export function sampleStages(id: string, hasExport: boolean): SampleStages {
-	if (hasExport) return { plan: "done", assemble: "done", execute: "done" };
-	const current = pick(sequence(id), [0, 1, 2] as const);
-	const at = (i: number): SampleStageState =>
-		i < current ? "done" : i === current ? "current" : "waiting";
-	return { plan: at(0), assemble: at(1), execute: at(2) };
-}
 
 /** A gate's verdict, as an export's gate summary would show it. */
 export type SampleGate = {

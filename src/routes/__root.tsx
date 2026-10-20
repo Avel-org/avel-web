@@ -39,7 +39,7 @@ function Layout() {
 					<AppShell>
 						<Outlet />
 					</AppShell>
-					{/* One toaster for the app, inside ThemeRoot so it follows .light. */}
+					{/* One toaster for the app, inside ThemeRoot so it follows .dark. */}
 					<Toaster />
 				</TooltipProvider>
 			</ThemeRoot>

@@ -116,6 +116,7 @@ export function updatePlaybookOptions(
 				queryClient.invalidateQueries({
 					queryKey: queryKeys.playbooks.versions(missionType),
 				}),
+				...afterPlaybookShown(queryClient),
 				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 			]);
 		},
@@ -151,10 +152,25 @@ export function createPlaybookOptions(
 				queryClient.invalidateQueries({
 					queryKey: queryKeys.playbooks.lists(),
 				}),
+				queryClient.invalidateQueries({
+					queryKey: queryKeys.playbooks.versions(saved.missionType),
+				}),
+				...afterPlaybookShown(queryClient),
 				queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 			]);
 		},
 	};
+}
+
+/**
+ * Where a playbook shows beyond its own pages: a mission's detail names it
+ * and its readiness checks it, and the templates show it (audit F2).
+ */
+function afterPlaybookShown(queryClient: QueryClient) {
+	return [
+		queryClient.invalidateQueries({ queryKey: queryKeys.missions.all() }),
+		queryClient.invalidateQueries({ queryKey: queryKeys.templates.all() }),
+	];
 }
 
 export function useCreatePlaybook(saved: Saved = {}) {

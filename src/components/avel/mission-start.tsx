@@ -28,7 +28,10 @@ import {
 import { useApiClient } from "@/lib/api/provider";
 import { entryName, waveTitle } from "@/lib/api/roster";
 import { describeError } from "@/lib/error-map";
+import { cn } from "@/lib/utils";
 import { useIsPreview } from "@/shell/auth-gate";
+import { Reason } from "./reason";
+import { StatusGlyph } from "./status-pill";
 import { ErrorState, Surface, type SurfaceQuery } from "./surface";
 
 /*
@@ -41,19 +44,43 @@ import { ErrorState, Surface, type SurfaceQuery } from "./surface";
 
 export type { MissionReadiness, ReadinessBlocker };
 
-/** Where a detail line's fix lives. */
+/** Where a detail line's fix lives (audit D6). */
 export type DetailLink =
 	| { to: "/missions/$id/plan"; hash?: string }
 	| { to: "/missions/$id/roster" }
-	| { to: "/playbooks" };
+	| { to: "/missions/$id/playbook" }
+	| { to: "/clients/$id"; clientId: string };
 
 export type DetailLine = { key: string; text: string; link?: DetailLink };
 
-/** What the lines are read against: the roster names agents, the brief names plan items. */
+/**
+ * What the lines are read against: the roster names agents, the brief names
+ * plan items, and the client is where a closed engagement is dealt with.
+ */
 export type DetailContext = {
 	roster?: readonly RosterEntry[];
 	brief?: Brief | null;
+	clientId?: string | null;
 };
+
+/**
+ * Each readiness check by name, in the server's order. A name, not a claim:
+ * the glyph beside it says whether it passes, so a blocked row never reads
+ * as passing. Keyed on the contract's reasons, so a new one fails the build
+ * until it has a row.
+ */
+export const READINESS_CHECK_LABEL = {
+	mission_not_draft: "Draft status",
+	engagement_closed: "Engagement",
+	plan_check_failed: "Plan check",
+	coherence_blocked: "Playbook coherence",
+	estimate_missing: "Token estimates",
+	spend_ceiling_missing: "Spend limit",
+} as const satisfies Record<ReadinessBlocker["reason"], string>;
+
+/** No route sets a mission's spend limit yet (audit D4, D6). */
+export const SPEND_CEILING_UNSET =
+	"Can't be set yet: avel-server has no route that sets a mission's spend limit.";
 
 const ordinal = (i: number) => i + 1;
 
@@ -151,7 +178,7 @@ function namedEntryIds(blocker: ReadinessBlocker): readonly string[] {
  */
 export function blockerDetails(
 	blocker: ReadinessBlocker,
-	{ roster, brief }: DetailContext = {},
+	{ roster, brief, clientId }: DetailContext = {},
 ): DetailLine[] {
 	switch (blocker.reason) {
 		case "plan_check_failed":
@@ -177,7 +204,7 @@ export function blockerDetails(
 					{
 						key: "playbook",
 						text: "No live playbook matches this mission's type.",
-						link: { to: "/playbooks" },
+						link: { to: "/missions/$id/playbook" },
 					},
 				];
 			const wave = blocker.wave ?? null;
@@ -206,7 +233,19 @@ export function blockerDetails(
 					link: { to: "/missions/$id/roster" },
 				};
 			});
-		default:
+		case "spend_ceiling_missing":
+			return [{ key: "unset", text: SPEND_CEILING_UNSET }];
+		case "engagement_closed":
+			return [
+				{
+					key: "engagement",
+					text: "The engagement is managed on its client.",
+					...(clientId
+						? { link: { to: "/clients/$id" as const, clientId } }
+						: {}),
+				},
+			];
+		case "mission_not_draft":
 			return [];
 	}
 }
@@ -263,7 +302,7 @@ function Lines({
 }
 
 const LINK_CLASS =
-	"type-caption text-accent-text underline-offset-4 hover:underline";
+	"py-1.5 -my-1.5 type-caption text-accent-text underline-offset-4 hover:underline";
 
 function LineLink({
 	link,
@@ -272,10 +311,25 @@ function LineLink({
 	link: DetailLink;
 	missionId: string;
 }) {
-	if (link.to === "/playbooks")
+	if (link.to === "/missions/$id/playbook")
 		return (
-			<Link to="/playbooks" className={LINK_CLASS}>
-				Open playbooks
+			<Link
+				to="/missions/$id/playbook"
+				params={{ id: missionId }}
+				className={LINK_CLASS}
+			>
+				Open the playbook
+			</Link>
+		);
+	if (link.to === "/clients/$id")
+		return (
+			<Link
+				to="/clients/$id"
+				params={{ id: link.clientId }}
+				search={{ tab: "engagements" }}
+				className={LINK_CLASS}
+			>
+				Open the client
 			</Link>
 		);
 	if (link.to === "/missions/$id/roster")
@@ -300,32 +354,67 @@ function LineLink({
 	);
 }
 
-/** One failing check: its copy, then its own lines. */
-function BlockerRow({
+/**
+ * One check (audit D6): a pass or block glyph and the check's name. A
+ * failing one adds its copy, the server's issues as lines, each with the
+ * place that fixes it, and what to do.
+ */
+function CheckRow({
+	reason,
 	blocker,
 	context,
 	missionId,
 	testId,
 }: {
-	blocker: ReadinessBlocker;
+	reason: ReadinessBlocker["reason"];
+	blocker: ReadinessBlocker | undefined;
 	context: DetailContext;
 	missionId: string;
 	testId: string;
 }) {
-	const copy = describeReason(blocker.reason);
+	const state = blocker ? "block" : "pass";
+	const copy = blocker ? describeReason(reason) : null;
 	return (
 		<li
 			data-testid={testId}
-			data-reason={blocker.reason}
-			className="flex flex-col gap-1 rounded-md border border-gate-block-line px-3 py-2"
+			data-reason={blocker ? reason : undefined}
+			data-check={reason}
+			data-state={state}
+			className={cn(
+				"flex items-start gap-2.5 rounded-control px-3 py-2",
+				blocker && "border border-gate-block-line bg-gate-block-soft",
+			)}
 		>
-			<p className="type-small font-medium text-foreground">{copy.what}</p>
-			<Lines
-				lines={blockerDetails(blocker, context)}
-				missionId={missionId}
-				testId={`${testId}-lines`}
+			<StatusGlyph
+				tone={state}
+				className={cn(
+					"mt-[3px]",
+					blocker ? "text-gate-block" : "text-gate-pass",
+				)}
 			/>
-			<p className="type-caption text-text-muted">{copy.next}</p>
+			<div className="flex min-w-0 flex-col gap-1">
+				<p
+					data-testid={`${testId}-label`}
+					className={cn(
+						"type-small",
+						blocker ? "font-medium text-foreground" : "text-text-muted",
+					)}
+				>
+					{READINESS_CHECK_LABEL[reason]}
+					<span className="sr-only">{blocker ? ": blocked" : ": passes"}</span>
+				</p>
+				{copy && blocker ? (
+					<>
+						<p className="type-small text-foreground">{copy.what}</p>
+						<Lines
+							lines={blockerDetails(blocker, context)}
+							missionId={missionId}
+							testId={`${testId}-lines`}
+						/>
+						<p className="type-caption text-text-muted">{copy.next}</p>
+					</>
+				) : null}
+			</div>
 		</li>
 	);
 }
@@ -349,7 +438,11 @@ function describeReason(reason: ReadinessBlocker["reason"]) {
 	);
 }
 
-/** The readiness checks: every failing one in the server's order, or that all pass. */
+/**
+ * The readiness checklist (audit D6): every check the server makes, in its
+ * order, each passing or blocked, so the operator sees them all at once
+ * rather than only the first one Start would refuse with.
+ */
 export function ReadinessList({
 	readiness,
 	missionId,
@@ -363,36 +456,44 @@ export function ReadinessList({
 		<Surface
 			data-testid="mission-readiness"
 			query={readiness}
-			isEmpty={(data) => data.blockers.length === 0}
+			isEmpty={() => false}
 			loading={
 				<div className="flex flex-col gap-2">
 					<Skeleton className="h-12 w-full" />
 					<Skeleton className="h-12 w-full" />
 				</div>
 			}
-			empty={
-				<p
-					data-testid="mission-readiness-clear"
-					className="flex items-center gap-2 type-small text-gate-pass"
-				>
-					<CircleCheck aria-hidden="true" className="size-4" />
-					Every check passes. The mission is ready to start.
-				</p>
-			}
+			empty={null}
 			error={ErrorState}
 		>
 			{(data) => (
-				<ul className="flex flex-col gap-1.5">
-					{data.blockers.map((blocker, i) => (
-						<BlockerRow
-							key={blocker.reason}
-							blocker={blocker}
-							context={context}
-							missionId={missionId}
-							testId={`mission-readiness-${i}`}
-						/>
-					))}
-				</ul>
+				<div className="flex flex-col gap-2">
+					{data.blockers.length === 0 ? (
+						<p
+							data-testid="mission-readiness-clear"
+							className="flex items-center gap-2 type-small text-gate-pass"
+						>
+							<CircleCheck aria-hidden="true" className="size-4" />
+							Every check passes. The mission is ready to start.
+						</p>
+					) : null}
+					<ul
+						aria-label="Readiness checks"
+						data-testid="mission-readiness-checks"
+						className="flex flex-col gap-1"
+					>
+						{READINESS_REASONS.map((reason, i) => (
+							<CheckRow
+								key={reason}
+								reason={reason}
+								blocker={data.blockers.find((b) => b.reason === reason)}
+								context={context}
+								missionId={missionId}
+								testId={`mission-readiness-${i}`}
+							/>
+						))}
+					</ul>
+				</div>
 			)}
 		</Surface>
 	);
@@ -449,9 +550,10 @@ export function startBlockedReason(
 	if (preview) return "Sign in to start a mission";
 	if (readiness.status === "pending") return "Checking whether it's ready";
 	if (readiness.status === "error") return "Readiness couldn't be checked";
-	return readiness.data.ready
-		? undefined
-		: "Clear every check below before starting";
+	// The first blocker, as start would refuse with it (audit D6).
+	const first = readiness.data.blockers[0];
+	if (readiness.data.ready || first === undefined) return undefined;
+	return describeReason(first.reason).what;
 }
 
 /**
@@ -542,6 +644,9 @@ export function MissionStart({
 				<Play aria-hidden="true" />
 				{starting.pending ? "Starting" : "Start the mission"}
 			</Button>
+			{blocked && readiness.status === "success" ? (
+				<Reason data-testid="mission-start-reason">{blocked}</Reason>
+			) : null}
 			{starting.error ? (
 				<Refusal
 					error={starting.error}
@@ -568,7 +673,7 @@ export function MissionStart({
 export function MissionStartLive({
 	mission,
 }: {
-	mission: Pick<MissionDetail, "id" | "status">;
+	mission: Pick<MissionDetail, "id" | "status" | "client">;
 }) {
 	const api = useApiClient();
 	const draft = mission.status === "draft";
@@ -586,7 +691,11 @@ export function MissionStartLive({
 		<MissionStart
 			mission={mission}
 			readiness={readiness}
-			context={{ brief: plan.data?.brief ?? null, roster: roster.data }}
+			context={{
+				brief: plan.data?.brief ?? null,
+				roster: roster.data,
+				clientId: mission.client?.id ?? null,
+			}}
 			start={() => start.mutateAsync()}
 			halt={() => halt.mutateAsync()}
 			running={dispatches.data?.filter((d) => d.status === "running").length}

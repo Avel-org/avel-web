@@ -5,9 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadedActivity, type useActivity } from "@/lib/api/activity";
 import { relativeTime } from "@/lib/api/clients";
+import { cn } from "@/lib/utils";
 import { ActivityActor } from "./activity-actor";
 import { AgentTarget } from "./activity-agent";
-import { AuditTable, DecisionRecord, RecordLink } from "./activity-audit";
+import {
+	AuditTable,
+	DecisionRecord,
+	dayLabel,
+	groupByDay,
+	RecordLink,
+} from "./activity-audit";
 import { ACTION_COPY, ENTITY_LABEL } from "./activity-copy";
 import { entityNameOf } from "./activity-record";
 import { EmptyState } from "./empty-state";
@@ -46,6 +53,7 @@ export function ActivityLog({
 				filtered ? (
 					<EmptyState
 						data-testid="activity-no-match"
+						compact
 						icon={ListFilter}
 						title="No entries match"
 						description="Nothing in the log matches these filters."
@@ -63,6 +71,7 @@ export function ActivityLog({
 				) : (
 					<EmptyState
 						data-testid="activity-empty"
+						compact
 						icon={History}
 						title="Nothing has happened yet"
 						description="Every change AVEL makes is recorded here, in order, and never edited. The entity filter above lists every kind it records."
@@ -73,32 +82,57 @@ export function ActivityLog({
 		>
 			{(data) => {
 				const entries = loadedActivity(data);
+				const open = selectedId !== undefined;
 				return (
-					<div className="flex flex-col gap-4">
-						{/* The audit table from md; below it, the two-line rows. */}
-						<div className="hidden md:block">
-							<AuditTable
-								entries={entries}
-								selectedId={selectedId}
-								onSelect={onSelect}
-								now={now}
-							/>
+					// The record docks beside the log at xl, the pre-flight
+					// pattern: nothing slides over the log. Narrower, it docks
+					// above it. Esc closes it from anywhere in the log.
+					// biome-ignore lint/a11y/noStaticElementInteractions: Esc bubbles here from the focused row or record; the wrapper is no control itself
+					<div
+						data-testid="activity-layout"
+						className={cn(
+							"grid items-start gap-4",
+							open && "xl:grid-cols-[minmax(0,1fr)_24rem]",
+						)}
+						onKeyDown={(event) => {
+							if (event.key === "Escape" && open) {
+								event.preventDefault();
+								onSelect(undefined);
+							}
+						}}
+					>
+						<div className="min-w-0">
+							{/* The audit table from md; below it, the two-line rows. */}
+							<div className="hidden md:block">
+								<AuditTable
+									entries={entries}
+									selectedId={selectedId}
+									onSelect={onSelect}
+									now={now}
+								/>
+							</div>
+							<div className="px-4 md:hidden">
+								<ActivityRows
+									entries={entries}
+									now={now}
+									withRecordLinks
+									byDay
+								/>
+							</div>
 						</div>
-						<div className="md:hidden">
-							<ActivityRows entries={entries} now={now} withRecordLinks />
-						</div>
-						<DecisionRecord
-							entry={entries.find((e) => e.id === selectedId)}
-							selectedId={selectedId}
-							onClose={() => onSelect(undefined)}
-						/>
-						<ActivityFooter
-							loaded={entries.length}
-							total={data.pages[0]?.meta.total}
-							hasMore={query.hasNextPage}
-							loadingMore={query.isFetchingNextPage}
-							onLoadMore={() => query.fetchNextPage()}
-						/>
+						{open ? (
+							<div
+								data-testid="activity-record-dock"
+								className="order-first min-w-0 px-4 xl:sticky xl:top-[calc(var(--topbar-height)+0.5rem)] xl:order-none xl:pl-0"
+							>
+								<DecisionRecord
+									entry={entries.find((e) => e.id === selectedId)}
+									selectedId={selectedId}
+									onClose={() => onSelect(undefined)}
+									now={now}
+								/>
+							</div>
+						) : null}
 					</div>
 				);
 			}}
@@ -114,28 +148,56 @@ export function ActivityRows({
 	entries,
 	now,
 	withRecordLinks = false,
+	byDay = false,
+	nested = false,
 }: {
 	entries: ActivityEntry[];
 	now: number;
 	/** On a phone, each row opens its decision record by a link. */
 	withRecordLinks?: boolean;
+	/** Under a heading per day, as the audit table is. */
+	byDay?: boolean;
+	/** One day's list inside the grouped rows: the test id is the group's. */
+	nested?: boolean;
 }) {
+	if (byDay)
+		return (
+			<div data-testid="activity-rows" className="flex flex-col">
+				{groupByDay(entries).map((group) => (
+					<section
+						key={group.day}
+						aria-label={dayLabel(group.day, now)}
+						data-testid={`activity-day-${group.day}`}
+					>
+						<h3 className="sticky top-(--topbar-height) z-10 -mx-4 border-b border-border bg-app-band px-4 py-1.5 type-eyebrow">
+							{dayLabel(group.day, now)}
+						</h3>
+						<ActivityRows
+							entries={group.entries}
+							now={now}
+							withRecordLinks={withRecordLinks}
+							nested
+						/>
+					</section>
+				))}
+			</div>
+		);
 	return (
 		<ol
 			aria-label="Activity"
-			data-testid="activity-rows"
+			data-testid={nested ? undefined : "activity-rows"}
 			className="flex flex-col divide-y divide-border"
 		>
 			{entries.map((entry) => (
 				<li
 					key={entry.id}
 					data-testid={`activity-row-${entry.id}`}
-					className="flex flex-col gap-1 py-3"
+					className="flex flex-col gap-0.5 py-2"
 				>
-					<span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+					<span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
 						<span
 							data-testid={`activity-action-${entry.id}`}
-							className="type-body font-medium text-foreground"
+							className="type-small font-medium text-foreground"
 						>
 							{ACTION_COPY[entry.action]}
 						</span>
@@ -180,9 +242,11 @@ export function ActivityTarget({
 }) {
 	const testId = `activity-target-${entry.id}`;
 	// Underlined at rest, faintly, so a link reads apart from the plain text
-	// beside it without hovering; hover brings the line to full strength.
+	// beside it without hovering; hover brings the line to full strength. The
+	// vertical padding, netted out by its margin, makes the hit area 24px
+	// without moving the line (v3 UX 1).
 	const linkClass =
-		"type-small text-text-muted underline decoration-border underline-offset-2 hover:text-foreground hover:decoration-current";
+		"py-1.5 -my-1.5 type-small text-text-muted underline decoration-border underline-offset-2 hover:text-foreground hover:decoration-current";
 	// An agent logs only its id: it is named from the catalog.
 	if (entry.entityType === "agent_template")
 		return <AgentTarget entry={entry} testId={testId} linkClass={linkClass} />;
@@ -208,8 +272,8 @@ export function ActivityTarget({
 		case "client":
 			return (
 				<Link
-					to="/clients"
-					search={{ client: entry.entityId }}
+					to="/clients/$id"
+					params={{ id: entry.entityId }}
 					data-testid={testId}
 					className={linkClass}
 				>
@@ -226,46 +290,6 @@ export function ActivityTarget({
 }
 
 /** How much of the log is loaded, and a way to load the rest. */
-function ActivityFooter({
-	loaded,
-	total,
-	hasMore,
-	loadingMore,
-	onLoadMore,
-}: {
-	loaded: number;
-	total: number | undefined;
-	hasMore: boolean;
-	loadingMore: boolean;
-	onLoadMore: () => void;
-}) {
-	if (total === undefined && !hasMore) return null;
-	return (
-		<div className="flex items-center justify-between gap-2">
-			{total === undefined ? (
-				<span />
-			) : (
-				<p
-					data-testid="activity-showing"
-					className="type-caption text-text-subtle tabular-nums"
-				>
-					{`Showing ${loaded} of ${total}`}
-				</p>
-			)}
-			{hasMore ? (
-				<Button
-					variant="ghost"
-					size="sm"
-					data-testid="activity-load-more"
-					disabled={loadingMore}
-					onClick={onLoadMore}
-				>
-					{loadingMore ? "Loading" : "Load more"}
-				</Button>
-			) : null}
-		</div>
-	);
-}
 
 /** Rows in the log's real shape: two lines each, a few of them. */
 export function ActivityLogSkeleton() {

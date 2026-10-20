@@ -18,6 +18,7 @@ import {
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { initialsOf } from "@/components/avel/actor";
 import {
 	AgentCard,
 	agentDescription,
@@ -28,7 +29,10 @@ import {
 	FIRM_WAVES,
 	rolesSentence,
 } from "@/components/avel/catalog-agent-card";
-import { AgentGraph } from "@/components/avel/catalog-agent-graph";
+import {
+	AgentGraph,
+	AgentGraphCanvas,
+} from "@/components/avel/catalog-agent-graph";
 import {
 	IdentityTab,
 	IdentityText,
@@ -51,7 +55,6 @@ import {
 } from "@/components/avel/catalog-agent-placeholders";
 import {
 	filterAgents,
-	initialsOf,
 	SIDE_TABS,
 	sortAgents,
 } from "@/components/avel/catalog-agent-table";
@@ -147,8 +150,10 @@ const ROUTES = new Set<string>([
 /**
  * This page's labelling rule: every region opens with its own pill naming
  * its route; any further pill in a region (sample columns, or a region inside
- * it) also names a known route; no pill sits outside a region; and each real
- * element named sits outside every region.
+ * it) also names a known route; no pill sits outside a region, except the
+ * one on a card's roles sentence, which labels that sentence alone (audit
+ * F8, checked where it sits); and each real element named sits outside
+ * every region.
  */
 function expectLabelled(html: string, real: string[]) {
 	const rs = regions(html);
@@ -162,6 +167,7 @@ function expectLabelled(html: string, real: string[]) {
 		}
 	}
 	for (const pill of pills(html)) {
+		if (pill.missing === AGENT_MISSING.artifacts) continue;
 		expect(
 			rs.some((r) => pill.at > r.start && pill.at < r.end),
 			`pill ${pill.missing} in a region`,
@@ -454,22 +460,32 @@ describe("/catalog/agents: the cards", () => {
 		);
 	});
 
-	it("is a notched plate: the shape, its lift, and nothing raw", async () => {
+	it("is a v3 option card: a hairline that strengthens on hover, and no lift", async () => {
 		const html = await page();
 		const card = element(html, "catalog-agent-card-atlas");
-		expect(tagOf(html, "catalog-agent-card-atlas")).toMatch(
-			/class="[^"]*\bplate-notched-lift\b/,
-		);
 		const article = card.match(/<article[^>]*>/)?.[0] ?? "";
-		for (const c of ["plate", "plate-notched", "plate-interactive"]) {
-			expect(article).toMatch(new RegExp(`class="[^"]*\\b${c}(\\s|")`));
+		const classes = (article.match(/class="([^"]*)"/)?.[1] ?? "").split(" ");
+		for (const c of [
+			"rounded-card",
+			"border-border",
+			"bg-app-panel",
+			"shadow-card",
+			"hover:border-border-strong",
+			"hover:bg-app-raised",
+		]) {
+			expect(classes).toContain(c);
 		}
-		const css = readFileSync("src/styles/app.css", "utf8");
-		const utility = css.slice(css.indexOf("@utility plate-notched {"));
-		expect(utility).toContain("clip-path: polygon(");
-		expect(utility.slice(0, utility.indexOf("\n}\n"))).not.toMatch(
-			/#[0-9a-f]{3,8}\b|rgb\(|oklch\(/i,
-		);
+		expect(article).not.toMatch(/translate|plate/);
+	});
+
+	it("labels the roles sentence as sample data, since what roles write is a sample (F8)", async () => {
+		const html = await page();
+		for (const a of AGENTS) {
+			const section = element(html, `catalog-agent-card-description-${a.slug}`);
+			expect(section.includes('data-testid="sample-data"'), a.slug).toBe(
+				a.description === null,
+			);
+		}
 	});
 
 	it("heads each card with its identity: tile, name, kind and identity ref", async () => {
@@ -568,6 +584,10 @@ describe("/catalog/agents: the cards", () => {
 			);
 			expect(caption).toContain(">From its roles<");
 			expect(caption).toMatch(/class="[^"]*\btype-caption\b/);
+			// The sentence is drawn from sample role data, so it says so, and
+			// the pill sits above the card's stretched link so its tooltip opens.
+			const pill = tagOf(section, "sample-data");
+			expect(pill).toMatch(/class="[^"]*\brelative\b[^"]*\bz-10\b/);
 		}
 	});
 
@@ -625,7 +645,7 @@ describe("/catalog/agents: the cards", () => {
 		expect(AGENTS.filter(isFirmAgent).map((a) => a.slug)).toEqual(["canon"]);
 	});
 
-	it("shows no sample on a card: waves and side are live, in one section", async () => {
+	it("shows no other sample on a card: waves and side are live, in one section", async () => {
 		const html = await page();
 		expectLabelled(html, [
 			"catalog-agents-read-only",
@@ -650,7 +670,7 @@ describe("/catalog/agents: the cards", () => {
 		const html = await page();
 		const leonora = element(html, "catalog-agent-paths-leonora");
 		expect(
-			[...leonora.matchAll(/<li[^>]*type-mono-small[^>]*>([^<]+)</g)].map(
+			[...leonora.matchAll(/<li[^>]*type-mono[^>]*>([^<]+)</g)].map(
 				(m) => m[1],
 			),
 		).toEqual(agent("leonora").writablePaths);
@@ -668,7 +688,7 @@ describe("/catalog/agents: the cards", () => {
 			</ul>,
 		);
 		const paths = element(card, "catalog-agent-paths-zane");
-		expect(paths.match(/type-mono-small/g)).toHaveLength(CARD_PATHS);
+		expect(paths.match(/type-mono/g)).toHaveLength(CARD_PATHS);
 		expect(paths).toMatch(/class="[^"]*\btruncate\b/);
 		expect(element(card, "catalog-agent-paths-more-zane")).toContain(
 			`>+${5 - CARD_PATHS} more<`,
@@ -696,23 +716,24 @@ describe("/catalog/agents: the cards", () => {
 		}
 	});
 
-	it("gives each side its own tile tone, from tokens only", async () => {
+	it("draws one neutral tile for every side: the side is a fact, not a state", async () => {
+		// Audit D3 and the meaning map: the accent is for what the operator can
+		// act on and warn is for what needs them, so a side never takes either.
+		// The side lives in the card's data-side and the side tabs.
 		const html = await page();
 		const tone = (slug: string) =>
 			tagOf(html, `catalog-agent-tile-${slug}`).match(/class="([^"]*)"/)?.[1] ??
 			"";
-		const tones = new Set(
-			["atlas", "iyo", "brennan", "canon"].map((s) =>
-				tone(s)
-					.replace(
-						/\b(inline-flex|shrink-0|items-center|justify-center|rounded-sm|font-medium|size-11|type-body)\b/g,
-						"",
-					)
-					.trim(),
-			),
-		);
-		expect(tones.size).toBe(4);
-		for (const t of tones) expect(t).not.toMatch(/#|rgb|oklch|-\d{3}\b/);
+		const tones = new Set(["atlas", "iyo", "brennan", "canon"].map(tone));
+		expect(tones.size).toBe(1);
+		const [only = ""] = tones;
+		expect(only).toContain("border-border");
+		expect(only).not.toMatch(/accent|gate-|#|rgb|oklch|-\d{3}\b/);
+		for (const slug of ["atlas", "iyo", "brennan", "canon"])
+			expect(tagOf(html, `catalog-agent-card-${slug}`).length).toBeGreaterThan(
+				0,
+			);
+		expect(html).toMatch(/data-side="author"/);
 		expect(initialsOf("Atlas")).toBe("AT");
 	});
 
@@ -798,8 +819,15 @@ describe("/catalog/agents: the cards", () => {
 			"src/components/avel/catalog-agents.tsx",
 			"utf8",
 		);
-		expect(source).toContain('to: "/catalog/agents/$slug"');
 		expect(source).not.toMatch(/Sheet|search: \(prev\)/);
+		// The graph's handoffs dock inline, so nothing slides over the list
+		// there either; their link opens the agent's own page.
+		const graph = readFileSync(
+			"src/components/avel/catalog-agent-graph.tsx",
+			"utf8",
+		);
+		expect(graph).not.toMatch(/Sheet/);
+		expect(graph).toContain('to="/catalog/agents/$slug"');
 	});
 });
 
@@ -1157,15 +1185,20 @@ describe("/catalog/agents: the artifact graph", () => {
 		const x = Number(
 			tagOf(html, "catalog-agent-graph-wave-E").match(/\sx="([\d.]+)"/)?.[1],
 		);
-		// type-mono-small is 13.5px; a mono character is about 0.6em wide.
+		// type-mono is 13.5px; a mono character is about 0.6em wide.
 		expect(x + label.length * 13.5 * 0.6).toBeLessThanOrEqual(width);
 	});
 
-	it("fits its column: it scales down to 80%, then scrolls", () => {
+	// 70%, not 80%: the drawing was tightened to 1010 wide (columns 180
+	// apart, Operate's gap 32) so it fits the canvas at 1280 whole, and only
+	// narrower windows shrink it further; 70% keeps the cards legible there.
+	it("fits its column: it scales down to 70%, then scrolls", () => {
 		const svg = tagOf(html, "catalog-agent-graph");
 		const width = Number(svg.match(/viewBox="0 0 ([\d.]+) /)?.[1]);
 		expect(svg).toMatch(/style="[^"]*width:100%/);
-		expect(svg).toContain(`min-width:${Math.round(width * 0.8)}px`);
+		expect(svg).toContain(`min-width:${Math.round(width * 0.7)}px`);
+		// Wave E in view at 1280: the drawing fits a canvas that wide.
+		expect(width).toBeLessThanOrEqual(1010);
 		expect(svg).toContain(`max-width:${width}px`);
 		// No fixed width attribute holding it at full size.
 		expect(svg).not.toMatch(/\swidth="\d/);
@@ -1195,7 +1228,8 @@ describe("/catalog/agents: the artifact graph", () => {
 	it("colours the SVG with tokens only, and puts no middle dot in it", () => {
 		const svg = element(html, "catalog-agent-graph");
 		expect(svg).not.toMatch(/rgb\(|oklch\(|fill="#|stroke="#/i);
-		expect(svg).toMatch(/\bfill-app-panel\b/);
+		// Nodes are v3 cards in HTML within the drawing.
+		expect(svg).toMatch(/\bbg-app-panel\b/);
 		expect(svg).toMatch(/\bstroke-border-strong\b/);
 		expect(svg).not.toContain("·");
 	});
@@ -1287,5 +1321,59 @@ describe("every state of the live template list", () => {
 		expect(html).not.toContain("catalog-agents-side-all-count");
 		expect(html).not.toContain('data-testid="sample-data"');
 		expect(html).toContain('data-testid="catalog-agents-read-only"');
+	});
+});
+
+describe("the handoff graph on the canvas", () => {
+	const canvas = (initialSelected?: string) =>
+		tip(<AgentGraphCanvas agents={AGENTS} initialSelected={initialSelected} />);
+
+	it("lays the graph on the builders' dot-grid band, with its hint", () => {
+		const html = canvas();
+		const band = tagOf(html, "catalog-agent-graph-canvas");
+		for (const cls of ["bg-app-band", "rounded-dialog", "bg-size-[20px_20px]"])
+			expect(band).toContain(cls);
+		expect(html).toContain('data-testid="catalog-agent-graph-hint"');
+		expect(html).not.toContain('data-testid="catalog-agent-graph-details"');
+	});
+
+	it("draws each node as a v3 card, the chosen one in the selected state", () => {
+		const html = canvas("atlas");
+		const cards = [
+			...html.matchAll(/data-slot="graph-card"[^>]*class="([^"]*)"/g),
+		].map((m) => m[1] ?? "");
+		expect(cards).toHaveLength(AGENTS.length);
+		expect(tagOf(html, "catalog-agent-node-atlas")).toContain(
+			'aria-pressed="true"',
+		);
+		const atlas = element(html, "catalog-agent-node-atlas");
+		expect(atlas).toContain("border-selected-border bg-selected");
+		const leon = element(html, "catalog-agent-node-leon");
+		expect(leon).toContain("rounded-card");
+		expect(leon).toContain("shadow-card");
+		expect(leon).not.toContain("bg-selected");
+	});
+
+	it("docks a chosen agent's handoffs inline, sample-labelled, with a close and a link to its page", () => {
+		const html = canvas("atlas");
+		const drawer = element(html, "catalog-agent-graph-details");
+		expect(drawer).toMatch(/^<aside/);
+		expect(tagOf(drawer, "catalog-agent-graph-close")).toContain(
+			'aria-label="Close the handoffs"',
+		);
+		// Beside the graph at 2xl; above it narrower, so wave E stays in view.
+		expect(tagOf(html, "catalog-agent-graph-details")).toContain("order-first");
+		expect(drawer).toContain(">Atlas<");
+		expect(tagOf(drawer, "catalog-agent-graph-open")).toContain(
+			'href="/catalog/agents/atlas"',
+		);
+		expect(tagOf(drawer, "catalog-agent-graph-handoffs")).toContain(
+			`data-sample-region="${AGENT_MISSING.edges}"`,
+		);
+		const edges = sampleEdges(AGENTS).filter(
+			(e) => e.from === "atlas" || e.to === "atlas",
+		);
+		for (const e of edges)
+			expect(drawer).toContain(e.artifacts.map(artifactLabel).join(", "));
 	});
 });

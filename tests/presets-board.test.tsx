@@ -9,24 +9,18 @@ import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { InlineModals } from "@/components/avel/action-modal";
-import { missionKeys } from "@/components/avel/mission-data";
 import {
 	ApplyPresetSteps,
 	draftMissions,
 	MissingTemplates,
 	missionLabel,
 } from "@/components/avel/preset-apply";
-import {
-	COMPARE_FULL,
-	PresetCard,
-	territoryTone,
-} from "@/components/avel/preset-board";
+
 import { PresetCompare } from "@/components/avel/preset-compare";
 import type { Names } from "@/components/avel/preset-detail";
 import {
 	APPLY_WAITS,
 	boardSync,
-	PresetKanban,
 	SavePresetConfirm,
 } from "@/components/avel/preset-kanban";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,10 +37,9 @@ import {
 	presetDiff,
 	waveGrid,
 } from "@/lib/api/presets";
-import { PRECONDITION_COPY } from "@/lib/error-map";
 import { contractError, fakeApi } from "./clients-fixtures";
 import { ID, preset, TEMPLATE, template } from "./presets-fixtures";
-import { tagOf, tagWithId, textOfId } from "./render-page";
+import { tagOf, textOfId } from "./render-page";
 import { visibleText } from "./visible-text";
 
 const names: Names = {
@@ -57,7 +50,6 @@ const names: Names = {
 	]),
 };
 const noop = () => {};
-const actions = { onOpen: noop, onApply: noop, onToggleCompare: noop };
 
 const agent = (
 	n: number,
@@ -126,58 +118,6 @@ describe("a preset by wave", () => {
 	});
 });
 
-describe("the preset card", () => {
-	it("is a small board with the agents in their wave columns", () => {
-		const p = preset(1, {
-			agents: [agent(1, ["A"]), agent(2, ["B", "C"], "Web")],
-		});
-		const html = render(
-			<PresetCard
-				preset={p}
-				names={names}
-				compared={false}
-				compareFull={false}
-				actions={actions}
-			/>,
-		);
-		for (const [wave, count] of [
-			["A", 1],
-			["B", 1],
-			["C", 1],
-			["D", 0],
-			["E", 0],
-		] as const) {
-			expect(tagOf(html, `preset-wave-${ID(1)}-${wave}`)).toContain(
-				`data-count="${count}"`,
-			);
-		}
-		expect(html).toContain(">Atlas<");
-		expect(html).toContain(`data-testid="preset-version-${ID(1)}"`);
-	});
-
-	it("tones a territory's chips alike, and a chip with none plainly", () => {
-		expect(territoryTone("Web")).toBe(territoryTone("Web"));
-		expect(territoryTone(null)).toBe("border-border");
-	});
-
-	it("holds a third pick for comparison, saying why", () => {
-		const html = render(
-			<PresetCard
-				preset={preset(1)}
-				names={names}
-				compared={false}
-				compareFull
-				actions={actions}
-			/>,
-		);
-		const button = tagOf(html, `preset-compare-${ID(1)}`);
-		expect(button).toMatch(/\sdisabled=""/);
-		const id = button.match(/aria-describedby="([^"]+)"/)?.[1] ?? "";
-		expect(tagWithId(html, id)).toContain('class="sr-only"');
-		expect(textOfId(html, id)).toBe(COMPARE_FULL);
-	});
-});
-
 describe("comparing two presets", () => {
 	const a = preset(1, {
 		name: "A",
@@ -206,54 +146,7 @@ describe("comparing two presets", () => {
 	});
 });
 
-describe("the expanded board", () => {
-	const p = preset(1, { version: 3, agents: [agent(1, ["A"])] });
-	const renderBoard = () =>
-		render(
-			<PresetKanban
-				preset={p}
-				names={names}
-				onClose={noop}
-				onApply={noop}
-				onSaved={noop}
-			/>,
-		);
-
-	it("lays the squad out in five wave columns", () => {
-		const html = renderBoard();
-		expect(tagOf(html, "preset-kanban-wave-A")).toContain('data-count="1"');
-		expect(tagOf(html, "preset-kanban-wave-B")).toContain('data-count="0"');
-	});
-
-	it("has nothing to save until something changes", () => {
-		const html = renderBoard();
-		expect(html).not.toContain('data-testid="preset-kanban-strip"');
-		expect(html).toContain('data-testid="preset-request-none"');
-		expect(tagOf(html, "preset-kanban-apply")).not.toMatch(/\sdisabled=""/);
-	});
-
-	it("offers Firm templates disabled, with template_not_rosterable's reason", () => {
-		const html = renderBoard();
-		const firm = tagOf(html, "preset-palette-template-3");
-		expect(firm).toMatch(/\sdisabled=""/);
-		const id = firm.match(/aria-describedby="([^"]+)"/)?.[1] ?? "";
-		// Server rendering escapes the apostrophe.
-		expect(textOfId(html, id)).toBe(
-			PRECONDITION_COPY.template_not_rosterable.what.replaceAll("'", "&#x27;"),
-		);
-		expect(tagOf(html, "preset-palette-template-1")).not.toMatch(
-			/\sdisabled=""/,
-		);
-	});
-
-	it("has Fields, JSON and Request in its inspector", () => {
-		const html = renderBoard();
-		for (const tab of ["fields", "json", "request"]) {
-			expect(html).toContain(`data-testid="preset-inspector-${tab}"`);
-		}
-		expect(html).toContain(`PATCH /api/presets/${p.id}`);
-	});
-
+describe("the composer's Apply", () => {
 	it("holds Apply while the board has unsaved changes", () => {
 		expect(APPLY_WAITS).toMatch(/applying uses the saved team/);
 	});
@@ -284,7 +177,7 @@ function seedMissions(qc: QueryClient, client: MissionListItem[]) {
 		["client", client],
 		["internal", []],
 	] as const) {
-		qc.setQueryData(missionKeys.list(draftMissions(origin)), {
+		qc.setQueryData(queryKeys.missions.list(draftMissions(origin)), {
 			pages: [{ data: rows, meta: { nextCursor: null } }],
 			pageParams: [undefined],
 		});
@@ -304,7 +197,14 @@ describe("applying a preset", () => {
 		);
 		expect(tagOf(html, "preset-apply")).toContain('data-size="stepper"');
 		expect(html).toContain(`data-testid="preset-apply-mission-${ID(50)}"`);
-		expect(html).toContain(">booking · sprint 2 · Acme<");
+		// v3 pills for short-noun steps, and each draft as an option card.
+		expect(tagOf(html, "preset-apply-steps")).toBeTruthy();
+		expect(html).toContain("Replace or add");
+		const card = html.slice(
+			html.indexOf('data-testid="preset-apply-missions"'),
+		);
+		for (const fact of [">booking<", ">Acme<", ">Sprint 2<"])
+			expect(card).toContain(fact);
 		const id = tagOf(html, "preset-apply-submit").match(
 			/aria-describedby="([^"]+)"/,
 		)?.[1];
@@ -333,6 +233,14 @@ describe("applying a preset", () => {
 			},
 		);
 		expect(html).toContain('data-testid="preset-apply-replace"');
+		// Replace or Add, as radio cards: Add is refused for a full roster,
+		// and Replace is never chosen for the operator.
+		expect(tagOf(html, "preset-apply-add-box")).toMatch(/\sdisabled=""/);
+		expect(html).toContain("A team applies only to an empty roster.");
+		expect(tagOf(html, "preset-apply-replace-box")).toContain(
+			'aria-checked="false"',
+		);
+		expect(html).toContain("This can&#x27;t be undone.");
 		const id = tagOf(html, "preset-apply-submit").match(
 			/aria-describedby="([^"]+)"/,
 		)?.[1];
@@ -467,11 +375,11 @@ describe("picking a draft mission", () => {
 		const html = render(
 			<ApplyPresetSteps preset={preset(1)} names={names} />,
 			(qc) => {
-				qc.setQueryData(missionKeys.list(draftMissions("client")), {
+				qc.setQueryData(queryKeys.missions.list(draftMissions("client")), {
 					pages: [{ data: [mission()], meta: { nextCursor: "c2" } }],
 					pageParams: [undefined],
 				});
-				qc.setQueryData(missionKeys.list(draftMissions("internal")), {
+				qc.setQueryData(queryKeys.missions.list(draftMissions("internal")), {
 					pages: [{ data: [], meta: { nextCursor: null } }],
 					pageParams: [undefined],
 				});
@@ -479,5 +387,27 @@ describe("picking a draft mission", () => {
 		);
 		expect(html).toContain('data-testid="preset-apply-missions-loading"');
 		expect(html).not.toContain(`data-testid="preset-apply-mission-${ID(50)}"`);
+	});
+});
+
+describe("the apply modal's choices (v3 dialog anatomy)", () => {
+	it("offers Add on an empty roster, chosen, with Replace off and why", () => {
+		const m = mission();
+		const html = render(
+			<ApplyPresetSteps preset={preset(1)} names={names} initialMission={m} />,
+			(qc) => {
+				seedMissions(qc, [m]);
+				qc.setQueryData(queryKeys.roster.list(m.id), []);
+			},
+		);
+		expect(tagOf(html, "preset-apply-add-box")).toContain(
+			'aria-checked="true"',
+		);
+		expect(tagOf(html, "preset-apply-replace-box")).toMatch(/\sdisabled=""/);
+		expect(html).toContain("The roster is empty: there is nothing to replace.");
+		// Only the Replace step's final button is ever the danger confirm.
+		expect(tagOf(html, "preset-apply-submit")).not.toContain(
+			"destructive-confirm",
+		);
 	});
 });

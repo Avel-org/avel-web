@@ -11,18 +11,19 @@ import {
 	activityActor,
 	activityEntry,
 	type Playbook,
+	type Preset,
 	type PresetApplication,
 } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { Names } from "@/components/avel/preset-detail";
 import {
 	changedFieldsOf,
 	defaultFor,
-	PresetSections,
+	PresetCoverage,
+	PresetHistory,
+	PresetUsedBy,
 	versionsOf,
-	waveCoverage,
 } from "@/components/avel/preset-sections";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiProvider } from "@/lib/api";
@@ -31,14 +32,9 @@ import { queryKeys } from "@/lib/api/keys";
 import { PLAYBOOK_PAGE_SIZE } from "@/lib/api/playbooks";
 import { PRESET_ACTIVITY_LIMIT, staleSince } from "@/lib/api/presets";
 import { fakeApi } from "./clients-fixtures";
-import { ID, preset, TEMPLATE, template } from "./presets-fixtures";
+import { ID, preset, template } from "./presets-fixtures";
 import { tagOf } from "./render-page";
 import { UUID_FRAGMENT, visibleText } from "./visible-text";
-
-const names: Names = {
-	status: "success",
-	byId: new Map([[TEMPLATE(1), { name: "Atlas", slug: "atlas" }]]),
-};
 
 function playbook(overrides: Partial<Playbook> = {}): Playbook {
 	return {
@@ -118,15 +114,18 @@ async function render(
 	);
 }
 
-describe("a preset's overview", () => {
-	it("marks the waves with at least one agent", () => {
-		const coverage = waveCoverage(preset(1).agents);
-		expect(coverage.filter((c) => c.covered).map((c) => c.wave)).toEqual([
-			"A",
-			"B",
-		]);
-	});
+/** The composer inspector's panels, as its tabs hold them. */
+function Panels({ preset }: { preset: Preset }) {
+	return (
+		<>
+			<PresetCoverage preset={preset} />
+			<PresetUsedBy preset={preset} />
+			<PresetHistory preset={preset} />
+		</>
+	);
+}
 
+describe("the playbooks a team is default for", () => {
 	it("finds the playbooks that default to it", () => {
 		const rows = [
 			playbook(),
@@ -135,15 +134,6 @@ describe("a preset's overview", () => {
 		expect(defaultFor(rows, ID(1)).map((p) => p.missionType)).toEqual([
 			"booking",
 		]);
-	});
-
-	it("shows its squad, coverage and the playbooks it is default for", async () => {
-		const html = await render(
-			<PresetSections preset={preset(1)} names={names} />,
-			[playbook()],
-		);
-		expect(html).toContain('data-testid="preset-wave-coverage"');
-		expect(html).toMatch(/data-testid="preset-default-for"[^>]*>Booking</);
 	});
 });
 
@@ -176,13 +166,10 @@ describe("a preset's history", () => {
 
 describe("a preset's coverage", () => {
 	it("fits a playbook by the contract's check, and says why one does not", async () => {
-		const html = await render(
-			<PresetSections preset={preset(1)} names={names} />,
-			[
-				playbook(),
-				playbook({ missionType: "late", name: "Late", wavesApplicable: ["C"] }),
-			],
-		);
+		const html = await render(<Panels preset={preset(1)} />, [
+			playbook(),
+			playbook({ missionType: "late", name: "Late", wavesApplicable: ["C"] }),
+		]);
 		expect(tagOf(html, "preset-fit-booking")).toContain('data-fits="true"');
 		expect(tagOf(html, "preset-fit-late")).toContain('data-fits="false"');
 		expect(html).toContain('data-testid="coherence-block"');
@@ -194,6 +181,7 @@ const AGENT_ACTOR = activityActor.parse({
 	kind: "agent",
 	userId: null,
 	rosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+	canonSessionId: null,
 	display: "Atlas · scheduling",
 	agent: {
 		templateId: "7ecead58-5eed-4000-8000-000000000991",
@@ -216,6 +204,7 @@ describe("a preset's used-by", () => {
 			kind: "operator",
 			userId: ID(200),
 			rosterEntryId: null,
+			canonSessionId: null,
 			display: "javaris",
 			agent: null,
 		},
@@ -231,7 +220,7 @@ describe("a preset's used-by", () => {
 
 	it("lists each mission it was applied to, linked, with the version and counts", async () => {
 		const html = await render(
-			<PresetSections preset={preset(1, { version: 3 })} names={names} />,
+			<Panels preset={preset(1, { version: 3 })} />,
 			[],
 			[app(1), app(2, { presetVersion: 1 }), app(3, { mission: null })],
 		);
@@ -253,7 +242,7 @@ describe("a preset's used-by", () => {
 
 	it("names an agent that applied it, linked to its catalog page", async () => {
 		const html = await render(
-			<PresetSections preset={preset(1, { version: 3 })} names={names} />,
+			<Panels preset={preset(1, { version: 3 })} />,
 			[],
 			[app(4, { actor: AGENT_ACTOR })],
 		);
@@ -277,6 +266,7 @@ describe("a preset's used-by", () => {
 				actorKind: actor.kind,
 				actorUserId: actor.userId,
 				actorRosterEntryId: actor.rosterEntryId,
+				actorCanonSessionId: null,
 				action: n === 1 ? "preset.created" : "preset.updated",
 				entityType: "roster_preset",
 				entityId: ID(1),
@@ -291,11 +281,12 @@ describe("a preset's used-by", () => {
 			kind: "operator",
 			userId: ID(200),
 			rosterEntryId: null,
+			canonSessionId: null,
 			display: "javaris",
 			agent: null,
 		});
 		const html = await render(
-			<PresetSections preset={preset(1, { version: 3 })} names={names} />,
+			<Panels preset={preset(1, { version: 3 })} />,
 			[],
 			[],
 			null,
@@ -316,10 +307,7 @@ describe("a preset's used-by", () => {
 	});
 
 	it("says when no mission has applied it", async () => {
-		const html = await render(
-			<PresetSections preset={preset(1)} names={names} />,
-			[],
-		);
+		const html = await render(<Panels preset={preset(1)} />, []);
 		expect(tagOf(html, "preset-used-by")).toContain('data-state="empty"');
 	});
 });
@@ -327,7 +315,7 @@ describe("a preset's used-by", () => {
 describe("coverage with a catalog longer than one page", () => {
 	it("waits for every page rather than calling a template unknown", async () => {
 		const html = await render(
-			<PresetSections preset={preset(1)} names={names} />,
+			<Panels preset={preset(1)} />,
 			[playbook()],
 			[],
 			"next-page",

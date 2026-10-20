@@ -8,42 +8,62 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-// Variant names are shadcn's. AVEL restyles them: destructive is outlined,
-// never filled, because a filled red button attracts the click it should
-// discourage. Disabled is the real attribute at the disabled-opacity token,
-// so a disabled destructive button still reads as destructive.
+// Variant names are shadcn's; the looks are design system v3's `.btn`.
+// Every button is a 10px-radius control, 32px tall by default (28 small, 38
+// large), 14px at weight 500 with 16px icons. `default` is the primary face,
+// the primary gradient and glow. Destructive is outlined wherever it sits
+// beside other work, because a filled red button attracts the click it should
+// discourage. `destructive-confirm` is the one filled danger (audit D7,
+// adopted): the last button of a dialog that has already named the effect.
 //
-// Every button is a pill (ruling 30): rounded-full at every size, icon
-// buttons are circles. Padding is a step wider than shadcn's so a label never
-// crowds the curve. Secondary and outline are machined steel (sheen and top
-// highlight); the primary stays a solid accent.
+// Disabled is v3 UX 6: flat, neutral and legible, at full opacity. The
+// reason (disabledReason) sits beside it at full contrast.
+//
+// The base sets the 1px border's width only. Each variant names its edge
+// colour: a base border-transparent would sit after btn-primary-face in the
+// compiled CSS (single-property utilities come last) and erase its border.
 const buttonVariants = cva(
-	"inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-(--duration-micro) ease-avel disabled:pointer-events-none disabled:opacity-(--opacity-disabled) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+	"inline-flex shrink-0 items-center justify-center gap-1.5 rounded-control border type-body font-medium whitespace-nowrap transition-[background-color,border-color,box-shadow,filter,transform] duration-(--duration-micro) ease-avel disabled:pointer-events-none disabled:border-border disabled:bg-app-raised disabled:text-text-subtle disabled:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 	{
 		variants: {
 			variant: {
-				default:
-					"bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80",
+				default: "btn-primary-face",
 				destructive:
-					"border border-gate-block-line text-gate-block hover:bg-gate-block-soft active:bg-gate-block-soft",
+					"border-gate-block-line bg-transparent text-gate-block hover:bg-gate-block-soft active:translate-y-[0.5px]",
+				"destructive-confirm": "btn-danger-face",
 				outline:
-					"surface-steel border border-border-strong bg-transparent text-foreground hover:bg-state-hover active:bg-state-active",
+					"border-border-strong bg-app-panel bg-clip-padding text-text shadow-btn hover:bg-app-raised active:translate-y-[0.5px]",
 				secondary:
-					"surface-steel border border-border bg-secondary text-secondary-foreground shadow-e1 hover:bg-state-hover active:bg-state-active",
-				ghost: "text-foreground hover:bg-state-hover active:bg-state-active",
-				link: "text-accent-text underline-offset-4 hover:underline",
+					"border-border-strong bg-app-panel bg-clip-padding text-text shadow-btn hover:bg-app-raised active:translate-y-[0.5px]",
+				ghost:
+					"border-transparent text-text hover:bg-app-raised active:translate-y-[0.5px]",
+				link: "border-0 text-accent-text underline-offset-3 hover:underline disabled:bg-transparent",
+				// One option of a segmented control (v3 .segmented): quiet at
+				// rest, a chip above the track when pressed. The track is
+				// tabsListVariants' default.
+				segment:
+					"border-transparent text-text-muted hover:text-text aria-pressed:border-border aria-pressed:bg-chip aria-pressed:text-text aria-pressed:shadow-btn",
 			},
 			size: {
-				default: "h-9 px-5 py-2 has-[>svg]:px-4",
-				xs: "h-6 gap-1 px-2.5 text-xs has-[>svg]:px-2 [&_svg:not([class*='size-'])]:size-3",
-				sm: "h-8 gap-1.5 px-4 has-[>svg]:px-3",
-				lg: "h-10 px-6 has-[>svg]:px-5",
-				icon: "size-9",
-				"icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3",
-				"icon-sm": "size-8",
-				"icon-lg": "size-10",
+				default: "h-control-md px-3",
+				sm: "h-control-sm px-2.5 type-small",
+				lg: "h-control-lg px-4",
+				icon: "size-control-md",
+				// 24px: the smallest hit target v3 allows (UX 1), for icons
+				// inside dense rows. Its icon is the small 14px size.
+				"icon-xs": "size-tile-sm [&_svg:not([class*='size-'])]:size-3.5",
+				"icon-sm": "size-control-sm",
+				"icon-lg": "size-control-lg",
 			},
 		},
+		compoundVariants: [
+			// A link is text, not a box: no height or padding of its own, but
+			// still a 24px target (v3 UX 1).
+			{ variant: "link", class: "h-auto min-h-6 px-0" },
+			// 26px inside the track's 3px padding; the chip's radius follows
+			// the track's (10 - 3, the nearest token being 6).
+			{ variant: "segment", class: "h-[26px] rounded-sm px-2.5 type-small" },
+		],
 		defaultVariants: {
 			variant: "default",
 			size: "default",
@@ -51,7 +71,7 @@ const buttonVariants = cva(
 	},
 );
 
-// Matches --duration-enter. A timer cannot read a CSS variable without
+// Matches --duration-state. A timer cannot read a CSS variable without
 // freezing it, and this one never changes with the theme.
 const HOLD_MS = 320;
 
@@ -149,7 +169,7 @@ function Button({
 			className={cn(
 				buttonVariants({ variant, size, className }),
 				// isolate: Safari clips a transformed child to the radius only
-				// inside its own stacking context, so the fill follows the pill.
+				// inside its own stacking context, so the fill follows the corners.
 				holdToConfirm && "relative isolate overflow-hidden",
 			)}
 			{...props}
@@ -167,7 +187,7 @@ function Button({
 						className={cn(
 							"pointer-events-none absolute inset-0 origin-left bg-current/15",
 							hold.holding
-								? "scale-x-100 transition-transform duration-(--duration-enter) ease-avel"
+								? "scale-x-100 transition-transform duration-(--duration-state) ease-avel"
 								: "scale-x-0",
 						)}
 					/>
@@ -215,7 +235,7 @@ function DisabledReason({
 						// biome-ignore lint/a11y/noNoninteractiveTabindex: the disabled button inside cannot take focus, so this wrapper is how a keyboard reaches its reason.
 						tabIndex={0}
 						aria-describedby={reasonId}
-						className="inline-flex rounded-sm"
+						className="inline-flex cursor-not-allowed rounded-control"
 						onPointerDown={(event) => {
 							// Touch has no hover. A tap toggles the reason, and Radix's
 							// own pointerdown handling, which closes it, is skipped.

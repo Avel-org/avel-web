@@ -4,7 +4,6 @@ import { useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
 	Select,
 	SelectContent,
@@ -33,6 +32,7 @@ import {
 	useUpdatePreset,
 } from "@/lib/api/presets";
 import { ActionModal, ModalField, useFieldIssues } from "./action-modal";
+import { OptionCards } from "./option-cards";
 import { agentName, fieldText } from "./preset-compare";
 import { type Names, useAllTemplates, useTemplateNames } from "./preset-detail";
 import { useOpenGeneration } from "./use-open-generation";
@@ -333,6 +333,17 @@ export function PresetForm({
 	);
 }
 
+/**
+ * What a cut means for the team, and what coherence then asks of it
+ * (computeCoherence: a vertical cut needs foundations and verification).
+ */
+const CUT_DETAIL: Record<PresetCut, string> = {
+	vertical:
+		"Each agent owns features end to end, across layers. Needs a foundations and a verification agent.",
+	horizontal:
+		"Each agent owns a layer, such as data, API or UI, across features.",
+};
+
 function CutField({
 	value,
 	onChange,
@@ -340,32 +351,20 @@ function CutField({
 	value: PresetCut;
 	onChange: (cut: PresetCut) => void;
 }) {
-	const id = useId();
 	return (
-		<fieldset className="flex flex-col gap-1.5">
-			<legend className="type-small font-medium text-foreground">Cut</legend>
-			<RadioGroup
-				data-testid="preset-form-cut"
-				value={value}
-				onValueChange={(next) => onChange(next as PresetCut)}
-				className="flex gap-4"
-			>
-				{(Object.keys(CUT_LABEL) as PresetCut[]).map((cut) => (
-					<label
-						key={cut}
-						htmlFor={`${id}-${cut}`}
-						className="type-small flex items-center gap-2 text-foreground"
-					>
-						<RadioGroupItem
-							id={`${id}-${cut}`}
-							value={cut}
-							data-testid={`preset-form-cut-${cut}`}
-						/>
-						{CUT_LABEL[cut]}
-					</label>
-				))}
-			</RadioGroup>
-		</fieldset>
+		<OptionCards
+			legend="Cut"
+			data-testid="preset-form-cut"
+			columns={2}
+			value={value}
+			onChange={onChange}
+			options={(Object.keys(CUT_LABEL) as PresetCut[]).map((cut) => ({
+				value: cut,
+				title: CUT_LABEL[cut],
+				detail: CUT_DETAIL[cut],
+				"data-testid": `preset-form-cut-${cut}`,
+			}))}
+		/>
 	);
 }
 
@@ -410,10 +409,10 @@ function AgentRows({
 					<li
 						key={row.uid}
 						data-testid={`preset-form-agent-${i}`}
-						className="flex flex-col gap-3 rounded-md border border-border p-3"
+						className="flex flex-col gap-3 rounded-card border border-border p-3"
 					>
 						<div className="flex items-center justify-between gap-2">
-							<span className="type-panel-title text-foreground">
+							<span className="type-title text-foreground">
 								{`Agent ${i + 1}`}
 							</span>
 							<Button
@@ -475,7 +474,7 @@ function AgentRows({
 								<Textarea
 									{...props}
 									rows={2}
-									className="type-mono-small"
+									className="type-mono"
 									value={row.draft.writablePaths}
 									onChange={(e) =>
 										onChange(row.uid, { writablePaths: e.target.value })
@@ -600,7 +599,7 @@ function WavesField({
 										: WAVES.filter((w) => w === wave || value.includes(w)),
 								)
 							}
-							className="type-mono-small aria-pressed:bg-state-selected"
+							className="type-mono aria-pressed:bg-selected"
 						>
 							{wave}
 						</Button>

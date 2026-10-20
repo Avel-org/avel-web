@@ -44,12 +44,13 @@ import { rosterReadOnlyReason } from "@/lib/api/roster";
 import { describeError } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
 import { type DataColumn, DataTable } from "./data-table";
+import { PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
 import { StatusPill } from "./status-pill";
 import { ErrorState, Surface, type SurfaceQuery } from "./surface";
 
 /*
- * The Tools and access tab (ruling 38, after the operator's reference): what
+ * The Tools and access tab (after the operator's reference): what
  * this agent may touch, row by row, from avel-server's accessFor. Without a
  * mission it shows the template's own access, from its roles alone, and
  * nothing can change. On a mission it shows that roster entry's access, and
@@ -155,7 +156,7 @@ function ToolsLayout({
 	children: (access: AgentAccess) => ReactNode;
 }) {
 	return (
-		<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 min-[90rem]:grid-cols-[minmax(0,1fr)_minmax(0,19rem)]">
+		<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 min-[90rem]:grid-cols-[minmax(0,1fr)_minmax(0,19rem)]">
 			<SectionPanel
 				title={`Tools ${agent.name} can use`}
 				description="avel-server works out each row from the agent's skills, the files it may change, and the gate."
@@ -168,6 +169,9 @@ function ToolsLayout({
 					/>
 				}
 				data-testid="agent-tools-panel"
+				footer={
+					<PanelFooter data-testid="agent-tools-read-age" queries={[query]} />
+				}
 			>
 				<div className="flex flex-col gap-4">
 					{head}
@@ -181,7 +185,7 @@ function ToolsLayout({
 			</SectionPanel>
 			{/* Beside the table from 1440px, where the table still fits; a row
 			    of three under it below that, so the table never scrolls. */}
-			<div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-3 min-[90rem]:grid-cols-[minmax(0,1fr)]">
+			<div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-3 min-[90rem]:grid-cols-[minmax(0,1fr)]">
 				<Credentials access={query.data} />
 				<CannotSee agent={agent} access={query.data} />
 				<AccessRequests />
@@ -361,7 +365,7 @@ function StaleOverrides({
 	return (
 		<div
 			data-testid="agent-access-stale"
-			className="flex flex-wrap items-start gap-3 rounded-sm border border-gate-warn-line bg-gate-warn-soft p-3"
+			className="flex flex-wrap items-start gap-3 rounded-control border border-gate-warn-line bg-gate-warn-banner p-3"
 		>
 			<CircleAlert
 				aria-hidden="true"
@@ -372,15 +376,21 @@ function StaleOverrides({
 					? `One limit set on ${agent.name} no longer matches a tool, so it has no effect. Its skill was taken off the mission, or the permission was renamed.`
 					: `${count} limits set on ${agent.name} no longer match a tool, so they have no effect. Their skills were taken off the mission, or the permissions were renamed.`}
 			</p>
-			<Button
-				size="sm"
-				variant="outline"
-				data-testid="agent-access-stale-clear"
-				disabledReason={disabledReason}
-				onClick={onClear}
+			{/* v3 UX 7: beside the text, or wrapped under it on a phone. */}
+			<div
+				data-testid="agent-access-stale-actions"
+				className="ml-auto flex shrink-0 items-center gap-2.5 max-sm:basis-full max-sm:justify-end"
 			>
-				Clear
-			</Button>
+				<Button
+					size="sm"
+					variant="outline"
+					data-testid="agent-access-stale-clear"
+					disabledReason={disabledReason}
+					onClick={onClear}
+				>
+					Clear
+				</Button>
+			</div>
 		</div>
 	);
 }
@@ -413,7 +423,7 @@ function SystemCell({ row }: { row: Row }) {
 		<span className="flex items-center gap-3">
 			<span
 				aria-hidden="true"
-				className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm border border-border bg-app-raised text-text-muted"
+				className="inline-flex size-tile-md shrink-0 items-center justify-center rounded-tile border border-border bg-app-panel text-text-muted"
 			>
 				<Icon className="size-4" />
 			</span>
@@ -432,7 +442,7 @@ export function ModeChip({ mode }: { mode: AccessRow["mode"] }) {
 			data-mode={mode}
 			title={MODE_MEANING[mode]}
 			className={cn(
-				"inline-flex h-6 items-center rounded-full border px-2 type-caption font-medium whitespace-nowrap",
+				"inline-flex h-[22px] items-center rounded-sm border px-2 type-caption font-medium whitespace-nowrap",
 				MODE_TONE[mode],
 			)}
 		>
@@ -465,7 +475,7 @@ function ScopeCell({ row }: { row: Row }) {
 				Writes nothing
 			</span>
 		) : (
-			<span className="flex flex-col type-mono-small text-foreground">
+			<span className="flex flex-col type-mono text-foreground">
 				{row.scope.map((glob) => (
 					<span key={glob}>{glob}</span>
 				))}
@@ -511,7 +521,7 @@ function FixedCell({ kind }: { kind: "repository" | "delivery" }) {
 					// biome-ignore lint/a11y/noNoninteractiveTabindex: focus opens the tooltip that says why the row is fixed
 					tabIndex={0}
 					data-testid={`agent-access-fixed-${kind}`}
-					className="focus-inset relative inline-flex size-8 items-center justify-center rounded-sm text-text-subtle"
+					className="focus-inset relative inline-flex size-8 items-center justify-center rounded-control text-text-subtle"
 				>
 					<Lock aria-hidden="true" className="size-4" />
 					<span className="sr-only">{reason.short}</span>
@@ -799,7 +809,7 @@ function WriteFailure({ error }: { error: ApiError }) {
 		<p
 			role="alert"
 			data-testid="agent-access-failure"
-			className="rounded-md border border-gate-block-line bg-gate-block-soft px-3 py-2 type-small text-foreground"
+			className="rounded-card border border-gate-block-line bg-gate-block-soft px-3 py-2 type-small text-foreground"
 		>
 			{`${copy.what} ${copy.next}`}
 		</p>

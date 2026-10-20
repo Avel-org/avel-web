@@ -16,8 +16,9 @@ import {
 	MISSION_ROW_TIME,
 	MissionStatusPill,
 } from "./mission-columns";
-import { asSurface, type MissionList, totalOf } from "./mission-data";
-import { LoadMore, MissionRowsSkeleton } from "./mission-panels";
+import { asSurface, type MissionList, rowsOf, totalOf } from "./mission-data";
+import { MissionRowsSkeleton } from "./mission-panels";
+import { Paging, PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, Surface } from "./surface";
 
@@ -32,12 +33,14 @@ import { ErrorState, Surface } from "./surface";
 const ORIGIN_PANEL = {
 	client: {
 		title: "Client missions",
-		description: "Built for a client's engagement.",
+		description:
+			"Built for a client's engagement. Deleted missions are not counted.",
 		none: "No client missions are built from this template.",
 	},
 	internal: {
 		title: "Internal missions",
-		description: "AVEL's own runs, such as benchmarks.",
+		description:
+			"AVEL's own runs, such as benchmarks. Deleted missions are not counted.",
 		none: "No internal missions are built from this template.",
 	},
 } as const satisfies Record<
@@ -49,14 +52,9 @@ export function TemplateMissions({ template }: { template: Template }) {
 	return (
 		<div
 			data-testid="template-missions"
-			className="grid grid-cols-[minmax(0,1fr)] items-start gap-6"
+			className="grid grid-cols-[minmax(0,1fr)] items-start gap-4"
 		>
-			<p
-				data-testid="template-missions-total"
-				className="type-small text-text-muted"
-			>
-				{`${missionCountLabel(template.missionCount)} in all, not counting deleted ones.`}
-			</p>
+			{/* The total is the tab's badge; each panel counts its own origin. */}
 			<OriginPanel slug={template.slug} origin="client" />
 			<OriginPanel slug={template.slug} origin="internal" />
 		</div>
@@ -79,6 +77,26 @@ function OriginPanel({
 			description={copy.description}
 			data-testid={`${testId}-panel`}
 			actions={<OriginCount list={list} testId={`${testId}-count`} />}
+			footer={
+				// When the list was read, and its paging, in the footer band.
+				<PanelFooter data-testid={`${testId}-read-age`} queries={[list]}>
+					{list.hasNextPage ? (
+						<span
+							data-testid={`${testId}-more`}
+							className="flex items-center gap-2"
+						>
+							<Paging
+								loaded={rowsOf(list).length}
+								total={totalOf(list)}
+								hasMore
+								loadingMore={list.isFetchingNextPage}
+								onLoadMore={() => list.fetchNextPage()}
+								testIdPrefix={`${testId}-more`}
+							/>
+						</span>
+					) : null}
+				</PanelFooter>
+			}
 		>
 			<Surface
 				data-testid={testId}
@@ -95,9 +113,9 @@ function OriginPanel({
 				error={ErrorState}
 			>
 				{(rows) => (
-					<div className="-m-4 lg:-m-5">
+					// The rows run to the panel's edges, under its description.
+					<div className="-mx-4 -mb-4 border-t border-border">
 						<MissionRows rows={rows} testId={`${testId}-rows`} />
-						<LoadMore list={list} testId={`${testId}-more`} />
 					</div>
 				)}
 			</Surface>
@@ -114,7 +132,7 @@ function OriginCount({ list, testId }: { list: MissionList; testId: string }) {
 	return (
 		<span
 			data-testid={testId}
-			className="type-mono-small text-text-muted tabular-nums"
+			className="type-mono text-text-muted tabular-nums"
 		>
 			{missionCountLabel(total)}
 		</span>
@@ -138,11 +156,11 @@ function MissionRows({
 						to="/missions/$id"
 						params={{ id: mission.id }}
 						data-testid={`template-mission-${mission.id}`}
-						className={`${MISSION_ROW} focus-inset px-4 transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover lg:px-5`}
+						className={`${MISSION_ROW} focus-inset px-4 transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised lg:px-5`}
 					>
 						<span className={MISSION_ROW_SUBJECT}>
 							{subjectOf(mission)}
-							<span className="ml-2 type-mono-small text-text-subtle">
+							<span className="ml-2 type-mono text-text-subtle">
 								{`sprint ${mission.sprintN}`}
 							</span>
 						</span>

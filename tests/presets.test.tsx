@@ -20,7 +20,7 @@ import {
 	templateLabel,
 } from "@/lib/api/presets";
 import { SessionSourceProvider } from "@/lib/auth";
-import { presetsSearch, Route } from "../src/routes/presets";
+import { presetsSearch, Route, searchDraft } from "../src/routes/presets";
 import { routeTree } from "../src/routeTree.gen";
 import { signedIn } from "./auth-session";
 import {
@@ -121,10 +121,10 @@ describe("the Presets page", () => {
 	it("loads the board by default, never the not-built state", async () => {
 		const html = await renderPage("/presets");
 		expect(tagOf(html, "preset-list")).toContain('data-state="loading"');
-		expect(tagOf(html, "presets-view-board")).toContain('aria-pressed="true"');
+		// The canvas's skeleton: five lanes in their real shape.
 		expect(
-			html.match(/data-testid="preset-board-skeleton-card"/g),
-		).toHaveLength(3);
+			html.match(/data-testid="preset-canvas-skeleton-lane"/g),
+		).toHaveLength(5);
 		expect(html).not.toContain('data-state="not-built"');
 	});
 
@@ -142,8 +142,14 @@ describe("the Presets list", () => {
 			meta: { nextCursor: "c1", total: 40 },
 		});
 		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>40 teams</);
-		expect(html).toContain('data-testid="presets-load-more"');
-		expect(html).toMatch(/data-testid="presets-showing"[^>]*>Showing 1 of 40</);
+		// On the canvas, Load more lives in the switcher's popover; the table
+		// says how many it shows.
+		const table = await renderSeeded(
+			{ data: [preset(1)], meta: { nextCursor: "c1", total: 40 } },
+			{ path: "/presets?view=table" },
+		);
+		expect(table).toContain('data-testid="presets-load-more"');
+		expect(table).toMatch(/Showing 1 of 40/);
 	});
 
 	it("keeps the definition when the route gives no total", async () => {
@@ -180,26 +186,51 @@ describe("the Presets list", () => {
 	});
 
 	it("says a search matched nothing, with a way to clear it", async () => {
+		// Search and cut are the Table's, so a no-match is the Table's.
 		const html = await renderSeeded(
 			{ data: [], meta: { nextCursor: null, total: 0 } },
-			{ path: "/presets?q=zzz&cut=vertical", q: "zzz", cut: "vertical" },
+			{
+				path: "/presets?view=table&q=zzz&cut=vertical",
+				q: "zzz",
+				cut: "vertical",
+			},
 		);
 		expect(html).toContain('data-testid="presets-no-match"');
 		expect(html).toContain('data-testid="presets-clear-filters"');
 		expect(html).not.toContain('data-testid="presets-empty"');
-		expect(tagOf(html, "presets-search")).toContain('value="zzz"');
-		expect(tagOf(html, "presets-cut-vertical")).toContain(
+		// Search and cut belong to the table view, filled from the URL.
+		const table = await renderSeeded(
+			{ data: [], meta: { nextCursor: null, total: 0 } },
+			{
+				path: "/presets?view=table&q=zzz&cut=vertical",
+				q: "zzz",
+				cut: "vertical",
+			},
+		);
+		expect(tagOf(table, "presets-search-input")).toContain('value="zzz"');
+		expect(tagOf(table, "presets-cut-vertical")).toContain(
 			'aria-pressed="true"',
 		);
-		expect(tagOf(html, "presets-cut-all")).toContain('aria-pressed="false"');
+		expect(tagOf(table, "presets-cut-all")).toContain('aria-pressed="false"');
 	});
 
 	it("counts a filtered list as matches", async () => {
 		const html = await renderSeeded(one(preset(1), 2), {
-			path: "/presets?cut=horizontal",
+			path: "/presets?view=table&cut=horizontal",
 			cut: "horizontal",
 		});
 		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>2 teams match</);
+	});
+
+	it("never filters the Board by the Table's search or cut", async () => {
+		// The unfiltered list is what the Board reads, whatever ?q and ?cut say.
+		const html = await renderSeeded(one(preset(1), 3), {
+			path: "/presets?q=zzz&cut=vertical",
+			detail: preset(1),
+		});
+		expect(html).toContain('data-testid="preset-canvas"');
+		expect(html).not.toContain('data-testid="presets-no-match"');
+		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>3 teams</);
 	});
 
 	it("maps a list error to the error map's copy", async () => {
@@ -410,12 +441,14 @@ describe("the Presets views", () => {
 		const table = await renderSeeded(one(preset(1)), {
 			path: "/presets?view=table",
 		});
-		expect(tagOf(table, "presets-view-table")).toContain('aria-pressed="true"');
+		expect(tagOf(table, "preset-view-table")).toContain('aria-pressed="true"');
 		expect(table).toContain('data-testid="presets-panes"');
-		expect(table).not.toContain('data-testid="preset-cards"');
+		expect(table).not.toContain('data-testid="preset-canvas"');
 
-		const board = await renderSeeded(one(preset(1)));
-		expect(board).toContain(`data-testid="preset-card-${ID(1)}"`);
+		const board = await renderSeeded(one(preset(1)), {
+			detail: preset(1),
+		});
+		expect(board).toContain('data-testid="preset-canvas"');
 		expect(board).not.toContain('data-testid="presets-panes"');
 	});
 
@@ -471,5 +504,43 @@ describe("the Presets URL and copy", () => {
 			known: false,
 			id: TEMPLATE(3),
 		});
+	});
+});
+
+describe("a team that can't be read", () => {
+	it("keeps the switcher and a way to the table above the error (a stale ?preset=)", async () => {
+		const gone = new ApiError({
+			method: "GET",
+			path: "/api/presets/:id",
+			kind: "contract",
+			status: 404,
+			code: "NOT_FOUND",
+			message: "for logs only",
+			requestId: "req-1",
+		});
+		const html = await renderSeeded(one(preset(1)), {
+			path: `/presets?preset=${ID(9)}`,
+			detail: gone,
+		});
+		expect(tagOf(html, "preset-open")).toContain('data-state="error"');
+		const header = tagOf(html, "preset-canvas-header");
+		expect(header).toBeTruthy();
+		expect(tagOf(html, "preset-switcher")).toContain(
+			'aria-label="Choose a team"',
+		);
+		expect(html).toContain('data-testid="preset-open-table"');
+		expect(html).toContain('data-testid="surface-error"');
+	});
+});
+
+describe("the table's search box", () => {
+	it("keeps a typed trailing space when the URL holds the trimmed query", () => {
+		expect(searchDraft("atlas ", "atlas")).toBe("atlas ");
+		expect(searchDraft("  atlas", "atlas")).toBe("  atlas");
+	});
+
+	it("follows the URL when it changes from outside: Clear filters, Back", () => {
+		expect(searchDraft("atlas", "")).toBe("");
+		expect(searchDraft("atlas", "booking")).toBe("booking");
 	});
 });

@@ -1,7 +1,7 @@
 import { connectionStatus } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
-import { CONNECTION_WRITE_REASON } from "@/components/avel/connection-list";
 import { CONNECTION_STATUS, connectionCountLabel } from "@/lib/api/connections";
+import { NOT_YET } from "@/lib/capabilities";
 import { Route } from "../src/routes/settings.connections";
 import {
 	CONNECTIONS,
@@ -78,13 +78,17 @@ describe("the Connections page", () => {
 
 	it("offers New connection as a real button, disabled with its reason", async () => {
 		const html = await renderPage(PATH);
-		expectDisabledWithReason(html, "connections-new", CONNECTION_WRITE_REASON);
+		expectDisabledWithReason(
+			html,
+			"connections-new",
+			NOT_YET["connection.create"],
+		);
 		expect(tagOf(html, "connections-new")).toContain('data-size="sm"');
 	});
 
 	it("lists each connection: scope, kind, status, created, and only the credential's name", async () => {
 		const html = await renderSeeded(
-			PATH,
+			`${PATH}?view=table`,
 			seededClient({ connections: CONNECTIONS }),
 		);
 		expect(tagOf(html, "connection-list")).toContain('data-state="success"');
@@ -96,7 +100,7 @@ describe("the Connections page", () => {
 			const row = element(table, `connection-table-row-${c.id}`);
 			expect(row).toContain(c.label);
 			expect(tagOf(row, `connection-scope-${c.id}`)).toMatch(
-				/class="[^"]*\btype-mono-small\b/,
+				/class="[^"]*\btype-mono\b/,
 			);
 			expect(element(row, `connection-scope-${c.id}`)).toContain(
 				`>${c.scopeValue}<`,
@@ -161,7 +165,7 @@ describe("the Connections page", () => {
 		expectDisabledWithReason(
 			html,
 			"connections-empty-new",
-			CONNECTION_WRITE_REASON,
+			NOT_YET["connection.create"],
 		);
 		expect(element(html, "topbar-subtitle")).toContain(">0 connections<");
 	});
@@ -176,6 +180,10 @@ describe("the Connections page", () => {
 		expect(html).toContain(">req_catalog<");
 		// A read may be retried.
 		expect(html).toContain('data-testid="surface-error-retry"');
-		expectDisabledWithReason(html, "connections-new", CONNECTION_WRITE_REASON);
+		expectDisabledWithReason(
+			html,
+			"connections-new",
+			NOT_YET["connection.create"],
+		);
 	});
 });

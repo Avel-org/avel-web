@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export type CodeTone = "key" | "heading";
 
 const TONE: Record<CodeTone | "plain", string> = {
-	key: "text-accent-text",
+	key: "text-text-muted",
 	heading: "font-medium text-foreground",
 	plain: "",
 };
@@ -44,7 +44,7 @@ export function CodeView({
 			aria-label={label}
 			data-testid={testId}
 			className={cn(
-				"flex min-w-0 flex-col overflow-hidden rounded-xs border border-border bg-app-recessed",
+				"flex min-w-0 flex-col overflow-hidden rounded-xs border border-border bg-app-well",
 				className,
 			)}
 		>
@@ -52,7 +52,7 @@ export function CodeView({
 				<div
 					aria-hidden="true"
 					data-testid={`${testId}-gutter`}
-					className="sticky left-0 shrink-0 select-none border-r border-border bg-app-recessed py-3 pr-3 pl-3 text-right type-mono-small text-text-subtle tabular-nums"
+					className="sticky left-0 shrink-0 select-none border-r border-border bg-app-well py-3 pr-3 pl-3 text-right type-mono text-text-subtle tabular-nums"
 				>
 					{lines.map((_, i) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: a line number is its index
@@ -61,7 +61,7 @@ export function CodeView({
 				</div>
 				<pre
 					data-testid={`${testId}-text`}
-					className="min-w-0 flex-1 py-3 pr-4 pl-3 type-mono-small whitespace-pre text-text-muted"
+					className="min-w-0 flex-1 py-3 pr-4 pl-3 type-mono whitespace-pre text-text-muted"
 				>
 					{lineTone
 						? // Each line its own span, the newlines kept as text between them,
@@ -84,7 +84,7 @@ export function CodeView({
 			{footer ? (
 				<figcaption
 					data-testid={`${testId}-footer`}
-					className="border-t border-border px-3 py-1.5 type-mono-small text-text-subtle tabular-nums"
+					className="border-t border-border px-3 py-1.5 type-mono text-text-subtle tabular-nums"
 				>
 					{footer}
 				</figcaption>

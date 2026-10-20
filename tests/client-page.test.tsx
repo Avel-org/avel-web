@@ -22,6 +22,7 @@ const AGENT_ACTOR = activityActor.parse({
 	kind: "agent",
 	userId: null,
 	rosterEntryId: "7ecead58-5eed-4000-8000-000000000990",
+	canonSessionId: null,
 	display: "Atlas · scheduling",
 	agent: {
 		templateId: "7ecead58-5eed-4000-8000-000000000991",
@@ -269,6 +270,11 @@ describe("the Overview", () => {
 		expect(blockOf(html, `client-mission-${halted.id}`, "a")).toContain(
 			"Sprint 1",
 		);
+		// A v3 row link (UX 5): it ends in the chevron that nudges on hover.
+		expect(tagOf(html, `client-mission-${live.id}`)).toContain("group/row");
+		expect(blockOf(html, `client-mission-${live.id}`, "a")).toContain(
+			'data-slot="row-chevron"',
+		);
 		expect(tagOf(html, `client-mission-status-${halted.id}`)).toContain(
 			'data-tone="block"',
 		);
@@ -371,6 +377,7 @@ describe("the Activity tab", () => {
 			actorKind: "agent",
 			actorUserId: null,
 			actorRosterEntryId: AGENT_ACTOR.rosterEntryId,
+			actorCanonSessionId: null,
 			actor: AGENT_ACTOR,
 		});
 		activityEntrySchema.parse(row);

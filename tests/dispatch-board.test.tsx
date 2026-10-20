@@ -9,6 +9,7 @@ import {
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { HALT_ACTOR } from "@/components/avel/actor";
 import {
 	DISPATCH_LANES,
 	DispatchBoard,
@@ -167,17 +168,34 @@ describe("the dispatch board", () => {
 		}
 		expect(text(element(html, "dispatch-lane-running-count"))).toBe("2");
 		expect(text(element(html, "dispatch-lane-queued-count"))).toBe("1");
+		// v3 .count-badge: the shared count badge, in tabular figures.
+		for (const status of ["queued", "running", "complete"]) {
+			const tag = tagOf(html, `dispatch-lane-${status}-count`);
+			expect(tag, status).toContain('data-variant="count"');
+			expect(tag, status).toContain("tabular-nums");
+		}
 	});
 
-	it("says a lane is empty in words", () => {
-		const html = tip(<DispatchBoard dispatches={[]} now={NOW} />);
-		for (const s of DISPATCH_STATUSES) {
-			expect(text(element(html, `dispatch-lane-${s}-count`))).toBe("0");
-			expect(html).toContain(`data-testid="dispatch-lane-${s}-none"`);
-		}
-		expect(text(element(html, "dispatch-lane-queued-none"))).toBe(
-			"None waiting to start.",
+	it("hides a group with no dispatch, and an empty half of the board", () => {
+		const html = tip(
+			<DispatchBoard dispatches={[dispatch("queued")]} now={NOW} />,
 		);
+		expect(html).toContain('data-testid="dispatch-lane-queued"');
+		for (const s of DISPATCH_STATUSES.filter((s) => s !== "queued")) {
+			expect(html).not.toContain(`data-testid="dispatch-lane-${s}"`);
+		}
+		expect(html).not.toMatch(/dispatch-lane-[a-z]+-none/);
+		expect(html).toContain('data-testid="dispatch-board-open"');
+		expect(html).not.toContain('data-testid="dispatch-board-closed"');
+	});
+
+	it("leaves a row's status to its group's heading", () => {
+		const d = dispatch("running");
+		const html = tip(<DispatchBoard dispatches={[d]} now={NOW} />);
+		expect(element(html, `dispatch-card-${d.id}`)).not.toContain(
+			'data-slot="status-pill"',
+		);
+		expect(text(element(html, "dispatch-lane-running"))).toContain("Running");
 	});
 
 	it("orders a lane: the next to start first, otherwise latest first", () => {
@@ -398,10 +416,14 @@ describe("a dispatch's budget", () => {
 			const reason = d.haltReason as HaltReason;
 			const html = tip(<DispatchBudget dispatch={d} now={NOW} />);
 			const line = element(html, `dispatch-budget-halt-${d.id}`);
+			// A ceiling names the runner as the one who stopped it (audit F3).
+			const kind = HALT_ACTOR[reason];
 			expect(text(line)).toBe(HALT_REASON_LABEL[reason]);
-			expect(tagOf(html, `dispatch-budget-halt-${d.id}`)).toContain(
-				`data-reason="${reason}"`,
-			);
+			expect(line.includes("by the AVEL runner")).toBe(kind === "system");
+			const tag = tagOf(html, `dispatch-budget-halt-${d.id}`);
+			expect(tag).toContain(`data-reason="${reason}"`);
+			expect(tag).toContain(`data-actor-kind="${kind}"`);
+			expect(line).toContain(`data-actor-mark="${kind}"`);
 			expect(tagOf(html, `dispatch-budget-${d.id}`)).toContain(
 				'data-tone="halted"',
 			);

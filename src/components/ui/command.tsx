@@ -20,7 +20,7 @@ function Command({
 		<CommandPrimitive
 			data-slot="command"
 			className={cn(
-				"flex h-full w-full flex-col surface-steel overflow-hidden rounded-lg bg-popover text-popover-foreground",
+				"flex h-full w-full flex-col overflow-hidden rounded-card bg-app-float text-text",
 				className,
 			)}
 			{...props}
@@ -43,15 +43,29 @@ function CommandDialog({
 }) {
 	return (
 		<Dialog {...props}>
-			<DialogHeader className="sr-only">
-				<DialogTitle>{title}</DialogTitle>
-				<DialogDescription>{description}</DialogDescription>
-			</DialogHeader>
 			<DialogContent
-				className={cn("overflow-hidden p-0", className)}
+				// The close circle sits centred on the 48px search row, which
+				// leaves room for it.
+				className={cn(
+					"gap-0 overflow-hidden p-0 max-sm:px-0 [&>[data-slot=dialog-close]]:top-2",
+					className,
+				)}
 				showCloseButton={showCloseButton}
 			>
-				<Command className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+				{/* Inside the content, so it exists only while the dialog is
+				    open. Outside it, the header rendered in the page while
+				    closed, and its sr-only box, positioned against the root,
+				    stretched the document so the whole shell could scroll. */}
+				<DialogHeader className="sr-only">
+					<DialogTitle>{title}</DialogTitle>
+					<DialogDescription>{description}</DialogDescription>
+				</DialogHeader>
+				<Command
+					className={cn(
+						"rounded-none **:data-[slot=command-input-wrapper]:h-12",
+						showCloseButton && "**:data-[slot=command-input-wrapper]:pr-14",
+					)}
+				>
 					{children}
 				</Command>
 			</DialogContent>
@@ -66,13 +80,13 @@ function CommandInput({
 	return (
 		<div
 			data-slot="command-input-wrapper"
-			className="flex h-9 items-center gap-2 border-b px-3"
+			className="flex h-9 items-center gap-2.5 border-b border-border px-4"
 		>
-			<SearchIcon className="size-4 shrink-0 opacity-50" />
+			<SearchIcon className="size-4 shrink-0 text-text-subtle" />
 			<CommandPrimitive.Input
 				data-slot="command-input"
 				className={cn(
-					"flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-text-subtle disabled:cursor-not-allowed disabled:opacity-(--opacity-disabled)",
+					"flex h-10 w-full bg-transparent py-3 type-body text-text outline-hidden placeholder:text-text-subtle disabled:cursor-not-allowed",
 					className,
 				)}
 				{...props}
@@ -89,7 +103,7 @@ function CommandList({
 		<CommandPrimitive.List
 			data-slot="command-list"
 			className={cn(
-				"max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto",
+				"max-h-[300px] scroll-py-1.5 overflow-x-hidden overflow-y-auto py-1.5",
 				className,
 			)}
 			{...props}
@@ -110,7 +124,7 @@ function CommandEmpty({
 	return (
 		<CommandPrimitive.Empty
 			data-slot="command-empty"
-			className="py-6 text-center text-sm"
+			className="py-6 text-center type-small text-text-muted"
 			{...props}
 		/>
 	);
@@ -124,7 +138,7 @@ function CommandGroup({
 		<CommandPrimitive.Group
 			data-slot="command-group"
 			className={cn(
-				"overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
+				"overflow-hidden text-text [&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:type-caption [&_[cmdk-group-heading]]:text-text-subtle",
 				className,
 			)}
 			{...props}
@@ -139,7 +153,7 @@ function CommandSeparator({
 	return (
 		<CommandPrimitive.Separator
 			data-slot="command-separator"
-			className={cn("-mx-1 h-px bg-border", className)}
+			className={cn("my-1.5 h-px bg-border", className)}
 			{...props}
 		/>
 	);
@@ -147,17 +161,42 @@ function CommandSeparator({
 
 function CommandItem({
 	className,
+	reason,
+	disabled,
+	children,
 	...props
-}: React.ComponentProps<typeof CommandPrimitive.Item>) {
+}: React.ComponentProps<typeof CommandPrimitive.Item> & {
+	/**
+	 * Disables the row and prints why at its end, at full contrast (v3
+	 * .cmdk-row.is-unavailable). On a phone the reason takes its own line,
+	 * set in under the label.
+	 */
+	reason?: string;
+}) {
 	return (
 		<CommandPrimitive.Item
 			data-slot="command-item"
+			disabled={disabled === true || reason !== undefined}
 			className={cn(
-				"relative flex h-9 cursor-default items-center gap-2 rounded-sm px-2 type-body outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-(--opacity-disabled) data-[selected=true]:bg-accent-surface data-[selected=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+				// v3 .cmdk-row: 36px, inset 6px from the edges. The keyboard's row
+				// is the one selected state (Polish 10): the selected fill, its
+				// icon in accent. An unavailable row (UX 6) goes quiet and grows
+				// to hold its reason.
+				"relative mx-1.5 flex h-9 cursor-default items-center gap-2.5 rounded-control px-2.5 type-body text-text outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:h-auto data-[disabled=true]:min-h-9 data-[disabled=true]:flex-wrap data-[disabled=true]:gap-y-0.5 data-[disabled=true]:py-2 data-[disabled=true]:text-text-subtle data-[selected=true]:bg-selected data-[selected=true]:text-text [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-text-subtle data-[selected=true]:[&_svg:not([class*='text-'])]:text-accent-text",
 				className,
 			)}
 			{...props}
-		/>
+		>
+			{children}
+			{reason === undefined ? null : (
+				<span
+					data-slot="command-reason"
+					className="ml-auto type-caption text-text-muted max-[560px]:ml-[25px] max-[560px]:basis-full"
+				>
+					{reason}
+				</span>
+			)}
+		</CommandPrimitive.Item>
 	);
 }
 
@@ -168,7 +207,7 @@ function CommandShortcut({
 	return (
 		<span
 			data-slot="command-shortcut"
-			className={cn("ml-auto font-mono text-xs text-text-subtle", className)}
+			className={cn("ml-auto type-mono text-text-subtle", className)}
 			{...props}
 		/>
 	);

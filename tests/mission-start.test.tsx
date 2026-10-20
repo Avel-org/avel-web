@@ -1,6 +1,7 @@
 import {
 	type Brief,
 	type PreconditionDetails,
+	READINESS_REASONS,
 	type RosterEntry,
 	rosterEntrySchema,
 } from "avel-server/contract";
@@ -11,9 +12,11 @@ import {
 	type MissionReadiness,
 	MissionStart,
 	planIssueText,
+	READINESS_CHECK_LABEL,
 	type ReadinessBlocker,
 	Refusal,
 	refusedBlocker,
+	SPEND_CEILING_UNSET,
 	startBlockedReason,
 } from "@/components/avel/mission-start";
 import type { SurfaceQuery } from "@/components/avel/surface";
@@ -22,6 +25,7 @@ import { waveTitle } from "@/lib/api/roster";
 import { PRECONDITION_COPY } from "@/lib/error-map";
 import { PREVIEW_USER, SignedInProvider } from "@/shell/auth-gate";
 import { catalogSeed, inProviders, seededClient } from "./catalog-fixtures";
+import { tagOf } from "./render-page";
 import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 const MISSION_ID = "66666666-6666-4666-8666-666666666666";
@@ -29,6 +33,7 @@ const ISO = "2026-10-13T12:00:00.000Z";
 const ATLAS_ENTRY_ID = "77777777-7777-4777-8777-777777777777";
 const LEON_ENTRY_ID = "88888888-8888-4888-8888-888888888888";
 const GONE_ENTRY_ID = "99999999-9999-4999-8999-999999999999";
+const CLIENT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function entry(
 	id: string,
@@ -301,7 +306,7 @@ describe("blockerDetails", () => {
 		expect(none?.text).toBe("No active agent in the playbook's first wave.");
 	});
 
-	it("sends a missing playbook to Playbooks", () => {
+	it("sends a missing playbook to the mission's playbook page (audit D6)", () => {
 		expect(
 			blockerDetails({
 				reason: "coherence_blocked",
@@ -311,7 +316,7 @@ describe("blockerDetails", () => {
 			{
 				key: "playbook",
 				text: "No live playbook matches this mission's type.",
-				link: { to: "/playbooks" },
+				link: { to: "/missions/$id/playbook" },
 			},
 		]);
 	});
@@ -336,21 +341,33 @@ describe("blockerDetails", () => {
 		expect(text).not.toContain("R2 is in no module");
 	});
 
-	it("adds nothing for checks the copy already covers", () => {
-		for (const reason of [
-			"mission_not_draft",
-			"engagement_closed",
-			"spend_ceiling_missing",
-		] as const)
-			expect(blockerDetails({ reason })).toEqual([]);
+	it("adds nothing for a mission that already started: there is nothing to fix", () => {
+		expect(blockerDetails({ reason: "mission_not_draft" })).toEqual([]);
+	});
+
+	it("says a spend limit can't be set yet, with no link (audit D6)", () => {
+		expect(blockerDetails({ reason: "spend_ceiling_missing" })).toEqual([
+			{ key: "unset", text: SPEND_CEILING_UNSET },
+		]);
+	});
+
+	it("sends a closed engagement to its client, when the client is known", () => {
+		const [line] = blockerDetails(
+			{ reason: "engagement_closed" },
+			{ clientId: CLIENT_ID },
+		);
+		expect(line?.link).toEqual({ to: "/clients/$id", clientId: CLIENT_ID });
+		const [bare] = blockerDetails({ reason: "engagement_closed" });
+		expect(bare?.link).toBeUndefined();
 	});
 });
 
 describe("startBlockedReason", () => {
 	it("enables Start only when ready and signed in", () => {
 		expect(startBlockedReason(READY, false)).toBeUndefined();
+		// The first blocker, as start would refuse with it.
 		expect(startBlockedReason(NOT_READY, false)).toBe(
-			"Clear every check below before starting",
+			PRECONDITION_COPY.mission_not_draft.what,
 		);
 		expect(startBlockedReason({ status: "pending" }, false)).toBe(
 			"Checking whether it's ready",
@@ -415,9 +432,46 @@ describe("MissionStart", () => {
 		expect(html).toMatch(
 			/data-testid="mission-start-button"[^>]*disabled=""|disabled=""[^>]*data-testid="mission-start-button"/,
 		);
-		expect(html).toContain("Clear every check below before starting");
+		expect(region(html, "mission-start-reason")).toMatch(
+			new RegExp(`^ ?${PRECONDITION_COPY.mission_not_draft.what}`),
+		);
 		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
 		expect(html).not.toContain("server words");
+	});
+
+	it("shows every check, passing ones with a pass glyph, in the server's order", () => {
+		const html = render(
+			<MissionStart
+				mission={{ id: MISSION_ID, status: "draft" }}
+				readiness={ready({
+					missionId: MISSION_ID,
+					ready: false,
+					blockers: [{ reason: "spend_ceiling_missing" }],
+				})}
+				{...props}
+			/>,
+		);
+		const checks = [...html.matchAll(/data-check="([a-z_]+)"/g)].map(
+			(m) => m[1],
+		);
+		expect(checks).toEqual([...READINESS_REASONS]);
+		READINESS_REASONS.forEach((reason, i) => {
+			const row = tagOf(html, `mission-readiness-${i}`);
+			const state = reason === "spend_ceiling_missing" ? "block" : "pass";
+			expect(row, reason).toContain(`data-state="${state}"`);
+			expect(region(html, `mission-readiness-${i}-label`)).toMatch(
+				new RegExp(
+					`^ ?${READINESS_CHECK_LABEL[reason].replace("'", "&#x27;")}`,
+				),
+			);
+		});
+		expect(region(html, "mission-readiness-5-lines-0")).toMatch(
+			/^ ?Can&#x27;t be set yet/,
+		);
+		expect(html).not.toContain("mission-readiness-5-lines-0-link");
+		expect(region(html, "mission-start-reason")).toMatch(
+			new RegExp(`^ ?${PRECONDITION_COPY.spend_ceiling_missing.what}`),
+		);
 	});
 
 	it("enables Start when every check passes", () => {

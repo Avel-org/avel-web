@@ -35,14 +35,17 @@ function SelectTrigger({
 			data-slot="select-trigger"
 			data-size={size}
 			className={cn(
-				"flex w-fit items-center justify-between field-inset gap-2 rounded-xs border border-input bg-app-field px-3 py-2 text-sm whitespace-nowrap transition-colors duration-(--duration-micro) ease-avel focus-visible:outline-none focus-visible:border-text-muted focus-visible:bg-app-raised disabled:cursor-not-allowed disabled:opacity-(--opacity-disabled) aria-invalid:border-destructive data-[placeholder]:text-text-subtle data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+				// v3 .field as a trigger: Input's box, ring and invalid state, a 14px
+				// subtle chevron. `!`: the global :focus-visible outline sits
+				// outside the layers, and the field's own ring already shows focus.
+				"field-surface flex w-fit items-center justify-between gap-2 rounded-control px-2.5 type-body whitespace-nowrap text-text transition-[border-color,box-shadow] duration-(--duration-micro) ease-avel focus-visible:outline-none! disabled:cursor-not-allowed disabled:bg-app-raised disabled:text-text-subtle data-[placeholder]:text-text-subtle data-[size=default]:h-control-md data-[size=sm]:h-control-sm *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-text-subtle",
 				className,
 			)}
 			{...props}
 		>
 			{children}
 			<SelectPrimitive.Icon asChild>
-				<ChevronDownIcon className="size-4 text-text-subtle" />
+				<ChevronDownIcon className="size-3.5 text-text-subtle" />
 			</SelectPrimitive.Icon>
 		</SelectPrimitive.Trigger>
 	);
@@ -60,7 +63,8 @@ function SelectContent({
 			<SelectPrimitive.Content
 				data-slot="select-content"
 				className={cn(
-					"relative z-(--z-popover) max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto surface-steel rounded-md border border-border-strong bg-popover text-popover-foreground shadow-e2 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-(--duration-micro) ease-avel",
+					// v3 .menu: the float surface, card radius and popover shadow.
+					"relative z-(--z-popover) max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-card bg-app-float bg-clip-padding text-text shadow-popover data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-(--duration-micro) ease-avel",
 					position === "popper" &&
 						"data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
 					className,
@@ -72,7 +76,7 @@ function SelectContent({
 				<SelectScrollUpButton />
 				<SelectPrimitive.Viewport
 					className={cn(
-						"p-1",
+						"p-1.5",
 						position === "popper" &&
 							"h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1",
 					)}
@@ -92,7 +96,10 @@ function SelectLabel({
 	return (
 		<SelectPrimitive.Label
 			data-slot="select-label"
-			className={cn("px-2 pt-2 pb-1 type-caption text-text-subtle", className)}
+			className={cn(
+				"px-2.5 pt-2 pb-1 type-caption text-text-subtle",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -101,26 +108,45 @@ function SelectLabel({
 function SelectItem({
 	className,
 	children,
+	disabledReason,
+	disabled,
 	...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+}: React.ComponentProps<typeof SelectPrimitive.Item> & {
+	/**
+	 * Disables the option and prints why in its row (v3 UX 6
+	 * .is-unavailable). The reason sits outside the item's text, so the
+	 * trigger never shows it.
+	 */
+	disabledReason?: string;
+}) {
 	return (
 		<SelectPrimitive.Item
 			data-slot="select-item"
+			disabled={disabled === true || disabledReason !== undefined}
 			className={cn(
-				"relative flex h-8 w-full cursor-default items-center gap-2 rounded-sm pr-8 pl-2 type-body outline-hidden select-none focus:bg-accent-surface focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-(--opacity-disabled) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+				"data-[disabled]:h-auto data-[disabled]:min-h-9 data-[disabled]:flex-wrap data-[disabled]:gap-y-0.5 data-[disabled]:py-2",
+				"relative flex h-9 w-full cursor-default items-center gap-2.5 rounded-control pr-8 pl-2.5 type-body outline-hidden select-none focus:bg-app-raised focus:text-text data-[disabled]:pointer-events-none data-[disabled]:text-text-subtle [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-text-subtle *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
 				className,
 			)}
 			{...props}
 		>
 			<span
 				data-slot="select-item-indicator"
-				className="absolute right-2 flex size-3.5 items-center justify-center"
+				className="absolute right-2.5 flex size-4 items-center justify-center"
 			>
 				<SelectPrimitive.ItemIndicator>
-					<CheckIcon className="size-4" />
+					<CheckIcon className="size-4 text-accent-text" />
 				</SelectPrimitive.ItemIndicator>
 			</span>
 			<SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+			{disabledReason === undefined ? null : (
+				<span
+					data-slot="item-reason"
+					className="ml-auto type-caption text-text-muted"
+				>
+					{disabledReason}
+				</span>
+			)}
 		</SelectPrimitive.Item>
 	);
 }
@@ -132,7 +158,10 @@ function SelectSeparator({
 	return (
 		<SelectPrimitive.Separator
 			data-slot="select-separator"
-			className={cn("pointer-events-none -mx-1 my-1 h-px bg-border", className)}
+			className={cn(
+				"pointer-events-none -mx-1.5 my-1.5 h-px bg-border",
+				className,
+			)}
 			{...props}
 		/>
 	);

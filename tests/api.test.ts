@@ -41,6 +41,7 @@ const { createApp } = (await import(/* @vite-ignore */ `${server}app.ts`)) as {
 		db: () => unknown;
 		webOrigins: readonly string[];
 		preview: boolean;
+		drive: unknown;
 	}) => ServerApp;
 };
 const { fixedClock } = (await import(
@@ -53,6 +54,16 @@ const { sequentialIds } = (await import(
 const { silentLogger } = (await import(
 	/* @vite-ignore */ `${server}lib/logger.ts`
 )) as { silentLogger: () => unknown };
+
+// The Drive's byte store, in memory (no disk), as the server's own test
+// harnesses build it. AppDeps is all-required, so the app needs one even
+// though these tests never upload.
+const { memoryBlobs } = (await import(
+	/* @vite-ignore */ `${server}gateways/blob.ts`
+)) as { memoryBlobs: () => unknown };
+const { DEFAULT_UPLOAD_MAX_BYTES } = (await import(
+	/* @vite-ignore */ `${server}routes/files.ts`
+)) as { DEFAULT_UPLOAD_MAX_BYTES: number };
 
 // The one stand-in: auth's session lookup, which always answers "no session".
 // Health is public (src/middleware/auth.ts, isPublicPath), so it never asks;
@@ -76,6 +87,7 @@ const realApp = ({ preview = false } = {}) =>
 		db: noDatabase,
 		webOrigins: [],
 		preview,
+		drive: { blobs: memoryBlobs(), maxBytes: DEFAULT_UPLOAD_MAX_BYTES },
 	});
 
 async function read(res: Response) {

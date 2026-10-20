@@ -26,24 +26,45 @@ const NO_KEY = "avel.data-panel.unkeyed";
  * `storageKey` remembers the open state per viewer (src/lib/stored.ts). The
  * server always renders `defaultOpen`; a remembered state applies after mount.
  *
+ * It is a v3 card. The header sits on the band surface, as a table header
+ * does, so the rows below read as its body.
+ *
  * It clips with overflow-clip, not overflow-hidden: hidden makes a scroll
  * container, which would pin a DataTable's sticky header inside the panel
  * instead of under the page's top bar.
+ *
+ * One anatomy for every panel: a 48px header (title, count, actions at its
+ * end), the body, and an optional `footer` band (bg-app-band, a hairline
+ * above) for the region's read age on the left and its "All …" link on the
+ * right. `toolbar` is the header's second row: the controls for the panel's
+ * list (search, filters, view, sort), wrapping as the width needs.
  */
 export function DataPanel({
 	title,
 	count,
 	tone = "neutral",
 	actions,
+	toolbar,
+	footer,
 	defaultOpen = true,
 	storageKey,
+	hideCount = false,
+	className,
 	children,
 	"data-testid": testId,
 }: {
 	title: string;
 	count?: number;
+	/** A panel that counts nothing (a page's section) shows no badge. */
+	hideCount?: boolean;
+	/** Layout only (a grid span); the panel's look is its own. */
+	className?: string;
 	tone?: DataPanelTone;
 	actions?: ReactNode;
+	/** The list's controls: the header's second row, wrapping as needed. */
+	toolbar?: ReactNode;
+	/** A band under the body: read age on the left, an "All …" link on the right. */
+	footer?: ReactNode;
 	defaultOpen?: boolean;
 	storageKey?: string;
 	children: ReactNode;
@@ -68,13 +89,18 @@ export function DataPanel({
 			data-testid={testId}
 			data-state={open ? "open" : "closed"}
 			aria-labelledby={titleId}
-			className="plate overflow-clip rounded-md border"
+			className={cn(
+				"overflow-clip rounded-card border border-border bg-app-panel shadow-card",
+				className,
+			)}
 		>
 			<header
 				data-testid={`${testId}-header`}
 				className={cn(
-					"flex items-center gap-2 bg-app-band pr-2 transition-[border-color,box-shadow] duration-(--duration-state) ease-avel",
-					open ? "groove-b" : "border-b border-transparent",
+					// Wraps: on a phone the actions drop under the title, in one row
+					// at its end, rather than squeezing it (v3 UX 7).
+					"flex flex-wrap items-center gap-x-2 border-b bg-app-band pr-2 transition-[border-color] duration-(--duration-state) ease-avel",
+					open ? "border-border" : "border-transparent",
 				)}
 			>
 				<button
@@ -83,7 +109,7 @@ export function DataPanel({
 					aria-expanded={open}
 					aria-controls={bodyId}
 					onClick={toggle}
-					className="focus-inset flex h-10 min-w-0 flex-1 items-center gap-2 px-3 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover"
+					className="focus-inset flex h-12 min-w-[min(100%,12rem)] flex-1 items-center gap-2 px-3 text-left transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised"
 				>
 					<ChevronRight
 						aria-hidden="true"
@@ -93,24 +119,27 @@ export function DataPanel({
 						)}
 					/>
 					{tone === "neutral" ? null : <PanelGlyph tone={tone} />}
-					<h2
-						id={titleId}
-						className="type-panel-title truncate text-foreground"
-					>
+					<h2 id={titleId} className="type-title truncate text-text">
 						{title}
 					</h2>
-					<Badge
-						variant="tag"
-						data-testid={`${testId}-count`}
-						className="type-mono-small"
-					>
-						{count === undefined ? "—" : count}
-					</Badge>
+					{hideCount ? null : (
+						<Badge variant="count" data-testid={`${testId}-count`}>
+							{count === undefined ? "—" : count}
+						</Badge>
+					)}
 				</button>
+				{toolbar ? (
+					<div
+						data-testid={`${testId}-toolbar`}
+						className="flex min-w-0 basis-full flex-wrap items-center gap-2 px-3 pb-3"
+					>
+						{toolbar}
+					</div>
+				) : null}
 				{actions ? (
 					<div
 						data-testid={`${testId}-actions`}
-						className="flex shrink-0 items-center gap-1"
+						className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1 max-sm:pb-2 max-sm:pl-3"
 					>
 						{actions}
 					</div>
@@ -121,11 +150,24 @@ export function DataPanel({
 				data-testid={`${testId}-body`}
 				inert={!open}
 				className={cn(
-					"grid transition-[grid-template-rows] duration-(--duration-state) ease-avel",
+					"grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows] duration-(--duration-state) ease-avel",
 					open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
 				)}
 			>
-				<div className="min-h-0 overflow-clip">{children}</div>
+				{/* min-w-0: clip, unlike hidden, leaves a grid item's minimum
+				    width at its content's, so one long line would widen the
+				    panel past its column. */}
+				<div className="min-h-0 min-w-0 overflow-clip">
+					{children}
+					{footer ? (
+						<div
+							data-testid={`${testId}-footer`}
+							className="flex items-center justify-between gap-2 border-t border-border bg-app-band px-4 py-2"
+						>
+							{footer}
+						</div>
+					) : null}
+				</div>
 			</div>
 		</section>
 	);

@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { skillsNeedingReview } from "./catalog-placeholders";
+import { ROW_LINK_GROUP, RowChevron } from "./row-link";
 import { StatusGlyph } from "./status-pill";
 
 /*
@@ -63,27 +64,26 @@ export function reviewBannerText(count: number): string {
 	return count === 1 ? "1 update needs review" : `${count} updates need review`;
 }
 
-export function SkillSidebar({
+/**
+ * The Skills panel's toolbar: the search, then, while any skill waits for
+ * review, the review banner, which is the drafts filter (its link toggles
+ * `filter=drafts`). Both live in the URL. `skills` is empty until the list
+ * has read, so the banner waits for it.
+ */
+export function SkillToolbar({
 	skills,
-	selected,
 	q,
 	draftsOnly,
 	onFilter,
 }: {
 	skills: readonly SkillListItem[];
-	selected: string | undefined;
 	q: string | undefined;
 	draftsOnly: boolean;
 	onFilter: (text: string) => void;
 }) {
 	const review = skillsNeedingReview(skills).length;
-	const groups = groupBySource(filterSkills(skills, q, draftsOnly));
 	return (
-		<section
-			aria-label="Skills"
-			data-testid="skill-sidebar"
-			className="flex min-h-0 flex-col gap-3"
-		>
+		<div className="flex w-full min-w-0 flex-col gap-2">
 			<div className="relative">
 				<Search
 					aria-hidden="true"
@@ -102,6 +102,29 @@ export function SkillSidebar({
 			{review > 0 ? (
 				<ReviewBanner count={review} active={draftsOnly} q={q} />
 			) : null}
+		</div>
+	);
+}
+
+/** The skills the filters keep, grouped by source: the Skills panel's body. */
+export function SkillSidebar({
+	skills,
+	selected,
+	q,
+	draftsOnly,
+}: {
+	skills: readonly SkillListItem[];
+	selected: string | undefined;
+	q: string | undefined;
+	draftsOnly: boolean;
+}) {
+	const groups = groupBySource(filterSkills(skills, q, draftsOnly));
+	return (
+		<section
+			aria-label="Skills"
+			data-testid="skill-sidebar"
+			className="flex min-h-0 flex-col gap-3"
+		>
 			{groups.length === 0 ? (
 				<p
 					data-testid="skill-sidebar-none"
@@ -165,8 +188,11 @@ function ReviewBanner({
 			data-testid="skill-review-banner"
 			data-active={active || undefined}
 			className={cn(
-				"surface-steel focus-inset flex items-center gap-2 rounded-sm border border-border bg-app-band px-3 py-2 transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover",
-				active && "border-gate-pending-line",
+				ROW_LINK_GROUP,
+				"focus-inset flex min-h-10 items-center gap-2 rounded-control border px-3 py-2 transition-colors duration-(--duration-micro) ease-avel",
+				active
+					? "border-selected-border bg-selected"
+					: "border-border bg-app-panel hover:border-border-strong hover:bg-app-raised",
 			)}
 		>
 			<StatusGlyph tone="pending" className="text-gate-pending" />
@@ -176,6 +202,7 @@ function ReviewBanner({
 			<span className="type-caption text-text-subtle">
 				{active ? "Show all" : "Show drafts"}
 			</span>
+			<RowChevron />
 		</Link>
 	);
 }
@@ -183,7 +210,8 @@ function ReviewBanner({
 /**
  * One skill in the sidebar: its name, its description on one line, and a
  * small mark for its status. A draft carries a pending dot; a retired skill
- * is dimmed. The row is a link, so a selection is a URL.
+ * goes quiet, its words in the subtle ink (v3 UX 6), never faded by opacity.
+ * The row is a link, so a selection is a URL.
  */
 export function SkillRegistryRow({
 	skill,
@@ -208,16 +236,18 @@ export function SkillRegistryRow({
 			data-status={skill.status}
 			data-selected={selected || undefined}
 			className={cn(
-				"focus-inset relative flex flex-col gap-0.5 rounded-sm px-3 py-2 transition-colors duration-(--duration-micro) ease-avel hover:bg-state-hover",
+				"focus-inset relative flex flex-col gap-0.5 rounded-control px-3 py-2 transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised",
 				selected &&
-					"bg-state-selected before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent hover:bg-state-selected",
-				skill.status === "retired" && "opacity-(--opacity-disabled)",
+					"bg-selected before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent hover:bg-selected",
 			)}
 		>
 			<span className="flex items-center gap-2">
 				<span
 					data-testid="skill-row-name"
-					className="type-small min-w-0 flex-1 truncate font-medium text-foreground"
+					className={cn(
+						"type-small min-w-0 flex-1 truncate font-medium",
+						skill.status === "retired" ? "text-text-subtle" : "text-foreground",
+					)}
 					title={skill.name}
 				>
 					{skill.name}
@@ -235,7 +265,12 @@ export function SkillRegistryRow({
 					<span className="sr-only">, retired</span>
 				) : null}
 			</span>
-			<span className="type-caption truncate text-text-muted">
+			<span
+				className={cn(
+					"type-caption truncate",
+					skill.status === "retired" ? "text-text-subtle" : "text-text-muted",
+				)}
+			>
 				{skill.description}
 			</span>
 		</Link>

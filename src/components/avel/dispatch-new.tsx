@@ -31,15 +31,55 @@ import {
 	ActionModal,
 	type FieldIssue,
 	type IssuePath,
+	issuesOf,
 	ModalField,
 } from "./action-modal";
+import { ActorMark } from "./actor";
 import { useOpenGeneration } from "./use-open-generation";
 
 /*
  * Queueing a dispatch (module 6): one active roster entry, on one module of
  * the plan and the requirements chosen from it, with its token estimate and
  * ceilings (prefilled from the roster entry) and a wall-clock limit.
+ *
+ * Three steps, as v3's step pills: the agent, picked from option cards
+ * (v3 .option); the brief, a module and its requirements; then the
+ * ceilings. Each step's fields are checked before the next. A refusal
+ * jumps back to the earliest step one of its issues is on.
  */
+
+/** The steps, and which fields each one holds. */
+export const DISPATCH_STEPS = ["Agent", "Brief", "Ceilings"] as const;
+
+const STEP_FIELDS: readonly (readonly DispatchField[])[] = [
+	["rosterEntryId"],
+	["moduleId", "requirementIds"],
+	[
+		"estimatedTokens",
+		"tokenSoftCeiling",
+		"tokenHardCeiling",
+		"wallClockMinutes",
+	],
+];
+
+/** The step a field is on. */
+export function stepOf(field: DispatchField): number {
+	return STEP_FIELDS.findIndex((fields) => fields.includes(field));
+}
+
+/** The earliest step a refusal points at, or null when it names no field. */
+export function refusedStep(
+	error: ApiError | null,
+	roster: readonly RosterEntry[] | undefined,
+): number | null {
+	if (error === null) return null;
+	if (refusedAgentsLine(error, roster) !== null) return 0;
+	const steps = issuesOf(error)
+		.map((issue) => dispatchFieldOf(issue.path))
+		.filter((field): field is DispatchField => field !== null)
+		.map(stepOf);
+	return steps.length === 0 ? null : Math.min(...steps);
+}
 
 /** The form as typed: numbers stay text until they are sent. */
 export type DispatchDraft = {
@@ -227,6 +267,7 @@ export function NewDispatchForm({
 	roster,
 	brief,
 	initial,
+	initialStep = 0,
 	pending,
 	error,
 	onSubmit,
@@ -239,6 +280,8 @@ export function NewDispatchForm({
 	roster?: readonly RosterEntry[];
 	brief: Brief | null;
 	initial?: DispatchDraft;
+	/** For a test: the step to open on. */
+	initialStep?: number;
 	pending: boolean;
 	error: ApiError | null;
 	onSubmit: (body: CreateDispatchBody) => void;
@@ -248,8 +291,16 @@ export function NewDispatchForm({
 		() => initial ?? initialDraft(entries, modules),
 	);
 	const [tried, setTried] = useState(false);
+	const [step, setStep] = useState(initialStep);
 	const problems = draftProblems(draft);
 	const shown = tried ? problems : {};
+	// A refusal lands on the earliest step it points at, once per refusal.
+	const [seenError, setSeenError] = useState<ApiError | null>(null);
+	if (error !== seenError) {
+		setSeenError(error);
+		const back = refusedStep(error, roster ?? entries);
+		if (back !== null && back < step) setStep(back);
+	}
 	const module = modules.find((m) => m.id === draft.moduleId);
 	const requirementText = new Map(
 		(brief?.requirements ?? []).map((r) => [r.id, r.text]),
@@ -278,9 +329,15 @@ export function NewDispatchForm({
 				: draft.requirementIds.filter((r) => r !== id),
 		});
 
+	const last = step === DISPATCH_STEPS.length - 1;
+	const stepClear = (STEP_FIELDS[step] ?? []).every((f) => !problems[f]);
 	const submit = () => {
 		setTried(true);
-		if (Object.keys(problems).length === 0) onSubmit(bodyOf(draft));
+		if (!stepClear) return;
+		if (!last) {
+			setTried(false);
+			setStep(step + 1);
+		} else if (Object.keys(problems).length === 0) onSubmit(bodyOf(draft));
 	};
 
 	const blocked =
@@ -298,10 +355,19 @@ export function NewDispatchForm({
 			size="form"
 			title="New dispatch"
 			description="Queue one agent on one module of the plan. It starts when a room is free."
-			dirty={tried}
-			submitLabel="Queue the dispatch"
+			dirty={tried || step > 0}
+			submitLabel={
+				last ? "Queue the dispatch" : `Next: ${DISPATCH_STEPS[step + 1]}`
+			}
 			pendingLabel="Queueing"
 			onSubmit={submit}
+			steps={DISPATCH_STEPS}
+			step={step}
+			stepStyle="pills"
+			onBack={() => {
+				setTried(false);
+				setStep(Math.max(0, step - 1));
+			}}
 			pending={pending}
 			submitDisabledReason={blocked}
 			error={error}
@@ -309,164 +375,215 @@ export function NewDispatchForm({
 			describeIssue={describeDispatchIssue}
 			data-testid="dispatch-new-modal"
 		>
-			<ModalField
-				name="rosterEntryId"
-				label="Agent"
-				error={shown.rosterEntryId ?? agentsLine ?? undefined}
-				testid="dispatch-new-agent"
-			>
-				{(props) => (
-					<Select
-						value={draft.rosterEntryId}
-						onValueChange={chooseEntry}
-						disabled={entries.length === 0}
-					>
-						<SelectTrigger {...props} className="w-full">
-							<SelectValue placeholder="No active agent" />
-						</SelectTrigger>
-						<SelectContent>
-							{entries.map((e) => (
-								<SelectItem key={e.id} value={e.id}>
-									{entryName(e)}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				)}
-			</ModalField>
-
-			<ModalField
-				name="moduleId"
-				label="Module"
-				error={shown.moduleId}
-				testid="dispatch-new-module"
-			>
-				{(props) => (
-					<Select
-						value={draft.moduleId}
-						onValueChange={chooseModule}
-						disabled={modules.length === 0}
-					>
-						<SelectTrigger {...props} className="w-full">
-							<SelectValue placeholder="The plan has no modules" />
-						</SelectTrigger>
-						<SelectContent>
-							{modules.map((m) => (
-								<SelectItem key={m.id} value={m.id}>
-									<span className="type-mono-small">{m.id}</span> {m.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				)}
-			</ModalField>
-
-			{module ? (
+			{step === 0 ? (
 				<ModalField
-					name="requirementIds"
-					label="Requirements"
-					hint="From the module"
-					error={shown.requirementIds}
-					testid="dispatch-new-requirements"
+					name="rosterEntryId"
+					label="Agent"
+					error={shown.rosterEntryId ?? agentsLine ?? undefined}
+					testid="dispatch-new-agent"
 				>
-					{(props) => (
-						<fieldset
-							data-testid={props["data-testid"]}
-							aria-invalid={props["aria-invalid"]}
-							aria-describedby={props["aria-describedby"]}
-							className="flex flex-col gap-1.5"
-						>
-							{module.requirementIds.map((id) => (
-								<div key={id} className="flex items-start gap-2">
-									<Checkbox
-										id={`${props.id}-${id}`}
-										checked={draft.requirementIds.includes(id)}
-										onCheckedChange={(on) => toggleRequirement(id, on === true)}
-										data-testid={`dispatch-new-requirement-${id}`}
+					{(props) =>
+						entries.length === 0 ? (
+							<p
+								data-testid={props["data-testid"]}
+								className="type-small text-text-subtle"
+							>
+								No active agent on the roster.
+							</p>
+						) : (
+							<fieldset
+								data-testid={props["data-testid"]}
+								aria-invalid={props["aria-invalid"]}
+								aria-describedby={props["aria-describedby"]}
+								className="grid gap-2 sm:grid-cols-2"
+							>
+								{entries.map((e) => (
+									<AgentOption
+										key={e.id}
+										entry={e}
+										selected={draft.rosterEntryId === e.id}
+										onChoose={() => chooseEntry(e.id)}
 									/>
-									<label
-										htmlFor={`${props.id}-${id}`}
-										className="flex min-w-0 gap-2 type-small text-foreground"
-									>
-										<span className="type-mono-small text-text-muted">
-											{id}
-										</span>
-										<span className="min-w-0">
-											{requirementText.get(id) ?? ""}
-										</span>
-									</label>
-								</div>
-							))}
-						</fieldset>
-					)}
+								))}
+							</fieldset>
+						)
+					}
 				</ModalField>
 			) : null}
 
-			<div className="grid gap-4 sm:grid-cols-2">
-				<ModalField
-					name="estimatedTokens"
-					label="Estimated tokens"
-					hint="From the roster"
-					error={shown.estimatedTokens}
-					testid="dispatch-new-estimate"
-				>
-					{(props) => (
-						<Input
-							{...props}
-							{...intProps}
-							value={draft.estimatedTokens}
-							onChange={(e) => set({ estimatedTokens: e.target.value })}
-						/>
-					)}
-				</ModalField>
-				<ModalField
-					name="wallClockMinutes"
-					label="Time limit, minutes"
-					hint={`Up to ${MAX_WALL_CLOCK_MINUTES}`}
-					error={shown.wallClockMinutes}
-					testid="dispatch-new-minutes"
-				>
-					{(props) => (
-						<Input
-							{...props}
-							{...intProps}
-							value={draft.wallClockMinutes}
-							onChange={(e) => set({ wallClockMinutes: e.target.value })}
-						/>
-					)}
-				</ModalField>
-				<ModalField
-					name="tokenSoftCeiling"
-					label="Soft token limit"
-					error={shown.tokenSoftCeiling}
-					testid="dispatch-new-soft"
-				>
-					{(props) => (
-						<Input
-							{...props}
-							{...intProps}
-							value={draft.tokenSoftCeiling}
-							onChange={(e) => set({ tokenSoftCeiling: e.target.value })}
-						/>
-					)}
-				</ModalField>
-				<ModalField
-					name="tokenHardCeiling"
-					label="Hard token limit"
-					error={shown.tokenHardCeiling}
-					testid="dispatch-new-hard"
-				>
-					{(props) => (
-						<Input
-							{...props}
-							{...intProps}
-							value={draft.tokenHardCeiling}
-							onChange={(e) => set({ tokenHardCeiling: e.target.value })}
-						/>
-					)}
-				</ModalField>
-			</div>
+			{step === 1 ? (
+				<>
+					<ModalField
+						name="moduleId"
+						label="Module"
+						error={shown.moduleId}
+						testid="dispatch-new-module"
+					>
+						{(props) => (
+							<Select
+								value={draft.moduleId}
+								onValueChange={chooseModule}
+								disabled={modules.length === 0}
+							>
+								<SelectTrigger {...props} className="w-full">
+									<SelectValue placeholder="The plan has no modules" />
+								</SelectTrigger>
+								<SelectContent>
+									{modules.map((m) => (
+										<SelectItem key={m.id} value={m.id}>
+											<span className="type-mono">{m.id}</span> {m.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						)}
+					</ModalField>
+
+					{module ? (
+						<ModalField
+							name="requirementIds"
+							label="Requirements"
+							hint="From the module"
+							error={shown.requirementIds}
+							testid="dispatch-new-requirements"
+						>
+							{(props) => (
+								<fieldset
+									data-testid={props["data-testid"]}
+									aria-invalid={props["aria-invalid"]}
+									aria-describedby={props["aria-describedby"]}
+									className="flex flex-col gap-1.5"
+								>
+									{module.requirementIds.map((id) => (
+										<div key={id} className="flex items-start gap-2">
+											<Checkbox
+												id={`${props.id}-${id}`}
+												checked={draft.requirementIds.includes(id)}
+												onCheckedChange={(on) =>
+													toggleRequirement(id, on === true)
+												}
+												data-testid={`dispatch-new-requirement-${id}`}
+											/>
+											<label
+												htmlFor={`${props.id}-${id}`}
+												className="flex min-w-0 gap-2 type-small text-foreground"
+											>
+												<span className="type-mono text-text-muted">{id}</span>
+												<span className="min-w-0">
+													{requirementText.get(id) ?? ""}
+												</span>
+											</label>
+										</div>
+									))}
+								</fieldset>
+							)}
+						</ModalField>
+					) : null}
+				</>
+			) : null}
+
+			{step === 2 ? (
+				<div className="grid gap-4 sm:grid-cols-2">
+					<ModalField
+						name="estimatedTokens"
+						label="Estimated tokens"
+						hint="From the roster"
+						error={shown.estimatedTokens}
+						testid="dispatch-new-estimate"
+					>
+						{(props) => (
+							<Input
+								{...props}
+								{...intProps}
+								value={draft.estimatedTokens}
+								onChange={(e) => set({ estimatedTokens: e.target.value })}
+							/>
+						)}
+					</ModalField>
+					<ModalField
+						name="wallClockMinutes"
+						label="Time limit, minutes"
+						hint={`Up to ${MAX_WALL_CLOCK_MINUTES}`}
+						error={shown.wallClockMinutes}
+						testid="dispatch-new-minutes"
+					>
+						{(props) => (
+							<Input
+								{...props}
+								{...intProps}
+								value={draft.wallClockMinutes}
+								onChange={(e) => set({ wallClockMinutes: e.target.value })}
+							/>
+						)}
+					</ModalField>
+					<ModalField
+						name="tokenSoftCeiling"
+						label="Soft token limit"
+						error={shown.tokenSoftCeiling}
+						testid="dispatch-new-soft"
+					>
+						{(props) => (
+							<Input
+								{...props}
+								{...intProps}
+								value={draft.tokenSoftCeiling}
+								onChange={(e) => set({ tokenSoftCeiling: e.target.value })}
+							/>
+						)}
+					</ModalField>
+					<ModalField
+						name="tokenHardCeiling"
+						label="Hard token limit"
+						error={shown.tokenHardCeiling}
+						testid="dispatch-new-hard"
+					>
+						{(props) => (
+							<Input
+								{...props}
+								{...intProps}
+								value={draft.tokenHardCeiling}
+								onChange={(e) => set({ tokenHardCeiling: e.target.value })}
+							/>
+						)}
+					</ModalField>
+				</div>
+			) : null}
 		</ActionModal>
+	);
+}
+
+/**
+ * One agent to pick, as a v3 .option card: its tile, its name, its
+ * territory. Pressed is v3's one selected state (R10): the selected fill
+ * and edge, nothing louder.
+ */
+function AgentOption({
+	entry,
+	selected,
+	onChoose,
+}: {
+	entry: RosterEntry;
+	selected: boolean;
+	onChoose: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			aria-pressed={selected}
+			data-testid={`dispatch-new-agent-option-${entry.id}`}
+			onClick={onChoose}
+			className="flex min-w-0 items-center gap-3 rounded-card border border-border bg-app-panel p-3 text-left transition-colors duration-(--duration-micro) ease-avel hover:border-border-strong active:scale-[0.995] aria-pressed:border-selected-border aria-pressed:bg-selected"
+		>
+			<ActorMark kind="agent" name={entry.agentTemplate.name} size="md" />
+			<span className="flex min-w-0 flex-col">
+				<span className="truncate type-body font-medium text-text">
+					{entry.agentTemplate.name}
+				</span>
+				<span className="truncate type-caption text-text-muted">
+					{entry.territory ?? "No territory"}
+				</span>
+			</span>
+		</button>
 	);
 }
 

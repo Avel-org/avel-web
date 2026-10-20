@@ -120,6 +120,36 @@ describe("<Surface> renders exactly one of its states", () => {
 		expect(out).not.toContain("Try again");
 	});
 
+	it("error: v3's couldn't-load box, with the envelope's code in mono when there is one", () => {
+		const notFound = new ApiError({
+			method: "GET",
+			path: "/api/missions/x",
+			kind: "contract",
+			status: 404,
+			code: "NOT_FOUND",
+			message: "no such mission",
+		} as ConstructorParameters<typeof ApiError>[0]);
+		const out = html(
+			<Surface data-testid="r" query={failed(notFound)} {...states}>
+				{() => <p>never</p>}
+			</Surface>,
+		);
+		const box = out.match(/<div role="alert"[^>]*>/)?.[0] ?? "";
+		for (const cls of ["bg-gate-block-soft", "border-gate-block-line"]) {
+			expect(box).toContain(cls);
+		}
+		expect(out).toMatch(
+			/data-testid="surface-error-code"[^>]*>.*<code class="type-mono[^"]*">NOT_FOUND<\/code>/s,
+		);
+		expect(
+			html(
+				<Surface data-testid="r" query={failed(unreachable)} {...states}>
+					{() => <p>never</p>}
+				</Surface>,
+			),
+		).not.toContain("surface-error-code");
+	});
+
 	it("error: shows the request reference whole, in mono, with a copy button", () => {
 		// A long id: hashes are content, so it wraps and is never truncated.
 		const id = "req_7f3c9a0b2e1d4c6f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d";
@@ -151,7 +181,7 @@ describe("<Surface> renders exactly one of its states", () => {
 		);
 		expect(value?.[1]).toBe(id);
 		const code = value?.[0] ?? "";
-		expect(code).toMatch(/\btype-mono-small\b/);
+		expect(code).toMatch(/\btype-mono\b/);
 		expect(code).toMatch(/\bbreak-all\b/);
 		expect(code).not.toMatch(/\btruncate\b|text-ellipsis|line-clamp/);
 		const copy =
@@ -237,6 +267,30 @@ describe("<Surface> renders exactly one of its states", () => {
 		);
 		expect(out).toMatch(/lucide-layers/);
 		expect(out).not.toMatch(/lucide-circle-dashed/);
+	});
+
+	it("not built, inline: one line for a narrow column, the why in its title and read out", () => {
+		const out = html(
+			<Surface
+				data-testid="r"
+				notBuilt={{
+					title: "The rule",
+					what: "No rule is recorded yet.",
+					needs: [],
+					size: "inline",
+					line: "Not recorded yet.",
+				}}
+			/>,
+		);
+		expect(out).toContain('data-testid="r" data-state="not-built"');
+		// No flex-1 column: it sits on a line, not filling a region.
+		expect(out).not.toMatch(/data-state="not-built" class="flex flex-1/);
+		const line = out.match(/<p[^>]*data-testid="surface-not-built"[^>]*>/)?.[0];
+		expect(line).toContain('title="No rule is recorded yet."');
+		expect(out).toContain(">Not built<");
+		expect(out).toContain(">Not recorded yet.<");
+		expect(out).toMatch(/class="sr-only">No rule is recorded yet\.</);
+		expect(out).toMatch(/lucide-circle-dashed/);
 	});
 });
 

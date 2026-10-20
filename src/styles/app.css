@@ -1,140 +1,155 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* One family (ruling 30): IBM Plex Sans for prose and headings, IBM Plex
-   Mono for machine text. Engineered faces for a machined surface. Plex Sans
-   is variable (weights 100-700, so 450 exists); Plex Mono ships no variable
-   build, so its two weights in use load as static files. */
-@import "@fontsource-variable/ibm-plex-sans";
+/* Type (design system v3): Inter for prose and headings, IBM Plex Mono for
+   machine text. Inter is variable, so the v3 weights 550, 620 and 650 exist;
+   Plex Mono ships no variable build, so its two weights in use load as
+   static files. */
+@import "@fontsource-variable/inter";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 
 /*
- * The only place token values are defined. Values come from
- * design/AVEL-DESIGN.md (2026-10-05); names and rationale from
- * avel-server/docs/patches/globals-patch.css.
+ * The only place token values are defined. Values come from the v3 design
+ * palette (design/AVEL-DESIGN.md, ruling 50): flat, light-first, one baby
+ * blue accent with a glow on primary actions. It replaces the steel look
+ * (sheen, grain, plates, engraving), and none of those tokens remain.
  *
  * `static` is load-bearing: Tailwind v4 drops theme tokens no utility class
  * uses, and AVEL reads many tokens through plain var(), which Tailwind cannot
- * see. Without it the previous build shipped correct in light mode and wrong
- * in dark, with a green build.
+ * see. `pnpm check-tokens` proves every token below reaches the build and is
+ * used somewhere in src/.
+ *
+ * Light is the default (`:root`); `.dark` on the app shell overrides it.
  */
-
-/* Brand tokens. The accent is the landing page's. Ruling 30 cools the text
-   and the window to the steel palette (the landing page's were #eeeeee and
-   #1a1d23); the window matches the sidebar, so nothing shows at the edges
-   before the app paints. */
 @theme static {
-	--color-bg: #121518;
-	--color-accent: #0092ca;
-	--color-text: #e8ecf0;
+	/* Only AVEL's scales exist: Tailwind's default radii, shadows, type sizes
+	   and families are cleared, so an off-system rounded-md or text-sm
+	   generates nothing instead of drifting from the palette. */
+	--radius-*: initial;
+	--shadow-*: initial;
+	--text-*: initial;
+	--font-*: initial;
 
-	--font-display: "IBM Plex Sans Variable", system-ui, sans-serif;
-	--font-sans: "IBM Plex Sans Variable", system-ui, sans-serif;
-	--font-mono: "IBM Plex Mono", ui-monospace, monospace;
-}
+	--font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+	--font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
 
-/* The Command Center set. Dark is the default; .light overrides below. */
-@theme static {
-	/* Surfaces (ruling 30, "Gunmetal"): cool blue-grey steel, hue about
-	   210-215 at very low chroma. The sidebar and window are the deepest
-	   frame (L* 6.6); the canvas sits 2 L* above it, the calm work surface.
-	   Band, field, raised and float climb in about 3 L* steps. */
-	--color-app-bg: #121518;
-	--color-app-recessed: #0f1215;
-	--color-app-panel: #16191d;
-	--color-app-band: #1b1f24;
-	--color-app-field: #1d2126;
-	--color-app-raised: #22272d;
-	--color-app-float: #262b31;
-	--color-skeleton: #1f2429;
+	/* Surfaces */
+	--color-app-canvas: #ededed; /* behind the app frame */
+	--color-app-bg: #f5f5f5; /* sidebar, frame */
+	--color-app-panel: #ffffff; /* content, cards, dialogs */
+	--color-app-band: #f9f9f9; /* dialog footer, table header */
+	--color-app-well: #f8f8f9; /* summary boxes inside panels and dialogs */
+	--color-app-field: #ffffff; /* inputs */
+	--color-app-raised: #f2f2f3; /* hover row, pressed control */
+	--color-app-float: #ffffff; /* popover, menu, dialog */
+	--color-skeleton: #ececee;
+	--color-chip: #ffffff; /* the selected chip above its track: segmented, nav */
 
-	/* Every text and gate colour measures at least 4.5:1 on every surface,
-	   including the sheen's top and the active and selected overlays. */
-	--color-text-muted: #aab3bd;
-	--color-text-subtle: #9da6b0;
+	/* Text. Muted is 5.2:1 and subtle 4.5:1 on app-bg. */
+	--color-text: #111214;
+	--color-text-muted: #66666d;
+	--color-text-subtle: #707077;
+	--color-text-on-solid: #ffffff;
 
-	--color-border: rgb(200 215 230 / 0.08);
-	--color-border-strong: rgb(200 215 230 / 0.14);
+	/* Lines. Control is the unchecked edge of a checkbox, radio or switch,
+	   held at 3:1. */
+	--color-border: #ebebec;
+	--color-border-strong: #dfdfe2;
+	--color-border-control: #8f8f97;
 
-	/* Metal (ruling 30), suggested by three things only: a faint vertical
-	   sheen, lighter at the top; a 1px top highlight, the light catching a
-	   chamfer; and a near-invisible brushed grain on the frame only. */
-	--color-sheen: rgb(255 255 255 / 0.035);
-	--color-edge-highlight: rgb(255 255 255 / 0.05);
-	--color-grain: rgb(255 255 255 / 0.015);
-	--color-inset-shadow: rgb(0 0 0 / 0.35);
-	--color-engrave: rgb(255 255 255 / 0.06);
+	/* Accent: what the operator can act on (focus, selection, the primary
+	   action, links). Machine states never use it (audit D3). */
+	--color-accent: #4b9bf2;
+	--color-accent-text: #1d6fd0; /* 5.0:1 on panel, 4.6:1 on accent-soft */
+	--color-accent-soft: #eef6ff;
+	--color-accent-line: #b9d8fa;
+	--color-focus-ring: #2f86e6; /* the 2px ring on every focusable control, 3.7:1 */
+	--color-focus-halo: rgb(
+		75 155 242 / 0.3
+	); /* the soft halo around a focused field */
+	--color-selected: #eef6ff;
+	--color-selected-border: #4a90e2;
+	/* Dark mode adds a faint top edge to raised surfaces, and an outline to
+	   floating ones, where shadows vanish. Both are invisible in light. */
+	--color-edge-top: rgb(255 255 255 / 0);
+	--color-float-outline: rgb(255 255 255 / 0);
+	/* Behind a modal. From the v3 shadow ink. */
+	--color-scrim: rgb(16 24 40 / 0.35);
 
-	/* The machined plate (ruling 37): a panel is a slab, not an outline. Its
-	   body sits one step above the canvas; its edge is a stronger line; a
-	   bright rim runs inside the top edge where the chamfer catches light; a
-	   shade runs inside the bottom edge; and a dark ledge falls under it. */
-	--color-app-plate: #181c21;
-	--color-border-plate: rgb(200 215 230 / 0.22);
-	--color-plate-rim: rgb(255 255 255 / 0.13);
-	--color-plate-shade: rgb(0 0 0 / 0.3);
-	--color-plate-ledge: rgb(0 0 0 / 0.55);
-	--color-plate-sheen: rgb(255 255 255 / 0.05);
+	/* The primary button: a gradient and a two-layer glow. Its white label
+	   measures 2.1:1 at the gradient's top and 3.2:1 at its bottom, below
+	   4.5:1: a brand exception awaiting the operator's decision (audit D8),
+	   compensated by weight 500 and a label shadow. */
+	--color-btn-primary-top: #74b8fc;
+	--color-btn-primary-bottom: #4893ec;
+	--color-btn-primary-border: #3f88e0;
+	--color-btn-primary-glow: rgb(75 155 242 / 0.5);
+	--color-btn-primary-glow-near: rgb(63 136 224 / 0.25);
+	--color-btn-highlight: rgb(255 255 255 / 0.38);
+	--color-btn-label-shadow: rgb(20 70 140 / 0.22);
 
-	/* The entity banner (rulings 38 and 41): the lit band at the head of an
-	   entity's page, under its name, stats and tabs. Deep here; .light
-	   gives it its own light values. */
-	--color-banner: #0c0f12;
-	--color-banner-line: rgb(200 215 230 / 0.12);
-	--color-banner-raised: rgb(200 215 230 / 0.07);
-	--color-banner-text: #e8ecf0;
-	--color-banner-muted: #aab3bd;
-	--color-banner-live: #22c55e;
+	/* The final confirm of a destructive action, and only that (audit D7,
+	   adopted 2026-10-19): a brighter coral gradient with a bloom on every
+	   side (v3 R8). Everywhere else a destructive action is outlined. */
+	--color-btn-danger-top: #e8725f;
+	--color-btn-danger-bottom: #d7503f;
+	--color-btn-danger-border: #c8483a;
+	--color-btn-danger-glow: rgb(222 89 77 / 0.42);
+	--color-btn-danger-glow-near: rgb(222 89 77 / 0.2);
+	--color-btn-danger-label-shadow: rgb(120 30 20 / 0.22);
 
-	/* One chromatic colour; nothing else is cyan or blue. */
-	--color-accent-text: #47afdb;
-	--color-accent-soft: rgb(0 146 202 / 0.12);
-	--color-accent-ink: #1a1d23;
-	--color-focus-ring: #0092ca;
+	/* Status. Each tone has text (4.5:1, also its glyph), solid (fills:
+	   meters, dots), soft (a pill's ground) and line (a pill's or banner's
+	   edge). Where v3 names no line, it is the solid at 35%, the rule the
+	   previous palette kept. Stale is pending's neutral grey, told apart by
+	   its broken ring (audit D2). */
+	--color-gate-pass: #1b7f55;
+	--color-gate-pass-solid: #1f9d63;
+	--color-gate-pass-soft: #e9f8f1;
+	--color-gate-pass-line: rgb(31 157 99 / 0.35);
+	--color-gate-block: #c0392f;
+	--color-gate-block-solid: #d64a3e;
+	--color-gate-block-soft: #fdeeee;
+	--color-gate-block-line: #f3c9c6;
+	--color-gate-warn: #8a5d00;
+	--color-gate-warn-solid: #d89a06;
+	--color-gate-warn-soft: #fdf5dc;
+	--color-gate-warn-line: #f2e2a8;
+	--color-gate-warn-banner: #fffbeb;
+	--color-gate-pending: #55585e;
+	--color-gate-pending-solid: #8d9097;
+	--color-gate-pending-soft: #f0f1f3;
+	--color-gate-pending-line: rgb(141 144 151 / 0.35);
 
-	/* Translucent overlays, so one token works on every surface. Disabled is
-	   opacity, not a colour: a disabled danger button still reads as danger. */
-	--color-state-hover: rgb(200 215 230 / 0.045);
-	--color-state-active: rgb(200 215 230 / 0.07);
-	--color-state-selected: rgb(0 146 202 / 0.12);
-	--opacity-disabled: 0.35;
+	/* Shape. One radius per element. */
+	--radius-xs: 5px; /* checkbox, kbd, hash */
+	--radius-sm: 6px; /* pills, tags, mini tiles */
+	--radius-tile: 9px; /* icon tiles */
+	--radius-control: 10px; /* buttons, inputs, segmented, nav items, rows */
+	--radius-card: 12px; /* cards, wells, menus, popovers */
+	--radius-dialog: 16px; /* dialogs, sheets, the app canvas */
+	--radius-full: 999px; /* avatars, dots, switches */
 
-	/* Gate states: solid, soft 12%, line 35%. Pending and stale are neutral so
-	   "pending" never collides with the accent. */
-	--color-gate-pass: #22c55e;
-	--color-gate-pass-soft: rgb(34 197 94 / 0.12);
-	--color-gate-pass-line: rgb(34 197 94 / 0.35);
-	--color-gate-block: #f58585;
-	--color-gate-block-soft: rgb(245 133 133 / 0.12);
-	--color-gate-block-line: rgb(245 133 133 / 0.35);
-	--color-gate-warn: #f59e0b;
-	--color-gate-warn-soft: rgb(245 158 11 / 0.12);
-	--color-gate-warn-line: rgb(245 158 11 / 0.35);
-	--color-gate-pending: #aab3bd;
-	--color-gate-pending-soft: rgb(170 179 189 / 0.12);
-	--color-gate-pending-line: rgb(170 179 189 / 0.35);
-	--color-gate-stale: #9da6b0;
-	--color-gate-stale-soft: rgb(157 166 176 / 0.12);
-	--color-gate-stale-line: rgb(157 166 176 / 0.35);
+	/* Size. A hit target is never under 24px. */
+	--spacing-control-sm: 28px;
+	--spacing-control-md: 32px;
+	--spacing-control-lg: 38px;
+	--spacing-tile-sm: 24px;
+	--spacing-tile-md: 32px;
+	--spacing-tile-lg: 36px;
 
-	/* Radius encodes hierarchy. These replace Tailwind's scale, so rounded-xs
-	   is 4px, rounded-sm 6px, and so on. One radius per element. */
-	--radius-xs: 4px; /* chips, tags, inputs, focus ring */
-	--radius-sm: 6px; /* buttons, list rows, small controls */
-	--radius-md: 10px; /* cards, panels, tables */
-	--radius-lg: 14px; /* popovers, sheets */
-	--radius-xl: 18px; /* modals, the app frame */
-	--radius-full: 999px; /* pills, status badges, avatars */
+	/* Elevation. Read through the shadow-* utilities below, which add the
+	   dark-mode edge and outline. */
+	--shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 1px rgb(16 24 40 / 0.02);
+	--shadow-btn: 0 1px 2px rgb(16 24 40 / 0.06);
+	--shadow-popover:
+		0 0 0 1px rgb(16 24 40 / 0.04), 0 8px 24px -6px rgb(16 24 40 / 0.14);
+	--shadow-dialog:
+		0 0 0 1px rgb(16 24 40 / 0.04), 0 2px 6px rgb(16 24 40 / 0.05),
+		0 24px 56px -12px rgb(16 24 40 / 0.22);
+	--shadow-drag: 0 10px 28px rgb(16 24 40 / 0.12);
 
-	/* Above the panel, elevation is border plus shadow, not lighter fills. */
-	--shadow-e0: none;
-	--shadow-e1: 0 1px 2px rgb(0 0 0 / 0.4);
-	--shadow-e2: 0 4px 14px rgb(0 0 0 / 0.45);
-	--shadow-e3: 0 16px 44px rgb(0 0 0 / 0.55);
-
-	--z-base: 0;
 	--z-raised: 10;
-	--z-window: 100; /* 100 to 199, reserved for evidence windows */
 	--z-dock: 200;
 	--z-popover: 300;
 	--z-modal: 400;
@@ -143,317 +158,270 @@
 	--row-comfortable: 12px;
 	--row-compact: 6px;
 
-	/* Shell geometry (ruling 17). The canvas is inset from the viewport and
-	   rounded; anything rounded inside it follows the concentric rule: inner
-	   radius = outer radius minus the padding between them. */
+	/* Shell geometry. The canvas is inset from the viewport and rounded
+	   (rounded-dialog); anything rounded inside it follows the concentric
+	   rule: inner radius = outer radius minus the padding between them. */
 	--canvas-inset: 8px;
-	--radius-canvas: 18px;
 	--topbar-height: 56px;
 	--content-max: 75rem;
 	--chat-max: 45rem;
 
-	/* Nothing bouncy, no overshoot. */
-	--duration-micro: 120ms; /* hover, focus, toggles */
-	--duration-state: 200ms; /* panel change, stamp, tab indicator */
-	--duration-enter: 320ms; /* entrances, gate draw-on */
+	/* Motion. Nothing bouncy, no overshoot. */
+	--duration-micro: 120ms; /* hover, focus, press, toggles */
+	--duration-state: 200ms; /* panel change, tab indicator, a landed row */
 	--ease-avel: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
 /*
  * Aliases. No `static`: aliases are read through utilities, never var().
- * `inline` makes each utility read the source token directly, so a
- * .light subtree resolves them to light values. A non-inline alias is computed
- * once at :root and stays dark.
+ * `inline` makes each utility read the source token directly, so a .dark
+ * subtree resolves them to dark values.
  *
- * shadcn's names point at AVEL tokens, never the reverse. shadcn's own
- * "accent" means a subtle hover surface; it is renamed accent-surface so
- * --color-accent stays the brand cyan. Keep this comment: the next person will
- * otherwise "simplify" it back, and every ghost hover turns cyan.
+ * shadcn's names point at AVEL tokens, never the reverse, and only the ones
+ * a primitive reads exist. shadcn's own "accent" means a subtle hover
+ * surface; AVEL has no such alias, so --color-accent stays the brand blue and
+ * a hover is bg-app-raised. Keep this comment: the next person will otherwise
+ * add it back, and every ghost hover turns blue.
  */
 @theme inline {
-	--color-diff-create: var(--color-gate-pass);
-	--color-diff-overwrite: var(--color-gate-warn);
-	--color-diff-unchanged: var(--color-text-muted);
-	--color-diff-preserve: var(--color-text-subtle);
+	--color-gate-stale: var(--color-gate-pending);
+	--color-gate-stale-soft: var(--color-gate-pending-soft);
+	--color-gate-stale-line: var(--color-gate-pending-line);
 
 	--color-foreground: var(--color-text);
 	--color-card: var(--color-app-panel);
 	--color-popover: var(--color-app-float);
-	--color-popover-foreground: var(--color-text);
-	--color-primary: var(--color-accent);
-	--color-primary-foreground: var(--color-accent-ink);
-	--color-secondary: var(--color-app-raised);
-	--color-secondary-foreground: var(--color-text);
-	--color-muted: var(--color-app-band);
-	--color-muted-foreground: var(--color-text-muted);
-	--color-accent-surface: var(--color-state-active);
 	--color-destructive: var(--color-gate-block);
-	--color-input: var(--color-border-strong);
 }
 
 /*
- * Light, applied by .light on the app shell, never on <html>. "Polished
- * steel" (ruling 30): a soft steel grey, never white. The sidebar frame is
- * deepest; the canvas a step lighter; raised and float step toward, but
- * stop short of, white.
+ * Dark, applied by .dark on the app shell, never on <html>. Elevation is by
+ * surface step and border, not shadow.
  */
-.light {
-	--color-app-bg: #d5dae0;
-	--color-app-recessed: #dce0e5;
-	--color-app-panel: #e4e8ec;
-	--color-app-band: #dde2e7;
-	--color-app-field: #f1f3f6;
-	--color-app-raised: #eef1f4;
-	--color-app-float: #f5f7f9;
-	--color-skeleton: #d9dee3;
+.dark {
+	--color-app-canvas: #09090b;
+	--color-app-bg: #0f1013;
+	--color-app-panel: #16171a;
+	--color-app-band: #1a1b1f;
+	--color-app-well: #1c1d21;
+	--color-app-field: #121316;
+	--color-app-raised: #222327;
+	--color-app-float: #1d1e22;
+	--color-skeleton: #24252a;
+	--color-chip: #2c2d32;
 
-	--color-text: #14181d;
-	--color-text-muted: #3a434d;
-	--color-text-subtle: #4c5561;
-	--color-border: rgb(30 40 52 / 0.1);
-	--color-border-strong: rgb(30 40 52 / 0.18);
+	--color-text: #ededee;
+	--color-text-muted: #a3a3aa;
+	--color-text-subtle: #8c8c94;
 
-	--color-sheen: rgb(255 255 255 / 0.35);
-	--color-edge-highlight: rgb(255 255 255 / 0.7);
-	--color-grain: rgb(20 28 38 / 0.02);
-	--color-inset-shadow: rgb(20 28 38 / 0.08);
-	--color-engrave: rgb(20 28 38 / 0.12);
+	--color-border: rgb(255 255 255 / 0.08);
+	--color-border-strong: rgb(255 255 255 / 0.14);
+	--color-border-control: #6b6b73;
 
-	--color-app-plate: #e9ecf0;
-	--color-border-plate: rgb(30 40 52 / 0.24);
-	--color-plate-rim: rgb(255 255 255 / 0.9);
-	--color-plate-shade: rgb(20 28 38 / 0.06);
-	--color-plate-ledge: rgb(20 28 38 / 0.16);
-	--color-plate-sheen: rgb(255 255 255 / 0.4);
+	--color-accent: #74b8fc;
+	--color-accent-text: #8cc4fd;
+	--color-accent-soft: rgb(116 184 252 / 0.13);
+	--color-accent-line: rgb(116 184 252 / 0.45);
+	--color-focus-ring: #8cc4fd;
+	--color-focus-halo: rgb(116 184 252 / 0.32);
+	--color-selected: rgb(116 184 252 / 0.12);
+	--color-selected-border: rgb(116 184 252 / 0.85);
+	--color-edge-top: rgb(255 255 255 / 0.05);
+	--color-float-outline: rgb(255 255 255 / 0.14);
+	--color-scrim: rgb(0 0 0 / 0.6);
 
-	/* The banner follows the theme here (ruling 41): a light band, lit the same way. */
-	--color-banner: #f4f7fa;
-	--color-banner-line: rgb(30 40 52 / 0.12);
-	--color-banner-raised: rgb(30 40 52 / 0.05);
-	--color-banner-text: #10161c;
-	--color-banner-muted: #3a434d;
-	--color-banner-live: #15803d;
+	--color-btn-primary-border: rgb(140 196 253 / 0.45);
+	--color-btn-primary-glow: rgb(116 184 252 / 0.42);
+	--color-btn-primary-glow-near: rgb(116 184 252 / 0.3);
+	--color-btn-highlight: rgb(255 255 255 / 0.3);
+	--color-btn-danger-glow: rgb(240 104 92 / 0.38);
+	--color-btn-danger-glow-near: rgb(240 104 92 / 0.28);
 
-	--color-accent-text: #005b82;
-	--color-accent-soft: rgb(0 146 202 / 0.1);
+	--color-gate-pass: #5fd59b;
+	--color-gate-pass-solid: #34c27f;
+	--color-gate-pass-soft: rgb(52 194 127 / 0.14);
+	--color-gate-pass-line: rgb(52 194 127 / 0.35);
+	--color-gate-block: #f58b81;
+	--color-gate-block-solid: #f0685c;
+	--color-gate-block-soft: rgb(240 104 92 / 0.14);
+	--color-gate-block-line: rgb(240 104 92 / 0.4);
+	--color-gate-warn: #f2c45a;
+	--color-gate-warn-solid: #f0b429;
+	--color-gate-warn-soft: rgb(240 180 41 / 0.14);
+	--color-gate-warn-line: rgb(240 180 41 / 0.35);
+	--color-gate-warn-banner: rgb(240 180 41 / 0.08);
+	--color-gate-pending: #b6b6bd;
+	--color-gate-pending-solid: #8c8c94;
+	--color-gate-pending-soft: rgb(255 255 255 / 0.07);
+	--color-gate-pending-line: rgb(140 140 148 / 0.35);
 
-	--color-state-hover: rgb(20 28 38 / 0.04);
-	--color-state-active: rgb(20 28 38 / 0.07);
-	--color-state-selected: rgb(0 146 202 / 0.1);
+	--shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+	--shadow-btn: 0 1px 2px rgb(0 0 0 / 0.3);
+	--shadow-popover:
+		0 0 0 1px rgb(255 255 255 / 0.06), 0 8px 24px -6px rgb(0 0 0 / 0.5);
+	--shadow-dialog:
+		0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 56px -12px rgb(0 0 0 / 0.6);
+	--shadow-drag: 0 10px 28px rgb(0 0 0 / 0.5);
 
-	--color-gate-pass: #0e622d;
-	--color-gate-pass-soft: rgb(14 98 45 / 0.1);
-	--color-gate-pass-line: rgb(14 98 45 / 0.3);
-	--color-gate-block: #a51919;
-	--color-gate-block-soft: rgb(165 25 25 / 0.1);
-	--color-gate-block-line: rgb(165 25 25 / 0.3);
-	--color-gate-warn: #7a4a04;
-	--color-gate-warn-soft: rgb(122 74 4 / 0.1);
-	--color-gate-warn-line: rgb(122 74 4 / 0.3);
-	--color-gate-pending: #323a44;
-	--color-gate-pending-soft: rgb(50 58 68 / 0.08);
-	--color-gate-pending-line: rgb(50 58 68 / 0.3);
-	--color-gate-stale: #4c5561;
-	--color-gate-stale-soft: rgb(76 85 97 / 0.1);
-	--color-gate-stale-line: rgb(76 85 97 / 0.3);
-
-	--shadow-e1: 0 1px 2px rgb(20 28 38 / 0.08);
-	--shadow-e2: 0 4px 14px rgb(20 28 38 / 0.11);
-	--shadow-e3: 0 16px 44px rgb(20 28 38 / 0.15);
+	color-scheme: dark;
 }
 
 /*
  * Tailwind compiles --shadow-* theme values into its shadow utilities, so the
- * .light overrides above would never reach them. These read the variable at
- * runtime instead.
+ * .dark overrides above would never reach them. These read the variable at
+ * runtime instead. Card, popover and dialog carry the faint top edge; popover
+ * and dialog carry the dark-mode edge as an inset ring, not an outline, so a
+ * primitive's outline-hidden (which hides its focus outline) cannot erase it.
  */
-@utility shadow-e1 {
-	--avel-elevation: var(--shadow-e1);
+@utility shadow-card {
 	box-shadow:
-		var(--avel-edge, 0 0 transparent), var(--avel-inset, 0 0 transparent),
-		var(--shadow-e1);
+		inset 0 1px 0 var(--color-edge-top),
+		var(--shadow-card);
 }
 
-@utility shadow-e2 {
-	--avel-elevation: var(--shadow-e2);
-	box-shadow:
-		var(--avel-edge, 0 0 transparent), var(--avel-inset, 0 0 transparent),
-		var(--shadow-e2);
+@utility shadow-btn {
+	box-shadow: var(--shadow-btn);
 }
 
-@utility shadow-e3 {
-	--avel-elevation: var(--shadow-e3);
+@utility shadow-popover {
 	box-shadow:
-		var(--avel-edge, 0 0 transparent), var(--avel-inset, 0 0 transparent),
-		var(--shadow-e3);
+		inset 0 1px 0 var(--color-edge-top),
+		inset 0 0 0 1px var(--color-float-outline),
+		var(--shadow-popover);
+}
+
+@utility shadow-dialog {
+	box-shadow:
+		inset 0 1px 0 var(--color-edge-top),
+		inset 0 0 0 1px var(--color-float-outline),
+		var(--shadow-dialog);
+}
+
+@utility shadow-drag {
+	box-shadow: var(--shadow-drag);
 }
 
 /*
- * Steel (ruling 30). Each utility sets its own custom property and then
- * paints all three, so an edge, an inset and an elevation compose in any
- * class order instead of the last box-shadow winning.
+ * The primary action's face: gradient, a 1px top highlight, the two-layer
+ * glow (a tight one at the edge, a wide one below, brighter on hover) and a
+ * label shadow. Disabled goes flat, neutral and legible (v3 UX 6): the
+ * reason beside it keeps full contrast.
  */
-
-/* The 1px top highlight: light catching the chamfer. */
-@utility edge-highlight {
-	--avel-edge: inset 0 1px 0 var(--color-edge-highlight);
-	box-shadow:
-		var(--avel-edge), var(--avel-inset, 0 0 transparent),
-		var(--avel-elevation, 0 0 transparent);
-}
-
-/* The vertical sheen: lighter at the top, gone by two thirds down. Over the
-   element's own background colour, so any surface token takes it. */
-@utility sheen {
+@utility btn-primary-face {
+	color: var(--color-text-on-solid);
+	border-color: var(--color-btn-primary-border);
 	background-image: linear-gradient(
 		to bottom,
-		var(--color-sheen),
-		transparent 66%
+		var(--color-btn-primary-top),
+		var(--color-btn-primary-bottom)
 	);
-}
-
-/* A machined surface: sheen and top highlight together. Canvas, panels,
-   cards, popovers, menus, dialogs, the top bar, secondary buttons. */
-@utility surface-steel {
-	--avel-edge: inset 0 1px 0 var(--color-edge-highlight);
-	background-image: linear-gradient(
-		to bottom,
-		var(--color-sheen),
-		transparent 66%
-	);
+	text-shadow: 0 1px 0 var(--color-btn-label-shadow);
 	box-shadow:
-		var(--avel-edge), var(--avel-inset, 0 0 transparent),
-		var(--avel-elevation, 0 0 transparent);
-}
-
-/* The entity banner's face (ruling 38): the deep band lit from behind the
-   tile. An accent glow at the top left, a fainter one off the bottom right,
-   a sheen, and the band's own top highlight. Every colour is a banner or
-   accent token, so it reads the same in both themes. */
-@utility banner-surface {
-	background-color: var(--color-banner);
-	background-image:
-		radial-gradient(
-			ellipse 38rem 16rem at 6rem 0,
-			color-mix(in oklab, var(--color-accent) 30%, transparent),
-			transparent 70%
-		),
-		radial-gradient(
-			ellipse 30rem 14rem at 100% 100%,
-			color-mix(in oklab, var(--color-accent) 12%, transparent),
-			transparent 70%
-		),
-		linear-gradient(
-			to bottom,
-			color-mix(in oklab, var(--color-banner-text) 4%, transparent),
-			transparent 60%
-		);
-	box-shadow:
-		inset 0 1px 0 var(--color-banner-line),
-		0 1px 2px var(--color-plate-ledge),
-		0 12px 32px -16px var(--color-plate-ledge);
-}
-
-/* A fine grid over the banner's top, fading out before the tabs: a layer
-   of its own, so the fade never touches the text above it. */
-@utility banner-grid {
-	background-image:
-		linear-gradient(var(--color-banner-raised) 1px, transparent 1px),
-		linear-gradient(90deg, var(--color-banner-raised) 1px, transparent 1px);
-	background-size: 24px 24px;
-	mask-image: linear-gradient(to bottom, black, transparent 80%);
-}
-
-/* Brushed grain, for the frame only (sidebar, top bar), never behind dense
-   text: 1px horizontal lines every 3px at 1.5-2% contrast, under the sheen. */
-@utility brushed {
-	background-image:
-		linear-gradient(to bottom, var(--color-sheen), transparent 66%),
-		repeating-linear-gradient(
-			to bottom,
-			var(--color-grain) 0 1px,
-			transparent 1px 3px
-		);
-}
-
-/* Fields sit into the surface: a soft inner shadow, no sheen. */
-@utility field-inset {
-	--avel-inset: inset 0 1px 2px var(--color-inset-shadow);
-	box-shadow:
-		var(--avel-edge, 0 0 transparent), var(--avel-inset),
-		var(--avel-elevation, 0 0 transparent);
-}
-
-/* Engraved label: caption-quiet text with a 1px shadow, the edge of a cut
-   (above in dark, where the light rim is; below in light). */
-@utility engraved {
-	text-shadow: 0 -1px 0 var(--color-engrave);
-	:where(.light) & {
-		text-shadow: 0 1px 0 var(--color-engrave);
-	}
-}
-
-/*
- * The machined plate (ruling 37). `plate` is the resting panel: edge, rim,
- * shade, ledge, sheen and e1 in one declaration, so the five lines never
- * drift apart. `plate-float` is the same slab lifted to e3 for sheets,
- * dialogs and modals. `plate-interactive` raises a plate on hover and on
- * selection (a card you can open). Each paints the full box-shadow itself,
- * so put it after any shadow-e* class, or drop that class.
- */
-@utility plate {
-	border-color: var(--color-border-plate);
-	background-color: var(--color-app-plate);
-	background-image: linear-gradient(
-		to bottom,
-		var(--color-plate-sheen),
-		transparent 40%
-	);
-	--avel-edge:
-		inset 0 1px 0 var(--color-plate-rim),
-		inset 0 -1px 0 var(--color-plate-shade);
-	--avel-elevation: 0 1px 0 var(--color-plate-ledge), var(--shadow-e1);
-	box-shadow:
-		var(--avel-edge), var(--avel-inset, 0 0 transparent), var(--avel-elevation);
-}
-
-@utility plate-float {
-	border-color: var(--color-border-plate);
-	background-image: linear-gradient(
-		to bottom,
-		var(--color-plate-sheen),
-		transparent 40%
-	);
-	--avel-edge:
-		inset 0 1px 0 var(--color-plate-rim),
-		inset 0 -1px 0 var(--color-plate-shade);
-	--avel-elevation: 0 1px 0 var(--color-plate-ledge), var(--shadow-e3);
-	box-shadow:
-		var(--avel-edge), var(--avel-inset, 0 0 transparent), var(--avel-elevation);
-}
-
-@utility plate-interactive {
-	transition:
-		transform var(--duration-micro) var(--ease-avel),
-		box-shadow var(--duration-micro) var(--ease-avel),
-		border-color var(--duration-micro) var(--ease-avel);
-	&:hover,
-	&[data-selected="true"],
-	&[aria-pressed="true"] {
-		transform: translateY(-1px);
-		border-color: var(--color-border-strong);
-		--avel-elevation: 0 1px 0 var(--color-plate-ledge), var(--shadow-e2);
+		inset 0 1px 0 var(--color-btn-highlight),
+		0 1px 2px var(--color-btn-primary-glow-near),
+		0 6px 18px -6px var(--color-btn-primary-glow);
+	&:hover:not(:disabled):not([aria-disabled="true"]) {
+		filter: brightness(1.05);
 		box-shadow:
-			var(--avel-edge), var(--avel-inset, 0 0 transparent),
-			var(--avel-elevation);
+			inset 0 1px 0 var(--color-btn-highlight),
+			0 1px 2px var(--color-btn-primary-glow-near),
+			0 10px 24px -6px var(--color-btn-primary-glow);
+	}
+	&:active:not(:disabled):not([aria-disabled="true"]) {
+		filter: brightness(0.97);
+		transform: translateY(0.5px);
+		box-shadow:
+			inset 0 1px 0 var(--color-btn-highlight),
+			0 2px 8px -3px var(--color-btn-primary-glow);
+	}
+	&:disabled,
+	&[aria-disabled="true"] {
+		color: var(--color-text-subtle);
+		border-color: var(--color-border);
+		background-color: var(--color-app-raised);
+		background-image: none;
+		text-shadow: none;
+		box-shadow: none;
+		filter: none;
+		transform: none;
 	}
 }
 
-/* A machined groove under a plate's header: the edge line, then the rim
-   catching light on the body below it. */
-@utility groove-b {
-	border-bottom: 1px solid var(--color-border-plate);
-	box-shadow: 0 1px 0 var(--color-plate-rim);
+/*
+ * The danger confirm's face (v3 R8): the last button of a dialog that has
+ * already named what a destructive action does, never in a toolbar, row or
+ * menu. Disabled goes flat like the primary.
+ */
+@utility btn-danger-face {
+	color: var(--color-text-on-solid);
+	border-color: var(--color-btn-danger-border);
+	background-image: linear-gradient(
+		to bottom,
+		var(--color-btn-danger-top),
+		var(--color-btn-danger-bottom)
+	);
+	text-shadow: 0 1px 0 var(--color-btn-danger-label-shadow);
+	box-shadow:
+		inset 0 1px 0 var(--color-btn-highlight),
+		0 0 0 1px var(--color-btn-danger-glow-near),
+		0 2px 12px -1px var(--color-btn-danger-glow);
+	&:hover:not(:disabled):not([aria-disabled="true"]) {
+		filter: brightness(1.05);
+		box-shadow:
+			inset 0 1px 0 var(--color-btn-highlight),
+			0 0 0 1px var(--color-btn-danger-glow-near),
+			0 3px 16px -1px var(--color-btn-danger-glow);
+	}
+	&:active:not(:disabled):not([aria-disabled="true"]) {
+		filter: brightness(0.97);
+		transform: translateY(0.5px);
+		box-shadow:
+			inset 0 1px 0 var(--color-btn-highlight),
+			0 1px 6px -1px var(--color-btn-danger-glow);
+	}
+	&:disabled,
+	&[aria-disabled="true"] {
+		color: var(--color-text-subtle);
+		border-color: var(--color-border);
+		background-color: var(--color-app-raised);
+		background-image: none;
+		text-shadow: none;
+		box-shadow: none;
+		filter: none;
+		transform: none;
+	}
+}
+
+/* A checked checkbox, radio or switch: the primary face, without the glow. */
+@utility control-on {
+	border-color: var(--color-btn-primary-border);
+	background-image: linear-gradient(
+		to bottom,
+		var(--color-btn-primary-top),
+		var(--color-btn-primary-bottom)
+	);
+	box-shadow: inset 0 1px 0 var(--color-btn-highlight);
+}
+
+/*
+ * A text field's box. At rest a strong hairline; focused, a solid 1px ring in
+ * the focus colour and a soft halo (v3 UX 2), drawn here because inputs carry
+ * no outline; invalid, the same in block.
+ */
+@utility field-surface {
+	background-color: var(--color-app-field);
+	border: 1px solid var(--color-border-strong);
+	&:focus-within {
+		border-color: var(--color-focus-ring);
+		box-shadow:
+			0 0 0 1px var(--color-focus-ring),
+			0 0 0 4px var(--color-focus-halo);
+	}
+	&[aria-invalid="true"],
+	&:has([aria-invalid="true"]) {
+		border-color: var(--color-gate-block-solid);
+		box-shadow: 0 0 0 3px var(--color-gate-block-soft);
+	}
 }
 
 /* Tailwind v4 defaults a bare `border` to currentColor, which draws every
@@ -475,7 +443,7 @@
 		opacity: 1;
 	}
 	50% {
-		opacity: 0.4;
+		opacity: 0.5;
 	}
 }
 
@@ -499,16 +467,33 @@
 
 html,
 body {
-	background: var(--color-bg);
+	background: var(--color-app-canvas);
 	color: var(--color-text);
 	font-family: var(--font-sans);
+	/* Inter's straight-sided 1 and open digits. */
+	font-feature-settings: "cv11", "ss03";
 	margin: 0;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	text-rendering: optimizeLegibility;
 }
 
-/* The themed subtree. Paints its own background so light mode covers the
+/* .dark sits on the app wrapper, below <body>, so the window cannot read
+   its canvas token. It takes the dark canvas from the wrapper's class, or a
+   dark operator sees the light canvas wherever the page overscrolls. */
+html:has(.app.dark),
+html:has(.app.dark) body {
+	background: #09090b;
+}
+
+/* Body text is 14/20. On body only: the root keeps the browser's 16px, which
+   every rem (the type roles, Tailwind spacing) is written against. */
+body {
+	font-size: 14px;
+	line-height: 20px;
+}
+
+/* The themed subtree. Paints its own background so dark mode covers the
    page. dvh, so a phone's browser chrome never hides the bottom. */
 .app {
 	background: var(--color-app-bg);
@@ -527,81 +512,78 @@ body {
 }
 
 /*
- * Type scale (ruling 30, superseding section 3's sizes and ruling 28's
- * face). Use these instead of ad hoc text-lg and text-sm: each sets face,
- * size, line height, weight and tracking together. Plex sets a touch wider
- * and more open than the previous face, so the sizes step up and headings tighten only
- * to -0.01em; body text is tracked at 0.
+ * Type roles (v3). Weight and colour do the work; sizes stay few. Use these
+ * instead of ad hoc sizes: each sets size, line height, weight and tracking
+ * together. Tailwind's text-* sizes are cleared above.
  */
 @utility type-display {
-	font-family: var(--font-display);
-	font-size: 2.0625rem;
-	line-height: 2.5rem;
-	font-weight: 500;
-	letter-spacing: -0.01em;
-}
-
-@utility type-h1 {
-	font-family: var(--font-display);
-	font-size: 1.5625rem;
+	font-size: 1.5rem;
 	line-height: 2rem;
-	font-weight: 500;
-	letter-spacing: -0.01em;
+	font-weight: 650;
+	letter-spacing: -0.02em;
 }
 
-@utility type-h2 {
-	font-family: var(--font-display);
-	font-size: 1.1875rem;
+@utility type-page {
+	font-size: 1.125rem;
 	line-height: 1.625rem;
-	font-weight: 500;
-	letter-spacing: -0.01em;
+	font-weight: 620;
+	letter-spacing: -0.012em;
 }
 
-@utility type-panel-title {
-	font-family: var(--font-display);
+@utility type-title {
 	font-size: 0.9375rem;
 	line-height: 1.375rem;
-	font-weight: 500;
-	letter-spacing: -0.005em;
+	font-weight: 550;
+	letter-spacing: -0.006em;
+	text-wrap: balance;
 }
 
 @utility type-body {
-	font-family: var(--font-sans);
-	font-size: 0.9375rem;
-	line-height: 1.375rem;
-	font-weight: 400;
-	letter-spacing: 0;
-}
-
-@utility type-small {
-	font-family: var(--font-sans);
 	font-size: 0.875rem;
 	line-height: 1.25rem;
 	font-weight: 400;
 	letter-spacing: 0;
 }
 
+@utility type-small {
+	font-size: 0.8125rem;
+	line-height: 1.125rem;
+	font-weight: 400;
+	letter-spacing: 0;
+}
+
 @utility type-caption {
-	font-family: var(--font-sans);
-	font-size: 0.78125rem;
+	font-size: 0.75rem;
 	line-height: 1rem;
 	font-weight: 400;
 	letter-spacing: 0;
+	font-variant-numeric: tabular-nums;
 	color: var(--color-text-muted);
+}
+
+/* Section and group labels: small caps-lock, quiet. */
+@utility type-eyebrow {
+	font-size: 0.6875rem;
+	line-height: 1rem;
+	font-weight: 600;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--color-text-subtle);
+}
+
+/* A headline number. Always tabular. */
+@utility type-metric {
+	font-size: 1.375rem;
+	line-height: 1.75rem;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
 }
 
 /* Machine text: hashes, paths, IDs, counts. Always tabular. */
 @utility type-mono {
 	font-family: var(--font-mono);
-	font-size: 0.84375rem;
-	line-height: 1.25rem;
-	font-variant-numeric: tabular-nums;
-}
-
-@utility type-mono-small {
-	font-family: var(--font-mono);
 	font-size: 0.78125rem;
-	line-height: 1rem;
+	line-height: 1.125rem;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -629,52 +611,10 @@ body {
 	}
 }
 
-/* Page entrance: answers the navigation, then stops. */
-/* A fade and a 4px rise. It ends at `none`, not translateY(0): with the
-   fill held, a lingering transform would make the page's wrapper the
-   containing block for anything fixed inside it. Reduced motion cuts it to
-   0.01ms, so the content simply appears. */
-@keyframes avelFadeIn {
-	from {
-		opacity: 0;
-		transform: translateY(4px);
-	}
-	to {
-		opacity: 1;
-		transform: none;
-	}
-}
-
-@utility animate-page-in {
-	animation: avelFadeIn var(--duration-micro) var(--ease-avel) both;
-}
-
-/* Panels settle onto the page one after another (ruling 37): each direct
-   child rises 4px over one enter duration, 30ms apart, capped at the sixth
-   so a long page never waits. Reduced motion collapses it to an appearance. */
-@utility stagger-in {
-	& > * {
-		animation: avelFadeIn var(--duration-enter) var(--ease-avel) both;
-	}
-	& > *:nth-child(2) {
-		animation-delay: 30ms;
-	}
-	& > *:nth-child(3) {
-		animation-delay: 60ms;
-	}
-	& > *:nth-child(4) {
-		animation-delay: 90ms;
-	}
-	& > *:nth-child(5) {
-		animation-delay: 120ms;
-	}
-	& > *:nth-child(n + 6) {
-		animation-delay: 150ms;
-	}
-}
-
-/* A slow 6px float, for the chat composer (operator request). Reduced motion
-   stops it, like every animation. */
+/* The chat composer floats at rest, a slow 6px rise and fall, and the
+   accent glow under it pulses in step (rulings 21 and 23, restored by the
+   operator on 2026-10-19). The pulse runs half a period ahead, so the glow
+   peaks as the composer rises. Reduced motion stops both. */
 @keyframes avelFloat {
 	0%,
 	100% {
@@ -685,101 +625,30 @@ body {
 	}
 }
 
-@utility animate-float {
-	animation: avelFloat 4s ease-in-out infinite;
-}
-
-/* The loops at rest: the period in the mark, and the composer's float. */
-@keyframes avelPeriod {
+@keyframes avelGlow {
 	0%,
 	100% {
 		opacity: 1;
 	}
 	50% {
-		opacity: 0.85;
+		opacity: 0.4;
 	}
 }
 
-@utility animate-period {
-	animation: avelPeriod 3s var(--ease-avel) infinite;
+@utility animate-float {
+	animation: avelFloat 4s ease-in-out infinite;
 }
 
-/* Builder motion (ruling 37). A live connector draws on over one enter
-   duration; nodes land 30ms apart, capped at the sixth; a version badge
-   ticks up when a draft goes dirty; the dirty banner slides down from under
-   the top bar. Reduced motion collapses each to an appearance. */
-@keyframes avelDrawOn {
-	from {
-		stroke-dashoffset: var(--draw-length, 64px);
-	}
-	to {
-		stroke-dashoffset: 0;
-	}
+@utility animate-glow {
+	animation: avelGlow 4s ease-in-out -2s infinite;
 }
 
-@utility animate-draw-on {
-	stroke-dasharray: var(--draw-length, 64px);
-	animation: avelDrawOn var(--duration-enter) var(--ease-avel) both;
-}
-
-@utility animate-node-in {
-	animation: avelFadeIn var(--duration-state) var(--ease-avel) both;
-	animation-delay: calc(min(var(--i, 0), 6) * 30ms);
-}
-
-@keyframes avelTickUp {
-	from {
-		transform: translateY(60%);
-		opacity: 0;
-	}
-	to {
-		transform: none;
-		opacity: 1;
-	}
-}
-
-@utility animate-tick-up {
-	animation: avelTickUp var(--duration-state) var(--ease-avel) both;
-}
-
-@keyframes avelSlideDown {
-	from {
-		transform: translateY(-8px);
-		opacity: 0;
-	}
-	to {
-		transform: none;
-		opacity: 1;
-	}
-}
-
-@utility animate-slide-down {
-	animation: avelSlideDown var(--duration-state) var(--ease-avel) both;
-}
-
-/* A measured bar fills in from its left edge over one enter duration
-   (ruling 37): a layer bar, a coverage strip. Scale, not width, so layout
-   never moves. Reduced motion collapses it to an appearance. */
-@keyframes avelGrowX {
-	from {
-		transform: scaleX(0);
-	}
-	to {
-		transform: none;
-	}
-}
-
-@utility grow-x {
-	transform-origin: left;
-	animation: avelGrowX var(--duration-enter) var(--ease-avel) both;
-}
-
-/* A saved or applied row (ruling 35): it holds the selected fill for one
-   enter duration, then settles. A state change, not a signature moment. With
+/* A saved or applied row: it holds the selected fill for one state
+   duration, then settles. A state change, not a signature moment. With
    motion off the toast still says what happened. */
 @keyframes avelLanded {
 	from {
-		background-color: var(--color-state-selected);
+		background-color: var(--color-selected);
 	}
 	to {
 		background-color: transparent;
@@ -787,27 +656,28 @@ body {
 }
 
 @utility landed {
-	animation: avelLanded var(--duration-enter) var(--ease-avel) both;
+	animation: avelLanded var(--duration-state) var(--ease-avel) both;
 }
 
-/* PlanReadiness's hatched segment (ruling 35): placed, with an issue against
-   it. Built from the gate warn tokens, which .light redefines. */
+/* PlanReadiness's hatched segment: placed, with an issue against it. Built
+   from the warn tokens, which .dark redefines. */
 @utility bg-hatch-warn {
 	background-image: repeating-linear-gradient(
 		135deg,
-		var(--color-gate-warn) 0 2px,
+		var(--color-gate-warn-solid) 0 2px,
 		var(--color-gate-warn-soft) 2px 5px
 	);
 }
 
+/* One focus ring for every control: a gap in the surface colour, then 2px
+   of the focus colour. */
 :focus-visible {
 	outline: 2px solid var(--color-focus-ring);
 	outline-offset: 2px;
 }
 
-/* Text fields show focus by their own border, not the ring (operator
-   request): clicking into a field is already obvious from the caret. The
-   field primitives step their border up to border-strong on focus. */
+/* Text fields show focus by their own ring (field-surface), not the
+   outline: the outline would double it. */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
@@ -822,104 +692,4 @@ select:focus-visible {
 [role="option"]:focus-visible,
 [cmdk-item]:focus-visible {
 	outline: none;
-}
-
-/*
- * The notched plate (ruling 44), for agent cards: a `plate` with its top
- * right corner cut at 45 degrees and a small matching cut at the bottom
- * left, so a card reads as a machined part. The clip cuts the border too,
- * so each cut redraws its own edge in the plate's edge token. Clipping also
- * removes the plate's outer shadow: `plate-notched-lift` on the wrapper
- * casts the ledge and e1 as drop shadows, which follow the cut shape.
- */
-@utility plate-notched {
-	--notch: 1.125rem;
-	--notch-foot: 0.5rem;
-	position: relative;
-	clip-path: polygon(
-		0 0,
-		calc(100% - var(--notch)) 0,
-		100% var(--notch),
-		100% 100%,
-		var(--notch-foot) 100%,
-		0 calc(100% - var(--notch-foot))
-	);
-	&::before,
-	&::after {
-		content: "";
-		position: absolute;
-		pointer-events: none;
-		background-image: linear-gradient(
-			to top right,
-			transparent calc(50% - 0.75px),
-			var(--notch-edge, var(--color-border-plate)) calc(50% - 0.75px),
-			var(--notch-edge, var(--color-border-plate)) calc(50% + 0.75px),
-			transparent calc(50% + 0.75px)
-		);
-	}
-	&::before {
-		top: -1px;
-		right: -1px;
-		width: var(--notch);
-		height: var(--notch);
-	}
-	&::after {
-		bottom: -1px;
-		left: -1px;
-		width: var(--notch-foot);
-		height: var(--notch-foot);
-	}
-	&:hover,
-	&:has(:focus-visible) {
-		--notch-edge: var(--color-border-strong);
-	}
-}
-
-@utility plate-notched-lift {
-	filter: drop-shadow(0 1px 0 var(--color-plate-ledge))
-		drop-shadow(var(--shadow-e1));
-}
-
-/*
- * A template's cover (ruling 48): the banner's deep band, lit by one accent
- * glow whose position each template's slug sets (--cover-glow-x), so the
- * generated art sits on the same face as the entity banner in both themes.
- * An unreadable template's cover is recessed and unlit, with a fine hatch:
- * nothing about it is known, so nothing glows.
- */
-@utility template-cover {
-	background-color: var(--color-banner);
-	background-image:
-		radial-gradient(
-			ellipse 18rem 10rem at var(--cover-glow-x, 30%) 0,
-			color-mix(in oklab, var(--color-accent) 28%, transparent),
-			transparent 70%
-		),
-		linear-gradient(
-			to bottom,
-			color-mix(in oklab, var(--color-banner-text) 4%, transparent),
-			transparent 60%
-		);
-	box-shadow: inset 0 -1px 0 var(--color-border-plate);
-	&[data-readable="false"] {
-		background-color: var(--color-app-recessed);
-		background-image: repeating-linear-gradient(
-			135deg,
-			var(--color-banner-raised) 0 1px,
-			transparent 1px 7px
-		);
-	}
-}
-
-/*
- * The tab where a project card's body rises into its cover (ruling 48): the
- * plate's own body and edge, with the rim catching light along its top, so
- * the cut reads as one machined part, not a label laid on a picture.
- */
-@utility cover-tab {
-	background-color: var(--color-app-plate);
-	border-top: 1px solid var(--color-border-plate);
-	border-right: 1px solid var(--color-border-plate);
-	border-top-right-radius: var(--radius-sm);
-	box-shadow: inset 0 1px 0 var(--color-plate-rim);
 }

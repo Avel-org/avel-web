@@ -55,6 +55,27 @@ export const ACTION_COPY = {
 	"dispatch.closed": "Dispatch closed",
 	"completion_report.filed": "Report filed",
 	"finding.opened": "Finding opened",
+	// Canon's uploads (2026-10-19): a document read for an intake.
+	"file.uploaded": "File uploaded",
+	"file.purged": "File purged",
+	// The gate and finding triage (2026-10-19).
+	"mission.gate_run": "Gate run",
+	"finding.confirmed": "Finding confirmed",
+	"finding.dismissed": "Finding dismissed",
+	// Canon, the project briefer (2026-10-19).
+	"canon_session.opened": "Canon session opened",
+	"canon_session.closed": "Canon session closed",
+	"canon_session.halted": "Canon session halted",
+	"canon_question.asked": "Canon asked a question",
+	"canon_question.answered": "Question answered",
+	"canon_question.acknowledged": "Question acknowledged",
+	"canon_question.dismissed": "Question dismissed",
+	"client_memory.proposed": "Memory proposed",
+	"client_memory.kept": "Memory kept",
+	"client_memory.edited": "Memory edited",
+	"client_memory.removed": "Memory removed",
+	"client_memory.written": "Memory written",
+	"intake.drafted_by_canon": "Brief drafted by Canon",
 } as const satisfies Record<ActivityAction, string>;
 
 /** The name of each entity type, singular, as a filter option and a row's "which". */
@@ -75,6 +96,10 @@ export const ENTITY_LABEL = {
 	dispatch: "Dispatch",
 	completion_report: "Report",
 	finding: "Finding",
+	canon_session: "Canon session",
+	canon_question: "Canon question",
+	client_memory: "Client memory",
+	file: "File",
 } as const satisfies Record<ActivityEntityType, string>;
 
 /**
@@ -85,6 +110,8 @@ export const ACTOR_KIND_LABEL = {
 	operator: "Operator",
 	system: "System",
 	agent: "Agent",
+	// Canon, the project briefer: its own actor, never "System" (2026-10-19).
+	canon: "Canon",
 } as const satisfies Record<ActivityActorKind, string>;
 
 /** An action in words, for a row whose action is typed as any string. */

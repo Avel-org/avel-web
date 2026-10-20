@@ -185,7 +185,7 @@ export function EntryEditor({
 					<Textarea
 						{...props}
 						rows={6}
-						className="type-mono-small"
+						className="type-mono"
 						maxLength={20_000}
 						disabled={readOnlyReason !== null}
 						value={draft.customizedMd}

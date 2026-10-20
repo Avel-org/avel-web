@@ -43,7 +43,7 @@ function Made({ made }: { made: { ref: string; sha256: string } }) {
 	return (
 		<>
 			{" as "}
-			<span className="type-mono-small">{made.ref}</span>{" "}
+			<span className="type-mono">{made.ref}</span>{" "}
 			<ShortHash value={made.sha256} label={`the hash of ${made.ref}`} />
 		</>
 	);

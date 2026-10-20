@@ -1,10 +1,8 @@
-import { useNavigate } from "@tanstack/react-router";
-import type { AgentTemplate } from "avel-server/contract";
 import { Bot, LayoutGrid, Network } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { loadedRows, type useAgentTemplates } from "@/lib/api/catalog";
 import { AgentCardGrid, AgentCardSkeleton } from "./catalog-agent-card";
-import { AgentGraph } from "./catalog-agent-graph";
+import { AgentGraphCanvas } from "./catalog-agent-graph";
 import { AGENT_MISSING } from "./catalog-agent-placeholders";
 import {
 	AgentFilterRow,
@@ -17,13 +15,15 @@ import {
 	CatalogListSkeleton,
 	SampleRegion,
 } from "./catalog-sample";
+import { DataPanel } from "./data-panel";
 import { EmptyState } from "./empty-state";
+import { PanelFooter } from "./panel-footer";
 import { ErrorState, Surface } from "./surface";
 import { type ViewOption, ViewToggle } from "./view-toggle";
 
 /*
  * All agents, /catalog/agents (ROUTES.md). The board is a grid of agent
- * cards (ruling 44), each a notched plate built from sections: identity,
+ * cards (ruling 44), each a v3 card built from sections: identity,
  * roles, where it works, territory, writable paths. The artifact graph is
  * the second view (ruling 36). Opening an agent goes to its page,
  * /catalog/agents/:slug; nothing slides over the list. The agents are live
@@ -80,6 +80,12 @@ function ViewFrame({
 	);
 }
 
+/**
+ * The page's one panel, as every list page: the filters and the view in its
+ * toolbar, the cards or graph in its body, and when the list was read, how
+ * many are shown and Load more in its footer band. The filters need the
+ * loaded agents, so they appear once the list has read.
+ */
 export function CatalogAgents({
 	query,
 	view,
@@ -91,92 +97,9 @@ export function CatalogAgents({
 	view: AgentView;
 	onViewChange: (view: AgentView) => void;
 }) {
-	return (
-		<div
-			data-testid="catalog-agents"
-			className="flex min-h-0 flex-1 flex-col gap-3"
-		>
-			<ViewToggle
-				options={AGENT_VIEWS}
-				view={view}
-				onChange={onViewChange}
-				testIdPrefix="catalog-agents-view"
-				className="self-start"
-			/>
-			<Surface
-				data-testid="catalog-agents-surface"
-				query={query}
-				isEmpty={(data) => loadedRows(data).length === 0}
-				loading={
-					<ViewFrame view={view}>
-						{view === "graph" ? (
-							<CatalogListSkeleton data-testid="catalog-agents-skeleton" />
-						) : (
-							<AgentCardSkeleton data-testid="catalog-agents-skeleton" />
-						)}
-					</ViewFrame>
-				}
-				empty={
-					<ViewFrame view={view}>
-						<EmptyState
-							data-testid="catalog-agents-empty"
-							compact
-							icon={Bot}
-							title="No agents yet"
-							description="Each agent is a set of roles, the identity written from them, and the waves it works in. Every agent is listed here."
-						/>
-					</ViewFrame>
-				}
-				error={ErrorState}
-			>
-				{(data) => (
-					<AgentConsole
-						agents={loadedRows(data)}
-						total={data.pages[0]?.meta.total}
-						hasMore={query.hasNextPage}
-						loadingMore={query.isFetchingNextPage}
-						onLoadMore={() => query.fetchNextPage()}
-						view={view}
-					/>
-				)}
-			</Surface>
-			<p
-				data-testid="catalog-agents-read-only"
-				className="type-caption text-text-subtle"
-			>
-				Each agent's identity is written from its roles, so it can't be edited
-				here. To change an agent, change one of its roles.
-			</p>
-		</div>
-	);
-}
-
-/**
- * The loaded agents: the filter row, the chosen view and the count. Only
- * rendered with data, inside the router, so the list's other states need
- * none.
- */
-function AgentConsole({
-	agents,
-	total,
-	hasMore,
-	loadingMore,
-	onLoadMore,
-	view,
-}: {
-	agents: readonly AgentTemplate[];
-	/** meta.total from the first page, when the server counted. */
-	total: number | undefined;
-	hasMore: boolean;
-	loadingMore: boolean;
-	onLoadMore: () => void;
-	view: AgentView;
-}) {
-	const navigate = useNavigate();
 	const [filters, setFilters] = useState<AgentFilters>({});
-
-	const open = (slug: string) =>
-		navigate({ to: "/catalog/agents/$slug", params: { slug } });
+	const agents = query.data ? loadedRows(query.data) : [];
+	const total = query.data?.pages[0]?.meta.total;
 	// Wave order, A to E, then the firm agents: the order a mission runs in.
 	const matching = sortAgents(filterAgents(agents, filters), {
 		column: "wave",
@@ -184,48 +107,116 @@ function AgentConsole({
 	});
 
 	return (
-		<div className="flex min-w-0 flex-1 flex-col gap-3">
-			<ViewFrame view={view}>
-				<AgentFilterRow
-					agents={agents}
-					filters={filters}
-					onChange={setFilters}
-				/>
-				{matching.length === 0 ? (
-					<EmptyState
-						data-testid="catalog-agents-no-match"
-						compact
-						icon={Bot}
-						title="No agents match"
-						description="No agent matches every filter and search set here. Clear one to see more."
-					/>
-				) : view === "cards" ? (
-					<AgentCardGrid agents={matching} />
-				) : (
-					<AgentGraph agents={matching} onOpen={open} />
-				)}
-			</ViewFrame>
-			<div
-				data-testid="catalog-agents-footer"
-				className="flex flex-wrap items-center justify-between gap-2"
+		<div
+			data-testid="catalog-agents"
+			className="flex min-h-0 flex-1 flex-col gap-3"
+		>
+			<DataPanel
+				data-testid="catalog-agents-panel"
+				title="Agents"
+				count={total}
+				toolbar={
+					<div className="flex w-full min-w-0 flex-wrap items-start gap-2">
+						{query.status === "success" && agents.length > 0 ? (
+							<div className="min-w-0 flex-1">
+								<AgentFilterRow
+									agents={agents}
+									filters={filters}
+									onChange={setFilters}
+								/>
+							</div>
+						) : null}
+						<ViewToggle
+							options={AGENT_VIEWS}
+							view={view}
+							onChange={onViewChange}
+							testIdPrefix="catalog-agents-view"
+							className="ml-auto"
+						/>
+					</div>
+				}
+				footer={
+					<PanelFooter data-testid="catalog-agents-read-age" queries={[query]}>
+						{query.status === "success" ? (
+							<span
+								data-testid="catalog-agents-footer"
+								className="flex items-center gap-2"
+							>
+								{/* The one count on the page, against the server's total. */}
+								<span
+									data-testid="catalog-agents-showing"
+									className="type-caption text-text-subtle tabular-nums"
+								>
+									{`Showing ${matching.length} of ${total ?? agents.length}`}
+								</span>
+								{/* Only Load more: the count beside it says how many. */}
+								<CatalogListFooter
+									loaded={agents.length}
+									total={undefined}
+									hasMore={query.hasNextPage}
+									loadingMore={query.isFetchingNextPage}
+									onLoadMore={() => query.fetchNextPage()}
+									data-testid="catalog-agents-list-footer"
+								/>
+							</span>
+						) : null}
+					</PanelFooter>
+				}
 			>
-				{/* The one count on the page, against the server's total. */}
-				<p
-					data-testid="catalog-agents-showing"
-					className="type-caption text-text-subtle tabular-nums"
-				>
-					{`Showing ${matching.length} of ${total ?? agents.length}`}
-				</p>
-				{/* Only Load more: the count above already says how many. */}
-				<CatalogListFooter
-					loaded={agents.length}
-					total={undefined}
-					hasMore={hasMore}
-					loadingMore={loadingMore}
-					onLoadMore={onLoadMore}
-					data-testid="catalog-agents-list-footer"
-				/>
-			</div>
+				<div className="p-4">
+					<Surface
+						data-testid="catalog-agents-surface"
+						query={query}
+						isEmpty={(data) => loadedRows(data).length === 0}
+						loading={
+							<ViewFrame view={view}>
+								{view === "graph" ? (
+									<CatalogListSkeleton data-testid="catalog-agents-skeleton" />
+								) : (
+									<AgentCardSkeleton data-testid="catalog-agents-skeleton" />
+								)}
+							</ViewFrame>
+						}
+						empty={
+							<ViewFrame view={view}>
+								<EmptyState
+									data-testid="catalog-agents-empty"
+									compact
+									icon={Bot}
+									title="No agents yet"
+									description="Each agent is a set of roles, the identity written from them, and the waves it works in. Every agent is listed here."
+								/>
+							</ViewFrame>
+						}
+						error={ErrorState}
+					>
+						{() => (
+							<ViewFrame view={view}>
+								{matching.length === 0 ? (
+									<EmptyState
+										data-testid="catalog-agents-no-match"
+										compact
+										icon={Bot}
+										title="No agents match"
+										description="No agent matches every filter and search set here. Clear one to see more."
+									/>
+								) : view === "cards" ? (
+									<AgentCardGrid agents={matching} />
+								) : (
+									<AgentGraphCanvas agents={matching} />
+								)}
+							</ViewFrame>
+						)}
+					</Surface>
+				</div>
+			</DataPanel>
+			<p
+				data-testid="catalog-agents-read-only"
+				className="type-caption text-text-subtle"
+			>
+				Each agent's identity is written from its roles, so it can't be edited
+				here. To change an agent, change one of its roles.
+			</p>
 		</div>
 	);
 }

@@ -1,28 +1,40 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { missionCut, type Preset } from "avel-server/contract";
-import { LayoutGrid, MousePointerClick, Plus, Rows3 } from "lucide-react";
-import { useState } from "react";
+import { MousePointerClick, Plus, Rows3 } from "lucide-react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { z } from "zod";
 import { EmptyState } from "@/components/avel/empty-state";
 import { ApplyPresetModal } from "@/components/avel/preset-apply";
-import { PresetBoard } from "@/components/avel/preset-board";
 import { PresetCompare } from "@/components/avel/preset-compare";
 import {
 	PresetDetail,
 	useTemplateNames,
 } from "@/components/avel/preset-detail";
 import { PresetFormModal } from "@/components/avel/preset-form";
-import { PresetKanban } from "@/components/avel/preset-kanban";
 import {
-	CutFilter,
-	PresetListPane,
-	PresetSearch,
-} from "@/components/avel/preset-list";
-import { ErrorState, Surface } from "@/components/avel/surface";
-import { type ViewOption, ViewToggle } from "@/components/avel/view-toggle";
+	CanvasSkeleton,
+	PresetKanban,
+	VIEW_OPTIONS,
+} from "@/components/avel/preset-kanban";
+import { CutFilter, PresetListPane } from "@/components/avel/preset-list";
+import { TeamSwitcher } from "@/components/avel/preset-switcher";
+import { SearchField } from "@/components/avel/search-field";
+import {
+	ErrorState,
+	type ErrorStateProps,
+	Surface,
+} from "@/components/avel/surface";
+import { ViewToggle } from "@/components/avel/view-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listTotal } from "@/lib/api/clients";
+import type { ApiError } from "@/lib/api/errors";
 import {
 	loadedPresets,
 	type PresetCut,
@@ -64,12 +76,6 @@ export const Route = createFileRoute("/presets")({
 
 type View = "board" | "table";
 
-/** Board first: the squad board is the page; Table is for reading. */
-const PRESET_VIEWS = [
-	{ id: "board", label: "Board", icon: LayoutGrid },
-	{ id: "table", label: "Table", icon: Rows3 },
-] as const satisfies readonly ViewOption<View>[];
-
 /**
  * Presets as a squad board (ruling 35): each preset a small wave board,
  * opened in place to edit, two compared side by side, any applied to a draft
@@ -79,40 +85,46 @@ const PRESET_VIEWS = [
 function PresetsPage() {
 	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/presets" });
-	const presets = usePresets(search.q, search.cut);
-	const names = useTemplateNames();
 	const view: View = search.view === "table" ? "table" : "board";
+	// The search and cut live in the Table's toolbar, so only the Table is
+	// filtered by them: the Board never hides a team behind a filter it
+	// doesn't show (its switcher has its own search).
+	const table = view === "table";
+	const presets = usePresets(
+		table ? search.q : undefined,
+		table ? search.cut : undefined,
+	);
+	const names = useTemplateNames();
 	const [form, setForm] = useState<
 		{ kind: "none" } | { kind: "new" } | { kind: "edit"; preset: Preset }
 	>({ kind: "none" });
 	const [comparing, setComparing] = useState<string[]>([]);
 	const [applying, setApplying] = useState<Preset | null>(null);
 	const [applyOpen, setApplyOpen] = useState(false);
-	const [landedId, setLandedId] = useState<string | undefined>(undefined);
 
 	const setSearch = (patch: Partial<z.infer<typeof presetsSearch>>) =>
 		navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
 	const open = (preset: Preset) =>
 		navigate({ search: (prev) => ({ ...prev, preset: preset.id }) });
-	const close = () =>
-		navigate({ search: (prev) => ({ ...prev, preset: undefined }) });
 	const apply = (preset: Preset) => {
 		setApplying(preset);
 		setApplyOpen(true);
 	};
 	const saved = (preset: Preset) => {
-		setLandedId(preset.id);
 		open(preset);
 	};
 
 	const loaded = presets.data ? loadedPresets(presets.data) : [];
 	const total = listTotal(presets.data);
-	const filtered = search.q !== undefined || search.cut !== undefined;
+	const filtered =
+		table && (search.q !== undefined || search.cut !== undefined);
 	const subtitle =
 		total === undefined ? undefined : presetCountLabel(total, filtered);
 	// First run: no presets at all, not a filter that matched none.
 	const firstRun =
 		presets.status === "success" && !filtered && loaded.length === 0;
+	// The composer always shows a team: the URL's, or the first listed.
+	const selectedId = search.preset ?? loaded[0]?.id;
 	const pair = comparing
 		.map((id) => loaded.find((p) => p.id === id))
 		.filter((p): p is Preset => p !== undefined);
@@ -122,8 +134,10 @@ function PresetsPage() {
 			to="/presets"
 			subtitle={subtitle}
 			actions={
+				// Outlined: the canvas's one primary is Apply to mission.
 				<Button
 					size="sm"
+					variant="outline"
 					data-testid="presets-new"
 					onClick={() => setForm({ kind: "new" })}
 				>
@@ -151,81 +165,103 @@ function PresetsPage() {
 				/>
 			) : (
 				<div className="flex min-h-0 flex-1 flex-col gap-4">
-					<div
-						data-testid="presets-toolbar"
-						className="flex flex-wrap items-center gap-3"
-					>
-						<div className="w-full max-w-sm">
-							<PresetSearch
-								value={search.q ?? ""}
-								onChange={(text) => setSearch({ q: presetSearchText(text) })}
-							/>
-						</div>
-						<CutFilter
-							value={search.cut}
-							onChange={(cut: PresetCut | undefined) => setSearch({ cut })}
-						/>
-						<ViewToggle
-							options={PRESET_VIEWS}
-							view={view}
-							onChange={(next) =>
-								setSearch({ view: next === "table" ? "table" : undefined })
-							}
-							testIdPrefix="presets-view"
-							className="ml-auto"
-						/>
-					</div>
-
 					{view === "table" ? (
-						<TableView
-							presets={presets}
-							search={search.q}
-							cut={search.cut}
-							selected={search.preset}
-							subtitle={subtitle}
-							onClearFilters={() => setSearch({ q: undefined, cut: undefined })}
-							onEdit={(preset) => setForm({ kind: "edit", preset })}
-						/>
-					) : search.preset ? (
-						<OpenPreset
-							id={search.preset}
-							names={names}
-							onClose={close}
-							onApply={apply}
-							onSaved={saved}
-						/>
-					) : (
-						<div className="flex flex-col gap-4">
-							{pair.length === 2 && pair[0] && pair[1] ? (
-								<PresetCompare
-									a={pair[0]}
-									b={pair[1]}
-									names={names}
-									onClear={() => setComparing([])}
+						<>
+							{/* The table's header: the one view control, then its
+							    own search and cut. */}
+							<div
+								data-testid="presets-toolbar"
+								className="flex flex-wrap items-center gap-3"
+							>
+								<ViewToggle
+									options={VIEW_OPTIONS}
+									view="table"
+									onChange={(next) => {
+										if (next !== "table") setSearch({ view: undefined });
+									}}
+									testIdPrefix="preset-view"
 								/>
-							) : null}
-							<PresetBoard
-								query={presets}
-								search={search.q}
-								cut={search.cut}
-								onClearFilters={() =>
-									setSearch({ q: undefined, cut: undefined })
-								}
-								names={names}
-								comparing={comparing}
-								landedId={landedId}
-								actions={{
-									onOpen: open,
-									onApply: apply,
-									onToggleCompare: (preset) =>
-										setComparing((ids) =>
-											ids.includes(preset.id)
-												? ids.filter((id) => id !== preset.id)
-												: [...ids, preset.id].slice(-2),
-										),
-								}}
-							/>
-						</div>
+								<TeamSearch
+									value={search.q ?? ""}
+									onChange={(text) => setSearch({ q: presetSearchText(text) })}
+								/>
+								<CutFilter
+									value={search.cut}
+									onChange={(cut: PresetCut | undefined) => setSearch({ cut })}
+								/>
+							</div>
+							<section
+								aria-label="Teams"
+								className="flex min-h-0 flex-1 flex-col rounded-card border border-border bg-app-panel p-4 shadow-card"
+							>
+								<TableView
+									presets={presets}
+									search={search.q}
+									cut={search.cut}
+									selected={search.preset}
+									subtitle={subtitle}
+									onClearFilters={() =>
+										setSearch({ q: undefined, cut: undefined })
+									}
+									onEdit={(preset) => setForm({ kind: "edit", preset })}
+								/>
+							</section>
+						</>
+					) : (
+						// The canvas: the selected team (the URL's, else the first), the
+						// switcher at its head; read, empty and failed as every region.
+						<Surface
+							data-testid="preset-list"
+							query={presets}
+							isEmpty={(data) => loadedPresets(data).length === 0}
+							loading={<CanvasSkeleton />}
+							// Unfiltered, an empty list is the first run, shown above.
+							empty={null}
+							error={ErrorState}
+						>
+							{() => (
+								<div
+									data-testid="presets-composer"
+									className="flex min-w-0 flex-1 flex-col gap-4"
+								>
+									{pair.length === 2 && pair[0] && pair[1] ? (
+										<PresetCompare
+											a={pair[0]}
+											b={pair[1]}
+											names={names}
+											onClear={() => setComparing([])}
+										/>
+									) : null}
+									{selectedId ? (
+										<OpenPreset
+											id={selectedId}
+											names={names}
+											onApply={apply}
+											onSaved={saved}
+											onTable={() => setSearch({ view: "table" })}
+											switcher={(selected) => (
+												<TeamSwitcher
+													presets={loaded}
+													selected={selected}
+													hasMore={presets.hasNextPage}
+													loadingMore={presets.isFetchingNextPage}
+													onLoadMore={() => presets.fetchNextPage()}
+													onNew={() => setForm({ kind: "new" })}
+													comparing={comparing}
+													onToggleCompare={(preset) =>
+														setComparing((ids) =>
+															ids.includes(preset.id)
+																? ids.filter((id) => id !== preset.id)
+																: [...ids, preset.id].slice(-2),
+														)
+													}
+												/>
+											)}
+										/>
+									) : null}
+								</div>
+							)}
+						</Surface>
 					)}
 				</div>
 			)}
@@ -251,25 +287,59 @@ function PresetsPage() {
 function OpenPreset({
 	id,
 	names,
-	onClose,
+	switcher,
+	onTable,
 	onApply,
 	onSaved,
 }: {
 	id: string;
 	names: ReturnType<typeof useTemplateNames>;
-	onClose: () => void;
+	switcher: (preset: Preset | null) => ReactNode;
+	onTable: () => void;
 	onApply: (preset: Preset) => void;
 	onSaved: (preset: Preset) => void;
 }) {
 	const query = usePreset(id);
+	// A team that can't be read (a stale ?preset= of a deleted one is a 404)
+	// keeps the canvas header, so there is always a way to another team or
+	// the table.
+	// Surface renders `error` as a component, so it is made once: a new one
+	// each render would remount the header, closing an open switcher and
+	// wiping its search. The latest switcher and onTable come through a ref.
+	const latest = useRef({ switcher, onTable });
+	latest.current = { switcher, onTable };
+	const failed = useCallback(
+		(props: ErrorStateProps<ApiError>) => (
+			<div data-testid="preset-open-failed" className="flex flex-col gap-4">
+				<header
+					data-testid="preset-canvas-header"
+					className="flex flex-wrap items-center gap-2"
+				>
+					{latest.current.switcher(null)}
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						data-testid="preset-open-table"
+						onClick={() => latest.current.onTable()}
+					>
+						<Rows3 aria-hidden="true" />
+						Open the table
+					</Button>
+				</header>
+				<ErrorState {...props} />
+			</div>
+		),
+		[],
+	);
 	return (
 		<Surface
 			data-testid="preset-open"
 			query={query}
 			isEmpty={() => false}
 			empty={null}
-			loading={<Skeleton className="h-64 w-full rounded-md" />}
-			error={ErrorState}
+			loading={<Skeleton className="h-64 w-full rounded-card" />}
+			error={failed}
 		>
 			{(preset) => (
 				<PresetKanban
@@ -278,12 +348,63 @@ function OpenPreset({
 					key={preset.id}
 					preset={preset}
 					names={names}
-					onClose={onClose}
+					switcher={switcher(preset)}
+					onTable={onTable}
 					onApply={onApply}
 					onSaved={onSaved}
 				/>
 			)}
 		</Surface>
+	);
+}
+
+/** The search writes to the URL this long after the last keystroke. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+/**
+ * The table's search. The URL's `?q` is the source of truth, so a search is
+ * a link; typing updates it after a short pause, and Clear filters (a URL
+ * change from outside) is followed.
+ */
+/**
+ * The search box's text once the URL's `?q` changes: kept while it trims to
+ * the same query (the URL holds it trimmed, so a typed trailing space would
+ * otherwise be deleted mid-word), the URL's otherwise (Clear filters, Back).
+ */
+export function searchDraft(draft: string, url: string): string {
+	return (presetSearchText(draft) ?? "") === url ? draft : url;
+}
+
+function TeamSearch({
+	value,
+	onChange,
+}: {
+	value: string;
+	onChange: (value: string) => void;
+}) {
+	const [text, setText] = useState(value);
+	const latest = useRef(onChange);
+	latest.current = onChange;
+	useEffect(() => setText((draft) => searchDraft(draft, value)), [value]);
+	useEffect(() => {
+		// Nothing new to send: the text already trims to the URL's query.
+		if ((presetSearchText(text) ?? "") === value) return;
+		const timer = window.setTimeout(
+			() => latest.current(text),
+			SEARCH_DEBOUNCE_MS,
+		);
+		return () => window.clearTimeout(timer);
+	}, [text, value]);
+	return (
+		<SearchField
+			value={text}
+			onChange={setText}
+			label="Search teams"
+			placeholder="Search teams by name"
+			shortcut="/"
+			className="w-full max-w-sm"
+			data-testid="presets-search"
+		/>
 	);
 }
 

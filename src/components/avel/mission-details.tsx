@@ -4,15 +4,21 @@ import {
 	briefSchema,
 	type MissionDetail,
 } from "avel-server/contract";
-import { ArrowLeft, ArrowUpRight, ChevronRight, X } from "lucide-react";
+import {
+	ArrowLeft,
+	ArrowUpRight,
+	ChevronRight,
+	CircleCheck,
+	X,
+} from "lucide-react";
 import {
 	createContext,
 	type ReactNode,
 	useContext,
-	useEffect,
 	useId,
 	useState,
 } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Sheet,
@@ -24,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { relativeTime } from "@/lib/api/clients";
 import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
-import { actionLabel } from "./activity-copy";
+import { ACTOR_KIND_LABEL, actionLabel } from "./activity-copy";
 import { ActorLabel } from "./agent-actor";
 import { ClientName, MissionStatusPill } from "./mission-columns";
 import { NEEDS_YOU_COPY, useMission } from "./mission-data";
@@ -35,63 +41,38 @@ import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 const CloseContext = createContext<() => void>(() => {});
 
 /**
- * One mission's details, beside the list on a desktop and as a full-screen
- * sheet on a phone. Opened by a row in either view, named by the URL's
- * `mission`, so it is a link. Esc closes it.
+ * One mission's details, a sheet over the list at every width. Opened by a
+ * row in either view, named by the URL's `mission`, so it is a link. The
+ * sheet closes on Esc by itself.
  */
 export function MissionDetails({
 	id,
-	desktop,
 	now,
 	onClose,
 }: {
 	id: string;
-	/** md and up: a panel beside the list. Below md: a sheet. */
-	desktop: boolean;
 	now: number;
 	onClose: () => void;
 }) {
-	// Esc closes the panel, unless something inside it (a menu, a field)
-	// handled the key first. The phone's sheet closes on Esc by itself.
-	useEffect(() => {
-		if (!desktop) return;
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape" && !event.defaultPrevented) onClose();
-		};
-		window.addEventListener("keydown", onKeyDown);
-		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [desktop, onClose]);
-
-	const body = (
-		<CloseContext.Provider value={onClose}>
-			<DetailsBody id={id} now={now} onClose={onClose} />
-		</CloseContext.Provider>
-	);
-
-	if (desktop) {
-		return (
-			<aside
-				data-testid="mission-details"
-				aria-label="Mission details"
-				className="flex min-h-0 w-full flex-col overflow-y-auto rounded-md border border-border bg-card md:sticky md:top-(--topbar-height) md:max-h-[calc(100dvh-var(--topbar-height)-2*var(--canvas-inset))]"
-			>
-				{body}
-			</aside>
-		);
-	}
 	return (
 		<Sheet open onOpenChange={(open) => !open && onClose()}>
 			<SheetContent
 				side="right"
 				showCloseButton={false}
 				data-testid="mission-details"
-				className="w-full gap-0 p-0 sm:max-w-full"
+				// G F opens this mission's full page from inside the sheet.
+				data-allow-shortcuts=""
+				// A drawer over the page from sm up, so opening a mission never
+				// reflows the grid; the whole width on a phone.
+				className="w-full gap-0 p-0 sm:max-w-md"
 			>
 				<SheetTitle className="sr-only">Mission details</SheetTitle>
 				<SheetDescription className="sr-only">
 					One mission's brief, roster, playbook, last export and activity.
 				</SheetDescription>
-				{body}
+				<CloseContext.Provider value={onClose}>
+					<DetailsBody id={id} now={now} onClose={onClose} />
+				</CloseContext.Provider>
 			</SheetContent>
 		</Sheet>
 	);
@@ -201,12 +182,12 @@ function DetailsContent({
 						/>
 					) : null}
 				</div>
-				<h2 className="type-h2 text-foreground">
+				<h2 className="type-page text-foreground">
 					<ClientName mission={mission} />
 				</h2>
 				<p className="flex flex-wrap gap-x-3 type-small text-text-muted">
 					<span>{mission.type}</span>
-					<span className="type-mono-small">sprint {mission.sprintN}</span>
+					<span className="type-mono">sprint {mission.sprintN}</span>
 					<span>{mission.engagement?.name ?? "No engagement"}</span>
 				</p>
 				<Button asChild variant="outline" size="sm" className="self-start">
@@ -239,7 +220,7 @@ function DetailsContent({
 				{mission.playbook ? (
 					<p className="flex flex-col type-small">
 						<span className="text-foreground">{mission.playbook.name}</span>
-						<span className="type-mono-small text-text-subtle">
+						<span className="type-mono text-text-subtle">
 							{mission.playbook.missionType}
 						</span>
 					</p>
@@ -288,7 +269,7 @@ function Section({
 				aria-controls={bodyId}
 				data-testid={`${testId}-toggle`}
 				onClick={() => setOpen(!open)}
-				className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-panel-title text-foreground transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-state-hover"
+				className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-title text-foreground transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-app-raised"
 			>
 				<ChevronRight
 					aria-hidden="true"
@@ -417,13 +398,13 @@ export function Brief({ brief }: { brief: Record<string, unknown> }) {
 		>
 			{entries.map(([key, value]) => (
 				<div key={key} className="contents">
-					<dt className="type-mono-small text-text-subtle">{key}</dt>
+					<dt className="type-mono text-text-subtle">{key}</dt>
 					<dd
 						className={cn(
 							"min-w-0 break-words",
 							typeof value === "string"
 								? "type-small text-foreground"
-								: "type-mono-small text-foreground",
+								: "type-mono text-foreground",
 						)}
 					>
 						{typeof value === "string" ? value : JSON.stringify(value)}
@@ -440,9 +421,13 @@ function BriefPlan({ brief }: { brief: ApprovedBrief }) {
 		<div
 			data-testid="mission-brief"
 			data-shape="plan"
-			className="flex flex-col gap-3"
+			className="flex flex-col gap-4"
 		>
-			<p className="type-small text-foreground">{brief.summary}</p>
+			<div className="flex flex-col gap-1 rounded-card bg-app-well px-4 py-3">
+				<p className="type-eyebrow">Summary</p>
+				<p className="type-body text-text">{brief.summary}</p>
+			</div>
+			{brief.requirements.length > 0 ? <BriefCoverage brief={brief} /> : null}
 			{brief.requirements.length === 0 ? (
 				<p className="type-small text-text-subtle">No requirements yet.</p>
 			) : modules.length === 0 ? (
@@ -459,7 +444,7 @@ function BriefPlan({ brief }: { brief: ApprovedBrief }) {
 								className="flex flex-col gap-2"
 							>
 								<h4 className="flex items-baseline gap-2">
-									<span className="type-mono-small text-text-subtle">
+									<span className="type-mono text-text-subtle">
 										{module.id}
 									</span>
 									<span className="type-small font-medium text-foreground">
@@ -489,7 +474,7 @@ function BriefPlan({ brief }: { brief: ApprovedBrief }) {
 						<section
 							data-testid="mission-brief-unplaced"
 							aria-label="Not in a module"
-							className="flex flex-col gap-2 rounded-sm border border-gate-warn-line bg-gate-warn-soft p-2"
+							className="flex flex-col gap-2 rounded-control border border-gate-warn-line bg-gate-warn-banner p-2"
 						>
 							<h4 className="type-caption text-foreground">Not in a module</h4>
 							<RequirementList groups={unplaced} />
@@ -500,7 +485,7 @@ function BriefPlan({ brief }: { brief: ApprovedBrief }) {
 			{uncited.length > 0 ? (
 				<div
 					data-testid="mission-brief-uncited"
-					className="flex flex-col gap-1 rounded-sm border border-gate-warn-line bg-gate-warn-soft p-2"
+					className="flex flex-col gap-1 rounded-control border border-gate-warn-line bg-gate-warn-banner p-2"
 				>
 					<p className="type-caption text-foreground">
 						These criteria cite no requirement in the brief.
@@ -512,9 +497,60 @@ function BriefPlan({ brief }: { brief: ApprovedBrief }) {
 	);
 }
 
+/**
+ * How much of the brief is testable: its counts, and a bar of the
+ * requirements that have a criterion, in pass when all do and warn when one
+ * has none (Approve refuses that brief).
+ */
+function BriefCoverage({ brief }: { brief: ApprovedBrief }) {
+	const cited = new Set(brief.acceptanceCriteria.map((c) => c.requirementId));
+	const total = brief.requirements.length;
+	const covered = brief.requirements.filter((r) => cited.has(r.id)).length;
+	const whole = covered === total;
+	return (
+		<div
+			data-testid="mission-brief-coverage"
+			className="flex flex-wrap items-center gap-x-4 gap-y-2"
+		>
+			<span className="type-small text-text-muted">
+				<span className="font-medium text-text tabular-nums">{total}</span>
+				{total === 1 ? " requirement" : " requirements"}
+			</span>
+			<span className="type-small text-text-muted">
+				<span className="font-medium text-text tabular-nums">
+					{brief.acceptanceCriteria.length}
+				</span>
+				{brief.acceptanceCriteria.length === 1 ? " criterion" : " criteria"}
+			</span>
+			<span className="ml-auto flex items-center gap-2">
+				<span
+					aria-hidden="true"
+					className="h-1.5 w-24 overflow-hidden rounded-full bg-gate-pending-soft"
+				>
+					<span
+						className={cn(
+							"block h-full rounded-full",
+							whole ? "bg-gate-pass-solid" : "bg-gate-warn-solid",
+						)}
+						style={{ width: `${(covered / total) * 100}%` }}
+					/>
+				</span>
+				<span
+					className={cn(
+						"type-caption tabular-nums",
+						whole ? "text-gate-pass" : "text-gate-warn",
+					)}
+				>
+					{`${covered} of ${total} testable`}
+				</span>
+			</span>
+		</div>
+	);
+}
+
 function RequirementList({ groups }: { groups: RequirementGroup[] }) {
 	return (
-		<ol aria-label="Requirements" className="flex flex-col gap-2.5">
+		<ol aria-label="Requirements" className="flex flex-col gap-2">
 			{keyed(groups, (g) => g.requirement.id).map(([key, group]) => (
 				<RequirementItem key={key} group={group} />
 			))}
@@ -527,23 +563,33 @@ function RequirementItem({ group }: { group: RequirementGroup }) {
 	return (
 		<li
 			data-testid={`mission-brief-requirement-${requirement.id}`}
-			className="flex flex-col gap-1"
+			className={cn(
+				"overflow-hidden rounded-control border bg-app-panel",
+				criteria.length > 0 ? "border-border" : "border-gate-warn-line",
+			)}
 		>
-			<p className="flex gap-2">
-				<span className="w-8 shrink-0 type-mono-small text-text-subtle">
+			<p className="flex items-start gap-2.5 px-3 py-2.5">
+				<Badge variant="tag" className="mt-px shrink-0">
 					{requirement.id}
-				</span>
-				<span className="min-w-0 break-words type-small text-foreground">
+				</Badge>
+				<span className="min-w-0 break-words type-small font-medium text-text">
 					{requirement.text}
 				</span>
 			</p>
-			<div className="ml-3 border-l border-border pl-3">
+			<div
+				className={cn(
+					"border-t px-3 py-2",
+					criteria.length > 0
+						? "border-border bg-app-band"
+						: "border-gate-warn-line bg-gate-warn-banner",
+				)}
+			>
 				{criteria.length > 0 ? (
 					<CriterionList criteria={criteria} />
 				) : (
 					<p
 						data-testid="mission-brief-no-criteria"
-						className="inline-flex items-center gap-1.5 type-caption text-text-muted"
+						className="inline-flex items-center gap-1.5 type-caption text-text"
 					>
 						<StatusGlyph tone="warn" />
 						No acceptance criterion yet.
@@ -563,20 +609,24 @@ function CriterionList({
 	cites?: boolean;
 }) {
 	return (
-		<ul aria-label="Acceptance criteria" className="flex flex-col gap-1">
+		<ul aria-label="Acceptance criteria" className="flex flex-col gap-1.5">
 			{keyed(criteria, (c) => c.id).map(([key, criterion]) => (
 				<li
 					key={key}
 					data-testid={`mission-brief-criterion-${criterion.id}`}
-					className="flex gap-2"
+					className="flex items-start gap-2"
 				>
-					<span className="w-9 shrink-0 type-mono-small text-text-subtle">
+					<CircleCheck
+						aria-hidden="true"
+						className="mt-0.5 size-3.5 shrink-0 text-text-subtle"
+					/>
+					<span className="w-9 shrink-0 type-mono text-text-subtle">
 						{criterion.id}
 					</span>
 					<span className="min-w-0 break-words type-small text-text-muted">
 						{criterion.text}
 						{cites ? (
-							<span className="type-mono-small text-text-subtle">{` → ${criterion.requirementId}`}</span>
+							<span className="type-mono text-text-subtle">{` → ${criterion.requirementId}`}</span>
 						) : null}
 					</span>
 				</li>
@@ -603,9 +653,7 @@ function LastExportDetail({
 					tone={exportStatusTone(last.status)}
 					label={last.status}
 				/>
-				<span className="type-mono-small text-text-muted">
-					{last.targetKind}
-				</span>
+				<span className="type-mono text-text-muted">{last.targetKind}</span>
 				<span
 					data-testid="mission-export-since"
 					className="type-caption text-text-muted"
@@ -613,27 +661,10 @@ function LastExportDetail({
 					{`In ${last.status} since ${relativeTime(last.statusChangedAt, now)}`}
 				</span>
 			</div>
-			{/* Gate decisions arrive with module 9's decide(); until then the
-			    contract sends gates as null. */}
-			<Surface
-				data-testid="mission-export-gates"
-				notBuilt={{
-					title: "Gate results",
-					what: "Each gate's verdict for this export, with attested gates marked.",
-					needs: [],
-					compact: true,
-				}}
-			/>
+			{/* Gate results live in the mission page's Gate panel. */}
 		</div>
 	);
 }
-
-/** An actor in words: the operator's GitHub login, else System or Agent. */
-const ACTOR_KIND = {
-	operator: "Operator",
-	system: "System",
-	agent: "Agent",
-} as const;
 
 export function RecentActivity({
 	mission,
@@ -662,7 +693,7 @@ export function RecentActivity({
 						<span className="type-caption text-text-subtle">
 							<ActorLabel
 								actor={entry.actor}
-								fallback={ACTOR_KIND[entry.actor.kind]}
+								fallback={ACTOR_KIND_LABEL[entry.actor.kind]}
 								data-testid={`mission-activity-actor-${i}`}
 							/>
 						</span>

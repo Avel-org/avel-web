@@ -13,7 +13,6 @@ import {
 } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { missionKeys } from "@/components/avel/mission-data";
 import { ApiError, ApiOverrideProvider, queryKeys } from "@/lib/api";
 import {
 	afterStatusChange,
@@ -142,7 +141,7 @@ describe("the mission page header", () => {
 	it("a draft lists what stops it starting, naming agents from the cached roster", async () => {
 		const html = await renderMission(
 			seeded((c) => {
-				c.setQueryData(missionKeys.detail(ID).slice(), detail());
+				c.setQueryData(queryKeys.missions.detail(ID).slice(), detail());
 				c.setQueryData(queryKeys.missionLifecycle.readiness(ID), NOT_READY);
 				c.setQueryData(queryKeys.roster.list(ID), [ENTRY]);
 			}),
@@ -161,7 +160,7 @@ describe("the mission page header", () => {
 		// Unseeded, the roster read is pending on the server: the loading state.
 		const html = await renderMission(
 			seeded((c) => {
-				c.setQueryData(missionKeys.detail(ID).slice(), detail());
+				c.setQueryData(queryKeys.missions.detail(ID).slice(), detail());
 				c.setQueryData(queryKeys.missionLifecycle.readiness(ID), NOT_READY);
 			}),
 		);
@@ -173,7 +172,7 @@ describe("the mission page header", () => {
 	it("when the roster read fails, the same fallback stands", async () => {
 		const html = await renderMission(
 			seeded((c) => {
-				c.setQueryData(missionKeys.detail(ID).slice(), detail());
+				c.setQueryData(queryKeys.missions.detail(ID).slice(), detail());
 				c.setQueryData(queryKeys.missionLifecycle.readiness(ID), NOT_READY);
 				c.getQueryCache()
 					.build(c, { queryKey: queryKeys.roster.list(ID) })
@@ -196,7 +195,7 @@ describe("the mission page header", () => {
 	it("a roster without the entry says the agent has left it", async () => {
 		const html = await renderMission(
 			seeded((c) => {
-				c.setQueryData(missionKeys.detail(ID).slice(), detail());
+				c.setQueryData(queryKeys.missions.detail(ID).slice(), detail());
 				c.setQueryData(queryKeys.missionLifecycle.readiness(ID), NOT_READY);
 				c.setQueryData(queryKeys.roster.list(ID), []);
 			}),
@@ -209,7 +208,7 @@ describe("the mission page header", () => {
 	it("a ready draft enables Start", async () => {
 		const html = await renderMission(
 			seeded((c) => {
-				c.setQueryData(missionKeys.detail(ID).slice(), detail());
+				c.setQueryData(queryKeys.missions.detail(ID).slice(), detail());
 				c.setQueryData(queryKeys.missionLifecycle.readiness(ID), {
 					missionId: ID,
 					ready: true,
@@ -227,7 +226,7 @@ describe("the mission page header", () => {
 		const html = await renderMission(
 			seeded((c) => {
 				c.setQueryData(
-					missionKeys.detail(ID).slice(),
+					queryKeys.missions.detail(ID).slice(),
 					detail({ status: "active" }),
 				);
 			}),
@@ -244,7 +243,7 @@ describe("the mission page header", () => {
 			// whenever there is one) stays out of what this test measures.
 			const client = seeded((c) => {
 				c.setQueryData(
-					missionKeys.detail(ID).slice(),
+					queryKeys.missions.detail(ID).slice(),
 					detail({ status, roster: { agents: 0, active: 0 } }),
 				);
 			});
@@ -323,7 +322,7 @@ describe("the lifecycle requests", () => {
 describe("after a status change", () => {
 	it("the mission, its readiness, the lists and the activity read again", async () => {
 		const client = seeded((c) => {
-			c.setQueryData(missionKeys.detail(ID).slice(), detail());
+			c.setQueryData(queryKeys.missions.detail(ID).slice(), detail());
 			c.setQueryData(queryKeys.missionLifecycle.readiness(ID), NOT_READY);
 			c.setQueryData(["missions", "list", { origin: "internal" }], {});
 			c.setQueryData(queryKeys.activity.all(), {});
@@ -332,7 +331,7 @@ describe("after a status change", () => {
 		await afterStatusChange(client);
 		const stale = (key: readonly unknown[]) =>
 			client.getQueryState(key)?.isInvalidated;
-		expect(stale(missionKeys.detail(ID))).toBe(true);
+		expect(stale(queryKeys.missions.detail(ID))).toBe(true);
 		expect(stale(queryKeys.missionLifecycle.readiness(ID))).toBe(true);
 		expect(stale(["missions", "list", { origin: "internal" }])).toBe(true);
 		expect(stale(queryKeys.activity.all())).toBe(true);
@@ -343,7 +342,7 @@ describe("after a status change", () => {
 		const client = seeded((c) => {
 			c.setQueryData(queryKeys.missionLifecycle.readiness(ID), NOT_READY);
 		});
-		await client.invalidateQueries({ queryKey: missionKeys.detail(ID) });
+		await client.invalidateQueries({ queryKey: queryKeys.missions.detail(ID) });
 		expect(
 			client.getQueryState(queryKeys.missionLifecycle.readiness(ID))
 				?.isInvalidated,

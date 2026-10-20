@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useInlineModals } from "./action-modal";
 import { SampleRegion } from "./catalog-sample";
 import { CodeView } from "./code-view";
 import {
@@ -49,29 +50,26 @@ export const FILE_TABS = [
 export const PROMOTE_REASON =
 	"Promoting arrives with the Drive. It makes a knowledge skill draft from this file, which is reviewed, approved and pinned by hash before any agent learns from it.";
 
-type PanelProps = { file: SampleFile; onClose: () => void };
+type PanelProps = {
+	file: SampleFile;
+	onClose: () => void;
+	/** A way to move it without dragging: the Drive's folder select. */
+	moveTo?: ReactNode;
+};
 
-/**
- * Beside the list at 2xl and up: sticky, and it scrolls inside itself. Not
- * at xl: with the folder rail, the list would be left too narrow to read.
- */
-export function FilePanelAside(props: PanelProps) {
-	return (
-		<aside
-			aria-label={`${props.file.name}, file`}
-			data-testid="drive-panel-aside"
-			className="sticky top-[calc(var(--topbar-height)+0.5rem)] hidden max-h-[calc(100dvh-var(--topbar-height)-3rem)] min-h-0 w-[24rem] shrink-0 flex-col overflow-hidden rounded-md border border-border surface-steel bg-app-panel 2xl:flex"
-		>
-			<FilePanelBody {...props} />
-		</aside>
-	);
-}
-
-/** Over the page below 2xl, or anywhere a column is too narrow for an aside. */
+/** The file's details: a drawer on the right, over the page. */
 export function FilePanelSheet({
 	open,
 	...props
 }: PanelProps & { open: boolean }) {
+	// A server render (a test) has no portal: an open sheet renders in place.
+	const inline = useInlineModals();
+	if (inline)
+		return open ? (
+			<div data-testid="drive-panel-sheet">
+				<FilePanelBody {...props} />
+			</div>
+		) : null;
 	return (
 		<Sheet
 			open={open}
@@ -95,6 +93,7 @@ export function FilePanelSheet({
 export function FilePanelBody({
 	file,
 	onClose,
+	moveTo,
 	inSheet = false,
 }: PanelProps & { inSheet?: boolean }) {
 	const purged = file.purgedAt !== null;
@@ -125,7 +124,7 @@ export function FilePanelBody({
 						<Title
 							data-testid="drive-panel-name"
 							className={cn(
-								"type-panel-title break-words",
+								"type-title break-words",
 								purged ? "text-text-subtle line-through" : "text-foreground",
 							)}
 						>
@@ -148,6 +147,7 @@ export function FilePanelBody({
 						) : null}
 					</div>
 					<FileActions file={file} />
+					{moveTo}
 				</div>
 				<Tabs defaultValue="details" className="gap-0">
 					<div className="border-y border-border px-4">
@@ -188,7 +188,7 @@ function Preview({ file }: { file: SampleFile }) {
 			<div
 				data-testid="drive-panel-preview"
 				data-preview="icon"
-				className="flex aspect-[16/9] items-center justify-center rounded-sm border border-border bg-app-recessed"
+				className="flex aspect-[16/9] items-center justify-center rounded-control border border-border bg-app-well"
 			>
 				<FileIconTile file={file} size="lg" />
 			</div>
@@ -267,13 +267,13 @@ export function DetailsTab({ file }: { file: SampleFile }) {
 				<Fact label="Type">
 					<span className="flex flex-col">
 						<span>{KIND[kind].label}</span>
-						<code className="type-mono-small break-all text-text-subtle">
+						<code className="type-mono break-all text-text-subtle">
 							{file.mime}
 						</code>
 					</span>
 				</Fact>
 				<Fact label="Size">
-					<span className="type-mono-small">{sizeLabel(file.bytes)}</span>
+					<span className="type-mono">{sizeLabel(file.bytes)}</span>
 				</Fact>
 				<Fact label="SHA-256">
 					<ShortHash
@@ -287,7 +287,7 @@ export function DetailsTab({ file }: { file: SampleFile }) {
 						<Uploader login={file.uploadedBy} />
 						<time
 							dateTime={file.createdAt}
-							className="type-mono-small text-text-subtle"
+							className="type-mono text-text-subtle"
 						>
 							{dateLabel(file.createdAt)}
 						</time>
@@ -355,7 +355,7 @@ export function AccessTab({ file }: { file: SampleFile }) {
 									className={cn(
 										"mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full",
 										row.reads
-											? "bg-accent-soft text-accent-text"
+											? "bg-gate-pass-soft text-gate-pass"
 											: "bg-app-raised text-text-subtle",
 									)}
 								>
@@ -383,7 +383,7 @@ export function AccessTab({ file }: { file: SampleFile }) {
 				{file.scope !== "general" && purgedAt === null ? (
 					<p
 						data-testid="drive-access-one-way"
-						className="rounded-sm border border-border bg-app-recessed px-3 py-2 type-caption text-text-muted"
+						className="rounded-control border border-border bg-app-well px-3 py-2 type-caption text-text-muted"
 					>
 						One-way door: a client's files are never readable by another
 						client's agents. Agents never search the Drive; they read what they
@@ -459,7 +459,7 @@ export function HistoryTab({ file }: { file: SampleFile }) {
 								"mt-1.5 size-[11px] shrink-0 rounded-full border-2",
 								event.what === "deleted"
 									? "border-text-subtle bg-app-panel"
-									: "border-accent bg-app-panel",
+									: "border-gate-pending-solid bg-app-panel",
 							)}
 						/>
 						<span className="flex min-w-0 flex-col">
@@ -470,10 +470,7 @@ export function HistoryTab({ file }: { file: SampleFile }) {
 							<span className="type-caption text-text-subtle">
 								{event.detail}
 							</span>
-							<time
-								dateTime={event.at}
-								className="type-mono-small text-text-subtle"
-							>
+							<time dateTime={event.at} className="type-mono text-text-subtle">
 								{dateLabel(event.at)}
 							</time>
 						</span>

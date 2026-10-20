@@ -17,6 +17,7 @@ import { sampleSha256 } from "./catalog-placeholders";
 export const AGENT_MISSING = {
 	edges: "the handoff graph",
 	dispatch: "dispatch token estimates",
+	artifacts: "what each role writes and reads",
 } as const;
 
 export type AgentMissing = (typeof AGENT_MISSING)[keyof typeof AGENT_MISSING];

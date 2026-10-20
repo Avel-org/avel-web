@@ -27,7 +27,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { tabsListVariants } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { initialsOf } from "./actor";
 import { firstWave, isFirmAgent, sideOf } from "./catalog-agent-placeholders";
 import { teamOf } from "./catalog-sample";
 import type { SortState } from "./data-table";
@@ -35,8 +37,7 @@ import type { SortState } from "./data-table";
 /*
  * The All agents list's pure pieces: filtering, sorting, the side tile and
  * the filter row. The cards are in catalog-agent-card.tsx and the graph in
- * catalog-agent-graph.tsx. The file keeps its name because the agent page
- * imports initialsOf from it.
+ * catalog-agent-graph.tsx.
  */
 
 /** Side tabs: every side, and Other for templates with none (Firm, code). */
@@ -119,20 +120,12 @@ export function sortAgents(
 // The initials tile.
 
 /**
- * Each side's tile tone. No side tokens exist yet, so these borrow existing
- * soft tones; the mapping lives here alone, so new tokens are a one-line
- * change. Never a raw colour.
+ * Every side shares v3's ringed tile. A side is not a state and not
+ * something to act on, so it takes no gate tone and no accent (audit D3,
+ * section 4), and v3 keeps category hues for data series. The side tabs and
+ * data-side say which side an agent is on.
  */
-const SIDE_TONE: Record<SideTab, string> = {
-	author: "bg-accent-soft text-accent-text",
-	tester: "bg-gate-pending-soft text-gate-pending",
-	judge: "bg-gate-warn-soft text-gate-warn",
-	fixture: "bg-diff-preserve/15 text-diff-preserve",
-	none: "bg-muted text-text-muted",
-};
-
-/** Two letters from the name: "AT" for Atlas. */
-export const initialsOf = (name: string) => name.slice(0, 2).toUpperCase();
+const TILE_TONE = "border border-border bg-app-panel text-text-muted";
 
 export function AgentTile({
 	agent,
@@ -147,9 +140,9 @@ export function AgentTile({
 			data-testid={`catalog-agent-tile-${agent.slug}`}
 			data-side={sideTabOf(agent)}
 			className={cn(
-				"inline-flex shrink-0 items-center justify-center rounded-sm font-medium",
+				"inline-flex shrink-0 items-center justify-center rounded-control font-medium",
 				size === "sm" ? "size-8 type-caption" : "size-11 type-body",
-				SIDE_TONE[sideTabOf(agent)],
+				TILE_TONE,
 			)}
 		>
 			{initialsOf(agent.name)}
@@ -187,7 +180,7 @@ export function AgentFilterRow({
 		>
 			<fieldset
 				data-testid="catalog-agents-side-tabs"
-				className="flex flex-wrap items-center gap-1"
+				className={cn(tabsListVariants({ variant: "default" }), "flex-wrap")}
 			>
 				<legend className="sr-only">Side</legend>
 				{SIDE_TABS.map((tab) => {
@@ -198,17 +191,16 @@ export function AgentFilterRow({
 					return (
 						<Button
 							key={tab.label}
-							size="sm"
-							variant={pressed ? "secondary" : "ghost"}
+							type="button"
+							variant="segment"
 							aria-pressed={pressed}
 							data-testid={`catalog-agents-side-${tab.id ?? "all"}`}
 							onClick={() => onChange({ ...filters, side: tab.id })}
-							className="rounded-full"
 						>
 							{tab.label}
 							<span
 								data-testid={`catalog-agents-side-${tab.id ?? "all"}-count`}
-								className="type-mono-small text-text-subtle tabular-nums"
+								className="type-mono text-text-subtle tabular-nums"
 							>
 								{count}
 							</span>
@@ -234,7 +226,7 @@ export function AgentFilterRow({
 						onChange={(event) =>
 							onChange({ ...filters, q: event.target.value })
 						}
-						className="h-8 w-52 pl-8"
+						className="h-control-md w-52 pl-8"
 					/>
 				</div>
 				<Popover>
@@ -251,7 +243,7 @@ export function AgentFilterRow({
 						>
 							<ListFilter aria-hidden="true" />
 							{narrowed > 0 ? (
-								<span className="type-mono-small tabular-nums">{narrowed}</span>
+								<span className="type-mono tabular-nums">{narrowed}</span>
 							) : null}
 						</Button>
 					</PopoverTrigger>
@@ -315,7 +307,7 @@ function FilterSelect({
 					id={id}
 					size="sm"
 					data-testid={testId}
-					className="w-full type-mono-small"
+					className="w-full type-mono"
 				>
 					<SelectValue>
 						{value === undefined ? "All" : (labels?.[value] ?? value)}

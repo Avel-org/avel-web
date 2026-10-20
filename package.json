@@ -12,12 +12,12 @@
 		"routes": "tsr generate",
 		"check-tokens": "node scripts/check-tokens.mjs",
 		"typecheck": "tsr generate && tsc --noEmit",
-		"lint": "biome check . && node scripts/check-raw-colors.mjs",
+		"lint": "biome check . && node scripts/check-raw-colors.mjs && node scripts/check-unused-tokens.mjs",
 		"test": "tsr generate && vitest run",
 		"check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm check-tokens"
 	},
 	"dependencies": {
-		"@fontsource-variable/ibm-plex-sans": "^5.3.0",
+		"@fontsource-variable/inter": "^5.2.8",
 		"@fontsource/ibm-plex-mono": "^5.3.0",
 		"@tanstack/react-query": "^5.104.1",
 		"@tanstack/react-router": "1.170.32",

@@ -309,7 +309,7 @@ export function FormError({
 		<div
 			role="alert"
 			data-testid="form-error"
-			className="flex flex-col gap-1 rounded-sm border border-gate-block-line bg-gate-block-soft px-3 py-2"
+			className="flex flex-col gap-1 rounded-control border border-gate-block-line bg-gate-block-soft px-3 py-2"
 		>
 			<p className="type-small text-foreground">
 				{hasFieldErrors ? "Check the fields marked above." : copy.what}

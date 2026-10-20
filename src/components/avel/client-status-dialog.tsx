@@ -122,7 +122,9 @@ export function ClientStatusConfirm({
 					</DialogClose>
 				)}
 				<Button
-					variant={closing ? "destructive" : "default"}
+					// Closing is the dialog's final, named action: the filled
+					// danger confirm (audit D7).
+					variant={closing ? "destructive-confirm" : "default"}
 					data-testid="client-status-confirm"
 					disabled={pending}
 					disabledReason={

@@ -132,6 +132,22 @@ export const queryKeys = {
 		all: () => ["connections"] as const,
 		/** contract.connections.list, paged by cursor. */
 		list: (limit: number) => ["connections", "list", { limit }] as const,
+		/**
+		 * contract.connections.list scoped to one engagement's active
+		 * connections, read for its meta.total only. Under "connections", so
+		 * an engagement close (which revokes them) reads it again.
+		 */
+		activeCount: (engagementId: string) =>
+			["connections", "activeCount", engagementId] as const,
+		/** contract.connections.list filtered to one status, paged by cursor. */
+		byStatus: (limit: number, status: string) =>
+			["connections", "list", { limit, status }] as const,
+		/** One status's exact total, from a one-row read's meta.total. */
+		statusCount: (status: string) =>
+			["connections", "statusCount", status] as const,
+		/** One engagement's active connections: what a repository read may use. */
+		activeFor: (engagementId: string, limit: number) =>
+			["connections", "activeFor", engagementId, { limit }] as const,
 	},
 	clients: {
 		/** Everything under contract.clients. */
@@ -170,6 +186,11 @@ export const queryKeys = {
 					? { clientId, limit }
 					: { clientId, limit, status },
 			] as const,
+		/**
+		 * contract.engagements.get: one engagement. Under "engagements", so
+		 * every engagement write (create, close) reads it again.
+		 */
+		detail: (id: string) => ["engagements", "detail", id] as const,
 	},
 	presets: {
 		/** Everything under contract.presets. */
@@ -253,8 +274,13 @@ export const queryKeys = {
 		/** contract.dispatches.reports, every page. Under the detail key too. */
 		reports: (missionId: string) =>
 			["missions", "detail", missionId, "reports"] as const,
-		/** contract.dispatches.get: one dispatch by id. */
-		detail: (id: string) => ["dispatches", id] as const,
+		/**
+		 * A mission's queued and running dispatches only, for the Missions
+		 * dashboard. Under the detail key, so every dispatch write on the
+		 * mission (create, start, halt) reads it again.
+		 */
+		moving: (missionId: string) =>
+			["missions", "detail", missionId, "dispatches", "moving"] as const,
 		/** contract.dispatches.report: one report by id. Never changes once filed. */
 		report: (id: string) => ["completionReports", id] as const,
 		/** contract.dispatches.brief: frozen at start, so it never changes. */
@@ -281,11 +307,19 @@ export const queryKeys = {
 		access: (missionId: string, entryId: string) =>
 			["missions", "roster", missionId, "access", entryId] as const,
 		/**
+		 * Every entry's access on one mission. Attaching or detaching a mission
+		 * skill changes what each entry can reach, so both read this again.
+		 */
+		accessAll: (missionId: string) =>
+			["missions", "roster", missionId, "access"] as const,
+		/**
 		 * contract.agentTemplates.rosterEntries: where one template sits, across
 		 * missions. Under "missions", so a mission write reads it again.
 		 */
 		byTemplate: (templateId: string) =>
 			["missions", "rosterByTemplate", templateId] as const,
+		/** Every agent's roster entries across missions: any roster write. */
+		byTemplateAll: () => ["missions", "rosterByTemplate"] as const,
 		/**
 		 * contract.agentTemplates.get: a template by id, deleted ones included,
 		 * for the paths a roster entry inherits. Under "catalog", with the
@@ -300,6 +334,110 @@ export const queryKeys = {
 		 * unpaginated. Under "missions", as the roster is.
 		 */
 		list: (missionId: string) => ["missions", "skills", missionId] as const,
+	},
+	canon: {
+		/** Every Canon session read: a question settled reads them all again. */
+		sessionsAll: () => ["canon", "session"] as const,
+		/** contract.canon.listSessions: an intake's sessions, newest first. */
+		sessions: (intakeId: string) =>
+			["canon", "session", "list", intakeId] as const,
+		/** contract.canon.getSession: one session, polled while Canon answers. */
+		session: (sessionId: string) =>
+			["canon", "session", "detail", sessionId] as const,
+		/** contract.canon.listMessages: a session's messages, in seq order. */
+		messages: (sessionId: string) => ["canon", "messages", sessionId] as const,
+		/** Every questions list of one intake. */
+		questionsAll: (intakeId: string) =>
+			["canon", "questions", intakeId] as const,
+		/** contract.canon.listQuestions, one status or all, with counts. */
+		questions: (intakeId: string, status?: string) =>
+			["canon", "questions", intakeId, { status: status ?? null }] as const,
+		/** Every memory list of one client. */
+		memoryAll: (clientId: string) => ["canon", "memory", clientId] as const,
+		/** contract.canon.listMemory, one status or all, newest first. */
+		memory: (clientId: string, status?: string) =>
+			["canon", "memory", clientId, { status: status ?? null }] as const,
+	},
+	gate: {
+		/**
+		 * contract.gate.runs: a mission's runs, newest first. Under the
+		 * mission's detail key, so a mission write reads it again.
+		 */
+		runs: (missionId: string) =>
+			["missions", "detail", missionId, "gate-runs"] as const,
+		/** contract.gate.getRun: one run's receipt. It never changes. */
+		run: (missionId: string, runId: string) =>
+			["missions", "detail", missionId, "gate-runs", runId] as const,
+	},
+	findings: {
+		/** Every findings list of one mission: a triage or a run reads them all. */
+		all: (missionId: string) =>
+			["missions", "detail", missionId, "findings"] as const,
+		/** contract.findings.list, one status or all, paged. */
+		list: (missionId: string, status?: string) =>
+			[
+				"missions",
+				"detail",
+				missionId,
+				"findings",
+				{ status: status ?? null },
+			] as const,
+	},
+	templateMissions: {
+		/**
+		 * contract.missions.list scoped to one template and origin, paged. Under
+		 * "missions", so a mission write reads it again.
+		 */
+		list: (slug: string, origin: "client" | "internal", limit: number) =>
+			["missions", "byTemplate", slug, { origin, limit }] as const,
+		/** The same scope's newest mission only: one row, for "last used". */
+		latest: (slug: string, origin: "client" | "internal") =>
+			["missions", "byTemplate", slug, { origin, limit: 1 }] as const,
+	},
+	missions: {
+		/** Everything under "missions": a mission write reads it all again. */
+		all: () => ["missions"] as const,
+		/**
+		 * contract.missions.list under one filter set (MissionListParams). The
+		 * cursor is bound to the sort, so the whole set is the key.
+		 */
+		list: <P extends object>(params: P) =>
+			["missions", "list", params] as const,
+		/** contract.missions.get: one mission. */
+		detail: (id: string) => ["missions", "detail", id] as const,
+		/** The one newest mission by last activity under a filter set (NewestParams). */
+		newest: <P extends object>(params: P) =>
+			["missions", "newest", params] as const,
+	},
+	intakes: {
+		/** Everything under contract.intakes. */
+		all: () => ["intakes"] as const,
+		/** Every intake list: any intake write reads them again. */
+		lists: () => ["intakes", "list"] as const,
+		/**
+		 * contract.intakes.list for one engagement, one page, optionally one
+		 * status. The route filters by engagement, not client, so a client's
+		 * intakes are one entry per engagement.
+		 */
+		byEngagement: (
+			engagementId: string,
+			limit: number,
+			status?: "draft" | "proposed" | "approved" | "rejected",
+		) =>
+			[
+				"intakes",
+				"list",
+				{ engagementId, limit, ...(status === undefined ? {} : { status }) },
+			] as const,
+		/** contract.intakes.get: one intake. */
+		detail: (id: string) => ["intakes", "detail", id] as const,
+		/**
+		 * contract.intakeFiles.list: one intake's uploads, oldest first, paged.
+		 * Under the intake's detail key, so an intake write reads it again; an
+		 * upload or purge invalidates it directly.
+		 */
+		files: (id: string, includePurged: boolean) =>
+			["intakes", "detail", id, "files", { includePurged }] as const,
 	},
 	templates: {
 		/** Everything under contract.templates. */
