@@ -1,6 +1,6 @@
 import type { CanonMessage, CanonSession } from "avel-server/contract";
 import { MessagesSquare, OctagonX, Square } from "lucide-react";
-import { useId, useState } from "react";
+import { memo, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -339,7 +339,17 @@ export function CanonThread({ session }: { session: CanonSession }) {
 	);
 }
 
-export function CanonMessageRow({ message: m }: { message: CanonMessage }) {
+/**
+ * Memoized: a thread re-read keeps each unchanged message's object (the
+ * query's structural sharing), so only a new or changed message re-renders.
+ * Without it every row re-parsed its Markdown on each update, and a 500
+ * message thread took ~55 ms a render.
+ */
+export const CanonMessageRow = memo(function CanonMessageRow({
+	message: m,
+}: {
+	message: CanonMessage;
+}) {
 	const canon = m.role === "canon";
 	return (
 		<li
@@ -377,7 +387,7 @@ export function CanonMessageRow({ message: m }: { message: CanonMessage }) {
 			</div>
 		</li>
 	);
-}
+});
 
 /** The operator's next message: held while Canon answers. */
 export function CanonComposer({ session }: { session: CanonSession }) {
