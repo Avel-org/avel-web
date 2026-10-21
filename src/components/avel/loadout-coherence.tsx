@@ -221,7 +221,7 @@ function LoadoutIssues({
 								/>
 							) : (
 								<Link
-									to="/playbooks/$missionType"
+									to="/presets/playbooks/$missionType"
 									params={{ missionType }}
 									data-testid="loadout-resolve-playbook"
 									className="py-1.5 -my-1.5 inline-flex items-center gap-1 type-caption text-accent-text underline-offset-4 hover:underline"

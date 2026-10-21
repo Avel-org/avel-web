@@ -17,6 +17,7 @@ import {
 import { gateSummary } from "@/components/avel/playbook-list";
 import { draftOf, draftReducer } from "@/components/avel/playbook-pipeline";
 import { PublishConfirm } from "@/components/avel/playbook-publish";
+import { playbooksStartingFrom } from "@/components/avel/playbook-section";
 import { PlaybookVersions } from "@/components/avel/playbook-versions";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -180,15 +181,50 @@ describe("gateSummary", () => {
 	});
 });
 
-describe("/playbooks", () => {
+describe("/presets?section=playbooks", () => {
+	it("is Teams' second section: the switch on Playbooks, and New playbook beside it", async () => {
+		const html = await render(
+			"/presets?section=playbooks",
+			withList([FULL_BUILD]),
+		);
+		expect(tagOf(html, "presets-section-playbooks")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(tagOf(html, "presets-section-teams")).toContain(
+			'aria-pressed="false"',
+		);
+		expect(html).toContain('data-testid="playbooks-new"');
+		expect(html).not.toContain('data-testid="presets-new"');
+	});
+
+	it("says on each card the team its missions start with", async () => {
+		const html = await render(
+			"/presets?section=playbooks",
+			withList([FULL_BUILD]),
+		);
+		expect(element(html, "playbook-card-template-booking")).toContain(
+			'data-testid="playbook-card-team"',
+		);
+	});
+
+	it("finds the playbooks that start from a team", () => {
+		const a = { defaultPresetId: "t1", name: "A" };
+		const b = { defaultPresetId: "t2", name: "B" };
+		expect(playbooksStartingFrom([a, b, a], "t1")).toEqual([a, a]);
+		expect(playbooksStartingFrom([b], "t1")).toEqual([]);
+	});
+
 	it("shows a board by default: a card per playbook, opening its builder", async () => {
-		const html = await render("/playbooks", withList([FULL_BUILD, DISCOVERY]));
+		const html = await render(
+			"/presets?section=playbooks",
+			withList([FULL_BUILD, DISCOVERY]),
+		);
 		expect(html).not.toContain('data-testid="playbook-table"');
 		expect(tagOf(html, "playbooks-view-board")).toContain(
 			'aria-pressed="true"',
 		);
 		expect(tagOf(html, "playbook-card-template-booking")).toContain(
-			'href="/playbooks/template-booking"',
+			'href="/presets/playbooks/template-booking"',
 		);
 		const strip = element(html, "playbook-card-waves-template-booking");
 		expect(strip.match(/data-runs="true"/g)).toHaveLength(3);
@@ -200,7 +236,7 @@ describe("/playbooks", () => {
 
 	it("lists each playbook in the table view, linked to its builder", async () => {
 		const html = await render(
-			"/playbooks?view=table",
+			"/presets?section=playbooks&view=table",
 			withList([FULL_BUILD, DISCOVERY]),
 		);
 		expect(tagOf(html, "playbooks-view-table")).toContain(
@@ -209,10 +245,10 @@ describe("/playbooks", () => {
 		expect(html).not.toContain('data-testid="playbook-board"');
 		const table = element(html, "playbook-table");
 		expect(tagOf(table, "playbook-row-link-template-booking")).toContain(
-			'href="/playbooks/template-booking"',
+			'href="/presets/playbooks/template-booking"',
 		);
 		expect(tagOf(table, "playbook-row-link-discovery")).toContain(
-			'href="/playbooks/discovery"',
+			'href="/presets/playbooks/discovery"',
 		);
 		// The whole row opens the playbook: its link is stretched over it.
 		expect(tagOf(table, "playbook-row-link-discovery")).toContain(
@@ -233,29 +269,35 @@ describe("/playbooks", () => {
 	it("counts from meta.total in the top bar and under the table", async () => {
 		const html = text(
 			// Two loaded of five: the count is the server's, not the rows'.
-			await render("/playbooks", withList([FULL_BUILD, DISCOVERY], 5)),
+			await render(
+				"/presets?section=playbooks",
+				withList([FULL_BUILD, DISCOVERY], 5),
+			),
 		);
 		expect(html).toContain("5 playbooks");
 		expect(element(html, "playbooks-showing")).toContain("Showing 2 of 5");
 	});
 
 	it("has no write controls", async () => {
-		const html = await render("/playbooks", withList([FULL_BUILD]));
+		const html = await render(
+			"/presets?section=playbooks",
+			withList([FULL_BUILD]),
+		);
 		expect(element(html, "playbooks")).not.toMatch(/<button(?![^>]*load-more)/);
 	});
 
 	it("says what a playbook is when there are none", async () => {
-		const html = await render("/playbooks", withList([], 0));
+		const html = await render("/presets?section=playbooks", withList([], 0));
 		expect(tagOf(html, "playbook-list")).toContain('data-state="empty"');
 		expect(html).toContain('data-testid="playbooks-empty"');
 	});
 
 	it("shows a skeleton while loading, and the error map's copy on failure", async () => {
-		const loading = await render("/playbooks");
+		const loading = await render("/presets?section=playbooks");
 		expect(tagOf(loading, "playbook-list")).toContain('data-state="loading"');
 		expect(loading).toContain('data-testid="playbook-list-skeleton"');
 		const failed = await render(
-			"/playbooks",
+			"/presets?section=playbooks",
 			failing(listKey(), 500, "INTERNAL"),
 		);
 		expect(tagOf(failed, "playbook-list")).toContain('data-state="error"');
@@ -285,15 +327,15 @@ const body = async (over: Parameters<typeof PlaybookBuilderBody>[0]) => {
 	return renderToString(<RouterProvider router={router} />);
 };
 
-describe("/playbooks/$missionType, the builder", () => {
-	const PAGE = "/playbooks/template-booking";
+describe("/presets/playbooks/$missionType, the builder", () => {
+	const PAGE = "/presets/playbooks/template-booking";
 
 	it("titles the tab by the mission type, crumbs back, and shows the version", async () => {
 		const html = await render(PAGE, withPlaybook(FULL_BUILD));
 		expect(html).toContain(
 			"<title>template-booking · Playbooks · AVEL</title>",
 		);
-		expect(html).toMatch(/href="\/playbooks"[^>]*>Playbooks</);
+		expect(html).toMatch(/href="\/presets"[^>]*>Teams</);
 		expect(element(html, "playbook-version-pill")).toContain(">v3<");
 	});
 
@@ -436,11 +478,13 @@ describe("/playbooks/$missionType, the builder", () => {
 
 	it("answers a type with no playbook with NOT_FOUND and a way back", async () => {
 		const html = await render(
-			"/playbooks/nothing",
+			"/presets/playbooks/nothing",
 			failing(queryKeys.playbooks.byType("nothing"), 404, "NOT_FOUND"),
 		);
 		expect(tagOf(html, "playbook-builder")).toContain('data-state="error"');
-		expect(tagOf(html, "playbook-builder-back")).toContain('href="/playbooks"');
+		expect(tagOf(html, "playbook-builder-back")).toContain(
+			'href="/presets?section=playbooks"',
+		);
 	});
 
 	it("offers no way back for a failure that is not NOT_FOUND", async () => {
@@ -673,7 +717,7 @@ describe("versions", () => {
 });
 
 describe("the playbook canvas (Teams' canvas language)", () => {
-	const PAGE = "/playbooks/template-booking";
+	const PAGE = "/presets/playbooks/template-booking";
 
 	it("lays the pipeline on the shared dot-grid band, three lanes with pre-flight docked", async () => {
 		const html = await render(PAGE, withPlaybook(FULL_BUILD));
@@ -714,7 +758,7 @@ describe("the playbook canvas (Teams' canvas language)", () => {
 		const html = await render(PAGE, withPlaybook(FULL_BUILD));
 		const identity = tagOf(html, "playbook-identity");
 		expect(identity).toMatch(/^<a/);
-		expect(identity).toContain('href="/playbooks"');
+		expect(identity).toContain('href="/presets?section=playbooks"');
 		expect(element(html, "playbook-identity")).toContain(">Template booking<");
 		expect(element(html, "playbook-canvas-header")).toContain(
 			'data-testid="playbook-version-pill"',

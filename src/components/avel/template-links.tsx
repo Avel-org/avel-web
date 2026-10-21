@@ -102,7 +102,7 @@ export function PlaybookLink({
 		);
 	const link = (
 		<Link
-			to="/playbooks/$missionType"
+			to="/presets/playbooks/$missionType"
 			params={{ missionType: slug }}
 			data-testid={`template-playbook-${slug}`}
 			className={cn(INNER_LINK, full && "min-w-0 truncate")}

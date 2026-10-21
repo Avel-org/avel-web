@@ -112,7 +112,11 @@ function BuilderError(props: ErrorStateProps<ApiError>) {
 			<ErrorState {...props} />
 			{isNotFound(props.error) ? (
 				<Button asChild variant="outline" size="sm" className="self-start">
-					<Link to="/playbooks" data-testid="playbook-builder-back">
+					<Link
+						to="/presets"
+						search={{ section: "playbooks" }}
+						data-testid="playbook-builder-back"
+					>
 						Back to playbooks
 					</Link>
 				</Button>
@@ -378,7 +382,8 @@ function PlaybookIdentity({
 		"field-surface inline-flex h-control-lg min-w-0 max-w-full items-center gap-2 rounded-control px-3";
 	return linkOut ? (
 		<Link
-			to="/playbooks"
+			to="/presets"
+			search={{ section: "playbooks" }}
 			data-testid="playbook-identity"
 			title="All playbooks"
 			className={cn(

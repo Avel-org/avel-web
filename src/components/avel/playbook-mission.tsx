@@ -6,12 +6,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { isNotFound } from "@/lib/api/catalog";
 import type { ApiError } from "@/lib/api/errors";
 import { templateLabel, useMissionPlan } from "@/lib/api/mission-plans";
-import { linkFor } from "@/shell/nav";
 import { EmptyState } from "./empty-state";
 import { useMission } from "./mission-data";
 import { MissionRowsSkeleton } from "./mission-panels";
 import { PlaybookBuilder } from "./playbook-builder";
 import { CoherencePanel } from "./playbook-coherence";
+import { PLAYBOOKS_ICON } from "./playbook-section";
 import { SectionPanel } from "./section-panel";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
@@ -68,7 +68,7 @@ function MissionPlaybookContent({ mission }: { mission: MissionDetail }) {
 					<div className="flex items-center justify-end">
 						<Button asChild variant="ghost" size="sm">
 							<Link
-								to="/playbooks/$missionType"
+								to="/presets/playbooks/$missionType"
 								params={{ missionType: mission.playbook.missionType }}
 								data-testid="mission-playbook-open-type"
 							>
@@ -95,12 +95,16 @@ function MissionPlaybookContent({ mission }: { mission: MissionDetail }) {
 				<>
 					<EmptyState
 						data-testid="mission-playbook-none"
-						icon={linkFor("/playbooks").icon}
+						icon={PLAYBOOKS_ICON}
 						title="No live playbook for this mission type"
 						description={`No playbook is set up for missions of type ${mission.type}, so there are no waves or gates to follow.`}
 						action={
 							<Button asChild variant="outline" size="sm">
-								<Link to="/playbooks" data-testid="mission-playbook-all">
+								<Link
+									to="/presets"
+									search={{ section: "playbooks" }}
+									data-testid="mission-playbook-all"
+								>
 									See playbooks
 								</Link>
 							</Button>

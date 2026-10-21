@@ -610,7 +610,7 @@ describe("/templates/$slug, one template's page", () => {
 		expect(text(element(html, "template-stat-version"))).toContain(">v4<");
 		expect(text(element(html, "template-stat-gates"))).toContain(">2<");
 		expect(tagOf(html, "template-open-playbook")).toContain(
-			'href="/playbooks/template-booking"',
+			'href="/presets/playbooks/template-booking"',
 		);
 		expect(tagOf(html, "template-open-team")).toContain(
 			`href="/presets?preset=${TEAM.id}"`,
@@ -639,7 +639,7 @@ describe("/templates/$slug, one template's page", () => {
 		expect(summary).toContain(">A B C<");
 		expect(summary).toContain("1 mandatory, 1 warn");
 		expect(tagOf(html, "template-playbook-open")).toContain(
-			'href="/playbooks/template-booking"',
+			'href="/presets/playbooks/template-booking"',
 		);
 	});
 

@@ -394,7 +394,7 @@ describe("/missions/$id/playbook", () => {
 		expect(tagOf(html, "playbook-identity")).toMatch(/^<div/);
 		expect(html).toContain('data-testid="playbook-details"');
 		expect(tagOf(html, "mission-playbook-open-type")).toContain(
-			'href="/playbooks/template-booking"',
+			'href="/presets/playbooks/template-booking"',
 		);
 	});
 

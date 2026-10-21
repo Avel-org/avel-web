@@ -6,20 +6,20 @@ import type {
 	PlaybookGate,
 } from "avel-server/contract";
 import { WAVES } from "avel-server/contract";
-import { Rows3, SquareKanban } from "lucide-react";
+import { ListChecks, Rows3, SquareKanban, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadedPlaybooks, type usePlaybooks } from "@/lib/api/playbooks";
+import { usePreset } from "@/lib/api/presets";
 import { cn } from "@/lib/utils";
-import { linkFor } from "@/shell/nav";
 import { type DataColumn, DataTable, STRETCHED_LINK } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
 import type { ViewOption } from "./view-toggle";
 
 /*
- * Playbooks, /playbooks: the process each mission type follows (ROUTES.md,
- * DATA-CONTRACTS-V2.md Playbook), read live from playbooks.list. Read-only:
- * playbook writes are not specced, so the page has no write controls.
+ * Playbooks, the second section of Teams (/presets?section=playbooks): the
+ * process each mission type follows (DATA-CONTRACTS-V2.md Playbook), read
+ * live from playbooks.list. Each opens its builder.
  */
 
 /** Each deliverable in words. Keyed on the contract's enum. */
@@ -57,7 +57,7 @@ const COLUMNS: DataColumn<Playbook>[] = [
 		header: "Playbook",
 		cell: (row) => (
 			<Link
-				to="/playbooks/$missionType"
+				to="/presets/playbooks/$missionType"
 				params={{ missionType: row.missionType }}
 				data-testid={`playbook-row-link-${row.missionType}`}
 				className={cn(
@@ -143,7 +143,7 @@ export function PlaybookList({
 				empty={
 					<EmptyState
 						data-testid="playbooks-empty"
-						icon={linkFor("/playbooks").icon}
+						icon={ListChecks}
 						title="No playbooks yet"
 						description="A playbook sets the waves, gates and deliverable for one kind of mission. A mission whose type has no playbook shows none."
 					/>
@@ -213,7 +213,7 @@ export function PlaybookBoard({
 				return (
 					<li key={playbook.id}>
 						<Link
-							to="/playbooks/$missionType"
+							to="/presets/playbooks/$missionType"
 							params={{ missionType: playbook.missionType }}
 							data-testid={`playbook-card-${playbook.missionType}`}
 							className="flex h-full flex-col gap-3 rounded-card border border-border bg-app-panel p-4 shadow-card transition-colors duration-(--duration-micro) ease-avel hover:border-border-strong hover:bg-app-raised"
@@ -254,6 +254,7 @@ export function PlaybookBoard({
 										: `Runs waves ${playbook.wavesApplicable.join(", ")}.`}
 								</span>
 							</span>
+							<DefaultTeam presetId={playbook.defaultPresetId} />
 							<span className="mt-auto flex flex-wrap items-center justify-between gap-2 type-small text-text-muted">
 								<span data-testid="playbook-card-gates">
 									{gateSummary(playbook.gates)}
@@ -265,5 +266,29 @@ export function PlaybookBoard({
 				);
 			})}
 		</ul>
+	);
+}
+
+/**
+ * The team a mission of this type starts from, by name once read. Text, not
+ * a link: the card is the link to the builder.
+ */
+function DefaultTeam({ presetId }: { presetId: string }) {
+	const preset = usePreset(presetId);
+	return (
+		<span
+			data-testid="playbook-card-team"
+			className="flex min-w-0 items-center gap-1.5 type-small text-text-muted"
+		>
+			<Users
+				aria-hidden="true"
+				className="size-3.5 shrink-0 text-text-subtle"
+			/>
+			<span className="truncate">
+				{preset.data
+					? `Starts with ${preset.data.name}`
+					: "Starts with its team"}
+			</span>
+		</span>
 	);
 }

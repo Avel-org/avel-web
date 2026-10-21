@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { missionCut, type Preset } from "avel-server/contract";
-import { MousePointerClick, Plus, Rows3 } from "lucide-react";
+import { Layers, MousePointerClick, Plus, Rows3 } from "lucide-react";
 import {
 	type ReactNode,
 	useCallback,
@@ -10,6 +10,13 @@ import {
 } from "react";
 import { z } from "zod";
 import { EmptyState } from "@/components/avel/empty-state";
+import { playbookCountLabel } from "@/components/avel/playbook-list";
+import { NewPlaybookModal } from "@/components/avel/playbook-new";
+import {
+	PLAYBOOKS_ICON,
+	PlaybooksSection,
+	TeamPlaybooks,
+} from "@/components/avel/playbook-section";
 import { ApplyPresetModal } from "@/components/avel/preset-apply";
 import { PresetCompare } from "@/components/avel/preset-compare";
 import {
@@ -30,11 +37,13 @@ import {
 	type ErrorStateProps,
 	Surface,
 } from "@/components/avel/surface";
-import { ViewToggle } from "@/components/avel/view-toggle";
+import { type ViewOption, ViewToggle } from "@/components/avel/view-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { catalogTotal } from "@/lib/api/catalog";
 import { listTotal } from "@/lib/api/clients";
 import type { ApiError } from "@/lib/api/errors";
+import { usePlaybooks } from "@/lib/api/playbooks";
 import {
 	loadedPresets,
 	type PresetCut,
@@ -55,6 +64,8 @@ import { Page, pageHead } from "../shell/page";
  * - `view` is "table" for the list and detail; absent is the board.
  * - `preset` is the open preset: expanded on the board, selected in the
  *   table. It stays in the URL: an open preset is a link, and Back walks.
+ * - `section` is "playbooks" for the page's second section; absent is Teams.
+ *   `view` applies to whichever section is shown.
  */
 export const presetsSearch = z.object({
 	q: z
@@ -65,7 +76,20 @@ export const presetsSearch = z.object({
 	cut: missionCut.optional().catch(undefined),
 	view: z.literal("table").optional().catch(undefined),
 	preset: z.string().uuid().optional().catch(undefined),
+	section: z.literal("playbooks").optional().catch(undefined),
 });
+
+type Section = "teams" | "playbooks";
+
+/**
+ * Teams and Playbooks, one page (operator request, 2026-10-20): the squads,
+ * and the process each kind of mission follows, which names the squad its
+ * missions start from.
+ */
+const SECTIONS: readonly ViewOption<Section>[] = [
+	{ id: "teams", label: "Teams", icon: Layers },
+	{ id: "playbooks", label: "Playbooks", icon: PLAYBOOKS_ICON },
+];
 
 export const Route = createFileRoute("/presets")({
 	staticData: { device: "construction" },
@@ -84,6 +108,85 @@ type View = "board" | "table";
  */
 function PresetsPage() {
 	const search = Route.useSearch();
+	const navigate = useNavigate({ from: "/presets" });
+	const section: Section = search.section ?? "teams";
+	if (section === "playbooks")
+		return (
+			<PlaybooksPage
+				view={search.view === "table" ? "table" : "board"}
+				onSection={(next) =>
+					navigate({ search: next === "teams" ? {} : { section: next } })
+				}
+				onView={(next) =>
+					navigate({
+						search: (prev) => ({
+							...prev,
+							view: next === "table" ? "table" : undefined,
+						}),
+						replace: true,
+					})
+				}
+			/>
+		);
+	return <TeamsSection search={search} />;
+}
+
+/** Teams | Playbooks, in the top bar beside the section's New. */
+function SectionSwitch({
+	section,
+	onChange,
+}: {
+	section: Section;
+	onChange: (section: Section) => void;
+}) {
+	return (
+		<ViewToggle
+			options={SECTIONS}
+			view={section}
+			onChange={onChange}
+			testIdPrefix="presets-section"
+		/>
+	);
+}
+
+/** The second section: every playbook, and New playbook. */
+function PlaybooksPage({
+	view,
+	onSection,
+	onView,
+}: {
+	view: "board" | "table";
+	onSection: (section: Section) => void;
+	onView: (view: "board" | "table") => void;
+}) {
+	const [creating, setCreating] = useState(false);
+	const total = catalogTotal(usePlaybooks().data);
+	return (
+		<Page
+			to="/presets"
+			subtitle={total === undefined ? undefined : playbookCountLabel(total)}
+			actions={
+				<>
+					<SectionSwitch section="playbooks" onChange={onSection} />
+					<Button
+						size="sm"
+						data-testid="playbooks-new"
+						onClick={() => setCreating(true)}
+					>
+						<Plus aria-hidden="true" />
+						New playbook
+					</Button>
+				</>
+			}
+		>
+			<PlaybooksSection view={view} onViewChange={onView} />
+			<NewPlaybookModal open={creating} onOpenChange={setCreating} />
+		</Page>
+	);
+}
+
+/** The first section: the team composer, or the table of teams. */
+function TeamsSection({ search }: { search: z.infer<typeof presetsSearch> }) {
 	const navigate = useNavigate({ from: "/presets" });
 	const view: View = search.view === "table" ? "table" : "board";
 	// The search and cut live in the Table's toolbar, so only the Table is
@@ -134,16 +237,26 @@ function PresetsPage() {
 			to="/presets"
 			subtitle={subtitle}
 			actions={
-				// Outlined: the canvas's one primary is Apply to mission.
-				<Button
-					size="sm"
-					variant="outline"
-					data-testid="presets-new"
-					onClick={() => setForm({ kind: "new" })}
-				>
-					<Plus aria-hidden="true" />
-					New team
-				</Button>
+				<>
+					<SectionSwitch
+						section="teams"
+						onChange={(next) =>
+							navigate({
+								search: next === "teams" ? {} : { section: next },
+							})
+						}
+					/>
+					{/* Outlined: the canvas's one primary is Apply to mission. */}
+					<Button
+						size="sm"
+						variant="outline"
+						data-testid="presets-new"
+						onClick={() => setForm({ kind: "new" })}
+					>
+						<Plus aria-hidden="true" />
+						New team
+					</Button>
+				</>
 			}
 		>
 			{firstRun ? (
@@ -342,17 +455,20 @@ function OpenPreset({
 			error={failed}
 		>
 			{(preset) => (
-				<PresetKanban
-					// Keyed on the preset only: a newer version is the board's to
-					// handle (boardSync), so a refetch never remounts it under edits.
-					key={preset.id}
-					preset={preset}
-					names={names}
-					switcher={switcher(preset)}
-					onTable={onTable}
-					onApply={onApply}
-					onSaved={onSaved}
-				/>
+				<div className="flex min-w-0 flex-col gap-3">
+					<TeamPlaybooks presetId={preset.id} />
+					<PresetKanban
+						// Keyed on the preset only: a newer version is the board's to
+						// handle (boardSync), so a refetch never remounts it under edits.
+						key={preset.id}
+						preset={preset}
+						names={names}
+						switcher={switcher(preset)}
+						onTable={onTable}
+						onApply={onApply}
+						onSaved={onSaved}
+					/>
+				</div>
 			)}
 		</Surface>
 	);

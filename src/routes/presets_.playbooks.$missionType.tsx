@@ -3,9 +3,9 @@ import { z } from "zod";
 import { PlaybookBuilder } from "@/components/avel/playbook-builder";
 import { Page } from "../shell/page";
 
-// Not nested under /playbooks (the trailing underscore): the list renders a
-// whole page with no outlet, and this page replaces it. Breadcrumbs still
-// lead back to Playbooks, its sidebar ancestor.
+// Not nested under /presets (the trailing underscore): Teams renders a whole
+// page with no outlet, and this page replaces it. Playbooks are the second
+// section of Teams, so breadcrumbs lead back to Teams, its sidebar ancestor.
 /**
  * `landed` marks an arrival from creating it, so the builder holds the
  * landed highlight once (ruling 35).
@@ -14,7 +14,7 @@ export const playbookSearch = z.object({
 	landed: z.boolean().optional().catch(undefined),
 });
 
-export const Route = createFileRoute("/playbooks_/$missionType")({
+export const Route = createFileRoute("/presets_/playbooks/$missionType")({
 	validateSearch: playbookSearch,
 	staticData: {
 		device: "construction",

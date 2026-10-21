@@ -408,7 +408,7 @@ function element(html: string, testid: string): string {
 }
 
 const text = (html: string) => html.replaceAll("<!-- -->", "");
-const PAGE = "/playbooks/template-booking";
+const PAGE = "/presets/playbooks/template-booking";
 
 describe("the builder's sections", () => {
 	it("quotes alignment's doc, and marks qa's meaning not built", async () => {

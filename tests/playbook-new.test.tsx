@@ -214,19 +214,24 @@ describe("the routes", () => {
 		);
 	}
 
-	it("offers New playbook on /playbooks", async () => {
-		expect(await render("/playbooks")).toContain('data-testid="playbooks-new"');
+	it("offers New playbook on Teams' Playbooks section", async () => {
+		expect(await render("/presets?section=playbooks")).toContain(
+			'data-testid="playbooks-new"',
+		);
 	});
 
 	it("lands on the builder with the highlight only after creating", async () => {
 		expect(
 			tagOf(
-				await render("/playbooks/template-booking?landed=true"),
+				await render("/presets/playbooks/template-booking?landed=true"),
 				"playbook-page",
 			),
 		).toContain("landed");
 		expect(
-			tagOf(await render("/playbooks/template-booking"), "playbook-page"),
+			tagOf(
+				await render("/presets/playbooks/template-booking"),
+				"playbook-page",
+			),
 		).not.toContain("landed");
 	});
 });

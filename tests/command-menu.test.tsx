@@ -335,7 +335,7 @@ describe("go to, create and actions", () => {
 			const id = link.to.slice(1).replaceAll("/", "-") || "home";
 			expect(html).toContain(`data-testid="command-${id}"`);
 		}
-		expect(ALL_LINKS).toHaveLength(13);
+		expect(ALL_LINKS).toHaveLength(12);
 	});
 
 	it("find nested pages by their parent's name", () => {

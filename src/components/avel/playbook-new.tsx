@@ -85,7 +85,7 @@ export function NewPlaybookModal({
 			toast.success(`Created ${saved.missionType} v${saved.version}.`);
 			onOpenChange(false);
 			navigate({
-				to: "/playbooks/$missionType",
+				to: "/presets/playbooks/$missionType",
 				params: { missionType: saved.missionType },
 				search: { landed: true },
 			});

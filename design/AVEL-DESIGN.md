@@ -334,6 +334,7 @@ These supersede the sections they name.
    - Adopted by the operator the same day: audit D7, the filled danger button, as the final confirm inside a dialog only (section 5).
    - Restored by the operator the same day: the sidebar's right-edge accent glow on the active item (rulings 12 and 19) and the chat composer's float with its pulsing glow (rulings 21 and 23), both in the v3 accent. They are the two exceptions to the glow being for the primary action only, and the composer is the one loop at rest.
    - `pnpm lint` runs `scripts/check-unused-tokens.mjs`, which fails on any token or utility in `app.css` that nothing uses, so a palette swap cannot leave tokens behind.
+51. Playbooks is Teams' second section (operator direction, 2026-10-20: "compacting the playbooks module within the teams page as a second section"). A playbook names the team a mission of its type starts from (`defaultPresetId`), so the two read together on one page. Teams (`/presets`) carries a Teams | Playbooks switch in its top bar beside the section's New button; Playbooks is `?section=playbooks`, and `?view=table` applies to whichever section is shown. Each playbook card says the team it starts with, and a team lists the playbooks that start from it as links to their builders. The builder moves to `/presets/playbooks/:missionType`, so its breadcrumb leads to Teams; `/playbooks` no longer exists. The sidebar has twelve links; this supersedes ruling 47's count of thirteen.
 
 ## 12. Rules for every screen
 

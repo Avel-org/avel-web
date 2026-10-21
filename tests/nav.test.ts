@@ -97,10 +97,12 @@ describe("the sidebar and the route tree agree", () => {
 		}
 	});
 
-	it("has thirteen links in three groups: ruling 40's twelve, and Templates", () => {
+	// Ruling 40's twelve and Templates, less Playbooks, which became Teams'
+	// second section (operator request, 2026-10-20).
+	it("has twelve links in three groups", () => {
 		expect(NAV.map((g) => g.label)).toEqual(["Work", "Library", "Control"]);
-		expect(ALL_LINKS).toHaveLength(13);
-		expect(new Set(ALL_LINKS.map((l) => l.to)).size).toBe(13);
+		expect(ALL_LINKS).toHaveLength(12);
+		expect(new Set(ALL_LINKS.map((l) => l.to)).size).toBe(12);
 	});
 });
 
@@ -118,13 +120,7 @@ describe("the sidebar's nesting (ruling 13)", () => {
 			["Work", ["Home", "Missions", "Clients"]],
 			[
 				"Library",
-				[
-					"Agents (All agents, Skills)",
-					"Teams",
-					"Playbooks",
-					"Templates",
-					"Drive",
-				],
+				["Agents (All agents, Skills)", "Teams", "Templates", "Drive"],
 			],
 			[
 				"Control",
@@ -133,7 +129,7 @@ describe("the sidebar's nesting (ruling 13)", () => {
 		]);
 	});
 
-	it("keeps the thirteen leaf links in sidebar order, parents excluded", () => {
+	it("keeps the twelve leaf links in sidebar order, parents excluded", () => {
 		expect(ALL_LINKS.map((l) => l.label)).toEqual([
 			"Home",
 			"Missions",
@@ -141,7 +137,6 @@ describe("the sidebar's nesting (ruling 13)", () => {
 			"All agents",
 			"Skills",
 			"Teams",
-			"Playbooks",
 			"Templates",
 			"Drive",
 			"Activity",

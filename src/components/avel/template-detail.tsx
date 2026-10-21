@@ -290,7 +290,7 @@ function TemplateActions({
 			{playbook ? (
 				<Button asChild size="sm" variant="outline">
 					<Link
-						to="/playbooks/$missionType"
+						to="/presets/playbooks/$missionType"
 						params={{ missionType: template.slug }}
 						data-testid="template-open-playbook"
 					>
@@ -387,7 +387,7 @@ function PlaybookFact({ slug, links }: { slug: string; links: TemplateLinks }) {
 	const playbook = links.playbookFor(slug);
 	return playbook ? (
 		<Link
-			to="/playbooks/$missionType"
+			to="/presets/playbooks/$missionType"
 			params={{ missionType: slug }}
 			data-testid="template-uses-playbook"
 			className="text-foreground underline-offset-4 hover:underline"
@@ -430,7 +430,11 @@ function TemplatePlaybook({
 				description={`A playbook keyed by ${template.slug} sets the waves, gates and deliverable for missions built from it. Create one on Playbooks with ${template.slug} as its mission type.`}
 				action={
 					<Button asChild variant="outline" size="sm">
-						<Link to="/playbooks" data-testid="template-playbook-all">
+						<Link
+							to="/presets"
+							search={{ section: "playbooks" }}
+							data-testid="template-playbook-all"
+						>
 							Open Playbooks
 						</Link>
 					</Button>
@@ -446,7 +450,7 @@ function TemplatePlaybook({
 			actions={
 				<Button asChild variant="outline" size="sm">
 					<Link
-						to="/playbooks/$missionType"
+						to="/presets/playbooks/$missionType"
 						params={{ missionType: template.slug }}
 						data-testid="template-playbook-open"
 					>
