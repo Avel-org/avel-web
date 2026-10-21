@@ -149,7 +149,7 @@ describe("searching the Clients page", () => {
 			{ path: "/clients?q=acme", q: "acme" },
 		);
 		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>3 clients match</);
-		expect(tagOf(html, "clients-search")).toContain('value="acme"');
+		expect(tagOf(html, "clients-search-input")).toContain('value="acme"');
 		expect(tagOf(html, "client-board")).toContain('data-state="success"');
 	});
 
@@ -168,7 +168,7 @@ describe("searching the Clients page", () => {
 			data: [client(1)],
 			meta: { nextCursor: null, total: 1 },
 		});
-		const input = tagOf(html, "clients-search");
+		const input = tagOf(html, "clients-search-input");
 		const id = input.match(/\sid="([^"]+)"/)?.[1];
 		expect(html).toMatch(
 			new RegExp(`<label[^>]*for="${id}"[^>]*>Search clients</label>`),

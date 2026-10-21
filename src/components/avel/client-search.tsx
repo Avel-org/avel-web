@@ -1,7 +1,6 @@
-import { Search } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { useEffect, useRef, useState } from "react";
 import { CLIENT_SEARCH_MAX } from "@/lib/api/clients";
+import { SearchField } from "./search-field";
 
 /** The search writes to the URL this long after the last keystroke. */
 export const CLIENT_SEARCH_DEBOUNCE_MS = 300;
@@ -19,7 +18,6 @@ export function ClientSearch({
 	value: string;
 	onChange: (value: string) => void;
 }) {
-	const id = useId();
 	const [text, setText] = useState(value);
 	const latest = useRef(onChange);
 	latest.current = onChange;
@@ -37,24 +35,14 @@ export function ClientSearch({
 	}, [text, value]);
 
 	return (
-		<div className="relative max-w-sm">
-			<label htmlFor={id} className="sr-only">
-				Search clients
-			</label>
-			<Search
-				aria-hidden="true"
-				className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-text-subtle"
-			/>
-			<Input
-				id={id}
-				type="search"
-				data-testid="clients-search"
-				placeholder="Search by name or contact"
-				maxLength={CLIENT_SEARCH_MAX}
-				value={text}
-				onChange={(event) => setText(event.target.value)}
-				className="pl-8"
-			/>
-		</div>
+		<SearchField
+			data-testid="clients-search"
+			label="Search clients"
+			placeholder="Search by name or contact"
+			maxLength={CLIENT_SEARCH_MAX}
+			value={text}
+			onChange={setText}
+			className="max-w-sm"
+		/>
 	);
 }

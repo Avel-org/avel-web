@@ -785,11 +785,11 @@ describe("/catalog/agents: the cards", () => {
 		expect(tagOf(html, "catalog-agents-side-all")).toContain(
 			'aria-pressed="true"',
 		);
-		expect(tagOf(html, "catalog-agents-search")).toMatch(
+		expect(tagOf(html, "catalog-agents-search-input")).toMatch(
 			/^<input[^>]*type="search"/,
 		);
 		// Short enough to show whole in the field; the label says the rest.
-		expect(tagOf(html, "catalog-agents-search")).toContain(
+		expect(tagOf(html, "catalog-agents-search-input")).toContain(
 			'placeholder="Search agents"',
 		);
 		expect(html).toMatch(/<label[^>]*>Search agents by name or role<\/label>/);

@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
  * search icon, a placeholder, a clear button once something is typed, and an
  * optional key hint ("/" focuses it from anywhere outside a field). 32px tall
  * at the control radius. The label is for screen readers; the placeholder
- * says what it searches.
+ * says what it searches. The icon wakes with the field: subtle at rest, the
+ * focus colour while typing, so the box says where the caret is.
  */
 export function SearchField({
 	value,
@@ -16,6 +17,8 @@ export function SearchField({
 	label,
 	placeholder,
 	shortcut,
+	maxLength,
+	title,
 	className,
 	"data-testid": testId,
 }: {
@@ -26,6 +29,10 @@ export function SearchField({
 	placeholder: string;
 	/** A key that focuses it from outside any field, shown as a hint. */
 	shortcut?: "/";
+	/** The longest search the server takes. */
+	maxLength?: number;
+	/** A longer word on what it matches, on hover. */
+	title?: string;
 	className?: string;
 	"data-testid": string;
 }) {
@@ -53,13 +60,13 @@ export function SearchField({
 		<div
 			data-testid={testId}
 			className={cn(
-				"field-surface flex h-control-md items-center gap-2 rounded-control px-2.5 transition-[border-color,box-shadow] duration-(--duration-micro) ease-avel",
+				"group/search field-surface flex h-control-md items-center gap-2 rounded-control px-2.5 transition-[background-color,border-color,box-shadow] duration-(--duration-micro) ease-avel",
 				className,
 			)}
 		>
 			<Search
 				aria-hidden="true"
-				className="size-3.5 shrink-0 text-text-subtle"
+				className="size-3.5 shrink-0 text-text-subtle transition-colors duration-(--duration-micro) ease-avel group-focus-within/search:text-accent-text"
 			/>
 			<label htmlFor={id} className="sr-only">
 				{label}
@@ -72,6 +79,8 @@ export function SearchField({
 				autoComplete="off"
 				spellCheck={false}
 				placeholder={placeholder}
+				maxLength={maxLength}
+				title={title}
 				aria-keyshortcuts={shortcut}
 				onChange={(event) => onChange(event.target.value)}
 				onKeyDown={(event) => {

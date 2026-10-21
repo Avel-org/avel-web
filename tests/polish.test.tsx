@@ -72,6 +72,13 @@ describe("(2) the switch's thumb slides (Polish 5)", () => {
 			"transition-transform duration-(--duration-micro) ease-avel",
 		);
 	});
+
+	it("dims its thumb when disabled, so dark mode shows no white knob on a dead switch", () => {
+		const thumb = slot(html(<Switch disabled />), "switch-thumb");
+		expect(thumb).toContain(
+			"group-disabled/switch:bg-app-panel group-disabled/switch:shadow-none",
+		);
+	});
 });
 
 describe("(3) a page's tabs share one sliding underline", () => {

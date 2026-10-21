@@ -38,7 +38,7 @@ function SelectTrigger({
 				// v3 .field as a trigger: Input's box, ring and invalid state, a 14px
 				// subtle chevron. `!`: the global :focus-visible outline sits
 				// outside the layers, and the field's own ring already shows focus.
-				"field-surface flex w-fit items-center justify-between gap-2 rounded-control px-2.5 type-body whitespace-nowrap text-text transition-[border-color,box-shadow] duration-(--duration-micro) ease-avel focus-visible:outline-none! disabled:cursor-not-allowed disabled:bg-app-raised disabled:text-text-subtle data-[placeholder]:text-text-subtle data-[size=default]:h-control-md data-[size=sm]:h-control-sm *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-text-subtle",
+				"field-surface flex w-fit items-center justify-between gap-2 rounded-control px-2.5 type-body whitespace-nowrap text-text transition-[background-color,border-color,box-shadow] duration-(--duration-micro) ease-avel focus-visible:outline-none! disabled:cursor-not-allowed disabled:bg-app-raised disabled:text-text-subtle data-[placeholder]:text-text-subtle data-[size=default]:h-control-md data-[size=sm]:h-control-sm *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-text-subtle",
 				className,
 			)}
 			{...props}

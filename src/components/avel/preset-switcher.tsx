@@ -66,7 +66,7 @@ export function TeamSwitcher({
 						selected ? `Team: ${selected.name}. Switch team` : "Choose a team"
 					}
 					data-testid="preset-switcher"
-					className="field-surface inline-flex h-control-lg min-w-0 max-w-full items-center gap-2 rounded-control px-3 text-left transition-[border-color,box-shadow] duration-(--duration-micro) ease-avel hover:border-border-strong"
+					className="field-surface inline-flex h-control-lg min-w-0 max-w-full items-center gap-2 rounded-control px-3 text-left transition-[background-color,border-color,box-shadow] duration-(--duration-micro) ease-avel"
 				>
 					{selected ? (
 						<>

@@ -1,11 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import type { SkillListItem } from "avel-server/contract";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { skillsNeedingReview } from "./catalog-placeholders";
 import { SkillStatusPill } from "./catalog-sample";
 import { ROW_LINK_GROUP, RowChevron } from "./row-link";
+import { SearchField } from "./search-field";
 import { StatusGlyph } from "./status-pill";
 
 /*
@@ -85,21 +84,13 @@ export function SkillToolbar({
 	const review = skillsNeedingReview(skills).length;
 	return (
 		<div className="flex w-full min-w-0 flex-col gap-2">
-			<div className="relative">
-				<Search
-					aria-hidden="true"
-					className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-subtle"
-				/>
-				<Input
-					type="search"
-					aria-label="Filter skills"
-					placeholder="Filter skills"
-					data-testid="skill-filter"
-					value={q ?? ""}
-					onChange={(event) => onFilter(event.target.value)}
-					className="pl-9"
-				/>
-			</div>
+			<SearchField
+				data-testid="skill-filter"
+				label="Filter skills"
+				placeholder="Filter skills"
+				value={q ?? ""}
+				onChange={onFilter}
+			/>
 			{review > 0 ? (
 				<ReviewBanner count={review} active={draftsOnly} q={q} />
 			) : null}

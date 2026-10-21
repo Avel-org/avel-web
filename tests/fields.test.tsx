@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Input } from "@/components/ui/input";
@@ -45,5 +46,52 @@ describe("text fields are v3 fields", () => {
 
 	it("select: suppresses the global ring, which app.css leaves on buttons", () => {
 		expect(fields.select).toContain("focus-visible:outline-none");
+	});
+});
+
+const css = readFileSync(
+	new URL("../src/styles/app.css", import.meta.url),
+	"utf8",
+);
+const surface = css.slice(
+	css.indexOf("@utility field-surface {"),
+	css.indexOf("@layer base"),
+);
+
+// A white box with a grey edge read as the browser's default field. At rest
+// a field is filled a step below the panel, with a quiet edge and inset
+// shade; hovered its edge firms; focused it lifts to the panel and rings.
+describe("the field surface", () => {
+	it("rests filled, with a quiet edge and a hairline of inset shade", () => {
+		expect(surface).toContain("background-color: var(--color-field-fill);");
+		expect(surface).toContain("border: 1px solid var(--color-field-edge);");
+		expect(surface).toContain("box-shadow: var(--shadow-field);");
+	});
+
+	it("firms its edge on hover, but not while focused or disabled", () => {
+		expect(surface).toMatch(
+			/&:hover:not\(:focus-within\):not\(:disabled\)[^{]*\{\s*border-color: var\(--color-field-edge-hover\);/,
+		);
+	});
+
+	it("lifts to the field colour when focused, under the ring and halo", () => {
+		expect(surface).toMatch(
+			/&:focus-within \{\s*background-color: var\(--color-app-field\);\s*border-color: var\(--color-focus-ring\);/,
+		);
+	});
+
+	it("defines the fill, edges and shade in both themes", () => {
+		const start = css.indexOf(".dark {");
+		const dark = css.slice(start, css.indexOf("\n}", start));
+		const light = css.slice(0, start);
+		for (const token of [
+			"--color-field-fill",
+			"--color-field-edge",
+			"--color-field-edge-hover",
+			"--shadow-field",
+		]) {
+			expect(light, token).toContain(`${token}: `);
+			expect(dark, `.dark ${token}`).toContain(`${token}: `);
+		}
 	});
 });

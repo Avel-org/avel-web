@@ -674,6 +674,25 @@ describe("what to keep an eye on", () => {
 	});
 });
 
+describe("the missions search", () => {
+	it("is the shared search field, labelled, holding the URL's search", async () => {
+		const html = await render("/missions?q=acme");
+		const input = tagOf(html, "missions-search-input");
+		expect(input).toMatch(/^<input[^>]*type="search"/);
+		expect(input).toContain('value="acme"');
+		expect(input).toContain('placeholder="Search missions"');
+		expect(input).toContain('title="Search by client, engagement or type"');
+		const id = input.match(/\sid="([^"]+)"/)?.[1];
+		expect(html).toMatch(
+			new RegExp(
+				`<label[^>]*for="${id}"[^>]*>Search missions by client, engagement or type</label>`,
+			),
+		);
+		// A search in the field offers the clear button.
+		expect(html).toContain('data-testid="missions-search-clear"');
+	});
+});
+
 describe("sort is a segmented track", () => {
 	it("offers every sort as a pressed segment, with no dropdown", async () => {
 		const html = await render("/missions");

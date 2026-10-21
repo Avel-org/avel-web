@@ -76,6 +76,7 @@ const SURFACES = [
 	"app-band",
 	"app-well",
 	"app-field",
+	"field-fill",
 	"app-raised",
 	"app-float",
 	"selected",
@@ -140,7 +141,12 @@ describe("v3 contrast, from app.css", () => {
 
 		it(`${theme}: control edges and the focus ring clear 3:1 where controls sit`, () => {
 			// v3 measures the control edge on white: panels, fields, menus.
-			for (const surface of ["app-panel", "app-field", "app-float"])
+			for (const surface of [
+				"app-panel",
+				"app-field",
+				"field-fill",
+				"app-float",
+			])
 				expect(
 					contrast(color("border-control"), color(surface)),
 					`border-control on ${surface}`,
@@ -176,6 +182,35 @@ describe("v3 contrast, from app.css", () => {
 		expect([at("btn-primary-top"), at("btn-primary-bottom")]).toEqual([
 			"2.1",
 			"3.2",
+		]);
+	});
+
+	it("selects text with its own colour, strong enough to find in dark", () => {
+		expect(css).toMatch(
+			/::selection \{\s*background: var\(--color-text-selection\);/,
+		);
+		// accent-soft, the old selection, was 0.13 over the dark panel.
+		expect(parse(dark.get("text-selection") ?? "")[3]).toBeGreaterThan(0.3);
+		expect(light.get("text-selection")).toBeDefined();
+	});
+
+	it("keeps dark's status lines quiet: no pill rim above 0.3", () => {
+		for (const tone of ["pass", "block", "warn", "pending"])
+			expect(
+				parse(dark.get(`gate-${tone}-line`) ?? "")[3],
+				tone,
+			).toBeLessThanOrEqual(0.3);
+	});
+
+	it("deepens the primary gradient in dark, so its label reads better than light's", () => {
+		// The light gradient on the dark panel read as a glare: 2.1:1 at the
+		// top. Dark's own stops: 2.9:1 at the top, 4.7:1 at the bottom.
+		const label = parse(dark.get("text-on-solid") ?? "");
+		const at = (stop: string) =>
+			contrast(label, parse(dark.get(stop) ?? "")).toFixed(1);
+		expect([at("btn-primary-top"), at("btn-primary-bottom")]).toEqual([
+			"2.9",
+			"4.7",
 		]);
 	});
 

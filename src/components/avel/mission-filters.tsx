@@ -5,12 +5,11 @@ import {
 	ArrowUpNarrowWide,
 	LayoutList,
 	ListTree,
-	Search,
+	type LucideIcon,
 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useState } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { tabsListVariants } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -24,6 +23,7 @@ import {
 	type Sort,
 	type View,
 } from "./mission-search";
+import { SearchField } from "./search-field";
 
 const route = getRouteApi("/missions");
 
@@ -64,7 +64,7 @@ function Segmented<T extends string>({
 	trailing,
 }: {
 	legend: string;
-	options: readonly { value: T; label: string; icon?: typeof Search }[];
+	options: readonly { value: T; label: string; icon?: LucideIcon }[];
 	value: T;
 	onChange: (next: T) => void;
 	testId: string;
@@ -131,7 +131,7 @@ const VIEW_OPTIONS = [
 ] as const satisfies readonly {
 	value: View;
 	label: string;
-	icon: typeof Search;
+	icon: LucideIcon;
 }[];
 
 /**
@@ -149,7 +149,6 @@ export function MissionFilterBar({
 	const { q, sort, archived, view, direction } = route.useSearch();
 	const shown = direction ?? SORT_DIRECTION[sort];
 	const navigate = route.useNavigate();
-	const inputId = useId();
 	const archivedId = useId();
 	const [draft, setDraft] = useState(q);
 
@@ -177,27 +176,17 @@ export function MissionFilterBar({
 			// wraps, never a bar of its own.
 			className="flex min-w-0 flex-wrap items-center gap-2"
 		>
-			<div className="relative w-full min-w-0 sm:w-56">
-				{/* The short placeholder fits the toolbar; the label and the
-				    title carry what it matches. */}
-				<label htmlFor={inputId} className="sr-only">
-					Search missions by client, engagement or type
-				</label>
-				<Search
-					aria-hidden="true"
-					className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-subtle"
-				/>
-				<Input
-					id={inputId}
-					type="search"
-					data-testid="missions-search"
-					placeholder="Search missions"
-					title="Search by client, engagement or type"
-					value={draft}
-					onChange={(event) => setDraft(event.target.value)}
-					className="pl-9"
-				/>
-			</div>
+			{/* The short placeholder fits the toolbar; the label and the
+			    title carry what it matches. */}
+			<SearchField
+				data-testid="missions-search"
+				label="Search missions by client, engagement or type"
+				placeholder="Search missions"
+				title="Search by client, engagement or type"
+				value={draft}
+				onChange={setDraft}
+				className="w-full min-w-0 sm:w-56"
+			/>
 			<MissionOriginSwitch />
 			<div className="flex h-9 items-center gap-2">
 				<Switch

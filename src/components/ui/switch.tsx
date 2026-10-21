@@ -40,7 +40,7 @@ function Switch({
 			<SwitchPrimitive.Thumb
 				data-slot="switch-thumb"
 				className={cn(
-					"pointer-events-none block rounded-full bg-text-on-solid shadow-btn transition-transform duration-(--duration-micro) ease-avel group-data-[size=default]/switch:size-3.5 group-data-[size=sm]/switch:size-2.5 data-[state=unchecked]:translate-x-0 group-data-[size=default]/switch:data-[state=checked]:translate-x-3 group-data-[size=sm]/switch:data-[state=checked]:translate-x-2.5",
+					"pointer-events-none block rounded-full bg-text-on-solid shadow-btn group-disabled/switch:bg-app-panel group-disabled/switch:shadow-none transition-transform duration-(--duration-micro) ease-avel group-data-[size=default]/switch:size-3.5 group-data-[size=sm]/switch:size-2.5 data-[state=unchecked]:translate-x-0 group-data-[size=default]/switch:data-[state=checked]:translate-x-3 group-data-[size=sm]/switch:data-[state=checked]:translate-x-2.5",
 				)}
 			/>
 		</SwitchPrimitive.Root>

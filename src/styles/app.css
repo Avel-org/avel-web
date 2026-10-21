@@ -39,7 +39,13 @@
 	--color-app-panel: #ffffff; /* content, cards, dialogs */
 	--color-app-band: #f9f9f9; /* dialog footer, table header */
 	--color-app-well: #f8f8f9; /* summary boxes inside panels and dialogs */
-	--color-app-field: #ffffff; /* inputs */
+	--color-app-field: #ffffff; /* checkbox, radio, the chat composer */
+	/* A text field at rest is filled, a step below the panel, with a quiet
+	   edge and a hairline of inset shade, so it reads as a place to type and
+	   not a bare box; focused, it lifts to the panel and takes the ring. */
+	--color-field-fill: #f8f8f9;
+	--color-field-edge: rgb(16 24 40 / 0.09);
+	--color-field-edge-hover: rgb(16 24 40 / 0.2);
 	--color-app-raised: #f2f2f3; /* hover row, pressed control */
 	--color-app-float: #ffffff; /* popover, menu, dialog */
 	--color-skeleton: #ececee;
@@ -69,6 +75,8 @@
 	); /* the soft halo around a focused field */
 	--color-selected: #eef6ff;
 	--color-selected-border: #4a90e2;
+	/* Selected text. accent-soft was too faint to find in dark. */
+	--color-text-selection: #cfe4fd;
 	/* Dark mode adds a faint top edge to raised surfaces, and an outline to
 	   floating ones, where shadows vanish. Both are invisible in light. */
 	--color-edge-top: rgb(255 255 255 / 0);
@@ -148,6 +156,7 @@
 		0 0 0 1px rgb(16 24 40 / 0.04), 0 2px 6px rgb(16 24 40 / 0.05),
 		0 24px 56px -12px rgb(16 24 40 / 0.22);
 	--shadow-drag: 0 10px 28px rgb(16 24 40 / 0.12);
+	--shadow-field: inset 0 1px 2px rgb(16 24 40 / 0.05);
 
 	--z-raised: 10;
 	--z-dock: 200;
@@ -205,6 +214,9 @@
 	--color-app-band: #1a1b1f;
 	--color-app-well: #1c1d21;
 	--color-app-field: #121316;
+	--color-field-fill: #111215;
+	--color-field-edge: rgb(255 255 255 / 0.09);
+	--color-field-edge-hover: rgb(255 255 255 / 0.2);
 	--color-app-raised: #222327;
 	--color-app-float: #1d1e22;
 	--color-skeleton: #24252a;
@@ -226,10 +238,16 @@
 	--color-focus-halo: rgb(116 184 252 / 0.32);
 	--color-selected: rgb(116 184 252 / 0.12);
 	--color-selected-border: rgb(116 184 252 / 0.85);
+	--color-text-selection: rgb(116 184 252 / 0.34);
 	--color-edge-top: rgb(255 255 255 / 0.05);
 	--color-float-outline: rgb(255 255 255 / 0.14);
 	--color-scrim: rgb(0 0 0 / 0.6);
 
+	/* A step deeper than light's gradient: on the dark panel the light
+	   gradient read as a glare, and its white label measured 2.1:1 at the
+	   top. Here it measures 2.9:1 at the top and 4.7:1 at the bottom. */
+	--color-btn-primary-top: #4f9cf0;
+	--color-btn-primary-bottom: #2a74d0;
 	--color-btn-primary-border: rgb(140 196 253 / 0.45);
 	--color-btn-primary-glow: rgb(116 184 252 / 0.42);
 	--color-btn-primary-glow-near: rgb(116 184 252 / 0.3);
@@ -240,20 +258,22 @@
 	--color-gate-pass: #5fd59b;
 	--color-gate-pass-solid: #34c27f;
 	--color-gate-pass-soft: rgb(52 194 127 / 0.14);
-	--color-gate-pass-line: rgb(52 194 127 / 0.35);
+	/* The lines sit quieter than light's: at 0.35 to 0.4 they drew a loud
+	   rim round every pill on the dark panel. */
+	--color-gate-pass-line: rgb(52 194 127 / 0.26);
 	--color-gate-block: #f58b81;
 	--color-gate-block-solid: #f0685c;
 	--color-gate-block-soft: rgb(240 104 92 / 0.14);
-	--color-gate-block-line: rgb(240 104 92 / 0.4);
+	--color-gate-block-line: rgb(240 104 92 / 0.3);
 	--color-gate-warn: #f2c45a;
 	--color-gate-warn-solid: #f0b429;
 	--color-gate-warn-soft: rgb(240 180 41 / 0.14);
-	--color-gate-warn-line: rgb(240 180 41 / 0.35);
+	--color-gate-warn-line: rgb(240 180 41 / 0.26);
 	--color-gate-warn-banner: rgb(240 180 41 / 0.08);
 	--color-gate-pending: #b6b6bd;
 	--color-gate-pending-solid: #8c8c94;
 	--color-gate-pending-soft: rgb(255 255 255 / 0.07);
-	--color-gate-pending-line: rgb(140 140 148 / 0.35);
+	--color-gate-pending-line: rgb(140 140 148 / 0.28);
 
 	--shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
 	--shadow-btn: 0 1px 2px rgb(0 0 0 / 0.3);
@@ -262,6 +282,7 @@
 	--shadow-dialog:
 		0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 56px -12px rgb(0 0 0 / 0.6);
 	--shadow-drag: 0 10px 28px rgb(0 0 0 / 0.5);
+	--shadow-field: inset 0 1px 2px rgb(0 0 0 / 0.35);
 
 	color-scheme: dark;
 }
@@ -404,14 +425,22 @@
 }
 
 /*
- * A text field's box. At rest a strong hairline; focused, a solid 1px ring in
- * the focus colour and a soft halo (v3 UX 2), drawn here because inputs carry
- * no outline; invalid, the same in block.
+ * A text field's box. At rest filled, a step below the panel, with a quiet
+ * edge and a hairline of inset shade; hovered, the edge firms; focused, it
+ * lifts to the panel with a solid 1px ring in the focus colour and a soft
+ * halo (v3 UX 2), drawn here because inputs carry no outline; invalid, the
+ * same in block. A plain white box with a grey edge read as the browser's
+ * default field.
  */
 @utility field-surface {
-	background-color: var(--color-app-field);
-	border: 1px solid var(--color-border-strong);
+	background-color: var(--color-field-fill);
+	border: 1px solid var(--color-field-edge);
+	box-shadow: var(--shadow-field);
+	&:hover:not(:focus-within):not(:disabled):not([aria-disabled="true"]) {
+		border-color: var(--color-field-edge-hover);
+	}
 	&:focus-within {
+		background-color: var(--color-app-field);
 		border-color: var(--color-focus-ring);
 		box-shadow:
 			0 0 0 1px var(--color-focus-ring),
@@ -502,7 +531,7 @@ body {
 }
 
 ::selection {
-	background: var(--color-accent-soft);
+	background: var(--color-text-selection);
 	color: var(--color-text);
 }
 

@@ -345,6 +345,10 @@ describe("/catalog/skills, a skill", () => {
 			],
 			[],
 		);
+		expect(tagOf(html, "skill-filter-input")).toContain(
+			'placeholder="Filter skills"',
+		);
+		expect(html).toMatch(/<label[^>]*>Filter skills<\/label>/);
 	});
 
 	it("samples only a role skill's attachments and the carriers they imply", async () => {
@@ -755,6 +759,10 @@ describe("Discover", () => {
 			["skill-discover-search"],
 			[`skill-discover-source-${source("vendor").id}`],
 		);
+		expect(tagOf(html, "skill-discover-search-input")).toContain(
+			'placeholder="Search the sources"',
+		);
+		expect(html).toMatch(/<label[^>]*>Search the sources<\/label>/);
 	});
 
 	it("never offers an internal source's entry", () => {

@@ -11,10 +11,9 @@ import {
 	WAVES,
 	type Wave,
 } from "avel-server/contract";
-import { ListFilter, Search } from "lucide-react";
+import { ListFilter } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
 	Popover,
 	PopoverContent,
@@ -33,6 +32,7 @@ import { initialsOf } from "./actor";
 import { firstWave, isFirmAgent, sideOf } from "./catalog-agent-placeholders";
 import { teamOf } from "./catalog-sample";
 import type { SortState } from "./data-table";
+import { SearchField } from "./search-field";
 
 /*
  * The All agents list's pure pieces: filtering, sorting, the side tile and
@@ -169,7 +169,6 @@ export function AgentFilterRow({
 	filters: AgentFilters;
 	onChange: (next: AgentFilters) => void;
 }) {
-	const searchId = useId();
 	// Counts follow the other filters, never the side itself.
 	const pool = filterAgents(agents, { ...filters, side: undefined });
 	const narrowed = (filters.wave ? 1 : 0) + (filters.kind ? 1 : 0);
@@ -209,28 +208,16 @@ export function AgentFilterRow({
 				})}
 			</fieldset>
 			<div className="flex items-center gap-2">
-				<div className="relative">
-					<label htmlFor={searchId} className="sr-only">
-						Search agents by name or role
-					</label>
-					<Search
-						aria-hidden="true"
-						className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-text-subtle"
-					/>
-					<Input
-						id={searchId}
-						type="search"
-						data-testid="catalog-agents-search"
-						// Short enough to show whole in the field; the label says
-						// what it searches.
-						placeholder="Search agents"
-						value={filters.q ?? ""}
-						onChange={(event) =>
-							onChange({ ...filters, q: event.target.value })
-						}
-						className="h-control-md w-52 pl-8"
-					/>
-				</div>
+				<SearchField
+					data-testid="catalog-agents-search"
+					label="Search agents by name or role"
+					// Short enough to show whole in the field; the label says
+					// what it searches.
+					placeholder="Search agents"
+					value={filters.q ?? ""}
+					onChange={(q) => onChange({ ...filters, q })}
+					className="w-52"
+				/>
 				<Popover>
 					<PopoverTrigger asChild>
 						<Button

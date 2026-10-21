@@ -1,10 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import type { SkillSource } from "avel-server/contract";
-import { BookOpen, Search } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { loadedRows, useSkillSources } from "@/lib/api/catalog";
 import {
 	CATALOG_MISSING,
@@ -14,6 +13,7 @@ import {
 import { CatalogListSkeleton, SampleRegion } from "./catalog-sample";
 import { SKILL_WRITE_REASON } from "./catalog-skill-inspector";
 import { EmptyState } from "./empty-state";
+import { SearchField } from "./search-field";
 import { ShortHash } from "./short-hash";
 import { ErrorState, Surface } from "./surface";
 
@@ -60,21 +60,13 @@ export function SkillDiscover() {
 					draft for review; nothing is attached until it is approved.
 				</p>
 			</header>
-			<div className="relative">
-				<Search
-					aria-hidden="true"
-					className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-subtle"
-				/>
-				<Input
-					type="search"
-					aria-label="Search the sources"
-					placeholder="Search the sources"
-					data-testid="skill-discover-search"
-					value={q}
-					onChange={(event) => setQ(event.target.value)}
-					className="pl-9"
-				/>
-			</div>
+			<SearchField
+				data-testid="skill-discover-search"
+				label="Search the sources"
+				placeholder="Search the sources"
+				value={q}
+				onChange={setQ}
+			/>
 			<Surface
 				data-testid="skill-discover-surface"
 				query={sources}
