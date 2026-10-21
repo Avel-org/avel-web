@@ -92,6 +92,7 @@ export function afterCanonMoved(
 	const turn = session.lastSeq !== before.lastSeq;
 	const questions = session.openQuestions !== before.openQuestions;
 	if (!turn && !questions) return Promise.resolve();
+	const { intakeId } = session;
 	return Promise.all([
 		turn
 			? queryClient.invalidateQueries({
@@ -101,16 +102,19 @@ export function afterCanonMoved(
 		turn
 			? queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() })
 			: undefined,
-		questions
+		// An open chat has no intake: nothing of one to read again.
+		questions && intakeId
 			? queryClient.invalidateQueries({
-					queryKey: queryKeys.canon.questionsAll(session.intakeId),
+					queryKey: queryKeys.canon.questionsAll(intakeId),
 				})
 			: undefined,
-		queryClient.invalidateQueries({
-			queryKey: queryKeys.intakes.detail(session.intakeId),
-		}),
+		intakeId
+			? queryClient.invalidateQueries({
+					queryKey: queryKeys.intakes.detail(intakeId),
+				})
+			: undefined,
 		// A turn is when Canon drafts the brief that titles the intake's row.
-		turn
+		turn && intakeId
 			? queryClient.invalidateQueries({ queryKey: queryKeys.intakes.lists() })
 			: undefined,
 	]);

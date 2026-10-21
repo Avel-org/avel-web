@@ -53,7 +53,13 @@ export const CANON_ACTOR = {
 export const session = (extra: Partial<CanonSession> = {}): CanonSession =>
 	canonSession.parse({
 		id: SESSION,
+		scope: "client",
+		clientId: CLIENT,
+		engagementId: null,
 		intakeId: INTAKE,
+		title: null,
+		titleSetBy: null,
+		mode: "draft",
 		status: "open",
 		haltReason: null,
 		model: "claude",
@@ -68,6 +74,8 @@ export const session = (extra: Partial<CanonSession> = {}): CanonSession =>
 		openedBy: OPERATOR,
 		openedAt: "2026-10-19T09:00:00.000Z",
 		closedAt: null,
+		archivedAt: null,
+		lastActivityAt: "2026-10-19T09:00:00.000Z",
 		...extra,
 	});
 
@@ -77,6 +85,8 @@ export const message = (seq: number, extra: Partial<CanonMessage> = {}) =>
 		seq,
 		role: "operator",
 		contentMd: `Message ${seq}`,
+		mode: "draft",
+		parts: [],
 		citations: [],
 		createdAt: "2026-10-19T09:01:00.000Z",
 		...extra,

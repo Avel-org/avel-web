@@ -351,6 +351,18 @@ export const PRECONDITION_COPY = {
 		next: "Open a new session to keep briefing.",
 		retry: false,
 	},
+	canon_mode_unavailable: {
+		what: "That mode is not available in this chat.",
+		written: NOTHING_WRITTEN,
+		next: "Draft needs an intake, and fetch is not built yet. Switch to ask.",
+		retry: false,
+	},
+	canon_session_final: {
+		what: "This session hit its hard token limit, so it can't be reopened.",
+		written: NOTHING_WRITTEN,
+		next: "Open a new session.",
+		retry: false,
+	},
 	canon_turn_running: {
 		what: "Canon is still answering.",
 		written: NOTHING_WRITTEN,
