@@ -125,6 +125,7 @@ const KEY: Record<ReadName, readonly unknown[]> = {
 	"dispatches.list": queryKeys.dispatches.list(M),
 	"dispatches.moving": queryKeys.dispatches.moving(M),
 	"dispatches.detail": queryKeys.dispatches.detail(M, DISPATCH),
+	"dispatches.steps": queryKeys.dispatches.steps(DISPATCH),
 	"dispatches.reports": queryKeys.dispatches.reports(M),
 	"dispatches.report": queryKeys.dispatches.report(REPORT),
 	"dispatches.brief": queryKeys.dispatches.brief(DISPATCH),

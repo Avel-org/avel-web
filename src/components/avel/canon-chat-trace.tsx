@@ -151,8 +151,45 @@ export const CanonRunTrace = memo(function CanonRunTrace({
 	/** The turn is still running: open, with the unfinished step spinning. */
 	live: boolean;
 }) {
+	return (
+		<li
+			data-testid={`canon-trace-${turn}`}
+			data-live={live || undefined}
+			className="flex justify-start gap-2"
+		>
+			{/* Under Canon's mark column, so the trace lines up with its reply. */}
+			<span aria-hidden="true" className="w-5 shrink-0" />
+			<RunTrace
+				steps={steps}
+				live={live}
+				toggleTestId={`canon-trace-toggle-${turn}`}
+				stepsTestId={`canon-trace-steps-${turn}`}
+				className="max-w-[calc(85%_-_1.75rem)]"
+			/>
+		</li>
+	);
+});
+
+/**
+ * The trace itself, for any run that writes RunSteps (a Canon turn, a
+ * dispatch): a toggle that says how long it worked, how many steps and
+ * whether one failed, over the steps as rows. Open while live and folded
+ * after, until the operator chooses.
+ */
+export function RunTrace({
+	steps,
+	live,
+	toggleTestId,
+	stepsTestId,
+	className,
+}: {
+	steps: readonly RunStep[];
+	live: boolean;
+	toggleTestId: string;
+	stepsTestId: string;
+	className?: string;
+}) {
 	const listId = useId();
-	// Open while live and folded after, until the operator chooses.
 	const [chosen, setChosen] = useState<boolean | null>(null);
 	const open = chosen ?? live;
 	const items = traceItems(steps);
@@ -166,69 +203,61 @@ export const CanonRunTrace = memo(function CanonRunTrace({
 				detailOf(i.result).isError === true),
 	);
 	return (
-		<li
-			data-testid={`canon-trace-${turn}`}
-			data-live={live || undefined}
-			className="flex justify-start gap-2"
-		>
-			{/* Under Canon's mark column, so the trace lines up with its reply. */}
-			<span aria-hidden="true" className="w-5 shrink-0" />
-			<div className="flex min-w-0 max-w-[calc(85%_-_1.75rem)] flex-col gap-1.5">
-				<button
-					type="button"
-					data-testid={`canon-trace-toggle-${turn}`}
-					aria-expanded={open}
-					aria-controls={listId}
-					onClick={() => setChosen(!open)}
-					className="inline-flex w-fit items-center gap-1.5 rounded-control py-0.5 type-small text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:text-text"
-				>
-					{live ? (
-						<Loader2
-							aria-hidden="true"
-							className="size-3.5 animate-spin motion-reduce:animate-none"
-						/>
-					) : failed ? (
-						<CircleAlert
-							aria-hidden="true"
-							className="size-3.5 text-gate-block"
-						/>
-					) : (
-						<ListTree aria-hidden="true" className="size-3.5" />
-					)}
-					<span>
-						{`${live ? "Working" : "Worked"}${total !== null ? ` for ${formatDuration(total)}` : ""}`}
-					</span>
-					<span className="text-text-subtle tabular-nums">
-						{`· ${steps.length} ${steps.length === 1 ? "step" : "steps"}${tokens ? ` · ${tokens}` : ""}`}
-					</span>
-					<ChevronRight
+		<div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
+			<button
+				type="button"
+				data-testid={toggleTestId}
+				aria-expanded={open}
+				aria-controls={listId}
+				onClick={() => setChosen(!open)}
+				className="inline-flex w-fit items-center gap-1.5 rounded-control py-0.5 type-small text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:text-text"
+			>
+				{live ? (
+					<Loader2
 						aria-hidden="true"
-						className={cn(
-							"size-3.5 transition-transform duration-(--duration-micro) ease-avel",
-							open && "rotate-90",
-						)}
+						className="size-3.5 animate-spin motion-reduce:animate-none"
 					/>
-				</button>
-				{open ? (
-					<ol
-						id={listId}
-						aria-label="Steps"
-						data-testid={`canon-trace-steps-${turn}`}
-						className="ml-1.5 flex flex-col gap-0.5 border-l border-border pl-3"
-					>
-						{items.map((item, i) => (
-							<TraceRow
-								key={item.seq}
-								item={item}
-								running={live && i === items.length - 1 && running(item)}
-							/>
-						))}
-					</ol>
-				) : null}
-			</div>
-		</li>
+				) : failed ? (
+					<CircleAlert
+						aria-hidden="true"
+						className="size-3.5 text-gate-block"
+					/>
+				) : (
+					<ListTree aria-hidden="true" className="size-3.5" />
+				)}
+				<span>
+					{`${live ? "Working" : "Worked"}${total !== null ? ` for ${formatDuration(total)}` : ""}`}
+				</span>
+				<span className="text-text-subtle tabular-nums">
+					{`· ${steps.length} ${steps.length === 1 ? "step" : "steps"}${tokens ? ` · ${tokens}` : ""}`}
+				</span>
+				<ChevronRight
+					aria-hidden="true"
+					className={cn(
+						"size-3.5 transition-transform duration-(--duration-micro) ease-avel",
+						open && "rotate-90",
+					)}
+				/>
+			</button>
+			{open ? (
+				<ol
+					id={listId}
+					aria-label="Steps"
+					data-testid={stepsTestId}
+					className="ml-1.5 flex flex-col gap-0.5 border-l border-border pl-3"
+				>
+					{items.map((item, i) => (
+						<TraceRow
+							key={item.seq}
+							item={item}
+							running={live && i === items.length - 1 && running(item)}
+						/>
+					))}
+				</ol>
+			) : null}
+		</div>
 	);
-});
+}
 
 /** An item still under way: a call with no result yet, a step not ended. */
 function running(item: TraceItem): boolean {

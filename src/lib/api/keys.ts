@@ -306,6 +306,12 @@ export const queryKeys = {
 		 */
 		detail: (missionId: string, id: string) =>
 			["missions", "detail", missionId, "dispatch", id] as const,
+		/**
+		 * contract.dispatches.steps: a dispatch's run steps, in seq order. Only
+		 * the runner writes them, so nothing invalidates it; it polls while the
+		 * dispatch runs.
+		 */
+		steps: (id: string) => ["dispatchSteps", id] as const,
 		/** contract.dispatches.report: one report by id. Never changes once filed. */
 		report: (id: string) => ["completionReports", id] as const,
 		/** contract.dispatches.brief: frozen at start, so it never changes. */

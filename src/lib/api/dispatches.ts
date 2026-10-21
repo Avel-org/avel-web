@@ -15,10 +15,12 @@ import {
 	type Dispatch,
 	type DispatchStatus,
 	MAX_PAGE_SIZE,
+	type RunStep,
 } from "avel-server/contract";
 import { type ApiClient, call, callPage } from "./client";
 import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
+import { readAfterSeq } from "./steps";
 
 /*
  * Dispatches and their completion reports (modules 6 and 8). A mission's
@@ -139,6 +141,54 @@ export function useDispatch(missionId: string, id: string) {
 			queryClient.getQueryData<Dispatch[]>(listKey)?.find((d) => d.id === id),
 		initialDataUpdatedAt: () =>
 			queryClient.getQueryState(listKey)?.dataUpdatedAt,
+	});
+}
+
+/**
+ * How often a running dispatch's steps are read. The runner writes them on
+ * its tick (every 5s by default), so they land in bursts; reading twice a
+ * tick shows each burst within a few seconds.
+ */
+export const DISPATCH_STEP_POLL_MS = 2_500;
+
+/** A dispatch has steps to read once it has started. */
+export function dispatchStarted(dispatch: Pick<Dispatch, "status">): boolean {
+	return dispatch.status !== "queued";
+}
+
+/**
+ * The run trace: the steps a dispatch's agent took (contract.dispatches.steps),
+ * read after the last seq held, as Canon's are.
+ */
+export function dispatchStepsQuery(
+	api: ApiClient,
+	id: string,
+	queryClient?: QueryClient,
+) {
+	const queryKey = queryKeys.dispatches.steps(id);
+	return queryOptions({
+		queryKey,
+		queryFn: (): Promise<RunStep[]> =>
+			readAfterSeq(
+				queryClient?.getQueryData<RunStep[]>(queryKey) ?? [],
+				(afterSeq) =>
+					callPage(contract.dispatches.steps, () =>
+						api.dispatches.steps({
+							params: { id },
+							query: { afterSeq, limit: 500 },
+						}),
+					),
+			),
+	});
+}
+
+/** A dispatch's steps, once it has started; polled while it runs. */
+export function useDispatchSteps(dispatch: Pick<Dispatch, "id" | "status">) {
+	return useQuery({
+		...dispatchStepsQuery(useApiClient(), dispatch.id, useQueryClient()),
+		enabled: dispatchStarted(dispatch),
+		refetchInterval:
+			dispatch.status === "running" ? DISPATCH_STEP_POLL_MS : false,
 	});
 }
 

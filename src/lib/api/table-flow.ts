@@ -24,6 +24,7 @@ export type Table =
 	| "completion_report"
 	| "connection"
 	| "dispatch"
+	| "dispatch_step"
 	| "engagement"
 	| "finding"
 	| "intake"
@@ -180,6 +181,7 @@ export const READS = {
 	"dispatches.list": ["dispatch", "completion_report", "roster_entry"],
 	"dispatches.moving": ["dispatch", "roster_entry"],
 	"dispatches.detail": ["dispatch"],
+	"dispatches.steps": ["dispatch_step"],
 	"dispatches.reports": ["completion_report"],
 	"dispatches.report": ["completion_report"],
 	"dispatches.brief": ["dispatch"],

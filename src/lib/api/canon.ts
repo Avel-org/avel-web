@@ -21,6 +21,7 @@ import { type ApiClient, call, callPage } from "./client";
 import { DISPATCH_POLL_MS } from "./dispatches";
 import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
+import { readAfterSeq } from "./steps";
 
 /*
  * Canon, the project briefer: a session with a chat (open on Home with no
@@ -448,27 +449,6 @@ export function canonReopenBlocked(
 // ---------------------------------------------------------------------------
 // Messages and steps: read whole from seq 0, then only what follows the
 // last seq held.
-
-/**
- * Messages and steps only append, in seq order, so a re-read starts after
- * the last one held instead of downloading the thread again each turn.
- */
-async function readAfterSeq<T extends { seq: number }>(
-	held: readonly T[],
-	page: (afterSeq: number) => Promise<{ data: T[]; meta: { lastSeq: number } }>,
-): Promise<T[]> {
-	const rows: T[] = [...held];
-	let afterSeq = held.at(-1)?.seq ?? 0;
-	// A page at a time; a session ends far before this many pages.
-	for (let i = 0; i < 50; i++) {
-		const next = await page(afterSeq);
-		rows.push(...next.data);
-		const last = next.data.at(-1)?.seq ?? afterSeq;
-		if (next.data.length === 0 || last >= next.meta.lastSeq) break;
-		afterSeq = last;
-	}
-	return rows;
-}
 
 export function canonMessagesQuery(
 	api: ApiClient,

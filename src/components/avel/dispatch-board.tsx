@@ -20,6 +20,7 @@ import {
 	minutesRun,
 } from "./dispatch-budget";
 import { DISPATCH_STATUS_LABEL } from "./dispatch-labels";
+import { DispatchRun } from "./dispatch-run";
 import { IdentityVersionTrigger, lookupRef } from "./identity-version-sheet";
 import { CompactBudget } from "./missions-dashboard";
 import { ShortHash } from "./short-hash";
@@ -387,8 +388,8 @@ export function DispatchCard({
 
 /**
  * What an opened card shows: the brief, the identity and model frozen at
- * its start, its times, the full budget and the token split, then its
- * report once it has one.
+ * its start, its times, the full budget and the token split, the run's
+ * trace, then its report once it has one.
  */
 function DispatchDetails({
 	dispatch,
@@ -441,6 +442,8 @@ function DispatchDetails({
 				</p>
 			)}
 			<DispatchBriefLine dispatch={dispatch} agentName={dispatch.agent.name} />
+			{/* Rendered only while open: it reads the steps. */}
+			{open ? <DispatchRun dispatch={dispatch} /> : null}
 			{/* Rendered only while open: it may read the report. */}
 			{open && dispatch.reportId !== null && renderReport ? (
 				<div
