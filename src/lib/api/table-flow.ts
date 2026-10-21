@@ -55,6 +55,7 @@ export const WRITES = {
 	startDispatch: ["dispatch", "activity_log"],
 	haltDispatch: ["dispatch", "completion_report", "activity_log"],
 	startMission: ["mission", "activity_log"],
+	setSpendCeiling: ["mission", "activity_log"],
 	haltMission: ["mission", "dispatch", "completion_report", "activity_log"],
 	saveMissionPlan: ["mission", "activity_log"],
 	createPlaybook: ["playbook", "activity_log"],

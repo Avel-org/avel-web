@@ -6,6 +6,7 @@ import {
 	type MissionReadiness,
 	READINESS_REASONS,
 	type ReadinessBlocker,
+	type ReadinessWarning,
 	type RosterEntry,
 } from "avel-server/contract";
 import { CircleCheck, Play, Square } from "lucide-react";
@@ -75,12 +76,17 @@ export const READINESS_CHECK_LABEL = {
 	plan_check_failed: "Plan check",
 	coherence_blocked: "Playbook coherence",
 	estimate_missing: "Token estimates",
-	spend_ceiling_missing: "Spend limit",
 } as const satisfies Record<ReadinessBlocker["reason"], string>;
 
-/** No route sets a mission's spend limit yet (audit D4, D6). */
-export const SPEND_CEILING_UNSET =
-	"Can't be set yet: avel-server has no route that sets a mission's spend limit.";
+/**
+ * What readiness notes without blocking start: a mission may run with no
+ * spend limit (J, 2026-10-20), and then only each agent's token ceiling
+ * caps what it spends. Keyed on the contract, as the checks are.
+ */
+export const READINESS_WARNING_TEXT = {
+	spend_ceiling_missing:
+		"No spend limit is set. It's optional: without one, only each agent's token ceiling caps what the mission spends. Set one on the Spend panel.",
+} as const satisfies Record<ReadinessWarning["reason"], string>;
 
 const ordinal = (i: number) => i + 1;
 
@@ -233,8 +239,6 @@ export function blockerDetails(
 					link: { to: "/missions/$id/roster" },
 				};
 			});
-		case "spend_ceiling_missing":
-			return [{ key: "unset", text: SPEND_CEILING_UNSET }];
 		case "engagement_closed":
 			return [
 				{
@@ -493,6 +497,24 @@ export function ReadinessList({
 							/>
 						))}
 					</ul>
+					{data.warnings.length > 0 ? (
+						<ul
+							aria-label="Readiness notes"
+							data-testid="mission-readiness-warnings"
+							className="flex flex-col gap-1"
+						>
+							{data.warnings.map((w) => (
+								<li
+									key={w.reason}
+									data-testid={`mission-readiness-warning-${w.reason}`}
+									className="flex items-start gap-2 rounded-control border border-gate-warn-line bg-gate-warn-banner px-3 py-2 type-small text-text"
+								>
+									<StatusGlyph tone="warn" className="mt-0.5" />
+									{READINESS_WARNING_TEXT[w.reason]}
+								</li>
+							))}
+						</ul>
+					) : null}
 				</div>
 			)}
 		</Surface>

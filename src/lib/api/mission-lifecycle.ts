@@ -85,3 +85,30 @@ export function useHaltMission(missionId: string) {
 		onSuccess: () => afterStatusChange(queryClient),
 	});
 }
+
+/**
+ * PATCH the spend ceiling: any value on a draft, only higher on an active
+ * mission. A draft with none cannot start (spend_ceiling_missing), so the
+ * mission and the readiness under its detail key read again, with the log.
+ */
+export function afterSpendCeiling(queryClient: QueryClient) {
+	return Promise.all([
+		queryClient.invalidateQueries({ queryKey: queryKeys.missions.all() }),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
+}
+
+export function useSetSpendCeiling(missionId: string) {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (spendCeilingUsd: number | null) =>
+			call(contract.missions.update, () =>
+				api.missions.update({
+					params: { id: missionId },
+					body: { spendCeilingUsd },
+				}),
+			),
+		onSuccess: () => afterSpendCeiling(queryClient),
+	});
+}

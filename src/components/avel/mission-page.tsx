@@ -46,6 +46,7 @@ import { UnblockCard } from "./plan-unblock";
 import { SampleData } from "./sample-data";
 import { SectionPanel } from "./section-panel";
 import { HiddenId } from "./short-hash";
+import { SpendLimitControl } from "./spend-limit";
 import {
 	exportStatusTone,
 	StatusGlyph,
@@ -638,7 +639,11 @@ export function TeamEntries({ entries }: { entries: readonly RosterEntry[] }) {
 
 function Spend({ mission }: { mission: MissionDetail }) {
 	return (
-		<SectionPanel title="Spend" data-testid="mission-section-spend-page">
+		<SectionPanel
+			title="Spend"
+			data-testid="mission-section-spend-page"
+			actions={<SpendLimitControl mission={mission} />}
+		>
 			<MissionSpendBar
 				spentUsd={mission.spentUsd}
 				spendCeilingUsd={mission.spendCeilingUsd}

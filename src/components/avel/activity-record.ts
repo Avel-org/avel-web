@@ -33,6 +33,11 @@ export const INVERSE = {
 	"connection.revoked": null,
 	"mission.created": null,
 	"mission.status_changed": null,
+	"mission.spend_ceiling_set": {
+		request: "missions.update",
+		route: "PATCH /api/missions/:id",
+		note: "Set the spend limit back. A draft's limit can go either way; an active mission's can only go up.",
+	},
 	"export.created": null,
 	"export.status_changed": null,
 	"intake.created": null,

@@ -29,6 +29,7 @@ import {
 	ModalField,
 	useFieldIssues,
 } from "./action-modal";
+import { parseSpendLimit, SpendLimitInput } from "./spend-limit";
 import { useOpenGeneration } from "./use-open-generation";
 
 type IntakeModalProps = {
@@ -382,7 +383,8 @@ export function ReadRepoModal(props: IntakeModalProps) {
 /** Which Approve field a server issue belongs to; Canon's questions have their own list. */
 export function approveFieldOf(path: IssuePath): string | null {
 	const [top] = path;
-	if (top === "missionType" || top === "repoUrl") return top;
+	if (top === "missionType" || top === "repoUrl" || top === "spendCeilingUsd")
+		return top;
 	if (top === "acknowledged" || top === "openQuestions") return "acknowledged";
 	if (top === "canonQuestions") return "canonQuestions";
 	return null;
@@ -408,6 +410,8 @@ function ApproveIntakeForm({
 	const approve = useApproveIntake(intake.id);
 	const [missionType, setMissionType] = useState("");
 	const [repoUrl, setRepoUrl] = useState(intake.repoUrl ?? "");
+	const [limit, setLimit] = useState("");
+	const parsedLimit = parseSpendLimit(limit);
 	const [ticked, setTicked] = useState<Set<string>>(new Set());
 	const toggle = (q: string) =>
 		setTicked((prev) => {
@@ -416,11 +420,14 @@ function ApproveIntakeForm({
 			else next.add(q);
 			return next;
 		});
-	const submit = () =>
+	const submit = () => {
+		if (parsedLimit !== null && "problem" in parsedLimit) return;
 		approve.mutate(
 			{
 				missionType: missionType.trim(),
 				repoUrl: repoUrl.trim(),
+				// Optional: left empty, the mission has no limit.
+				...(parsedLimit ? { spendCeilingUsd: parsedLimit.value } : {}),
 				acknowledged: intake.openQuestions.filter((q) => ticked.has(q)),
 			},
 			{
@@ -430,6 +437,7 @@ function ApproveIntakeForm({
 				},
 			},
 		);
+	};
 	return (
 		<ActionModal
 			open={open}
@@ -440,7 +448,7 @@ function ApproveIntakeForm({
 			size="form"
 			title="Approve intake"
 			description="Approving creates the mission from this brief. The server checks the brief again, and every open question must be acknowledged."
-			dirty={missionType !== "" || ticked.size > 0}
+			dirty={missionType !== "" || limit !== "" || ticked.size > 0}
 			submitLabel="Approve and create mission"
 			pendingLabel="Approving"
 			onSubmit={submit}
@@ -450,9 +458,11 @@ function ApproveIntakeForm({
 					? "Give the mission type."
 					: !repoUrl.trim().startsWith("https://")
 						? "Give the repository's https URL."
-						: !allAcknowledged(intake.openQuestions, ticked)
-							? "Acknowledge every open question."
-							: undefined
+						: parsedLimit !== null && "problem" in parsedLimit
+							? parsedLimit.problem
+							: !allAcknowledged(intake.openQuestions, ticked)
+								? "Acknowledge every open question."
+								: undefined
 			}
 			error={approve.error}
 			fieldOf={approveFieldOf}
@@ -485,6 +495,16 @@ function ApproveIntakeForm({
 						value={repoUrl}
 						onChange={(e) => setRepoUrl(e.target.value)}
 					/>
+				)}
+			</ModalField>
+			<ModalField
+				name="spendCeilingUsd"
+				label="Spend limit"
+				hint="Optional, in USD. The runner halts the mission there."
+				testid="intake-approve-spend"
+			>
+				{(props) => (
+					<SpendLimitInput {...props} value={limit} onChange={setLimit} />
 				)}
 			</ModalField>
 			{intake.openQuestions.length > 0 ? (

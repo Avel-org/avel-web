@@ -331,7 +331,7 @@ export function MissionSpendBar({
 				{spendCeilingUsd === null ? (
 					<>
 						{" spent · "}
-						<span className="text-text-subtle">No ceiling set</span>
+						<span className="text-text-subtle">No spend limit</span>
 					</>
 				) : (
 					<>

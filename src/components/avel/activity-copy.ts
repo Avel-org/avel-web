@@ -19,6 +19,7 @@ export const ACTION_COPY = {
 	"connection.revoked": "Connection revoked",
 	"mission.created": "Mission created",
 	"mission.status_changed": "Mission status changed",
+	"mission.spend_ceiling_set": "Spend limit set",
 	"export.created": "Export created",
 	"export.status_changed": "Export status changed",
 	"intake.created": "Intake created",

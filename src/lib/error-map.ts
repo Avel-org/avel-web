@@ -415,10 +415,16 @@ export const PRECONDITION_COPY = {
 	// The reasons below arrive with module 4's roster writes (step 6), copy
 	// written against avel-server's announced firing rules. A missing mission
 	// answers 404, not mission_not_editable; duplicates answer 409.
+	spend_ceiling_not_raised: {
+		what: "An active mission's spend limit can only go up.",
+		written: NOTHING_WRITTEN,
+		next: "Set a limit above the current one. Lowering it below what is spent would stop every running dispatch.",
+		retry: false,
+	},
 	mission_not_editable: {
 		what: "This mission can no longer be changed.",
 		written: NOTHING_WRITTEN,
-		next: "Only a draft mission's roster, skills and plan can change.",
+		next: "Only a draft mission's roster, skills, plan and spend limit can change. An active mission's spend limit can still go up.",
 		retry: false,
 	},
 	agent_template_not_found: {
@@ -606,9 +612,7 @@ export const PRECONDITION_COPY = {
 	spend_ceiling_missing: {
 		what: "This mission has no spend limit.",
 		written: NOTHING_WRITTEN,
-		// No route sets spendCeilingUsd yet (audit D4, D6), so the copy never
-		// sends the operator looking for a control that does not exist.
-		next: "A spend limit can't be set yet: avel-server has no route for it, so this mission can't start until one exists.",
+		next: "Set one on the mission's Spend panel, then start it again.",
 		retry: false,
 	},
 	spend_ceiling_reached: {

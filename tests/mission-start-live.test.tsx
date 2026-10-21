@@ -93,8 +93,8 @@ const NOT_READY: MissionReadiness = {
 				{ path: ["roster", ENTRY_ID, "estimatedTokens"], message: "for logs" },
 			],
 		},
-		{ reason: "spend_ceiling_missing" },
 	],
+	warnings: [{ reason: "spend_ceiling_missing" }],
 };
 
 function seeded(seed: (client: QueryClient) => void): QueryClient {
@@ -150,7 +150,9 @@ describe("the mission page header", () => {
 		expect(h).toContain('data-testid="mission-start"');
 		expect(h).toMatch(DISABLED);
 		expect(h).toContain('data-reason="estimate_missing"');
-		expect(h).toContain('data-reason="spend_ceiling_missing"');
+		expect(h).toContain(
+			'data-testid="mission-readiness-warning-spend_ceiling_missing"',
+		);
 		expect(visibleText(h)).toContain("Leon · Booking has no token estimate.");
 		expect(visibleText(h)).not.toMatch(UUID_FRAGMENT);
 		expect(h).not.toContain("for logs");
@@ -213,6 +215,7 @@ describe("the mission page header", () => {
 					missionId: ID,
 					ready: true,
 					blockers: [],
+					warnings: [],
 				});
 			}),
 		);

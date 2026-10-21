@@ -504,7 +504,7 @@ describe("the mission's spend bar", () => {
 
 	it("says when no ceiling is set, with no bar", () => {
 		const html = bar(3.5, null);
-		expect(text(html)).toBe("$3.50 spent · No ceiling set");
+		expect(text(html)).toBe("$3.50 spent · No spend limit");
 		expect(html).not.toContain("mission-spend-fill");
 		expect(html).not.toContain("<meter");
 	});

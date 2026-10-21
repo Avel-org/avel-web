@@ -26,7 +26,10 @@ import {
 	reviseIntakeOptions,
 } from "@/lib/api/intakes";
 import { queryKeys } from "@/lib/api/keys";
-import { afterStatusChange } from "@/lib/api/mission-lifecycle";
+import {
+	afterSpendCeiling,
+	afterStatusChange,
+} from "@/lib/api/mission-lifecycle";
 import { afterPlanSaved } from "@/lib/api/mission-plans";
 import {
 	attachSkillOptions,
@@ -172,6 +175,7 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	startDispatch: (qc) => afterDispatchMoved(qc, M),
 	haltDispatch: (qc) => afterDispatchMoved(qc, M),
 	startMission: (qc) => afterStatusChange(qc),
+	setSpendCeiling: (qc) => afterSpendCeiling(qc),
 	haltMission: (qc) => afterStatusChange(qc),
 	saveMissionPlan: (qc) => afterPlanSaved(qc, M, {} as never),
 	createPlaybook: (qc) =>
@@ -231,6 +235,8 @@ const CANON_BEFORE_APPROVAL =
 	"Canon works on an intake before approval; a plan reads only the approved one";
 const NOT_AN_APPLICATION =
 	"an edit of one entry is not a preset application; Apply refreshes them";
+const CEILING_NOT_COUNT =
+	"a spend ceiling does not change how many missions a template has";
 const STATUS_NOT_COUNT =
 	"a status change does not change how many missions a template has";
 
@@ -250,6 +256,10 @@ const EXEMPT: Partial<Record<WriteName, Partial<Record<ReadName, string>>>> = {
 	startMission: {
 		"templates.list": STATUS_NOT_COUNT,
 		"templates.detail": STATUS_NOT_COUNT,
+	},
+	setSpendCeiling: {
+		"templates.list": CEILING_NOT_COUNT,
+		"templates.detail": CEILING_NOT_COUNT,
 	},
 	haltMission: {
 		"dispatches.brief": FROZEN_BRIEF,
