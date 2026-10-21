@@ -10,6 +10,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,10 +34,14 @@ export function EngagementBoard({
 	client,
 	onNewEngagement,
 	onCloseEngagement,
+	onEditEngagement,
+	onNewIntake,
 }: {
 	client: Client;
 	onNewEngagement: () => void;
 	onCloseEngagement: (engagement: Engagement) => void;
+	onEditEngagement?: (engagement: Engagement) => void;
+	onNewIntake?: (engagement: Engagement) => void;
 }) {
 	const query = useClientEngagements(client.id);
 	const counts: Record<EngagementStatus, number> = {
@@ -69,6 +74,8 @@ export function EngagementBoard({
 									client={client}
 									onNewEngagement={onNewEngagement}
 									onCloseEngagement={onCloseEngagement}
+									onEditEngagement={onEditEngagement}
+									onNewIntake={onNewIntake}
 								/>
 							))}
 						</div>
@@ -99,6 +106,8 @@ function Lane({
 	client,
 	onNewEngagement,
 	onCloseEngagement,
+	onEditEngagement,
+	onNewIntake,
 }: {
 	status: EngagementStatus;
 	label: string;
@@ -107,6 +116,8 @@ function Lane({
 	client: Client;
 	onNewEngagement: () => void;
 	onCloseEngagement: (engagement: Engagement) => void;
+	onEditEngagement?: (engagement: Engagement) => void;
+	onNewIntake?: (engagement: Engagement) => void;
 }) {
 	const headingId = useId();
 	return (
@@ -141,6 +152,8 @@ function Lane({
 						<EngagementCard
 							engagement={e}
 							onClose={() => onCloseEngagement(e)}
+							onEdit={onEditEngagement && (() => onEditEngagement(e))}
+							onNewIntake={onNewIntake && (() => onNewIntake(e))}
 						/>
 					</li>
 				))}
@@ -177,9 +190,13 @@ function Lane({
 export function EngagementCard({
 	engagement,
 	onClose,
+	onEdit,
+	onNewIntake,
 }: {
 	engagement: Engagement;
 	onClose: () => void;
+	onEdit?: () => void;
+	onNewIntake?: () => void;
 }) {
 	const closed = engagement.status === "closed";
 	return (
@@ -198,8 +215,13 @@ export function EngagementCard({
 				>
 					{engagement.name}
 				</p>
-				{closed ? null : (
-					<EngagementCardMenu engagement={engagement} onClose={onClose} />
+				{closed && !onEdit ? null : (
+					<EngagementCardMenu
+						engagement={engagement}
+						onClose={onClose}
+						onEdit={onEdit}
+						onNewIntake={onNewIntake}
+					/>
 				)}
 			</div>
 			<p
@@ -231,13 +253,19 @@ export function EngagementCard({
 	);
 }
 
+/** Edit always; New intake and Close only while it is active. */
 function EngagementCardMenu({
 	engagement,
 	onClose,
+	onEdit,
+	onNewIntake,
 }: {
 	engagement: Engagement;
 	onClose: () => void;
+	onEdit?: () => void;
+	onNewIntake?: () => void;
 }) {
+	const closed = engagement.status === "closed";
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
@@ -252,13 +280,34 @@ function EngagementCardMenu({
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-56">
-				<DropdownMenuItem
-					variant="destructive"
-					data-testid={`engagement-card-close-${engagement.id}`}
-					onSelect={onClose}
-				>
-					Close engagement
-				</DropdownMenuItem>
+				{onNewIntake && !closed ? (
+					<DropdownMenuItem
+						data-testid={`engagement-card-new-intake-${engagement.id}`}
+						onSelect={onNewIntake}
+					>
+						New intake
+					</DropdownMenuItem>
+				) : null}
+				{onEdit ? (
+					<DropdownMenuItem
+						data-testid={`engagement-card-edit-${engagement.id}`}
+						onSelect={onEdit}
+					>
+						Edit engagement
+					</DropdownMenuItem>
+				) : null}
+				{closed ? null : (
+					<>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							variant="destructive"
+							data-testid={`engagement-card-close-${engagement.id}`}
+							onSelect={onClose}
+						>
+							Close engagement
+						</DropdownMenuItem>
+					</>
+				)}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

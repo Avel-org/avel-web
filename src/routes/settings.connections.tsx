@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { ConnectionDetails } from "@/components/avel/connection-details";
 import {
 	CONNECTION_FILTERS,
 	CONNECTION_VIEWS,
@@ -23,12 +24,14 @@ import { Page, pageHead } from "../shell/page";
 
 /**
  * The page's state in the URL. `view` is Board (cards, the default) or Table
- * (ruling 36); `status` is Connected, Revoked, or All (the default). Each
- * survives a reload and is a link.
+ * (ruling 36); `status` is Connected, Revoked, or All (the default);
+ * `connection` is the one whose details are open. Each survives a reload
+ * and is a link.
  */
 export const connectionsSearch = z.object({
 	view: z.enum(["board", "table"]).optional().catch(undefined),
 	status: z.enum(CONNECTION_FILTERS).optional().catch(undefined),
+	connection: z.string().uuid().optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/settings/connections")({
@@ -120,9 +123,25 @@ function SettingsConnectionsPage() {
 						view={view}
 						filter={filter}
 						now={now}
+						onOpen={(connection) =>
+							navigate({
+								search: (prev) => ({ ...prev, connection: connection.id }),
+							})
+						}
 					/>
 				</DataPanel>
 			</div>
+			{search.connection ? (
+				<ConnectionDetails
+					id={search.connection}
+					onClose={() =>
+						navigate({
+							search: (prev) => ({ ...prev, connection: undefined }),
+							replace: true,
+						})
+					}
+				/>
+			) : null}
 		</Page>
 	);
 }

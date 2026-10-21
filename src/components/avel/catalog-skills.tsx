@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import {
 	Compass,
+	Library,
 	MousePointerClick,
 	Plus,
 	SearchX,
@@ -22,9 +23,10 @@ import {
 	CatalogListSkeleton,
 } from "./catalog-sample";
 import { SkillDiscover } from "./catalog-skill-discover";
+import { EditSkillForm, NewSkillForm } from "./catalog-skill-editor";
 import { SkillInspector } from "./catalog-skill-inspector";
-import { NewSkillForm } from "./catalog-skill-new";
 import { SkillSidebar, SkillToolbar } from "./catalog-skill-sidebar";
+import { SkillSources } from "./catalog-skill-sources";
 import { DataPanel } from "./data-panel";
 import { EmptyState } from "./empty-state";
 import { PanelFooter } from "./panel-footer";
@@ -34,16 +36,35 @@ import { ErrorState, type ErrorStateProps, Surface } from "./surface";
  * The skill library, /catalog/skills (ROUTES.md, SKILLS.md), laid out as a
  * registry: skills grouped by source on the left (GET /api/skills), and on
  * the right one skill's inspector (GET /api/skills/by-slug/:slug), Discover
- * (what sources offer), or a new skill. Agents never write a skill; an
- * operator does, and those writes are disabled until their forms exist.
+ * (what sources offer), Sources (where skills come from), a new skill, or
+ * the selected skill's editor. Agents never write a skill; an operator does,
+ * here.
  */
 
-export type SkillsView = "discover" | "new";
+export type SkillsView = "discover" | "new" | "sources" | "edit";
 
-/** The page's actions: Discover and New skill, each a view in the URL. */
+/** The page's actions: Sources, Discover and New skill, each a view in the URL. */
 export function SkillsActions({ view }: { view: SkillsView | undefined }) {
 	return (
 		<>
+			<Button
+				size="sm"
+				variant="outline"
+				className={cn(
+					view === "sources" && "border-selected-border bg-selected",
+				)}
+				asChild
+			>
+				<Link
+					to="/catalog/skills"
+					search={{ view: "sources" }}
+					data-testid="skills-sources"
+					aria-current={view === "sources" ? "page" : undefined}
+				>
+					<Library aria-hidden="true" />
+					Sources
+				</Link>
+			</Button>
 			<Button
 				size="sm"
 				variant="outline"
@@ -82,6 +103,7 @@ export function CatalogSkills({
 	query,
 	selected,
 	view,
+	source,
 	q,
 	draftsOnly,
 	onFilter,
@@ -90,12 +112,15 @@ export function CatalogSkills({
 	query: ReturnType<typeof useSkills>;
 	selected: string | undefined;
 	view: SkillsView | undefined;
+	/** The chosen source's id, in Sources. */
+	source?: string;
 	q: string | undefined;
 	draftsOnly: boolean;
 	onFilter: (text: string) => void;
 }) {
-	// A view outranks a selection: Discover and New skill are whole panes.
-	const slug = view === undefined ? selected : undefined;
+	// A view outranks a selection: Discover, New skill and Sources are whole
+	// panes. Edit is the selected skill's own view.
+	const slug = view === undefined || view === "edit" ? selected : undefined;
 	const showing = view !== undefined || selected !== undefined;
 	return (
 		<div data-testid="catalog-skills" className="flex min-h-0 flex-1 gap-4">
@@ -200,6 +225,13 @@ export function CatalogSkills({
 					<SkillDiscover />
 				) : view === "new" ? (
 					<NewSkillForm />
+				) : view === "sources" ? (
+					<SkillSources
+						selected={source}
+						skills={query.data ? loadedRows(query.data) : []}
+					/>
+				) : view === "edit" && slug !== undefined ? (
+					<SkillEditPane key={slug} slug={slug} />
 				) : slug !== undefined ? (
 					<SkillInspectorPane key={slug} slug={slug} />
 				) : (
@@ -222,7 +254,41 @@ export function CatalogSkills({
  */
 export function SkillInspectorPane({ slug }: { slug: string }) {
 	const query = useSkill(slug);
-	const failed = ({ error, retry, retrying }: ErrorStateProps<ApiError>) =>
+	return (
+		<Surface
+			data-testid="skill-inspector-surface"
+			query={query}
+			// One skill is never empty: a missing one answers NOT_FOUND.
+			isEmpty={() => false}
+			loading={<SkillInspectorSkeleton />}
+			empty={null}
+			error={staleSlug(slug)}
+		>
+			{(skill) => <SkillInspector skill={skill} />}
+		</Surface>
+	);
+}
+
+/** The selected skill's editor, read by its slug with its text, as the inspector is. */
+export function SkillEditPane({ slug }: { slug: string }) {
+	const query = useSkill(slug);
+	return (
+		<Surface
+			data-testid="skill-edit-surface"
+			query={query}
+			isEmpty={() => false}
+			loading={<SkillInspectorSkeleton />}
+			empty={null}
+			error={staleSlug(slug)}
+		>
+			{(skill) => <EditSkillForm skill={skill} />}
+		</Surface>
+	);
+}
+
+/** A failed read by slug: NOT_FOUND is a stale link, said in words. */
+function staleSlug(slug: string) {
+	return ({ error, retry, retrying }: ErrorStateProps<ApiError>) =>
 		isNotFound(error) ? (
 			<EmptyState
 				data-testid="catalog-skills-not-found"
@@ -233,19 +299,6 @@ export function SkillInspectorPane({ slug }: { slug: string }) {
 		) : (
 			<ErrorState error={error} retry={retry} retrying={retrying} />
 		);
-	return (
-		<Surface
-			data-testid="skill-inspector-surface"
-			query={query}
-			// One skill is never empty: a missing one answers NOT_FOUND.
-			isEmpty={() => false}
-			loading={<SkillInspectorSkeleton />}
-			empty={null}
-			error={failed}
-		>
-			{(skill) => <SkillInspector skill={skill} />}
-		</Surface>
-	);
 }
 
 /** The inspector's shape while it loads: a title, a line, then panels. */

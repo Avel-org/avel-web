@@ -1,6 +1,11 @@
-import type { CanonMessage, CanonSession } from "avel-server/contract";
-import { MessagesSquare, OctagonX, Square } from "lucide-react";
-import { memo, useId, useState } from "react";
+import type {
+	CanonMessage,
+	CanonMode,
+	CanonSession,
+} from "avel-server/contract";
+import { Check, Copy, MessagesSquare } from "lucide-react";
+import { Fragment, memo, useId, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,17 +15,23 @@ import {
 	canonAttemptFor,
 	canonReplying,
 	type OpenCanonSessionBody,
+	type PostCanonMessageBody,
 	useCanonMessages,
 	useCanonSession,
 	useCanonSessions,
-	useCloseCanonSession,
-	useHaltCanonSession,
+	useCanonSteps,
 	useOpenCanonSession,
 	usePostCanonMessage,
+	useUpdateCanonSession,
 } from "@/lib/api/canon";
+import { useCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { useIsPreview } from "@/shell/auth-gate";
 import { ActorMark } from "./actor";
+import { CanonSessionActions, CanonSessionTitle } from "./canon-chat-actions";
+import { CanonModeBadge, CanonModeSwitch } from "./canon-chat-mode";
+import { CanonParts } from "./canon-chat-parts";
+import { CanonRunTrace, stepsByTurn } from "./canon-chat-trace";
 import { CitationChip } from "./canon-citation";
 import { CanonOpenQuestions } from "./canon-questions";
 import { ChatComposer } from "./chat-composer";
@@ -37,8 +48,9 @@ import { ErrorState, Surface } from "./surface";
  * decides. With no session open, the operator opens one ("Brief with
  * Canon"), with an optional token estimate. An open session shows whose
  * move it is, its token budget on the dispatch track, what it has spent,
- * and Halt (any time) or Close (between Canon's turns). The chat is the
- * session's messages in order; the composer sends the operator's next one.
+ * and its actions (canon-chat-actions.tsx): Halt, Close, Reopen, Archive.
+ * The chat is the session's messages in order, each turn's run trace above
+ * Canon's reply; the composer sends the operator's next one.
  * Nothing is pushed: while Canon answers, the session re-reads itself.
  */
 
@@ -193,6 +205,8 @@ function CanonSessionView({
 	sessionId: string;
 }) {
 	const session = useCanonSession(sessionId);
+	// The thread's own read, shared: its first message names an untitled session.
+	const first = useCanonMessages(sessionId).data?.[0]?.contentMd ?? null;
 	if (session.status !== "success")
 		return session.status === "error" ? (
 			<ErrorState
@@ -206,7 +220,7 @@ function CanonSessionView({
 	const s = session.data;
 	return (
 		<div className="flex flex-col gap-3">
-			<SessionHeader session={s} intakeId={intakeId} />
+			<SessionHeader session={s} firstMessage={first} />
 			<CanonThread session={s} />
 			{s.status === "open" ? (
 				<>
@@ -221,22 +235,31 @@ function CanonSessionView({
 	);
 }
 
-/** Status, whose move, the budget and spend, and Halt or Close. */
+/**
+ * The session's name (renamed in place), status, whose move, the budget
+ * and spend, and its actions: Halt or Close while open, Reopen once ended,
+ * Archive or Unarchive.
+ */
 export function SessionHeader({
 	session: s,
-	intakeId,
+	firstMessage,
 }: {
 	session: CanonSession;
-	intakeId: string;
+	/** Names an untitled session. */
+	firstMessage?: string | null;
 }) {
-	const preview = useIsPreview();
-	const halt = useHaltCanonSession(intakeId);
-	const close = useCloseCanonSession(intakeId);
 	const replying = canonReplying(s);
 	const status = STATUS[s.status];
-	const error = halt.error ?? close.error;
 	return (
 		<div data-testid="canon-session" className="flex flex-col gap-2.5">
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<CanonSessionTitle
+					session={s}
+					firstMessage={firstMessage}
+					className="flex-1"
+				/>
+				<CanonSessionActions session={s} />
+			</div>
 			<div className="flex flex-wrap items-center gap-2">
 				<StatusPill
 					size="sm"
@@ -261,38 +284,14 @@ export function SessionHeader({
 						{HALT_REASON[s.haltReason]}
 					</span>
 				) : null}
-				{s.status === "open" ? (
-					<span className="ml-auto flex items-center gap-1.5">
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							data-testid="canon-halt"
-							disabledReason={preview ? "Sign in to halt Canon" : undefined}
-							onClick={() => halt.mutate(s.id)}
-						>
-							<OctagonX aria-hidden="true" />
-							Halt
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							data-testid="canon-close"
-							disabledReason={
-								preview
-									? "Sign in to close the session"
-									: replying
-										? "Canon is answering. Halt stops it now."
-										: undefined
-							}
-							onClick={() => close.mutate(s.id)}
-						>
-							<Square aria-hidden="true" />
-							Close
-						</Button>
-					</span>
-				) : null}
+				<span className="ml-auto flex items-center gap-1.5">
+					{s.archivedAt ? (
+						<Badge variant="secondary" data-testid="canon-archived">
+							Archived
+						</Badge>
+					) : null}
+					<CanonModeBadge mode={s.mode} data-testid="canon-session-mode" />
+				</span>
 			</div>
 			<div data-testid="canon-budget" className="flex flex-col gap-1">
 				<TokenTrack
@@ -306,35 +305,67 @@ export function SessionHeader({
 					<span data-testid="canon-spend">{`Spent ${formatUsd(s.spendUsd)}`}</span>
 				</p>
 			</div>
-			{error ? (
-				<ErrorState error={error} {...retryOf(halt.error ? halt : close)} />
-			) : null}
 		</div>
 	);
 }
 
-/** The session's messages, in seq order: the operator's right, Canon's left. */
-export function CanonThread({ session }: { session: CanonSession }) {
+/**
+ * The session's messages, in seq order: the operator's right, Canon's left.
+ * Each turn's run trace sits under the operator message that started it,
+ * above Canon's reply; the running turn's is live. No steps, no trace.
+ */
+export function CanonThread({
+	session,
+	empty = "No messages yet. Tell Canon what the project is for.",
+}: {
+	session: CanonSession;
+	empty?: string;
+}) {
 	const messages = useCanonMessages(session.id);
+	const live = canonReplying(session);
+	const steps = useCanonSteps(session.id, live);
+	// Grouped once per read, so a message re-read leaves each trace's steps
+	// the same array and the memoized traces skip it.
+	const turns = useMemo(() => stepsByTurn(steps.data ?? []), [steps.data]);
 	return (
 		<Surface
 			data-testid="canon-thread"
 			query={messages}
 			loading={<Skeleton className="h-16 w-full rounded-card" />}
-			empty={
-				<p className="type-small text-text-muted">
-					No messages yet. Tell Canon what the project is for.
-				</p>
-			}
+			empty={<p className="type-small text-text-muted">{empty}</p>}
 			error={ErrorState}
 		>
-			{(list) => (
-				<ol aria-label="Messages" className="flex flex-col gap-2.5">
-					{list.map((m) => (
-						<CanonMessageRow key={m.id} message={m} />
-					))}
-				</ol>
-			)}
+			{(list) => {
+				const lastOperator = list
+					.filter((m) => m.role === "operator")
+					.at(-1)?.seq;
+				let previousMode: CanonMode | null = null;
+				return (
+					<ol aria-label="Messages" className="flex flex-col gap-2.5">
+						{list.map((m) => {
+							if (m.role !== "operator")
+								return <CanonMessageRow key={m.id} message={m} />;
+							// A mode shows where it changes: from the operator's last
+							// message, or for the first, from the session's default.
+							const showMode = m.mode !== (previousMode ?? session.mode);
+							previousMode = m.mode;
+							const trace = turns.get(m.seq);
+							return (
+								<Fragment key={m.id}>
+									<CanonMessageRow message={m} showMode={showMode} />
+									{trace ? (
+										<CanonRunTrace
+											turn={m.seq}
+											steps={trace}
+											live={live && m.seq === lastOperator}
+										/>
+									) : null}
+								</Fragment>
+							);
+						})}
+					</ol>
+				);
+			}}
 		</Surface>
 	);
 }
@@ -343,58 +374,124 @@ export function CanonThread({ session }: { session: CanonSession }) {
  * Memoized: a thread re-read keeps each unchanged message's object (the
  * query's structural sharing), so only a new or changed message re-renders.
  * Without it every row re-parsed its Markdown on each update, and a 500
- * message thread took ~55 ms a render.
+ * message thread took ~55 ms a render. Its other props are plain values,
+ * so they keep it.
  */
 export const CanonMessageRow = memo(function CanonMessageRow({
 	message: m,
+	showMode = false,
 }: {
 	message: CanonMessage;
+	/** Tag the mode it was sent in: it differs from the one before. */
+	showMode?: boolean;
 }) {
 	const canon = m.role === "canon";
 	return (
 		<li
 			data-testid={`canon-message-${m.seq}`}
 			data-role={m.role}
+			data-mode={m.mode}
 			className={cn("flex gap-2", canon ? "justify-start" : "justify-end")}
 		>
 			{canon ? <ActorMark kind="canon" className="mt-1" /> : null}
 			<div
 				className={cn(
+					"flex min-w-0 flex-col gap-1",
 					// 85% of the row, less Canon's mark and gap on its side, so a
 					// long reply never pushes past a phone's width.
-					"flex min-w-0 flex-col gap-2 rounded-card border px-3 py-2",
-					canon ? "max-w-[calc(85%_-_1.75rem)]" : "max-w-[85%]",
-					canon
-						? "border-border bg-app-panel"
-						: "border-selected-border bg-selected",
+					canon ? "max-w-[calc(85%_-_1.75rem)]" : "max-w-[85%] items-end",
 				)}
 			>
-				<span className="sr-only">{canon ? "Canon:" : "You:"}</span>
-				<Markdown text={m.contentMd} />
-				{m.citations.length > 0 ? (
-					<ul aria-label="Sources" className="flex flex-wrap gap-1.5">
-						{m.citations.map((c, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: a citation has no id, and one passage may be cited twice; the message's order is fixed
-							<li key={`${c.chunkId}:${i}`} className="min-w-0 max-w-full">
-								<CitationChip
-									source={c}
-									data-testid={`canon-citation-${m.seq}-${i}`}
-								/>
-							</li>
-						))}
-					</ul>
-				) : null}
+				<div
+					className={cn(
+						"flex min-w-0 max-w-full flex-col gap-2 rounded-card border px-3 py-2",
+						canon
+							? "border-border bg-app-panel"
+							: "border-selected-border bg-selected",
+					)}
+				>
+					<span className="sr-only">{canon ? "Canon:" : "You:"}</span>
+					{showMode ? (
+						<CanonModeBadge
+							mode={m.mode}
+							data-testid={`canon-message-mode-${m.seq}`}
+							className="self-end"
+						/>
+					) : null}
+					<Markdown text={m.contentMd} />
+					<CanonParts parts={m.parts} seq={m.seq} />
+					{m.citations.length > 0 ? (
+						<ul aria-label="Sources" className="flex flex-wrap gap-1.5">
+							{m.citations.map((c, i) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: a citation has no id, and one passage may be cited twice; the message's order is fixed
+								<li key={`${c.chunkId}:${i}`} className="min-w-0 max-w-full">
+									<CitationChip
+										source={c}
+										data-testid={`canon-citation-${m.seq}-${i}`}
+									/>
+								</li>
+							))}
+						</ul>
+					) : null}
+				</div>
+				{canon ? <MessageActions message={m} /> : null}
 			</div>
 		</li>
 	);
 });
 
-/** The operator's next message: held while Canon answers. */
-export function CanonComposer({ session }: { session: CanonSession }) {
+/** Under Canon's reply, its action bar: Copy, for now. */
+function MessageActions({ message }: { message: CanonMessage }) {
+	const { status, copy } = useCopy();
+	return (
+		<div
+			data-testid={`canon-message-actions-${message.seq}`}
+			className="flex items-center gap-1"
+		>
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-sm"
+				aria-label="Copy reply"
+				data-testid={`canon-message-copy-${message.seq}`}
+				onClick={() => void copy(message.contentMd)}
+				className="text-text-subtle"
+			>
+				{status === "Copied" ? (
+					<Check aria-hidden="true" />
+				) : (
+					<Copy aria-hidden="true" />
+				)}
+			</Button>
+			<span aria-live="polite" className="type-caption text-text-subtle">
+				{status}
+			</span>
+		</div>
+	);
+}
+
+/**
+ * The operator's next message: held while Canon answers. With `modes`, the
+ * tool row carries the mode switch, which sets the session's default (so a
+ * reload keeps it); each message is sent in the mode shown.
+ */
+export function CanonComposer({
+	session,
+	modes = false,
+	float = false,
+	placeholder = "Write to Canon",
+}: {
+	session: CanonSession;
+	modes?: boolean;
+	/** Home's floating composer (rulings 21 and 23); a panel's sits still. */
+	float?: boolean;
+	placeholder?: string;
+}) {
 	const preview = useIsPreview();
 	const post = usePostCanonMessage(session.id);
+	const update = useUpdateCanonSession();
 	const [text, setText] = useState("");
-	const [last, setLast] = useState<CanonAttempt<{ contentMd: string }> | null>(
+	const [last, setLast] = useState<CanonAttempt<PostCanonMessageBody> | null>(
 		null,
 	);
 	const posted = {
@@ -403,42 +500,74 @@ export function CanonComposer({ session }: { session: CanonSession }) {
 			setText("");
 		},
 	};
+	const replying = canonReplying(session);
+	// While a switch is saving, the mode it is switching to.
+	const switching = update.isPending ? update.variables?.body.mode : undefined;
+	const mode = switching ?? session.mode;
 	const trimmed = text.trim();
 	const reason = preview
 		? "Sign in to write to Canon"
-		: canonReplying(session)
+		: replying
 			? "Canon is answering"
 			: trimmed === ""
 				? "Write a message first"
 				: post.isPending
 					? "Sending"
-					: undefined;
+					: switching
+						? "Switching mode"
+						: undefined;
+	const error = post.error ?? update.error;
 	return (
 		<div data-testid="canon-composer" className="flex flex-col gap-2">
 			<ChatComposer
-				float={false}
+				float={float}
 				label="Message to Canon"
-				placeholder="Write to Canon"
+				placeholder={placeholder}
 				value={text}
 				onChange={setText}
 				maxLength={CANON_MESSAGE_MAX}
 				sendDisabledReason={reason}
 				onSend={() => {
-					const attempt = canonAttemptFor(last, { contentMd: trimmed });
+					const body = modes
+						? { contentMd: trimmed, mode }
+						: { contentMd: trimmed };
+					const attempt = canonAttemptFor(last, body);
 					setLast(attempt);
 					post.mutate(attempt, posted);
 				}}
 				tools={
-					<span
-						data-testid="canon-composer-count"
-						className="px-1 type-caption text-text-subtle tabular-nums"
-					>
-						{`${formatTokens(text.length)} / ${formatTokens(CANON_MESSAGE_MAX)}`}
-					</span>
+					<>
+						{modes ? (
+							<CanonModeSwitch
+								value={mode}
+								hasIntake={session.intakeId !== null}
+								disabledReason={
+									preview
+										? "Sign in to change the mode"
+										: replying
+											? "Canon is answering"
+											: undefined
+								}
+								onChange={(next) => {
+									post.reset();
+									update.mutate({ id: session.id, body: { mode: next } });
+								}}
+							/>
+						) : null}
+						<span
+							data-testid="canon-composer-count"
+							className="px-1 type-caption text-text-subtle tabular-nums"
+						>
+							{`${formatTokens(text.length)} / ${formatTokens(CANON_MESSAGE_MAX)}`}
+						</span>
+					</>
 				}
 			/>
-			{post.error ? (
-				<ErrorState error={post.error} {...retryOf(post, posted)} />
+			{error ? (
+				<ErrorState
+					error={error}
+					{...(post.error ? retryOf(post, posted) : retryOf(update))}
+				/>
 			) : null}
 		</div>
 	);

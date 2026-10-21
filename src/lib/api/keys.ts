@@ -96,6 +96,13 @@ export const queryKeys = {
 		 */
 		identityVersion: (id: string, number: number) =>
 			["catalog", "agentTemplates", "identity", id, number] as const,
+		/**
+		 * contract.identityVersions.get: one version by a full sha256 or by
+		 * slug@vN. Under agentTemplates, so a regenerate reads it again: a ref
+		 * that named nothing may name the new version.
+		 */
+		identityVersionByRef: (ref: string) =>
+			["catalog", "agentTemplates", "identityRef", ref] as const,
 		/** contract.agentTemplates.identityVersions: a template's versions, newest first. */
 		identityVersions: (id: string) =>
 			["catalog", "agentTemplates", "identity", id, "list"] as const,
@@ -117,6 +124,13 @@ export const queryKeys = {
 			] as const,
 		/** contract.skills.getBySlug: the live skill with this slug. */
 		skill: (slug: string) => ["catalog", "skills", "bySlug", slug] as const,
+		/** Every skill read: lists and by slug. A source edit renames them all. */
+		skillsAll: () => ["catalog", "skills"] as const,
+		/** contract.skillSources.get: one live source, with its skill count. */
+		skillSource: (id: string) =>
+			["catalog", "skillSources", "byId", id] as const,
+		/** Every source read: lists and by id. */
+		skillSourcesAll: () => ["catalog", "skillSources"] as const,
 		/** contract.skillSources.list, paged by cursor. */
 		skillSources: (limit: number, kind?: string) =>
 			[
@@ -148,6 +162,11 @@ export const queryKeys = {
 		/** One engagement's active connections: what a repository read may use. */
 		activeFor: (engagementId: string, limit: number) =>
 			["connections", "activeFor", engagementId, { limit }] as const,
+		/**
+		 * contract.connections.get: one connection. Under "connections", so a
+		 * create or an engagement close (which revokes it) reads it again.
+		 */
+		detail: (id: string) => ["connections", "detail", id] as const,
 	},
 	clients: {
 		/** Everything under contract.clients. */
@@ -281,6 +300,12 @@ export const queryKeys = {
 		 */
 		moving: (missionId: string) =>
 			["missions", "detail", missionId, "dispatches", "moving"] as const,
+		/**
+		 * contract.dispatches.get: one dispatch. Under the mission's detail key,
+		 * as its list is, so every write that refreshes the mission refreshes it.
+		 */
+		detail: (missionId: string, id: string) =>
+			["missions", "detail", missionId, "dispatch", id] as const,
 		/** contract.dispatches.report: one report by id. Never changes once filed. */
 		report: (id: string) => ["completionReports", id] as const,
 		/** contract.dispatches.brief: frozen at start, so it never changes. */
@@ -334,6 +359,11 @@ export const queryKeys = {
 		 * unpaginated. Under "missions", as the roster is.
 		 */
 		list: (missionId: string) => ["missions", "skills", missionId] as const,
+		/**
+		 * Every mission's skills. Each row embeds the skill and its source, so
+		 * a skill or source edit reads them all again.
+		 */
+		all: () => ["missions", "skills"] as const,
 	},
 	canon: {
 		/** Every Canon session read: a question settled reads them all again. */
@@ -344,6 +374,30 @@ export const queryKeys = {
 		/** contract.canon.getSession: one session, polled while Canon answers. */
 		session: (sessionId: string) =>
 			["canon", "session", "detail", sessionId] as const,
+		/** Every chat list across scopes: a session write reads them all again. */
+		chatLists: () => ["canon", "session", "chats"] as const,
+		/** contract.canon.listAllSessions under one filter, newest activity first. */
+		chats: (filter: {
+			archived: boolean;
+			scope?: string;
+			clientId?: string;
+			status?: readonly string[];
+			q?: string;
+		}) =>
+			[
+				"canon",
+				"session",
+				"chats",
+				{
+					archived: filter.archived,
+					scope: filter.scope ?? null,
+					clientId: filter.clientId ?? null,
+					status: filter.status ?? null,
+					q: filter.q ?? null,
+				},
+			] as const,
+		/** contract.canon.listSteps: a session's run steps, in seq order. */
+		steps: (sessionId: string) => ["canon", "steps", sessionId] as const,
 		/** contract.canon.listMessages: a session's messages, in seq order. */
 		messages: (sessionId: string) => ["canon", "messages", sessionId] as const,
 		/** Every questions list of one intake. */

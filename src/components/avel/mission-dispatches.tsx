@@ -33,6 +33,7 @@ import { ErrorState, Surface } from "./surface";
  * opening onto its completion report, and New dispatch, Start on queued
  * cards and Halt on running ones while the mission is active. While a dispatch waits or runs, the dispatches, the reports and the
  * mission (its spend) read again every few seconds, and stop once none does.
+ * An opened card reads its own dispatch too, so its details stay live.
  */
 
 /** Each dispatch's agent by dispatch id: who produced what a report read. */
@@ -150,6 +151,7 @@ export function MissionDispatches({
 						renderReport={renderReport}
 						renderControls={renderControls}
 						renderEvidence={renderEvidence}
+						live
 					/>
 				)}
 			</Surface>

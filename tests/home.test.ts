@@ -70,7 +70,7 @@ describe("Home", () => {
 		);
 	});
 
-	it("opens with Canon's one calm, centred line, and says chat is not built as a Reason", async () => {
+	it("opens a new chat with Canon's one calm, centred line, and what its mode reads", async () => {
 		const html = await renderPage("/");
 		expect(html).toMatch(
 			/data-testid="home-chat-prompt"[^>]*>What should we work on\?</,
@@ -79,23 +79,20 @@ describe("Home", () => {
 			html.lastIndexOf("<div", html.indexOf('data-testid="home-chat-prompt"')),
 		);
 		expect(block).toMatch(/^<div class="[^"]*\btext-center\b/);
-		expect(tagOf(html, "home-chat-note")).toContain('data-slot="reason"');
+		// Ask, the default: it reads nothing but what is written.
 		expect(html).toMatch(
-			/data-testid="home-chat-note"[^>]*>(?:<svg[\s\S]*?<\/svg>)?Canon can&#x27;t answer yet: chat is not built\.</,
+			/data-testid="home-chat-note"[^>]*>Answers from what you write\. Reads no data\.</,
 		);
+		expect(html).not.toContain("chat is not built");
 	});
 
-	it("offers places to go while chat is not built, each a real route", async () => {
+	it("lists the chats beside the thread, with New chat back to Home", async () => {
 		const html = await renderPage("/");
-		const href = (id: string) =>
-			tagOf(html, `home-chat-suggestion-${id}`).match(/href="([^"]+)"/)?.[1];
-		expect(href("needs-you")).toBe("/missions?status=needs-you");
-		expect(href("running")).toBe("/missions?status=active");
-		expect(href("client")).toBe("/clients");
-		// Under the welcome, above the composer.
-		const chips = html.indexOf('data-testid="home-chat-suggestions"');
-		expect(chips).toBeGreaterThan(html.indexOf('data-testid="home-chat-note"'));
-		expect(chips).toBeLessThan(html.indexOf('data-testid="home-chat-dock"'));
+		const rail = html.indexOf('data-testid="home-chat-rail"');
+		expect(rail).toBeGreaterThan(-1);
+		expect(rail).toBeLessThan(html.indexOf('data-testid="home-chat-thread"'));
+		expect(tagOf(html, "home-chat-rail")).toMatch(/\bhidden\b[^"]*\bmd:flex\b/);
+		expect(tagOf(html, "canon-chat-new")).toMatch(/href="\/"/);
 	});
 
 	it("pins the composer below the thread, on the canvas surface", async () => {
@@ -121,7 +118,7 @@ describe("Home", () => {
 		// The prompt and its note share one group; the spacers bracket the
 		// group, so the prompt leads it and the flex-3 spacer follows it.
 		expect(thread).toMatch(
-			/<div aria-hidden="true" class="flex-2"><\/div><div[^>]*><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p>[\s\S]*<\/nav><\/div><div aria-hidden="true" class="flex-3"><\/div>/,
+			/<div aria-hidden="true" class="flex-2"><\/div><div[^>]*><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p>[\s\S]*<\/p><\/div><div aria-hidden="true" class="flex-3"><\/div>/,
 		);
 	});
 
@@ -157,14 +154,15 @@ describe("Home", () => {
 		);
 	});
 
-	it("disables Send with its reason linked, and prints the reason nowhere visible", async () => {
+	it("holds Send until something is written, the reason linked and printed nowhere visible", async () => {
+		const reason = "Write a message first";
 		const html = await renderPage("/");
 		const send = tagOf(html, "chat-composer-send");
 		expect(send).toMatch(/\sdisabled=""/);
 		const id = send.match(/aria-describedby="([^"]+)"/)?.[1] ?? "";
-		expect(textOfId(html, id)).toBe(SEND_REASON);
+		expect(textOfId(html, id)).toBe(reason);
 		expect(tagWithId(html, id)).toMatch(/class="sr-only"/);
-		expect(countText(html, SEND_REASON)).toBe(1);
+		expect(countText(html, reason)).toBe(1);
 	});
 });
 

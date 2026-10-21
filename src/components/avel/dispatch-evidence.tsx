@@ -80,6 +80,7 @@ export function DispatchEvidence({
 				</span>
 				<VersionChip
 					versionRef={report.agentVersionRef}
+					sha256={report.agentVersionSha256}
 					source={report.versionSource}
 					data-testid={`dispatch-evidence-version-${id}`}
 				/>

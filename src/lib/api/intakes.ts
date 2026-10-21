@@ -11,6 +11,7 @@ import {
 	type BriefInput,
 	briefSchema,
 	contract,
+	type createIntakeBody,
 	INTAKE_STATUSES,
 	type Intake,
 	type IntakeStatus,
@@ -217,6 +218,21 @@ function afterIntakeWrite(queryClient: QueryClient, intake: Intake) {
 		queryClient.invalidateQueries({ queryKey: queryKeys.intakes.lists() }),
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 	]);
+}
+
+export type CreateIntakeBody = z.input<typeof createIntakeBody>;
+
+/** A new draft under an active engagement. Nothing else reads it yet. */
+export function createIntakeOptions(api: ApiClient, queryClient: QueryClient) {
+	return {
+		mutationFn: (body: CreateIntakeBody) =>
+			call(contract.intakes.create, () => api.intakes.create({ body })),
+		onSuccess: (intake: Intake) => afterIntakeWrite(queryClient, intake),
+	};
+}
+
+export function useCreateIntake() {
+	return useMutation(createIntakeOptions(useApiClient(), useQueryClient()));
 }
 
 export type ReviseIntakeBody = {

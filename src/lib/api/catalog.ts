@@ -126,6 +126,29 @@ export function useIdentityVersions(id: string) {
 }
 
 /**
+ * contract.identityVersions.get: one version with its text, by a full
+ * sha256 or by slug@vN. A sha names one version across every template,
+ * deleted ones included, so a recorded hash always resolves; slug@vN names
+ * the live template's version. NOT_FOUND when nothing has it.
+ */
+export function identityVersionByRefQuery(api: ApiClient, ref: string) {
+	return queryOptions({
+		queryKey: queryKeys.catalog.identityVersionByRef(ref),
+		queryFn: () =>
+			call(contract.identityVersions.get, () =>
+				api.identityVersions.get({ params: { ref } }),
+			),
+		// A version is never changed, so its text never goes stale.
+		staleTime: Number.POSITIVE_INFINITY,
+	});
+}
+
+/** The identity version a dispatch, report or agent page names. */
+export function useIdentityVersionByRef(ref: string) {
+	return useQuery(identityVersionByRefQuery(useApiClient(), ref));
+}
+
+/**
  * Regenerate a template's identity from its current inputs. Only a 201
  * (created) writes a version and an activity row, so only it refreshes the
  * template reads and the log; a 200 leaves everything as it was.

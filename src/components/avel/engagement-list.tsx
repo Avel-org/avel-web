@@ -5,6 +5,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,12 +26,16 @@ export function EngagementList({
 	onShowAll,
 	onNewEngagement,
 	onCloseEngagement,
+	onEditEngagement,
+	onNewIntake,
 }: {
 	client: Client;
 	activeOnly?: boolean;
 	onShowAll?: () => void;
 	onNewEngagement: () => void;
 	onCloseEngagement: (engagement: Engagement) => void;
+	onEditEngagement?: (engagement: Engagement) => void;
+	onNewIntake?: (engagement: Engagement) => void;
 }) {
 	const query = useClientEngagements(
 		client.id,
@@ -63,6 +68,8 @@ export function EngagementList({
 				empty={activeOnly ? "No active engagements." : "No engagements yet."}
 				onNewEngagement={onNewEngagement}
 				onCloseEngagement={onCloseEngagement}
+				onEditEngagement={onEditEngagement}
+				onNewIntake={onNewIntake}
 			/>
 		</div>
 	);
@@ -74,12 +81,16 @@ function EngagementSurface({
 	empty,
 	onNewEngagement,
 	onCloseEngagement,
+	onEditEngagement,
+	onNewIntake,
 }: {
 	client: Client;
 	query: ReturnType<typeof useClientEngagements>;
 	empty: string;
 	onNewEngagement: () => void;
 	onCloseEngagement: (engagement: Engagement) => void;
+	onEditEngagement?: (engagement: Engagement) => void;
+	onNewIntake?: (engagement: Engagement) => void;
 }) {
 	return (
 		<Surface
@@ -104,6 +115,8 @@ function EngagementSurface({
 					onLoadMore={() => query.fetchNextPage()}
 					onNewEngagement={onNewEngagement}
 					onCloseEngagement={onCloseEngagement}
+					onEditEngagement={onEditEngagement}
+					onNewIntake={onNewIntake}
 				/>
 			)}
 		</Surface>
@@ -119,6 +132,8 @@ export function EngagementRows({
 	onLoadMore,
 	onNewEngagement,
 	onCloseEngagement,
+	onEditEngagement,
+	onNewIntake,
 }: {
 	client: Client;
 	engagements: Engagement[];
@@ -127,6 +142,8 @@ export function EngagementRows({
 	onLoadMore: () => void;
 	onNewEngagement: () => void;
 	onCloseEngagement: (engagement: Engagement) => void;
+	onEditEngagement?: (engagement: Engagement) => void;
+	onNewIntake?: (engagement: Engagement) => void;
 }) {
 	return (
 		<div className="flex flex-col gap-2">
@@ -157,6 +174,8 @@ export function EngagementRows({
 						<EngagementMenu
 							engagement={e}
 							onClose={() => onCloseEngagement(e)}
+							onEdit={onEditEngagement && (() => onEditEngagement(e))}
+							onNewIntake={onNewIntake && (() => onNewIntake(e))}
 						/>
 					</li>
 				))}
@@ -208,9 +227,13 @@ function NewEngagementButton({
 function EngagementMenu({
 	engagement,
 	onClose,
+	onEdit,
+	onNewIntake,
 }: {
 	engagement: Engagement;
 	onClose: () => void;
+	onEdit?: () => void;
+	onNewIntake?: () => void;
 }) {
 	const closed = engagement.status === "closed";
 	return (
@@ -226,6 +249,23 @@ function EngagementMenu({
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-60">
+				{onNewIntake && !closed ? (
+					<DropdownMenuItem
+						data-testid={`engagement-new-intake-${engagement.id}`}
+						onSelect={onNewIntake}
+					>
+						New intake
+					</DropdownMenuItem>
+				) : null}
+				{onEdit ? (
+					<DropdownMenuItem
+						data-testid={`engagement-edit-${engagement.id}`}
+						onSelect={onEdit}
+					>
+						Edit engagement
+					</DropdownMenuItem>
+				) : null}
+				{onNewIntake || onEdit ? <DropdownMenuSeparator /> : null}
 				<DropdownMenuItem
 					variant="destructive"
 					disabled={closed}

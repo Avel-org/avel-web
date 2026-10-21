@@ -1,9 +1,12 @@
 import {
 	type InfiniteData,
 	infiniteQueryOptions,
+	type QueryClient,
 	queryOptions,
 	useInfiniteQuery,
+	useMutation,
 	useQuery,
+	useQueryClient,
 } from "@tanstack/react-query";
 import {
 	type Connection,
@@ -11,17 +14,18 @@ import {
 	type connectionService,
 	type connectionStatus,
 	contract,
+	type createConnectionBody,
 } from "avel-server/contract";
 import type { z } from "zod";
 import type { StatusTone } from "@/components/avel/status-pill";
-import { type ApiClient, callPage } from "./client";
+import { type ApiClient, call, callPage } from "./client";
 import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
 
 /*
- * Connections (module 2): the accounts AVEL delivers through. Read-only
- * here: the list route. The contract also has get and create; the create
- * form is not built yet, so no hook exists for it until it is.
+ * Connections (module 2): the accounts AVEL delivers through. The list, one
+ * connection by id, and create. A connection holds the name of the server
+ * environment variable its token is in, never the token.
  */
 
 export const CONNECTIONS_PAGE_SIZE = 50;
@@ -79,6 +83,83 @@ export function useEngagementConnectionCount(engagementId: string | null) {
 	return useQuery({
 		...engagementConnectionCountQuery(useApiClient(), engagementId ?? ""),
 		enabled: engagementId !== null,
+	});
+}
+
+/**
+ * A connection a list already holds, and when that list was read, so its
+ * details open with no wait. Every cached connections list is searched,
+ * filtered or not; the counts hold no rows and are passed over.
+ */
+export function cachedConnection(
+	queryClient: QueryClient,
+	id: string,
+): { connection: Connection; readAt: number } | undefined {
+	for (const query of queryClient
+		.getQueryCache()
+		.findAll({ queryKey: queryKeys.connections.all() })) {
+		const data = query.state.data as InfiniteData<ConnectionsPage> | undefined;
+		if (!data || typeof data !== "object" || !("pages" in data)) continue;
+		const connection = loadedConnections(data).find((c) => c.id === id);
+		if (connection) return { connection, readAt: query.state.dataUpdatedAt };
+	}
+	return undefined;
+}
+
+export function connectionQuery(api: ApiClient, id: string) {
+	return queryOptions({
+		queryKey: queryKeys.connections.detail(id),
+		queryFn: () =>
+			call(contract.connections.get, () =>
+				api.connections.get({ params: { id } }),
+			),
+	});
+}
+
+/**
+ * contract.connections.get: one connection, for its details. Seeded from a
+ * list that holds it, as old as that list's read, so the details show at
+ * once and then read on their own; a deep link works with no list loaded.
+ */
+export function useConnection(id: string) {
+	const queryClient = useQueryClient();
+	return useQuery({
+		...connectionQuery(useApiClient(), id),
+		initialData: () => cachedConnection(queryClient, id)?.connection,
+		initialDataUpdatedAt: () => cachedConnection(queryClient, id)?.readAt,
+	});
+}
+
+export type CreateConnectionBody = z.input<typeof createConnectionBody>;
+
+/**
+ * A new connection shows in every list and count, and logs an activity row:
+ * every connections read and the log read again.
+ */
+export function afterConnectionCreated(queryClient: QueryClient) {
+	return Promise.all([
+		queryClient.invalidateQueries({ queryKey: queryKeys.connections.all() }),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
+}
+
+/** POST /api/connections: an active GitHub connection. */
+export function createConnectionRequest(
+	api: ApiClient,
+	body: CreateConnectionBody,
+) {
+	return call(contract.connections.create, () =>
+		api.connections.create({ body }),
+	);
+}
+
+export function useCreateConnection() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (body: CreateConnectionBody) =>
+			createConnectionRequest(api, body),
+		onSuccess: () => afterConnectionCreated(queryClient),
 	});
 }
 

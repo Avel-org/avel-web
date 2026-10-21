@@ -1,4 +1,4 @@
-import type { Client } from "avel-server/contract";
+import type { Client, Engagement } from "avel-server/contract";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,9 @@ import type { ApiError } from "@/lib/api";
 import {
 	type CreateEngagementBody,
 	dateInputToIso,
+	type UpdateEngagementBody,
 	useCreateEngagement,
+	useUpdateEngagement,
 } from "@/lib/api/clients";
 import { ActionModal, type IssuePath, ModalField } from "./action-modal";
 import { clientIssueCopy } from "./client-form";
@@ -182,6 +184,159 @@ export function EngagementForm({
 						type="date"
 						value={started}
 						onChange={(e) => setStarted(e.target.value)}
+					/>
+				)}
+			</ModalField>
+		</ActionModal>
+	);
+}
+
+/**
+ * An engagement's name and scope, changed in place. Its client and status
+ * never change here (status only through close); a closed one can still be
+ * renamed.
+ */
+export function EngagementEditModal({
+	engagement,
+	onOpenChange,
+}: {
+	engagement: Engagement | null;
+	onOpenChange: (open: boolean) => void;
+}) {
+	const update = useUpdateEngagement();
+	const generation = useOpenGeneration(engagement !== null);
+	if (!engagement) return null;
+	return (
+		<EngagementEditForm
+			key={`${engagement.id}:${generation}`}
+			onOpenChange={(next) => {
+				if (!next) update.reset();
+				onOpenChange(next);
+			}}
+			engagement={engagement}
+			pending={update.isPending}
+			error={update.error}
+			onSubmit={(body) =>
+				update.mutate(
+					{ id: engagement.id, body },
+					{
+						onSuccess: (saved) => {
+							toast.success(`Saved ${saved.name}.`);
+							onOpenChange(false);
+						},
+					},
+				)
+			}
+		/>
+	);
+}
+
+/** What Save sends: only the fields that changed. An emptied scope is cleared. */
+export function engagementEditBody(
+	engagement: Pick<Engagement, "name" | "scopeMd">,
+	name: string,
+	scope: string,
+): UpdateEngagementBody {
+	const nextScope = scope.trim();
+	return {
+		...(name.trim() === engagement.name ? {} : { name: name.trim() }),
+		...(nextScope === (engagement.scopeMd ?? "")
+			? {}
+			: { scopeMd: nextScope === "" ? null : nextScope }),
+	};
+}
+
+/** The edit form: only the fields that changed are sent. */
+export function EngagementEditForm({
+	open = true,
+	onOpenChange = () => {},
+	engagement,
+	pending,
+	error,
+	onSubmit,
+}: {
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	engagement: Pick<Engagement, "name" | "scopeMd">;
+	pending: boolean;
+	error: ApiError | null;
+	onSubmit: (body: UpdateEngagementBody) => void;
+}) {
+	const [name, setName] = useState(engagement.name);
+	const [scope, setScope] = useState(engagement.scopeMd ?? "");
+	const [nameMissing, setNameMissing] = useState(false);
+	const before = { name: engagement.name, scope: engagement.scopeMd ?? "" };
+	const after = { name: name.trim(), scope: scope.trim() };
+	const changes = fieldChanges(before, after, [
+		{ key: "name", label: "Name" },
+		{ key: "scope", label: "Scope" },
+	]);
+
+	const submit = () => {
+		if (after.name === "") {
+			setNameMissing(true);
+			return;
+		}
+		onSubmit(engagementEditBody(engagement, name, scope));
+	};
+
+	return (
+		<ActionModal
+			open={open}
+			onOpenChange={onOpenChange}
+			size="form"
+			title="Edit engagement"
+			description="Its missions show the new name. The client and status stay as they are."
+			dirty={changes.length > 0}
+			submitLabel="Save engagement"
+			pendingLabel="Saving"
+			submitDisabledReason={
+				changes.length === 0 ? "Nothing has changed yet." : undefined
+			}
+			onSubmit={submit}
+			pending={pending}
+			error={error}
+			fieldOf={engagementFieldOf}
+			describeIssue={clientIssueCopy(error)}
+			changes={
+				<WhatChanges changes={changes} data-testid="engagement-edit-changes" />
+			}
+			data-testid="engagement-edit"
+		>
+			<ModalField
+				name="name"
+				label="Name"
+				error={
+					nameMissing ? "Give it a name of 1 to 200 characters." : undefined
+				}
+				testid="engagement-edit-name"
+			>
+				{(props) => (
+					<Input
+						{...props}
+						required
+						maxLength={200}
+						value={name}
+						onChange={(e) => {
+							setName(e.target.value);
+							setNameMissing(false);
+						}}
+					/>
+				)}
+			</ModalField>
+			<ModalField
+				name="scopeMd"
+				label="Scope"
+				hint="Optional. Empty it to clear the scope."
+				testid="engagement-edit-scope"
+			>
+				{(props) => (
+					<Textarea
+						{...props}
+						rows={6}
+						maxLength={20_000}
+						value={scope}
+						onChange={(e) => setScope(e.target.value)}
 					/>
 				)}
 			</ModalField>

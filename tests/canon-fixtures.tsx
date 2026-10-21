@@ -9,11 +9,15 @@ import {
 	type CanonMessage,
 	type CanonQuestion,
 	type CanonSession,
+	type CanonSessionListItem,
 	type ClientMemory,
 	canonMessage,
 	canonQuestion,
 	canonSession,
+	canonSessionListItem,
 	clientMemory,
+	type RunStep,
+	runStep,
 } from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
@@ -76,6 +80,37 @@ export const session = (extra: Partial<CanonSession> = {}): CanonSession =>
 		closedAt: null,
 		archivedAt: null,
 		lastActivityAt: "2026-10-19T09:00:00.000Z",
+		...extra,
+	});
+
+/** An open chat on Home: no client, engagement or intake, in ask. */
+export const openChat = (extra: Partial<CanonSession> = {}): CanonSession =>
+	session({
+		scope: "open",
+		clientId: null,
+		intakeId: null,
+		mode: "ask",
+		...extra,
+	});
+
+/** One row of the chat list, cut from a session as the server cuts it. */
+export const chatItem = (
+	extra: Partial<CanonSession> = {},
+): CanonSessionListItem => canonSessionListItem.parse(openChat(extra));
+
+/** One run step, parsed: turn 1, started at 09:01, ended a second and a half later. */
+export const step = (seq: number, extra: Partial<RunStep> = {}): RunStep =>
+	runStep.parse({
+		id: id(4000 + seq),
+		seq,
+		turn: 1,
+		kind: "text",
+		label: "Writing",
+		detail: { text: "Chunk" },
+		startedAt: "2026-10-19T09:01:00.000Z",
+		endedAt: "2026-10-19T09:01:01.500Z",
+		tokensIn: null,
+		tokensOut: null,
 		...extra,
 	});
 

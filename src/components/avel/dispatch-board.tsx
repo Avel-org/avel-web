@@ -4,10 +4,11 @@ import {
 	type DispatchStatus,
 } from "avel-server/contract";
 import { ChevronDown } from "lucide-react";
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDispatch } from "@/lib/api/dispatches";
 import { cn } from "@/lib/utils";
 import { ActorMark } from "./actor";
 import { whenLabel } from "./agent-activity";
@@ -19,6 +20,7 @@ import {
 	minutesRun,
 } from "./dispatch-budget";
 import { DISPATCH_STATUS_LABEL } from "./dispatch-labels";
+import { IdentityVersionTrigger, lookupRef } from "./identity-version-sheet";
 import { CompactBudget } from "./missions-dashboard";
 import { ShortHash } from "./short-hash";
 import { StatusGlyph, type StatusTone } from "./status-pill";
@@ -104,6 +106,7 @@ export function DispatchBoard({
 	renderReport,
 	renderControls,
 	renderEvidence,
+	live = false,
 }: {
 	dispatches: Dispatch[];
 	/** For the minutes a running dispatch has run so far. */
@@ -111,6 +114,8 @@ export function DispatchBoard({
 	renderReport?: RenderReport;
 	renderControls?: RenderControls;
 	renderEvidence?: RenderEvidence;
+	/** An opened card reads its dispatch on its own (useDispatch). */
+	live?: boolean;
 }) {
 	// Only the statuses that hold a dispatch: an empty group is noise. The
 	// page shows its one empty state when there is no dispatch at all.
@@ -128,6 +133,7 @@ export function DispatchBoard({
 			renderReport={renderReport}
 			renderControls={renderControls}
 			renderEvidence={renderEvidence}
+			live={live}
 		/>
 	);
 	// The groups stack as sub-sections of the panel, open ones first, each a
@@ -159,6 +165,7 @@ function Lane({
 	renderReport,
 	renderControls,
 	renderEvidence,
+	live,
 }: {
 	status: DispatchStatus;
 	dispatches: Dispatch[];
@@ -166,6 +173,7 @@ function Lane({
 	renderReport?: RenderReport;
 	renderControls?: RenderControls;
 	renderEvidence?: RenderEvidence;
+	live: boolean;
 }) {
 	const headingId = useId();
 	return (
@@ -197,6 +205,7 @@ function Lane({
 							renderReport={renderReport}
 							renderControls={renderControls}
 							renderEvidence={renderEvidence}
+							live={live}
 						/>
 					</li>
 				))}
@@ -248,14 +257,27 @@ export function DispatchCard({
 	renderReport,
 	renderControls,
 	renderEvidence,
+	live = false,
 }: {
 	dispatch: Dispatch;
 	now?: number;
 	renderReport?: RenderReport;
 	renderControls?: RenderControls;
 	renderEvidence?: RenderEvidence;
+	/** Opened, it reads its dispatch on its own: needs the data layer. */
+	live?: boolean;
 }) {
 	const [open, setOpen] = useState(false);
+	// A link to "#dispatch-<id>" (a gate refusal names the dispatch it
+	// blocked on) opens its card, on arrival and when the hash changes.
+	useEffect(() => {
+		const openIfNamed = () => {
+			if (window.location.hash === `#dispatch-${dispatch.id}`) setOpen(true);
+		};
+		openIfNamed();
+		window.addEventListener("hashchange", openIfNamed);
+		return () => window.removeEventListener("hashchange", openIfNamed);
+	}, [dispatch.id]);
 	const nameId = useId();
 	const detailsId = useId();
 	const { agent } = dispatch;
@@ -343,58 +365,118 @@ export function DispatchCard({
 					className="min-h-0 overflow-hidden"
 					inert={!open}
 				>
-					<div className="flex flex-col gap-2.5 border-t border-border pt-2.5">
-						<p className="type-small text-text-muted">
-							{"Agent "}
-							<span
-								data-testid={`dispatch-card-slug-${dispatch.id}`}
-								className="type-mono text-foreground"
-							>
-								{agent.slug}
-							</span>
-						</p>
-						<Brief dispatch={dispatch} />
-						<Pinned dispatch={dispatch} />
-						<Times dispatch={dispatch} />
-						<DispatchBudget dispatch={dispatch} now={now} />
-						<p className="type-small text-text-muted">
-							{"Territory "}
-							{dispatch.territory === null ? (
-								<span className="text-text-subtle">none</span>
-							) : (
-								<span
-									data-testid={`dispatch-card-territory-${dispatch.id}`}
-									className="type-mono text-foreground"
-								>
-									{dispatch.territory}
-								</span>
-							)}
-						</p>
-						<DispatchTokenSplit dispatch={dispatch} />
-						{dispatch.skillsSha256 === null ? null : (
-							<p className="type-small flex items-center gap-1.5 text-text-muted">
-								Skills
-								<ShortHash
-									value={dispatch.skillsSha256}
-									label="the skills' SHA-256"
-									data-testid={`dispatch-card-skills-${dispatch.id}`}
-								/>
-							</p>
-						)}
-						<DispatchBriefLine dispatch={dispatch} agentName={agent.name} />
-						{/* Rendered only while open: it may read the report. */}
-						{open && dispatch.reportId !== null && renderReport ? (
-							<div
-								data-testid={`dispatch-card-report-${dispatch.id}`}
-								className="border-t border-border pt-2.5"
-							>
-								{renderReport(dispatch)}
-							</div>
-						) : null}
-					</div>
+					{live && open ? (
+						<LiveDispatchDetails
+							seed={dispatch}
+							now={now}
+							renderReport={renderReport}
+						/>
+					) : (
+						<DispatchDetails
+							dispatch={dispatch}
+							now={now}
+							open={open}
+							renderReport={renderReport}
+						/>
+					)}
 				</div>
 			</div>
 		</article>
+	);
+}
+
+/**
+ * What an opened card shows: the brief, the identity and model frozen at
+ * its start, its times, the full budget and the token split, then its
+ * report once it has one.
+ */
+function DispatchDetails({
+	dispatch,
+	now,
+	open,
+	renderReport,
+}: {
+	dispatch: Dispatch;
+	now: number;
+	open: boolean;
+	renderReport?: RenderReport;
+}) {
+	return (
+		<div className="flex flex-col gap-2.5 border-t border-border pt-2.5">
+			<p className="type-small text-text-muted">
+				{"Agent "}
+				<span
+					data-testid={`dispatch-card-slug-${dispatch.id}`}
+					className="type-mono text-foreground"
+				>
+					{dispatch.agent.slug}
+				</span>
+			</p>
+			<Brief dispatch={dispatch} />
+			<Pinned dispatch={dispatch} />
+			<Times dispatch={dispatch} />
+			<DispatchBudget dispatch={dispatch} now={now} />
+			<p className="type-small text-text-muted">
+				{"Territory "}
+				{dispatch.territory === null ? (
+					<span className="text-text-subtle">none</span>
+				) : (
+					<span
+						data-testid={`dispatch-card-territory-${dispatch.id}`}
+						className="type-mono text-foreground"
+					>
+						{dispatch.territory}
+					</span>
+				)}
+			</p>
+			<DispatchTokenSplit dispatch={dispatch} />
+			{dispatch.skillsSha256 === null ? null : (
+				<p className="type-small flex items-center gap-1.5 text-text-muted">
+					Skills
+					<ShortHash
+						value={dispatch.skillsSha256}
+						label="the skills' SHA-256"
+						data-testid={`dispatch-card-skills-${dispatch.id}`}
+					/>
+				</p>
+			)}
+			<DispatchBriefLine dispatch={dispatch} agentName={dispatch.agent.name} />
+			{/* Rendered only while open: it may read the report. */}
+			{open && dispatch.reportId !== null && renderReport ? (
+				<div
+					data-testid={`dispatch-card-report-${dispatch.id}`}
+					className="border-t border-border pt-2.5"
+				>
+					{renderReport(dispatch)}
+				</div>
+			) : null}
+		</div>
+	);
+}
+
+/**
+ * The opened details, read on their own (GET /api/dispatches/:id): seeded
+ * from the mission's list, so nothing flashes, then polled while the
+ * dispatch waits or runs, so an open card stays live by itself. Until the
+ * read answers, or if it fails, the list's copy stands in.
+ */
+function LiveDispatchDetails({
+	seed,
+	now,
+	renderReport,
+}: {
+	seed: Dispatch;
+	now: number;
+	renderReport?: RenderReport;
+}) {
+	const live = useDispatch(seed.missionId, seed.id);
+	return (
+		<DispatchDetails
+			dispatch={live.data ?? seed}
+			now={now}
+			open
+			renderReport={renderReport}
+		/>
 	);
 }
 
@@ -426,8 +508,15 @@ function Brief({ dispatch }: { dispatch: Dispatch }) {
 	);
 }
 
-/** The identity version and model frozen when the dispatch started. */
+/**
+ * The identity version and model frozen when the dispatch started. The
+ * version opens what the agent was told, read by its hash.
+ */
 function Pinned({ dispatch }: { dispatch: Dispatch }) {
+	const lookup = lookupRef(
+		dispatch.agentVersionRef,
+		dispatch.agentVersionSha256,
+	);
 	return (
 		<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
 			<span
@@ -435,15 +524,20 @@ function Pinned({ dispatch }: { dispatch: Dispatch }) {
 				data-pinned={dispatch.agentVersionRef !== null}
 				className="flex min-w-0 items-center gap-1.5"
 			>
-				{dispatch.agentVersionRef === null ? (
+				{dispatch.agentVersionRef === null || lookup === null ? (
 					<span className="type-caption text-text-subtle">
 						Identity set when it starts
 					</span>
 				) : (
 					<>
-						<span className="truncate rounded-xs border border-border bg-app-well px-1.5 type-mono text-text-muted">
+						<IdentityVersionTrigger
+							lookup={lookup}
+							label={dispatch.agentVersionRef}
+							data-testid={`dispatch-card-version-${dispatch.id}`}
+							className="truncate border border-border bg-app-well px-1.5 type-mono text-text-muted no-underline hover:bg-app-raised hover:text-text"
+						>
 							{dispatch.agentVersionRef}
-						</span>
+						</IdentityVersionTrigger>
 						{dispatch.agentVersionSha256 === null ? null : (
 							<ShortHash
 								value={dispatch.agentVersionSha256}

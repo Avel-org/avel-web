@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { SkillSource } from "avel-server/contract";
 import { BookOpen, Search } from "lucide-react";
 import { useState } from "react";
@@ -90,6 +91,17 @@ export function SkillDiscover() {
 						icon={BookOpen}
 						title="No vendor or community sources"
 						description="Discover lists what outside sources offer. None is registered yet; skills from one appear here, grouped by source."
+						action={
+							<Button size="sm" variant="outline" asChild>
+								<Link
+									to="/catalog/skills"
+									search={{ view: "sources" }}
+									data-testid="skill-discover-add-source"
+								>
+									Add a source
+								</Link>
+							</Button>
+						}
 					/>
 				}
 				error={ErrorState}

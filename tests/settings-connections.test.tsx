@@ -1,7 +1,6 @@
 import { connectionStatus } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
 import { CONNECTION_STATUS, connectionCountLabel } from "@/lib/api/connections";
-import { NOT_YET } from "@/lib/capabilities";
 import { Route } from "../src/routes/settings.connections";
 import {
 	CONNECTIONS,
@@ -38,19 +37,12 @@ function element(html: string, testid: string): string {
 	return elementAt(html, html.lastIndexOf("<", at));
 }
 
-/** A real write control: disabled, with its reason linked for screen readers. */
-function expectDisabledWithReason(
-	html: string,
-	testid: string,
-	reason: string,
-) {
+/** New connection: enabled, and it opens a dialog (the Add connection form). */
+function expectOpensForm(html: string, testid: string) {
 	const tag = tagOf(html, testid);
-	expect(tag, testid).toMatch(/\sdisabled=""/);
-	const describedBy = tag.match(/aria-describedby="([^"]+)"/)?.[1];
-	expect(describedBy, testid).toBeDefined();
-	expect(html).toContain(
-		`id="${describedBy}" data-slot="button-reason" class="sr-only">${reason.replaceAll("'", "&#x27;")}<`,
-	);
+	expect(tag, testid).not.toMatch(/\sdisabled=""/);
+	expect(tag, testid).toContain('aria-haspopup="dialog"');
+	expect(tag, testid).not.toContain("aria-describedby");
 }
 
 const PATH = "/settings/connections";
@@ -76,13 +68,9 @@ describe("the Connections page", () => {
 		expect(html).not.toContain('data-testid="topbar-subtitle"');
 	});
 
-	it("offers New connection as a real button, disabled with its reason", async () => {
+	it("offers New connection as a real button that opens the form", async () => {
 		const html = await renderPage(PATH);
-		expectDisabledWithReason(
-			html,
-			"connections-new",
-			NOT_YET["connection.create"],
-		);
+		expectOpensForm(html, "connections-new");
 		expect(tagOf(html, "connections-new")).toContain('data-size="sm"');
 	});
 
@@ -155,18 +143,14 @@ describe("the Connections page", () => {
 		expect(connectionCountLabel(5)).toBe("5 connections");
 	});
 
-	it("says when there are none, with the real New connection disabled", async () => {
+	it("says when there are none, with New connection there to start one", async () => {
 		const html = await renderSeeded(PATH, seededClient({ connections: [] }));
 		expect(tagOf(html, "connection-list")).toContain('data-state="empty"');
 		expect(html).toContain('data-testid="connections-empty"');
 		expect(
 			html.match(/data-testid="empty-state-description"[^>]*>([^<]+)</)?.[1],
 		).not.toMatch(/contract|avel-server|not built|yet\b|route/i);
-		expectDisabledWithReason(
-			html,
-			"connections-empty-new",
-			NOT_YET["connection.create"],
-		);
+		expectOpensForm(html, "connections-empty-new");
 		expect(element(html, "topbar-subtitle")).toContain(">0 connections<");
 	});
 
@@ -180,10 +164,6 @@ describe("the Connections page", () => {
 		expect(html).toContain(">req_catalog<");
 		// A read may be retried.
 		expect(html).toContain('data-testid="surface-error-retry"');
-		expectDisabledWithReason(
-			html,
-			"connections-new",
-			NOT_YET["connection.create"],
-		);
+		expectOpensForm(html, "connections-new");
 	});
 });

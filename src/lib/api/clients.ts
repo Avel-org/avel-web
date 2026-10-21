@@ -17,6 +17,7 @@ import {
 	type PageMeta,
 	type PreconditionReason,
 	type updateClientBody,
+	type updateEngagementBody,
 } from "avel-server/contract";
 import type { z } from "zod";
 import type { StatusTone } from "@/components/avel/status-pill";
@@ -31,6 +32,7 @@ export const ENGAGEMENTS_PAGE_SIZE = 50;
 export type CreateClientBody = z.input<typeof createClientBody>;
 export type UpdateClientBody = z.input<typeof updateClientBody>;
 export type CreateEngagementBody = z.input<typeof createEngagementBody>;
+export type UpdateEngagementBody = z.input<typeof updateEngagementBody>;
 
 /**
  * One page of a list route: the success envelope's `data` and `meta`, as the
@@ -209,6 +211,19 @@ export function useEngagement(id: string | null) {
 	});
 }
 
+/** Renames an engagement or rewrites its scope; closed ones too. */
+export function useUpdateEngagement() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ id, body }: { id: string; body: UpdateEngagementBody }) =>
+			call(contract.engagements.update, () =>
+				api.engagements.update({ params: { id }, body }),
+			),
+		onSuccess: () => afterEngagementUpdated(queryClient),
+	});
+}
+
 /** Closes an engagement, which also revokes its live connections. */
 export function useCloseEngagement() {
 	const api = useApiClient();
@@ -232,6 +247,14 @@ export function afterEngagementClosed(queryClient: QueryClient) {
 		afterEngagementWrite(queryClient),
 		queryClient.invalidateQueries({ queryKey: queryKeys.connections.all() }),
 		// Its missions can no longer start: their readiness reads it (audit F2).
+		queryClient.invalidateQueries({ queryKey: queryKeys.missions.all() }),
+	]);
+}
+
+/** Missions show their engagement's name, so a rename reads them again. */
+export function afterEngagementUpdated(queryClient: QueryClient) {
+	return Promise.all([
+		afterEngagementWrite(queryClient),
 		queryClient.invalidateQueries({ queryKey: queryKeys.missions.all() }),
 	]);
 }

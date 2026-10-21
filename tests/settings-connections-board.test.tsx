@@ -8,7 +8,6 @@ import {
 	type ConnectionStatus,
 } from "@/lib/api/connections";
 import { queryKeys } from "@/lib/api/keys";
-import { NOT_YET } from "@/lib/capabilities";
 import {
 	CONNECTIONS,
 	connection,
@@ -152,13 +151,13 @@ describe("the connectors grid", () => {
 		);
 	});
 
-	it("disables New connection in the grid, saying the one reason in the card", async () => {
+	it("closes the grid with New connection, which opens the form", async () => {
 		const html = await renderSeeded(PATH, seed());
 		const card = tagOf(html, "connections-card-new");
-		expect(card).toMatch(/\sdisabled=""/);
-		expect(card).toContain('aria-describedby="connections-card-new-reason"');
+		expect(card).not.toMatch(/\sdisabled=""/);
+		expect(card).toContain('aria-haspopup="dialog"');
 		expect(text(element(html, "connections-card-new"))).toContain(
-			NOT_YET["connection.create"],
+			"New connection",
 		);
 	});
 

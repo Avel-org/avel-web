@@ -7,13 +7,19 @@ import { Page, pageHead } from "../shell/page";
 /**
  * The page's state in the URL, so every view is a link and Back walks it.
  * - `skill` is the selected skill's slug.
- * - `view` opens Discover or New skill in place of a skill.
+ * - `view` opens Discover, New skill or Sources in place of a skill; `edit`
+ *   opens the selected skill's editor.
+ * - `source` is the chosen source's id, in Sources.
  * - `q` filters the sidebar; `filter=drafts` shows only drafts (the review
  *   banner's link).
  */
 export const catalogSkillsSearch = z.object({
 	skill: z.string().max(100).optional().catch(undefined),
-	view: z.enum(["discover", "new"]).optional().catch(undefined),
+	view: z
+		.enum(["discover", "new", "sources", "edit"])
+		.optional()
+		.catch(undefined),
+	source: z.string().uuid().optional().catch(undefined),
 	q: z
 		.string()
 		.max(200)
@@ -50,6 +56,7 @@ function CatalogSkillsPage() {
 				query={skills}
 				selected={search.skill}
 				view={search.view}
+				source={search.source}
 				q={search.q}
 				draftsOnly={search.filter === "drafts"}
 				onFilter={(text) =>

@@ -15,6 +15,11 @@ import {
 	sampleRoleAttachments,
 	skillsNeedingReview,
 } from "@/components/avel/catalog-placeholders";
+import {
+	approveBlocker,
+	editBlocker,
+	retireBlocker,
+} from "@/components/avel/catalog-skill-actions";
 import { filterRegistry } from "@/components/avel/catalog-skill-discover";
 import {
 	attachedCount,
@@ -50,8 +55,9 @@ import { renderPage, tagOf } from "./render-page";
  * new skill. The skills, the selected skill, the templates that carry it and
  * the sources are live, rendered through the real router with a seeded
  * QueryClient. A role skill's attachments and a source's index are labelled
- * samples (AVEL-DESIGN.md ruling 32); every write is a real control,
- * disabled with its reason.
+ * samples (AVEL-DESIGN.md ruling 32). The writes with a route are live
+ * (tests/catalog-skill-writes.test.tsx); the rest are real controls,
+ * disabled with their reason.
  */
 
 // ---------------------------------------------------------------------------
@@ -359,10 +365,27 @@ describe("/catalog/skills, a skill", () => {
 		);
 	});
 
-	it("disables Approve and Retire, each with its reason", async () => {
-		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
-		expectDisabledWithReason(html, "skill-approve", SKILL_WRITE_REASON.approve);
-		expectDisabledWithReason(html, "skill-retire", SKILL_WRITE_REASON.retire);
+	it("offers Approve on a draft, and holds what the server would refuse with its reason", async () => {
+		const draft = await page(`?skill=${IMPORTED_CAPABILITY}`);
+		expect(tagOf(draft, "skill-approve")).not.toMatch(/\sdisabled=""/);
+		expect(tagOf(draft, "skill-retire")).not.toMatch(/\sdisabled=""/);
+		expect(tagOf(draft, "skill-edit")).toContain(
+			`href="/catalog/skills?skill=${IMPORTED_CAPABILITY}&amp;view=edit"`,
+		);
+		const approved = await page(`?skill=${WITH_ADDITIONS}`);
+		expectDisabledWithReason(
+			approved,
+			"skill-approve",
+			approveBlocker(skill(WITH_ADDITIONS)) ?? "",
+		);
+		const retired = await page("?skill=package-registry");
+		for (const [testid, reason] of [
+			["skill-edit", editBlocker(skill("package-registry"))],
+			["skill-approve", approveBlocker(skill("package-registry"))],
+			["skill-retire", retireBlocker(skill("package-registry"))],
+		] as const) {
+			expectDisabledWithReason(retired, testid, reason ?? "");
+		}
 	});
 
 	it("shows the technical facts", async () => {
@@ -776,24 +799,20 @@ describe("Discover", () => {
 });
 
 describe("New skill", () => {
-	it("has the reference's fields, mapped to the contract, and nothing sends", async () => {
+	it("has the reference's fields, mapped to the contract, and can be saved", async () => {
 		const html = await page("?view=new");
 		const form = element(html, "skill-new-form");
-		expect(form).toContain('data-testid="skill-new-name"');
+		expect(form).toContain('data-testid="skill-editor-name"');
 		expect(form).toContain("When to use it");
 		expect(form).toContain("The agent reads only this to decide.");
-		expect(form).toContain('data-testid="skill-new-description"');
-		expect(form).toContain('data-testid="skill-new-content"');
-		expect(form).toContain('data-testid="skill-new-layer"');
-		expect(form).toContain('data-testid="skill-new-type"');
-		expect(tagOf(html, "skill-new-description-length")).toContain(
+		expect(form).toContain('data-testid="skill-editor-description"');
+		expect(form).toContain('data-testid="skill-editor-content"');
+		expect(form).toContain('data-testid="skill-editor-layer"');
+		expect(form).toContain('data-testid="skill-editor-type"');
+		expect(tagOf(html, "skill-editor-description-length")).toContain(
 			'data-length="0"',
 		);
-		expectDisabledWithReason(
-			html,
-			"skill-new-submit",
-			SKILL_WRITE_REASON.create,
-		);
+		expect(tagOf(html, "skill-editor-submit")).not.toMatch(/\sdisabled=""/);
 	});
 
 	it("is a real form: no sample pill on it", async () => {
@@ -808,11 +827,10 @@ describe("New skill", () => {
 
 describe("review fixes", () => {
 	it("names a missing route only where avel-server has none", () => {
-		for (const key of ["approve", "retire", "create"] as const) {
-			expect(SKILL_WRITE_REASON[key]).toMatch(
-				/isn't wired into this page yet$/,
-			);
-		}
+		expect(Object.keys(SKILL_WRITE_REASON).sort()).toEqual([
+			"attach",
+			"import",
+		]);
 		expect(SKILL_WRITE_REASON.import).toMatch(/^avel-server has no route/);
 		// Attaching a role skill names its module-5 route.
 		expect(SKILL_WRITE_REASON.attach).toBe(

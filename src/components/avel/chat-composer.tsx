@@ -21,9 +21,9 @@ import { Button } from "@/components/ui/button";
  * fill change. The caret is the indicator (ruling 31, for this composer
  * only; every other field keeps ruling 22).
  *
- * `sendDisabledReason` is required while avel-server has no chat endpoint: the
- * composer is real and takes text, but Send is disabled by state, with the
- * reason in its tooltip and linked for screen readers (ruling 11).
+ * `sendDisabledReason` is required: Send is disabled by state whenever it
+ * can't send (signed out, nothing written, Canon answering), with the reason
+ * in its tooltip and linked for screen readers (ruling 11).
  *
  * The tool row holds the operator's chosen tools: attach a file, choose a
  * model, search the web. None can act yet, because avel-server has no upload,
@@ -100,7 +100,8 @@ export function ChatComposer({
 					role="toolbar"
 					aria-label="Tools"
 					data-testid="chat-composer-tools"
-					className="flex items-center gap-1.5"
+					// A phone wraps the tools rather than pushing Send off the row.
+					className="flex min-w-0 flex-wrap items-center gap-1.5"
 				>
 					{tools ?? <ComposerTools />}
 				</div>

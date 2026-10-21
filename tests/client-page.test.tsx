@@ -231,9 +231,10 @@ describe("the Overview", () => {
 		);
 		expect(html).toContain(`data-testid="engagement-card-closed-${ENDED.id}"`);
 		expect(html).not.toContain(`engagement-card-closed-${LIVE.id}`);
-		// A closed engagement has nothing left to do, so it carries no menu.
+		// A closed engagement can still be renamed, but not closed again or
+		// given a new intake.
 		expect(html).toContain(`engagement-card-menu-${LIVE.id}`);
-		expect(html).not.toContain(`engagement-card-menu-${ENDED.id}`);
+		expect(html).toContain(`engagement-card-menu-${ENDED.id}`);
 	});
 
 	it("shows the client's own fields, notes keeping their line breaks", async () => {

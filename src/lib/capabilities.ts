@@ -6,8 +6,6 @@
  */
 export const NOT_YET = {
 	"mission.create": "The contract cannot create missions yet.",
-	// POST /api/connections exists; the form that sends it does not.
-	"connection.create": "Adding a connection isn't wired into this page yet.",
 } as const satisfies Record<string, string>;
 
 export type NotYetCapability = keyof typeof NOT_YET;

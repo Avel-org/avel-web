@@ -67,7 +67,7 @@ describe("refreshing after a write", () => {
 			queryKeys.activity.all(),
 		];
 		const qc = seeded(...keys);
-		await afterCanonSession(qc, INTAKE, SESSION);
+		await afterCanonSession(qc, INTAKE);
 		for (const key of keys) expect(stale(qc, key), String(key)).toBe(true);
 	});
 

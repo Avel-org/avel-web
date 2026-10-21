@@ -18,6 +18,7 @@ export type Table =
 	| "canon_message"
 	| "canon_question"
 	| "canon_session"
+	| "canon_step"
 	| "client"
 	| "client_memory"
 	| "completion_report"
@@ -40,10 +41,19 @@ export type Table =
 export const WRITES = {
 	regenerateIdentity: ["agent_identity_version", "activity_log"],
 	updateAgentTemplate: ["agent_template", "activity_log"],
+	createSkill: ["skill", "activity_log"],
+	updateSkill: ["skill", "activity_log"],
+	approveSkill: ["skill", "activity_log"],
+	retireSkill: ["skill", "activity_log"],
+	createSkillSource: ["skill_source", "activity_log"],
+	updateSkillSource: ["skill_source", "activity_log"],
+	removeSkillSource: ["skill_source", "activity_log"],
 	createClient: ["client", "activity_log"],
 	updateClient: ["client", "activity_log"],
 	createEngagement: ["engagement", "activity_log"],
+	updateEngagement: ["engagement", "activity_log"],
 	closeEngagement: ["engagement", "connection", "activity_log"],
+	createConnection: ["connection", "activity_log"],
 	addRosterEntry: ["roster_entry", "activity_log"],
 	updateRosterEntry: ["roster_entry", "activity_log"],
 	removeRosterEntry: ["roster_entry", "activity_log"],
@@ -67,6 +77,7 @@ export const WRITES = {
 	dismissFinding: ["finding", "activity_log"],
 	uploadIntakeFile: ["intake_files", "activity_log"],
 	purgeIntakeFile: ["intake_files", "activity_log"],
+	createIntake: ["intake", "activity_log"],
 	reviseIntake: ["intake", "activity_log"],
 	proposeIntake: ["intake", "activity_log"],
 	readRepo: ["intake", "activity_log"],
@@ -75,6 +86,13 @@ export const WRITES = {
 	openCanonSession: ["canon_session", "intake", "activity_log"],
 	closeCanonSession: ["canon_session", "intake", "activity_log"],
 	haltCanonSession: ["canon_session", "intake", "activity_log"],
+	// A chat opened on an intake becomes the intake's open session.
+	createCanonSession: ["canon_session", "intake", "activity_log"],
+	updateCanonSession: ["canon_session", "activity_log"],
+	reopenCanonSession: ["canon_session", "intake", "activity_log"],
+	// Archiving an open session closes it first.
+	archiveCanonSession: ["canon_session", "intake", "activity_log"],
+	unarchiveCanonSession: ["canon_session", "activity_log"],
 	postCanonMessage: ["canon_message", "canon_session"],
 	answerCanonQuestion: [
 		"canon_question",
@@ -115,14 +133,17 @@ export const READS = {
 	"catalog.agentAccess": ["agent_template"],
 	"catalog.identityVersion": ["agent_identity_version"],
 	"catalog.identityVersions": ["agent_identity_version"],
+	"catalog.identityVersionByRef": ["agent_identity_version"],
 	"catalog.skills": ["skill", "skill_source"],
 	"catalog.skill": ["skill", "skill_source"],
 	"catalog.skillSources": ["skill_source", "skill"],
+	"catalog.skillSource": ["skill_source", "skill"],
 	"connections.list": ["connection"],
 	"connections.byStatus": ["connection"],
 	"connections.statusCount": ["connection"],
 	"connections.activeCount": ["connection"],
 	"connections.activeFor": ["connection"],
+	"connections.detail": ["connection"],
 	"clients.list": ["client", "engagement"],
 	"clients.detail": ["client", "engagement"],
 	"engagements.byClient": ["engagement"],
@@ -158,6 +179,7 @@ export const READS = {
 	],
 	"dispatches.list": ["dispatch", "completion_report", "roster_entry"],
 	"dispatches.moving": ["dispatch", "roster_entry"],
+	"dispatches.detail": ["dispatch"],
 	"dispatches.reports": ["completion_report"],
 	"dispatches.report": ["completion_report"],
 	"dispatches.brief": ["dispatch"],
@@ -176,6 +198,9 @@ export const READS = {
 	"templates.detail": ["playbook", "mission"],
 	"canon.sessions": ["canon_session"],
 	"canon.session": ["canon_session"],
+	"canon.chats": ["canon_session"],
+	// Written by a running turn, read by its poll: no write here changes it.
+	"canon.steps": ["canon_step"],
 	"canon.messages": ["canon_message"],
 	"canon.questions": ["canon_question"],
 	"canon.memory": ["client_memory"],

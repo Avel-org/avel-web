@@ -8,7 +8,6 @@ import {
 	type Team,
 } from "avel-server/contract";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { loadedRows, useAgentTemplates } from "@/lib/api/catalog";
 import {
@@ -28,6 +27,7 @@ import {
 	SampleRegion,
 	SkillStatusPill,
 } from "./catalog-sample";
+import { SkillActions } from "./catalog-skill-actions";
 import { type CodeTone, CodeView } from "./code-view";
 import { Reason } from "./reason";
 import { SectionPanel } from "./section-panel";
@@ -41,17 +41,13 @@ import { ErrorState, Surface } from "./surface";
  * /api/skills/by-slug/:slug), and so are the agents that carry a stack or
  * domain skill (GET /api/agent-templates, through recommendedFor). A role
  * skill's attachments, and the carriers derived from them, are labelled
- * samples until module 5's read exists (AVEL-DESIGN.md ruling 32). The write
- * controls are real and disabled, each with its reason: only an operator
- * writes a skill, and the forms for it do not exist yet.
+ * samples until module 5's read exists (AVEL-DESIGN.md ruling 32). Only an
+ * operator writes a skill: Edit, Approve and Retire sit in the header
+ * (catalog-skill-actions.tsx); attaching to a role waits for its route.
  */
 
-/** Why each operator write is disabled today. Real, not a sample. */
+/** Why the operator writes with no route are held. Real, not a sample. */
 export const SKILL_WRITE_REASON = {
-	// avel-server has these routes (4f7c3a0); their forms are not built yet.
-	approve: "Approving a skill isn't wired into this page yet",
-	retire: "Retiring a skill isn't wired into this page yet",
-	create: "Saving a new skill isn't wired into this page yet",
 	// These have no route in avel-server at all.
 	// role_skills is written by module 5; its route does not exist yet.
 	attach:
@@ -76,7 +72,9 @@ export function sourceLine(skill: Pick<Skill, "source">): string {
  * SKILL.md as an agent reads it: frontmatter (name, description, version),
  * then the content. AVEL's additions are never merged in; they show apart.
  */
-export function skillMarkdown(skill: Skill): string {
+export function skillMarkdown(
+	skill: Pick<Skill, "slug" | "description" | "version" | "contentMd">,
+): string {
 	return [
 		"---",
 		`name: ${skill.slug}`,
@@ -138,28 +136,8 @@ function Header({ skill }: { skill: Skill }) {
 				</p>
 				<p className="type-body text-text-muted">{skill.description}</p>
 			</div>
-			{/* Operator-only writes. Real controls, disabled until the routes exist. */}
-			<div
-				data-testid="skill-actions"
-				className="flex shrink-0 items-center gap-2 max-lg:self-end"
-			>
-				<Button
-					size="sm"
-					variant="outline"
-					data-testid="skill-approve"
-					disabledReason={SKILL_WRITE_REASON.approve}
-				>
-					Approve
-				</Button>
-				<Button
-					size="sm"
-					variant="outline"
-					data-testid="skill-retire"
-					disabledReason={SKILL_WRITE_REASON.retire}
-				>
-					Retire
-				</Button>
-			</div>
+			{/* Operator-only writes: Edit, Approve and Retire. */}
+			<SkillActions skill={skill} />
 		</header>
 	);
 }

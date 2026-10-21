@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { Client, Engagement } from "avel-server/contract";
-import { FileInput } from "lucide-react";
+import { FileInput, Plus } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,7 +48,13 @@ export function intakeTitle(
 	);
 }
 
-export function ClientIntakes({ client }: { client: Client }) {
+export function ClientIntakes({
+	client,
+	onNewIntake,
+}: {
+	client: Client;
+	onNewIntake?: () => void;
+}) {
 	const [status, setStatus] = useState<IntakeStatus | undefined>(undefined);
 	const engagementsRead = useClientEngagements(client.id);
 	const engagements: Engagement[] =
@@ -71,12 +77,32 @@ export function ClientIntakes({ client }: { client: Client }) {
 				? { status: "pending" as const }
 				: list;
 	const total = counts.status === "success" ? sumOf(counts.data) : undefined;
+	// An intake sits under an active engagement: none, no intake.
+	const newReason =
+		client.status === "closed"
+			? "Reopen the client to add an intake."
+			: client.activeEngagementCount === 0
+				? "Start an engagement first: an intake sits under one."
+				: undefined;
+	const newButton = onNewIntake ? (
+		<Button
+			size="sm"
+			variant="outline"
+			data-testid="client-intakes-new"
+			disabledReason={newReason}
+			onClick={onNewIntake}
+		>
+			<Plus aria-hidden="true" />
+			New intake
+		</Button>
+	) : null;
 
 	return (
 		<DataPanel
 			data-testid="client-intakes"
 			title="Intakes"
 			count={total}
+			actions={newButton}
 			toolbar={
 				<IntakeStatusFilter
 					value={status}
@@ -119,6 +145,7 @@ export function ClientIntakes({ client }: { client: Client }) {
 									: "No intakes yet"
 							}
 							description={`An intake is the brief a mission starts from. None of ${client.name}'s engagements has one${status ? " in this status" : ""}.`}
+							action={status ? undefined : newButton}
 						/>
 					</div>
 				}

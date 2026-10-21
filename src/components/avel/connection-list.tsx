@@ -24,8 +24,8 @@ import {
 	useConnections,
 } from "@/lib/api/connections";
 import { queryKeys } from "@/lib/api/keys";
-import { NOT_YET } from "@/lib/capabilities";
 import { linkFor } from "../../shell/nav";
+import { NewConnection } from "./connection-create";
 import { type DataColumn, DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { StatusPill } from "./status-pill";
@@ -37,9 +37,9 @@ import type { ViewOption } from "./view-toggle";
  * service, scope, status, engagement and age, live from GET /api/connections.
  * Tokens are never displayed; a connection shows only the name of the
  * environment variable that holds one. Board is a grid of v3 cards (the
- * connectors grid); Table is the same list as rows (ruling 36). Creating a
- * connection has a route (POST /api/connections) and no form yet, so its
- * controls are real and disabled with the one reason (NOT_YET).
+ * connectors grid); Table is the same list as rows (ruling 36). A card's
+ * name or a row opens the connection's details; New connection opens the
+ * Add connection form (POST /api/connections).
  */
 
 /** Board (the default) or Table, as every list page offers (ruling 36). */
@@ -135,14 +135,19 @@ export function NewConnectionButton({
 	"data-testid"?: string;
 }) {
 	return (
-		<Button
-			size="sm"
-			data-testid={testId}
-			disabledReason={NOT_YET["connection.create"]}
-		>
-			<Plus aria-hidden="true" />
-			New connection
-		</Button>
+		<NewConnection>
+			{(open) => (
+				<Button
+					size="sm"
+					aria-haspopup="dialog"
+					data-testid={testId}
+					onClick={open}
+				>
+					<Plus aria-hidden="true" />
+					New connection
+				</Button>
+			)}
+		</NewConnection>
 	);
 }
 
@@ -325,9 +330,11 @@ export function connectionDates(
 function ConnectionCard({
 	connection,
 	now,
+	onOpen,
 }: {
 	connection: Connection;
 	now: number;
+	onOpen?: (connection: Connection) => void;
 }) {
 	return (
 		<article
@@ -349,7 +356,19 @@ function ConnectionCard({
 						className="truncate type-title text-text"
 						title={connection.label}
 					>
-						{connection.label}
+						{onOpen ? (
+							<button
+								type="button"
+								aria-haspopup="dialog"
+								data-testid={`connection-open-${connection.id}`}
+								className="max-w-full cursor-pointer truncate text-left underline decoration-transparent underline-offset-2 transition-colors duration-(--duration-micro) ease-avel hover:decoration-current"
+								onClick={() => onOpen(connection)}
+							>
+								{connection.label}
+							</button>
+						) : (
+							connection.label
+						)}
 					</h3>
 					<span
 						data-testid={`connection-kind-${connection.id}`}
@@ -399,7 +418,7 @@ function ConnectionCard({
 }
 
 /** The engagement a connection belongs to, linked to its client; AVEL's own when none. */
-function EngagementLink({
+export function EngagementLink({
 	engagementId,
 	testId,
 }: {
@@ -434,30 +453,28 @@ function EngagementLink({
 	);
 }
 
-/**
- * The dashed card that closes the grid: where a new connection will start.
- * Disabled, and it says why in itself (v3 UX 6).
- */
+/** The dashed card that closes the grid: where a new connection starts. */
 function NewConnectionCard() {
 	return (
-		<button
-			type="button"
-			disabled
-			aria-describedby="connections-card-new-reason"
-			data-testid="connections-card-new"
-			className="flex h-full min-h-48 w-full cursor-not-allowed flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border-strong bg-app-band p-4 text-center text-text-subtle"
-		>
-			<span className="inline-grid size-tile-md place-items-center rounded-tile border border-border bg-app-panel">
-				<Plus aria-hidden="true" className="size-4" />
-			</span>
-			<span className="type-body font-medium">New connection</span>
-			<span
-				id="connections-card-new-reason"
-				className="type-caption max-w-56 text-text-muted"
-			>
-				{NOT_YET["connection.create"]}
-			</span>
-		</button>
+		<NewConnection>
+			{(open) => (
+				<button
+					type="button"
+					aria-haspopup="dialog"
+					data-testid="connections-card-new"
+					className="flex h-full min-h-48 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border-strong bg-app-band p-4 text-center text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-app-panel hover:text-text"
+					onClick={open}
+				>
+					<span className="inline-grid size-tile-md place-items-center rounded-tile border border-border bg-app-panel">
+						<Plus aria-hidden="true" className="size-4" />
+					</span>
+					<span className="type-body font-medium">New connection</span>
+					<span className="type-caption max-w-56 text-text-subtle">
+						A GitHub owner or repository, and the variable that holds its token.
+					</span>
+				</button>
+			)}
+		</NewConnection>
 	);
 }
 
@@ -534,6 +551,7 @@ export function ConnectionList({
 	view = "board",
 	filter = "all",
 	now,
+	onOpen,
 }: {
 	/** The live list for the filter, owned by the route. */
 	query: ReturnType<typeof useConnections>;
@@ -541,6 +559,8 @@ export function ConnectionList({
 	filter?: ConnectionFilter;
 	/** Fixed by the page, so relative ages render once. */
 	now: number;
+	/** Opens one connection's details: a card's name, or a row. */
+	onOpen?: (connection: Connection) => void;
 }) {
 	return (
 		<Surface
@@ -571,13 +591,18 @@ export function ConnectionList({
 								columns={COLUMNS}
 								rows={rows}
 								getRowId={(row) => row.id}
+								onRowClick={onOpen}
 								stickyHeader={false}
 							/>
 						) : (
 							<ul data-testid="connection-board" className={GRID}>
 								{rows.map((connection) => (
 									<li key={connection.id} className="min-w-0">
-										<ConnectionCard connection={connection} now={now} />
+										<ConnectionCard
+											connection={connection}
+											now={now}
+											onOpen={onOpen}
+										/>
 									</li>
 								))}
 								<li className="min-w-0">

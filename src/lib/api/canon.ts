@@ -13,6 +13,7 @@ import {
 	type CanonSession,
 	type ClientMemory,
 	contract,
+	type RunStep,
 } from "avel-server/contract";
 import { useEffect, useRef } from "react";
 import type { z } from "zod";
@@ -22,14 +23,15 @@ import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
 
 /*
- * Canon, the project briefer, on one intake: a session with a chat, the
- * questions it asks through a stored pop-up, and the client's project memory
- * it proposes. Canon never approves or dispatches anything.
+ * Canon, the project briefer: a session with a chat (open on Home with no
+ * client, or a client's, optionally on one intake), the questions it asks
+ * through a stored pop-up, and the client's project memory it proposes.
+ * Canon never approves or dispatches anything.
  *
  * Nothing is pushed. While Canon is answering (session.turn === "canon"),
- * the session alone is re-read every DISPATCH_POLL_MS; the messages and the
- * questions are re-read only when its lastSeq or openQuestions moves, so a
- * poll is one small read, not three.
+ * the session alone is re-read every DISPATCH_POLL_MS and its run steps
+ * every CANON_STEP_POLL_MS; the messages and the questions are re-read only
+ * when its lastSeq or openQuestions moves.
  */
 
 export const CANON_PAGE = 50;
@@ -102,6 +104,18 @@ export function afterCanonMoved(
 		turn
 			? queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() })
 			: undefined,
+		// The last steps can land after the last poll; the turn ends them.
+		turn
+			? queryClient.invalidateQueries({
+					queryKey: queryKeys.canon.steps(session.id),
+				})
+			: undefined,
+		// A turn moves the chat's last activity, and Canon may have named it.
+		turn
+			? queryClient.invalidateQueries({
+					queryKey: queryKeys.canon.chatLists(),
+				})
+			: undefined,
 		// An open chat has no intake: nothing of one to read again.
 		questions && intakeId
 			? queryClient.invalidateQueries({
@@ -161,28 +175,39 @@ export function canonAttemptFor<T>(
 		: { key: freshKey(), body };
 }
 
-/** A session write changes the intake (openCanonSessionId) and the log. */
+/**
+ * A session write changes every session read (the intake's list, the chat
+ * lists, the detail), the intake it briefs (openCanonSessionId) and the log.
+ * An open chat has no intake.
+ */
 export function afterCanonSession(
 	queryClient: QueryClient,
-	intakeId: string,
-	sessionId?: string,
+	intakeId: string | null,
 ) {
 	return Promise.all([
 		queryClient.invalidateQueries({
-			queryKey: queryKeys.canon.sessions(intakeId),
+			queryKey: queryKeys.canon.sessionsAll(),
 		}),
-		sessionId
+		intakeId
 			? queryClient.invalidateQueries({
-					queryKey: queryKeys.canon.session(sessionId),
+					queryKey: queryKeys.intakes.detail(intakeId),
 				})
-			: Promise.resolve(),
-		queryClient.invalidateQueries({
-			queryKey: queryKeys.intakes.detail(intakeId),
-		}),
+			: undefined,
 		// An intake's row is titled by the brief Canon drafts (audit F2).
-		queryClient.invalidateQueries({ queryKey: queryKeys.intakes.lists() }),
+		intakeId
+			? queryClient.invalidateQueries({ queryKey: queryKeys.intakes.lists() })
+			: undefined,
 		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
 	]);
+}
+
+/** The answer shows at once; every read of a session is read again. */
+export function afterCanonSessionWrite(
+	queryClient: QueryClient,
+	session: CanonSession,
+) {
+	queryClient.setQueryData(queryKeys.canon.session(session.id), session);
+	return afterCanonSession(queryClient, session.intakeId);
 }
 
 export function useOpenCanonSession(intakeId: string) {
@@ -197,41 +222,253 @@ export function useOpenCanonSession(intakeId: string) {
 					body,
 				}),
 			),
-		onSuccess: (session) => {
-			queryClient.setQueryData(queryKeys.canon.session(session.id), session);
-			return afterCanonSession(queryClient, intakeId, session.id);
-		},
+		onSuccess: (session) => afterCanonSessionWrite(queryClient, session),
 	});
 }
 
-export function useCloseCanonSession(intakeId: string) {
-	const api = useApiClient();
-	const queryClient = useQueryClient();
-	return useMutation({
+export function closeCanonSessionOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+) {
+	return {
 		mutationFn: (sessionId: string) =>
 			call(contract.canon.closeSession, () =>
 				api.canon.closeSession({ params: { id: sessionId } }),
 			),
-		onSuccess: (session) =>
-			afterCanonSession(queryClient, intakeId, session.id),
-	});
+		onSuccess: (session: CanonSession) =>
+			afterCanonSessionWrite(queryClient, session),
+	};
 }
 
-export function useHaltCanonSession(intakeId: string) {
-	const api = useApiClient();
-	const queryClient = useQueryClient();
-	return useMutation({
+export function useCloseCanonSession() {
+	return useMutation(
+		closeCanonSessionOptions(useApiClient(), useQueryClient()),
+	);
+}
+
+export function haltCanonSessionOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+) {
+	return {
 		mutationFn: (sessionId: string) =>
 			call(contract.canon.haltSession, () =>
 				api.canon.haltSession({ params: { id: sessionId } }),
 			),
-		onSuccess: (session) =>
-			afterCanonSession(queryClient, intakeId, session.id),
-	});
+		onSuccess: (session: CanonSession) =>
+			afterCanonSessionWrite(queryClient, session),
+	};
+}
+
+export function useHaltCanonSession() {
+	return useMutation(haltCanonSessionOptions(useApiClient(), useQueryClient()));
 }
 
 // ---------------------------------------------------------------------------
-// Messages: read whole from seq 0, then only what follows the last seq held.
+// Chats: every session, open (Home, no client) and client, in one list.
+
+export type CreateCanonSessionBody = z.input<
+	typeof contract.canon.createSession.body
+>;
+export type UpdateCanonSessionBody = z.input<
+	typeof contract.canon.updateSession.body
+>;
+
+/** The longest title, and search, the server takes. */
+export const CANON_TITLE_MAX = 120;
+export const CANON_SEARCH_MAX = 200;
+
+/** What the chat list shows. archived false (the default) hides archived chats. */
+export type CanonChatFilter = {
+	archived: boolean;
+	scope?: CanonSession["scope"];
+	clientId?: string;
+	status?: CanonSession["status"][];
+	/** Matched against the title on the server. */
+	q?: string;
+};
+
+/** The search to send, or undefined: the server answers 400 to an empty `q`. */
+export function canonSearchText(text: string | undefined): string | undefined {
+	const trimmed = (text ?? "").trim().slice(0, CANON_SEARCH_MAX).trim();
+	return trimmed === "" ? undefined : trimmed;
+}
+
+export function canonChatsQuery(api: ApiClient, filter: CanonChatFilter) {
+	const q = canonSearchText(filter.q);
+	const { archived, scope, clientId, status } = filter;
+	return infiniteQueryOptions({
+		queryKey: queryKeys.canon.chats({ ...filter, q }),
+		queryFn: ({ pageParam }) =>
+			callPage(contract.canon.listAllSessions, () =>
+				api.canon.listAllSessions({
+					query: {
+						limit: CANON_PAGE,
+						archived: archived ? "true" : "false",
+						...(scope ? { scope } : {}),
+						...(clientId ? { clientId } : {}),
+						...(status && status.length > 0 ? { status } : {}),
+						...(q ? { q } : {}),
+						...(pageParam ? { cursor: pageParam } : {}),
+					},
+				}),
+			),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: (last) => last.meta.nextCursor ?? undefined,
+	});
+}
+
+export function useCanonChats(filter: CanonChatFilter) {
+	return useInfiniteQuery(canonChatsQuery(useApiClient(), filter));
+}
+
+/**
+ * A new session: open scope (no client, ask or fetch) or a client's. No
+ * Idempotency-Key on this route, so a resend opens a second chat; the
+ * caller keeps the one it made (see CanonChatStart).
+ */
+export function createCanonSessionOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+) {
+	return {
+		mutationFn: (body: CreateCanonSessionBody) =>
+			call(contract.canon.createSession, () =>
+				api.canon.createSession({ body }),
+			),
+		onSuccess: (session: CanonSession) =>
+			afterCanonSessionWrite(queryClient, session),
+	};
+}
+
+export function useCreateCanonSession() {
+	return useMutation(
+		createCanonSessionOptions(useApiClient(), useQueryClient()),
+	);
+}
+
+/** Rename (the operator's title, which Canon never renames), or change the default mode. */
+export function updateCanonSessionOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+) {
+	return {
+		mutationFn: ({ id, body }: { id: string; body: UpdateCanonSessionBody }) =>
+			call(contract.canon.updateSession, () =>
+				api.canon.updateSession({ params: { id }, body }),
+			),
+		onSuccess: (session: CanonSession) =>
+			afterCanonSessionWrite(queryClient, session),
+	};
+}
+
+export function useUpdateCanonSession() {
+	return useMutation(
+		updateCanonSessionOptions(useApiClient(), useQueryClient()),
+	);
+}
+
+export function reopenCanonSessionOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+) {
+	return {
+		mutationFn: (sessionId: string) =>
+			call(contract.canon.reopenSession, () =>
+				api.canon.reopenSession({ params: { id: sessionId } }),
+			),
+		onSuccess: (session: CanonSession) =>
+			afterCanonSessionWrite(queryClient, session),
+	};
+}
+
+export function useReopenCanonSession() {
+	return useMutation(
+		reopenCanonSessionOptions(useApiClient(), useQueryClient()),
+	);
+}
+
+export function archiveCanonSessionOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+) {
+	return {
+		mutationFn: (sessionId: string) =>
+			call(contract.canon.archiveSession, () =>
+				api.canon.archiveSession({ params: { id: sessionId } }),
+			),
+		onSuccess: (session: CanonSession) =>
+			afterCanonSessionWrite(queryClient, session),
+	};
+}
+
+export function useArchiveCanonSession() {
+	return useMutation(
+		archiveCanonSessionOptions(useApiClient(), useQueryClient()),
+	);
+}
+
+export function unarchiveCanonSessionOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+) {
+	return {
+		mutationFn: (sessionId: string) =>
+			call(contract.canon.unarchiveSession, () =>
+				api.canon.unarchiveSession({ params: { id: sessionId } }),
+			),
+		onSuccess: (session: CanonSession) =>
+			afterCanonSessionWrite(queryClient, session),
+	};
+}
+
+export function useUnarchiveCanonSession() {
+	return useMutation(
+		unarchiveCanonSessionOptions(useApiClient(), useQueryClient()),
+	);
+}
+
+/**
+ * Why a session can't be reopened, or undefined when it can: only a closed
+ * session, or one the operator halted, comes back. A token-ceiling halt is
+ * final (canon_session_final).
+ */
+export function canonReopenBlocked(
+	session: Pick<CanonSession, "status" | "haltReason">,
+): string | undefined {
+	if (session.status === "open") return "This chat is already open.";
+	if (
+		session.status === "halted" &&
+		session.haltReason === "token_hard_ceiling"
+	)
+		return "It reached its hard token limit, so it can't be reopened. Start a new chat.";
+	return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Messages and steps: read whole from seq 0, then only what follows the
+// last seq held.
+
+/**
+ * Messages and steps only append, in seq order, so a re-read starts after
+ * the last one held instead of downloading the thread again each turn.
+ */
+async function readAfterSeq<T extends { seq: number }>(
+	held: readonly T[],
+	page: (afterSeq: number) => Promise<{ data: T[]; meta: { lastSeq: number } }>,
+): Promise<T[]> {
+	const rows: T[] = [...held];
+	let afterSeq = held.at(-1)?.seq ?? 0;
+	// A page at a time; a session ends far before this many pages.
+	for (let i = 0; i < 50; i++) {
+		const next = await page(afterSeq);
+		rows.push(...next.data);
+		const last = next.data.at(-1)?.seq ?? afterSeq;
+		if (next.data.length === 0 || last >= next.meta.lastSeq) break;
+		afterSeq = last;
+	}
+	return rows;
+}
 
 export function canonMessagesQuery(
 	api: ApiClient,
@@ -241,27 +478,55 @@ export function canonMessagesQuery(
 	const queryKey = queryKeys.canon.messages(sessionId);
 	return queryOptions({
 		queryKey,
-		queryFn: async (): Promise<CanonMessage[]> => {
-			// Messages only append, in seq order, so a re-read starts after the
-			// last one held instead of downloading the thread again each turn.
-			const held = queryClient?.getQueryData<CanonMessage[]>(queryKey) ?? [];
-			const messages: CanonMessage[] = [...held];
-			let afterSeq = held.at(-1)?.seq ?? 0;
-			// 200 a page; a session ends far before this many pages.
-			for (let i = 0; i < 50; i++) {
-				const page = await callPage(contract.canon.listMessages, () =>
-					api.canon.listMessages({
-						params: { id: sessionId },
-						query: { afterSeq, limit: 200 },
-					}),
-				);
-				messages.push(...page.data);
-				const last = page.data.at(-1)?.seq ?? afterSeq;
-				if (page.data.length === 0 || last >= page.meta.lastSeq) break;
-				afterSeq = last;
-			}
-			return messages;
-		},
+		queryFn: (): Promise<CanonMessage[]> =>
+			readAfterSeq(
+				queryClient?.getQueryData<CanonMessage[]>(queryKey) ?? [],
+				(afterSeq) =>
+					callPage(contract.canon.listMessages, () =>
+						api.canon.listMessages({
+							params: { id: sessionId },
+							query: { afterSeq, limit: 200 },
+						}),
+					),
+			),
+	});
+}
+
+/** How often the steps are read while Canon is answering: the trace is live. */
+export const CANON_STEP_POLL_MS = 1_000;
+
+/**
+ * The run trace: the steps Canon's turns take, read after the last seq
+ * held, as messages are. One small read a second while a turn runs.
+ */
+export function canonStepsQuery(
+	api: ApiClient,
+	sessionId: string,
+	queryClient?: QueryClient,
+) {
+	const queryKey = queryKeys.canon.steps(sessionId);
+	return queryOptions({
+		queryKey,
+		queryFn: (): Promise<RunStep[]> =>
+			readAfterSeq(
+				queryClient?.getQueryData<RunStep[]>(queryKey) ?? [],
+				(afterSeq) =>
+					callPage(contract.canon.listSteps, () =>
+						api.canon.listSteps({
+							params: { id: sessionId },
+							query: { afterSeq, limit: 500 },
+						}),
+					),
+			),
+	});
+}
+
+/** A session's steps; `live` (Canon is answering) polls them every second. */
+export function useCanonSteps(sessionId: string | null, live: boolean) {
+	return useQuery({
+		...canonStepsQuery(useApiClient(), sessionId ?? "", useQueryClient()),
+		enabled: sessionId !== null,
+		refetchInterval: live ? CANON_STEP_POLL_MS : false,
 	});
 }
 
@@ -275,20 +540,43 @@ export function useCanonMessages(sessionId: string | null) {
 /** The most a message holds, as the server checks it. */
 export const CANON_MESSAGE_MAX = 20_000;
 
-export function usePostCanonMessage(sessionId: string) {
-	const api = useApiClient();
-	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: ({ key, body }: CanonAttempt<{ contentMd: string }>) =>
+/** The message and the mode it is sent in; mode defaults to the session's. */
+export type PostCanonMessageBody = z.input<
+	typeof contract.canon.postMessage.body
+>;
+
+/**
+ * One message to one session. `sessionId` in the attempt names a session
+ * made after the hook mounted (a new chat's first message).
+ */
+export type CanonPost = CanonAttempt<PostCanonMessageBody> & {
+	sessionId?: string;
+};
+
+export function postCanonMessageOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+	sessionId: string | null,
+) {
+	const target = (post: CanonPost) => post.sessionId ?? sessionId ?? "";
+	return {
+		mutationFn: (post: CanonPost) =>
 			call(contract.canon.postMessage, () =>
 				api.canon.postMessage({
-					params: { id: sessionId },
-					headers: { "idempotency-key": key },
-					body,
+					params: { id: target(post) },
+					headers: { "idempotency-key": post.key },
+					body: post.body,
 				}),
 			),
-		onSuccess: (message) => afterCanonPost(queryClient, sessionId, message),
-	});
+		onSuccess: (message: CanonMessage, post: CanonPost) =>
+			afterCanonPost(queryClient, target(post), message),
+	};
+}
+
+export function usePostCanonMessage(sessionId: string | null) {
+	return useMutation(
+		postCanonMessageOptions(useApiClient(), useQueryClient(), sessionId),
+	);
 }
 
 /** The operator's message shows at once; Canon's reply comes by poll. */

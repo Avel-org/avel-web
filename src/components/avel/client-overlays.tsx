@@ -3,7 +3,8 @@ import { type ReactNode, useState } from "react";
 import { ClientFormModal } from "./client-form";
 import { ClientStatusDialog } from "./client-status-dialog";
 import { EngagementCloseDialog } from "./engagement-close";
-import { EngagementFormModal } from "./engagement-form";
+import { EngagementEditModal, EngagementFormModal } from "./engagement-form";
+import { NewIntakeModal } from "./intake-new";
 
 /*
  * Every change to a client or its engagements, as modals (ruling 35), shared
@@ -19,6 +20,9 @@ export type ClientActions = {
 	onClose: (client: Client) => void;
 	onReopen: (client: Client) => void;
 	onCloseEngagement: (engagement: Pick<Engagement, "id" | "name">) => void;
+	onEditEngagement: (engagement: Engagement) => void;
+	/** A new intake, on the engagement when there is one. */
+	onNewIntake: (client: Client, engagement?: Engagement) => void;
 };
 
 type Overlay =
@@ -27,7 +31,9 @@ type Overlay =
 	| { kind: "edit-client"; client: Client }
 	| { kind: "client-status"; client: Client; to: "closed" | "active" }
 	| { kind: "new-engagement"; client: Client }
-	| { kind: "close-engagement"; engagement: Pick<Engagement, "id" | "name"> };
+	| { kind: "close-engagement"; engagement: Pick<Engagement, "id" | "name"> }
+	| { kind: "edit-engagement"; engagement: Engagement }
+	| { kind: "new-intake"; client: Client; engagementId?: string };
 
 /**
  * The actions and the modals they open. `onShowEngagements` is where a
@@ -55,6 +61,14 @@ export function useClientOverlays({
 			setOverlay({ kind: "client-status", client, to: "active" }),
 		onCloseEngagement: (engagement) =>
 			setOverlay({ kind: "close-engagement", engagement }),
+		onEditEngagement: (engagement) =>
+			setOverlay({ kind: "edit-engagement", engagement }),
+		onNewIntake: (client, engagement) =>
+			setOverlay({
+				kind: "new-intake",
+				client,
+				...(engagement ? { engagementId: engagement.id } : {}),
+			}),
 	};
 
 	const modals = (
@@ -79,6 +93,20 @@ export function useClientOverlays({
 				onOpenChange={onOpenChange}
 				onShowEngagements={onShowEngagements}
 			/>
+			<EngagementEditModal
+				engagement={
+					overlay.kind === "edit-engagement" ? overlay.engagement : null
+				}
+				onOpenChange={onOpenChange}
+			/>
+			{overlay.kind === "new-intake" ? (
+				<NewIntakeModal
+					open
+					client={overlay.client}
+					engagementId={overlay.engagementId}
+					onOpenChange={onOpenChange}
+				/>
+			) : null}
 			<EngagementCloseDialog
 				engagement={
 					overlay.kind === "close-engagement" ? overlay.engagement : null

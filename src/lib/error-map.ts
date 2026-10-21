@@ -413,7 +413,7 @@ export const PRECONDITION_COPY = {
 	skill_source_in_use: {
 		what: "Skills still come from this source.",
 		written: NOTHING_WRITTEN,
-		next: "Retire or move its skills first, then delete the source.",
+		next: "Move its skills to another source first. A retired skill keeps its source, so a source with one stays.",
 		retry: false,
 	},
 	// src/routes/skills.ts: grants or io shape sent that do not fit the skill's

@@ -75,13 +75,46 @@ describe("the Canon panel", () => {
 		expect(element(html, "canon-halt-reason")).toContain("hard token limit");
 		expect(html).not.toContain('data-testid="canon-composer"');
 		expect(element(html, "canon-open-submit")).toContain("Brief again");
+		// A token-ceiling halt is final: Reopen stays, disabled with why.
+		expect(tagOf(html, "canon-reopen")).toMatch(/\sdisabled=""/);
+		expect(html).toContain("hard token limit, so it can&#x27;t be reopened");
+		expect(html).toContain('data-testid="canon-archive"');
+	});
+
+	it("names the session, offers Rename and Archive, and badges its mode", async () => {
+		const html = await render(
+			<CanonPanel intakeId={INTAKE} />,
+			withSessions([session()]),
+		);
+		// Untitled: the first message stands in for the name.
+		expect(element(html, "canon-title")).toContain(">Message 1<");
+		expect(html).toContain('data-testid="canon-rename-open"');
+		expect(html).toContain('data-testid="canon-archive"');
+		expect(element(html, "canon-session-mode")).toContain(">Draft<");
+		// Every message is in the session's mode: none is tagged.
+		expect(html).not.toContain("canon-message-mode-");
+	});
+
+	it("reopens a closed session, and unarchives an archived one", async () => {
+		const closed = session({
+			status: "closed",
+			closedAt: "2026-10-19T10:00:00.000Z",
+			archivedAt: "2026-10-19T11:00:00.000Z",
+		});
+		const html = await render(
+			<CanonPanel intakeId={INTAKE} />,
+			withSessions([closed]),
+		);
+		expect(tagOf(html, "canon-reopen")).not.toMatch(/\sdisabled=""/);
+		expect(html).toContain('data-testid="canon-unarchive"');
+		expect(element(html, "canon-archived")).toContain("Archived");
 	});
 });
 
 describe("a session's header", () => {
 	it("says Canon is answering with the hollow pending glyph, and offers Halt, not Close", async () => {
 		const html = await render(
-			<SessionHeader session={session({ turn: "canon" })} intakeId={INTAKE} />,
+			<SessionHeader session={session({ turn: "canon" })} />,
 		);
 		const turn = element(html, "canon-turn");
 		expect(turn).toContain("Canon is answering");
@@ -94,9 +127,7 @@ describe("a session's header", () => {
 
 	it("draws the session's budget as a dispatch's: past the soft ceiling warns", async () => {
 		const over = session({ tokensUsed: 100_000 });
-		const html = await render(
-			<SessionHeader session={over} intakeId={INTAKE} />,
-		);
+		const html = await render(<SessionHeader session={over} />);
 		expect(tagOf(html, `canon-budget-fill-${SESSION}`)).toContain(
 			'data-tone="warn"',
 		);

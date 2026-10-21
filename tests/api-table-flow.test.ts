@@ -3,7 +3,7 @@ import { MutationObserver, QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import {
 	afterCanonPost,
-	afterCanonSession,
+	afterCanonSessionWrite,
 	afterMemory,
 	afterQuestion,
 } from "@/lib/api/canon";
@@ -13,13 +13,16 @@ import {
 	afterClientUpdated,
 	afterClientWrite,
 	afterEngagementClosed,
+	afterEngagementUpdated,
 	afterEngagementWrite,
 } from "@/lib/api/clients";
+import { afterConnectionCreated } from "@/lib/api/connections";
 import { afterDispatchCreated, afterDispatchMoved } from "@/lib/api/dispatches";
 import { afterGateRun, afterTriage } from "@/lib/api/gate";
 import { afterIntakeFileWrite } from "@/lib/api/intake-files";
 import {
 	approveIntakeOptions,
+	createIntakeOptions,
 	proposeIntakeOptions,
 	readRepoOptions,
 	rejectIntakeOptions,
@@ -41,6 +44,7 @@ import {
 } from "@/lib/api/playbooks";
 import { afterPresetApplied, afterPresetWrite } from "@/lib/api/presets";
 import { settleRosterWrite } from "@/lib/api/roster";
+import { afterSkillSourceWrite, afterSkillWrite } from "@/lib/api/skills";
 import {
 	READS,
 	type ReadName,
@@ -70,6 +74,7 @@ const REPORT = id(8);
 const DISPATCH = id(9);
 const RUN = id(10);
 const SESSION = id(11); // Canon session
+const CONNECTION = id(12);
 const SLUG = "template-booking";
 const MT = "template-booking";
 const NO_API = {} as ApiClient;
@@ -87,14 +92,18 @@ const KEY: Record<ReadName, readonly unknown[]> = {
 	"catalog.agentAccess": queryKeys.catalog.agentAccess(T),
 	"catalog.identityVersion": queryKeys.catalog.identityVersion(T, 1),
 	"catalog.identityVersions": queryKeys.catalog.identityVersions(T),
+	"catalog.identityVersionByRef":
+		queryKeys.catalog.identityVersionByRef("atlas@v1"),
 	"catalog.skills": queryKeys.catalog.skills(50),
 	"catalog.skill": queryKeys.catalog.skill(SLUG),
 	"catalog.skillSources": queryKeys.catalog.skillSources(50),
+	"catalog.skillSource": queryKeys.catalog.skillSource(id(12)),
 	"connections.list": queryKeys.connections.list(50),
 	"connections.byStatus": queryKeys.connections.byStatus(50, "active"),
 	"connections.statusCount": queryKeys.connections.statusCount("active"),
 	"connections.activeCount": queryKeys.connections.activeCount(E),
 	"connections.activeFor": queryKeys.connections.activeFor(E, 50),
+	"connections.detail": queryKeys.connections.detail(CONNECTION),
 	"clients.list": queryKeys.clients.list(50),
 	"clients.detail": queryKeys.clients.detail(C),
 	"engagements.byClient": queryKeys.engagements.byClient(C, 50),
@@ -115,6 +124,7 @@ const KEY: Record<ReadName, readonly unknown[]> = {
 	"missionLifecycle.readiness": queryKeys.missionLifecycle.readiness(M),
 	"dispatches.list": queryKeys.dispatches.list(M),
 	"dispatches.moving": queryKeys.dispatches.moving(M),
+	"dispatches.detail": queryKeys.dispatches.detail(M, DISPATCH),
 	"dispatches.reports": queryKeys.dispatches.reports(M),
 	"dispatches.report": queryKeys.dispatches.report(REPORT),
 	"dispatches.brief": queryKeys.dispatches.brief(DISPATCH),
@@ -133,6 +143,8 @@ const KEY: Record<ReadName, readonly unknown[]> = {
 	"templates.detail": queryKeys.templates.detail(SLUG),
 	"canon.sessions": queryKeys.canon.sessions(I),
 	"canon.session": queryKeys.canon.session(SESSION),
+	"canon.chats": queryKeys.canon.chats({ archived: false }),
+	"canon.steps": queryKeys.canon.steps(SESSION),
 	"canon.messages": queryKeys.canon.messages(SESSION),
 	"canon.questions": queryKeys.canon.questions(I),
 	"canon.memory": queryKeys.canon.memory(C),
@@ -153,15 +165,26 @@ async function observe(
 }
 
 const INTAKE = { id: I, engagementId: E, status: "approved" };
+/** A session write's answer: a client session on the intake above. */
+const CANON_SESSION = { id: SESSION, intakeId: I } as never;
 
 /** Each write's cache update, as its hook runs it on success. */
 const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	regenerateIdentity: (qc) => afterRegenerate(qc, { created: true }),
 	updateAgentTemplate: (qc) => afterAgentUpdate(qc),
+	createSkill: (qc) => afterSkillWrite(qc),
+	updateSkill: (qc) => afterSkillWrite(qc),
+	approveSkill: (qc) => afterSkillWrite(qc),
+	retireSkill: (qc) => afterSkillWrite(qc),
+	createSkillSource: (qc) => afterSkillSourceWrite(qc),
+	updateSkillSource: (qc) => afterSkillSourceWrite(qc),
+	removeSkillSource: (qc) => afterSkillSourceWrite(qc),
 	createClient: (qc) => afterClientWrite(qc),
 	updateClient: (qc) => afterClientUpdated(qc),
 	createEngagement: (qc) => afterEngagementWrite(qc),
+	updateEngagement: (qc) => afterEngagementUpdated(qc),
 	closeEngagement: (qc) => afterEngagementClosed(qc),
+	createConnection: (qc) => afterConnectionCreated(qc),
 	addRosterEntry: (qc) => settleRosterWrite(qc, M, (r) => r),
 	updateRosterEntry: (qc) => settleRosterWrite(qc, M, (r) => r),
 	removeRosterEntry: (qc) => settleRosterWrite(qc, M, (r) => r),
@@ -189,6 +212,13 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	dismissFinding: (qc) => afterTriage(qc, M),
 	uploadIntakeFile: (qc) => afterIntakeFileWrite(qc, I),
 	purgeIntakeFile: (qc) => afterIntakeFileWrite(qc, I),
+	createIntake: (qc) =>
+		observe(
+			qc,
+			createIntakeOptions(NO_API, qc),
+			{ engagementId: E, sourceMd: "x" },
+			INTAKE,
+		),
 	reviseIntake: (qc) =>
 		observe(qc, reviseIntakeOptions(NO_API, qc, I), {}, INTAKE),
 	proposeIntake: (qc) =>
@@ -198,9 +228,14 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 		observe(qc, rejectIntakeOptions(NO_API, qc, I), "why", INTAKE),
 	approveIntake: (qc) =>
 		observe(qc, approveIntakeOptions(NO_API, qc, I), {}, INTAKE),
-	openCanonSession: (qc) => afterCanonSession(qc, I, SESSION),
-	closeCanonSession: (qc) => afterCanonSession(qc, I, SESSION),
-	haltCanonSession: (qc) => afterCanonSession(qc, I, SESSION),
+	openCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
+	closeCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
+	haltCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
+	createCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
+	updateCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
+	reopenCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
+	archiveCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
+	unarchiveCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
 	postCanonMessage: (qc) =>
 		afterCanonPost(qc, SESSION, { id: "message" } as never),
 	answerCanonQuestion: (qc) => afterQuestion(qc, I),
@@ -277,6 +312,7 @@ const EXEMPT: Partial<Record<WriteName, Partial<Record<ReadName, string>>>> = {
 		"templates.list": PLAN_ONLY,
 		"templates.detail": PLAN_ONLY,
 	},
+	createIntake: { "missionPlans.detail": BEFORE_APPROVAL },
 	reviseIntake: { "missionPlans.detail": BEFORE_APPROVAL },
 	proposeIntake: { "missionPlans.detail": BEFORE_APPROVAL },
 	readRepo: { "missionPlans.detail": BEFORE_APPROVAL },
@@ -284,6 +320,9 @@ const EXEMPT: Partial<Record<WriteName, Partial<Record<ReadName, string>>>> = {
 	openCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
 	closeCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
 	haltCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
+	createCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
+	reopenCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
+	archiveCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
 	answerCanonQuestion: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
 	acknowledgeCanonQuestion: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
 	dismissCanonQuestion: { "missionPlans.detail": CANON_BEFORE_APPROVAL },

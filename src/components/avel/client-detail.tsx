@@ -222,6 +222,8 @@ function ClientPage({
 								client={client}
 								onNewEngagement={() => actions.onNewEngagement(client)}
 								onCloseEngagement={actions.onCloseEngagement}
+								onEditEngagement={actions.onEditEngagement}
+								onNewIntake={(e) => actions.onNewIntake(client, e)}
 							/>
 						</SectionPanel>
 						{/* What Canon and you remember about this client. */}
@@ -290,7 +292,10 @@ function ClientPage({
 				/>
 			</TabsContent>
 			<TabsContent value="intakes">
-				<ClientIntakes client={client} />
+				<ClientIntakes
+					client={client}
+					onNewIntake={() => actions.onNewIntake(client)}
+				/>
 			</TabsContent>
 			<TabsContent value="drive">
 				<div className="flex flex-col gap-4">
@@ -503,6 +508,8 @@ function ClientEngagements({
 				onShowAll={() => onActiveOnlyChange(false)}
 				onNewEngagement={() => actions.onNewEngagement(client)}
 				onCloseEngagement={actions.onCloseEngagement}
+				onEditEngagement={actions.onEditEngagement}
+				onNewIntake={(e) => actions.onNewIntake(client, e)}
 			/>
 		</SectionPanel>
 	);

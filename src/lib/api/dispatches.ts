@@ -111,6 +111,37 @@ export function useMissionDispatches(missionId: string) {
 	return useQuery(missionDispatchesQuery(useApiClient(), missionId));
 }
 
+export function dispatchQuery(api: ApiClient, missionId: string, id: string) {
+	return queryOptions({
+		queryKey: queryKeys.dispatches.detail(missionId, id),
+		queryFn: () =>
+			call(contract.dispatches.get, () =>
+				api.dispatches.get({ params: { id } }),
+			),
+		// Polls itself while it waits or runs, as the mission's list does, so
+		// an open dispatch stays live with no list behind it.
+		refetchInterval: (query) =>
+			pollWhile(query.state.data ? inMotion([query.state.data]) : false),
+	});
+}
+
+/**
+ * contract.dispatches.get: one dispatch, for the view that opens it. Seeded
+ * from the mission's list when that holds it, as old as the list's read, so
+ * nothing flashes; then it reads on its own, and works deep-linked.
+ */
+export function useDispatch(missionId: string, id: string) {
+	const queryClient = useQueryClient();
+	const listKey = queryKeys.dispatches.list(missionId);
+	return useQuery({
+		...dispatchQuery(useApiClient(), missionId, id),
+		initialData: () =>
+			queryClient.getQueryData<Dispatch[]>(listKey)?.find((d) => d.id === id),
+		initialDataUpdatedAt: () =>
+			queryClient.getQueryState(listKey)?.dataUpdatedAt,
+	});
+}
+
 /**
  * What is in motion across several missions, for the Missions dashboard.
  * There is no cross-mission dispatch route, so it reads each mission's
@@ -388,9 +419,8 @@ export function haltDispatchRequest(api: ApiClient, id: string) {
 /**
  * A started or halted dispatch changes lanes, moves the mission's spend,
  * files a report (a halt) and logs an activity row: the mission's detail
- * (its dispatches, reports and live reads under it), its agent's list
- * across missions and the log read again. No page reads one dispatch alone,
- * so there is no per-dispatch entry to refresh.
+ * (its dispatches, each one read alone, its reports and live reads, all
+ * under it), its agent's list across missions and the log read again.
  */
 export function afterDispatchMoved(
 	queryClient: QueryClient,
