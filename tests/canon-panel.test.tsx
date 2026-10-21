@@ -10,6 +10,7 @@ import {
 	OpenCanon,
 	SessionHeader,
 } from "@/components/avel/canon-panel";
+import { charactersLeft } from "@/components/avel/chat-composer";
 import { inline, Markdown, parseBlocks } from "@/components/avel/markdown";
 import { queryKeys } from "@/lib/api/keys";
 import {
@@ -166,11 +167,19 @@ describe("the thread", () => {
 });
 
 describe("the composer", () => {
-	it("sits still (no float) and counts against 20,000", async () => {
+	it("sits still (no float), caps at 20,000 and runs no count", async () => {
 		const html = await render(<CanonComposer session={session()} />);
 		expect(html).not.toContain('data-testid="chat-composer-float"');
-		expect(element(html, "canon-composer-count")).toContain("0 / 20,000");
+		expect(html).not.toContain("chat-composer-left");
 		expect(tagOf(html, "chat-composer-input")).toContain('maxLength="20000"');
+	});
+
+	it("says what is left only near the limit", () => {
+		expect(charactersLeft(0, 20_000)).toBeNull();
+		expect(charactersLeft(18_999, 20_000)).toBeNull();
+		expect(charactersLeft(19_000, 20_000)).toBe(1_000);
+		expect(charactersLeft(20_000, 20_000)).toBe(0);
+		expect(charactersLeft(5, undefined)).toBeNull();
 	});
 
 	it("holds Send while Canon is answering, with the reason", async () => {

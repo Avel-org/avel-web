@@ -115,10 +115,10 @@ describe("Home", () => {
 			start,
 			html.indexOf('data-testid="home-chat-dock"'),
 		);
-		// The prompt and its note share one group; the spacers bracket the
-		// group, so the prompt leads it and the flex-3 spacer follows it.
+		// Canon's mark, the prompt, its note and the suggestions share one
+		// group; the spacers bracket it, flex-2 above and flex-3 below.
 		expect(thread).toMatch(
-			/<div aria-hidden="true" class="flex-2"><\/div><div[^>]*><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p>[\s\S]*<\/p><\/div><div aria-hidden="true" class="flex-3"><\/div>/,
+			/<div aria-hidden="true" class="flex-2"><\/div><div[^>]*><span aria-hidden="true"[^>]*>[\s\S]*?<\/span><p[^>]*data-testid="home-chat-prompt"[^>]*>[^<]*<\/p>[\s\S]*<\/ul><\/div><div aria-hidden="true" class="flex-3"><\/div>/,
 		);
 	});
 

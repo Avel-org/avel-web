@@ -10,13 +10,16 @@ import {
 	useCanonSession,
 } from "@/lib/api/canon";
 import { useClient } from "@/lib/api/clients";
+import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { CanonSessionActions, CanonSessionTitle } from "./canon-chat-actions";
 import { CHAT_COLUMN, ChatsButton, COMPOSER_COLUMN } from "./canon-chat-layout";
 import { CanonModeBadge } from "./canon-chat-mode";
+import { ChatTile, shortAge } from "./canon-chat-rail";
 import { CanonComposer, CanonThread } from "./canon-panel";
+import { formatTokens, formatUsd } from "./dispatch-budget";
 import { Reason } from "./reason";
-import { StatusGlyph, StatusPill, type StatusTone } from "./status-pill";
+import { StatusGlyph, type StatusTone } from "./status-pill";
 import { ErrorState } from "./surface";
 
 /*
@@ -29,12 +32,28 @@ import { ErrorState } from "./surface";
 
 const STATUS: Record<
 	CanonSession["status"],
-	{ label: string; tone: StatusTone }
+	{ label: string; tone: StatusTone; ink: string }
 > = {
-	open: { label: "Open", tone: "pending" },
-	closed: { label: "Closed", tone: "stale" },
-	halted: { label: "Halted", tone: "block" },
+	open: { label: "Open", tone: "pending", ink: "text-gate-pending" },
+	closed: { label: "Closed", tone: "stale", ink: "text-gate-stale" },
+	halted: { label: "Halted", tone: "block", ink: "text-gate-block" },
 };
+
+/** When the chat started: "Started just now", "Started 2h ago", "Started Aug 1". */
+export function startedLabel(openedAt: string, now: number): string {
+	const age = shortAge(openedAt, now);
+	if (age === "now") return "Started just now";
+	return /^\d+[mhdw]$/.test(age) ? `Started ${age} ago` : `Started ${age}`;
+}
+
+/** The meta line's separator. */
+function Dot() {
+	return (
+		<span aria-hidden="true" className="text-text-subtle">
+			·
+		</span>
+	);
+}
 
 /** Why an ended chat takes no message, and what brings it back. */
 export function endedCopy(
@@ -61,6 +80,7 @@ export function CanonChatView({
 	onShowChats: () => void;
 }) {
 	const session = useCanonSession(sessionId);
+	const now = useNow();
 	const first = useCanonMessages(sessionId).data?.[0]?.contentMd ?? null;
 	if (session.status !== "success")
 		return (
@@ -86,38 +106,67 @@ export function CanonChatView({
 		<div data-testid="canon-chat" className="flex flex-1 flex-col">
 			<header
 				data-testid="canon-chat-header"
-				className="sticky top-(--topbar-height) z-(--z-raised) border-b border-border bg-card py-2"
+				data-answering={canonReplying(s) || undefined}
+				className="sticky top-(--topbar-height) z-(--z-raised) border-b border-border bg-card"
 			>
-				<div className={cn("flex flex-col gap-1.5", CHAT_COLUMN)}>
-					<div className="flex min-w-0 items-center gap-2">
-						<ChatsButton onClick={onShowChats} />
-						<CanonSessionTitle
-							session={s}
-							firstMessage={first}
-							className="flex-1"
-						/>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<ChatScope session={s} />
-						<CanonModeBadge mode={s.mode} data-testid="canon-session-mode" />
-						<StatusPill
-							size="sm"
-							tone={status.tone}
-							label={status.label}
-							data-testid="canon-status"
-						/>
-						{canonReplying(s) ? (
+				<div className={cn("flex items-start gap-3 py-3", CHAT_COLUMN)}>
+					<ChatsButton onClick={onShowChats} />
+					<ChatTile chat={s} size="md" />
+					<div className="flex min-w-0 flex-1 flex-col gap-1">
+						<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+							<CanonSessionTitle
+								session={s}
+								firstMessage={first}
+								className="min-w-40 flex-1"
+							/>
+							<CanonSessionActions session={s} quiet />
+						</div>
+						<p
+							data-testid="canon-chat-meta"
+							className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 type-caption text-text-muted"
+						>
 							<span
-								data-testid="canon-turn"
-								className="inline-flex items-center gap-1.5 type-small text-text-muted"
+								data-testid="canon-status"
+								data-status={s.status}
+								className="inline-flex items-center gap-1.5"
 							>
-								<StatusGlyph tone="pending" className="text-gate-pending" />
-								Canon is answering…
+								<StatusGlyph tone={status.tone} className={status.ink} />
+								{canonReplying(s) ? (
+									<span data-testid="canon-turn">Canon is answering…</span>
+								) : (
+									status.label
+								)}
 							</span>
-						) : null}
-						<CanonSessionActions session={s} className="ml-auto" />
+							<Dot />
+							<CanonModeBadge
+								mode={s.mode}
+								data-testid="canon-session-mode"
+								className="h-5 px-1.5"
+							/>
+							<Dot />
+							<ChatScope session={s} />
+							<Dot />
+							<span>{startedLabel(s.openedAt, now)}</span>
+							<Dot />
+							<span
+								data-testid="canon-chat-usage"
+								className="tabular-nums"
+								title={`${formatTokens(s.tokensUsed)} of ${formatTokens(s.tokenHardCeiling)} tokens`}
+							>
+								{`${formatTokens(s.tokensUsed)} tokens · ${formatUsd(s.spendUsd)}`}
+							</span>
+						</p>
 					</div>
 				</div>
+				{/* While Canon answers, a thin accent line breathes along the
+				    header's edge: the turn is live even when the trace is folded. */}
+				{canonReplying(s) ? (
+					<span
+						aria-hidden="true"
+						data-testid="canon-chat-live"
+						className="skeleton-pulse absolute inset-x-0 -bottom-px h-0.5 bg-accent"
+					/>
+				) : null}
 			</header>
 			<div
 				data-testid="canon-chat-thread"
@@ -161,10 +210,7 @@ export function CanonChatView({
 function ChatScope({ session }: { session: CanonSession }) {
 	if (!session.clientId)
 		return (
-			<span
-				data-testid="canon-chat-scope"
-				className="type-small text-text-muted"
-			>
+			<span data-testid="canon-chat-scope" className="text-text-muted">
 				Open chat
 			</span>
 		);
@@ -178,7 +224,7 @@ function ClientScope({ id }: { id: string }) {
 			to="/clients/$id"
 			params={{ id }}
 			data-testid="canon-chat-scope"
-			className="type-small text-text-muted underline decoration-border underline-offset-2 hover:text-text hover:decoration-current"
+			className="text-text-muted underline decoration-border underline-offset-2 hover:text-text hover:decoration-current"
 		>
 			{client.data?.name ?? "Client"}
 		</Link>

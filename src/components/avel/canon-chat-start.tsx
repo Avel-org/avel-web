@@ -1,4 +1,5 @@
 import type { CanonMode, CanonSession } from "avel-server/contract";
+import { Sparkles } from "lucide-react";
 import { useId, useState } from "react";
 import {
 	Select,
@@ -20,9 +21,12 @@ import { useClients } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
 import { useIsPreview } from "@/shell/auth-gate";
 import { CHAT_COLUMN, ChatsButton, COMPOSER_COLUMN } from "./canon-chat-layout";
-import { CANON_MODE_COPY, CanonModeSwitch } from "./canon-chat-mode";
+import {
+	CANON_MODE_COPY,
+	CANON_MODE_ICON,
+	CanonModeSwitch,
+} from "./canon-chat-mode";
 import { ChatComposer } from "./chat-composer";
-import { formatTokens } from "./dispatch-budget";
 import { ErrorState } from "./surface";
 
 /*
@@ -33,6 +37,25 @@ import { ErrorState } from "./surface";
  * so a send whose message failed keeps the session it made and posts into
  * that one when sent again, rather than opening a second, empty chat.
  */
+
+/**
+ * What to ask, by mode: a click puts it in the composer, never sends it.
+ * Fetch's read the command center's data; ask's only need what is written.
+ */
+export const CANON_SUGGESTIONS = {
+	ask: [
+		"Draft a kickoff checklist for a new client",
+		"How should I scope a booking app's first sprint?",
+		"Write a short status update for a client",
+		"When should a mission use a playbook?",
+	],
+	fetch: [
+		"Which missions need me right now?",
+		"What have we spent this week, by mission?",
+		"Show the open findings across missions",
+		"Which intakes are waiting for approval?",
+	],
+} as const satisfies Record<Exclude<CanonMode, "draft">, readonly string[]>;
 
 /** The client picker's "no client" choice: an open chat. */
 const OPEN = "open";
@@ -102,6 +125,12 @@ export function CanonChatStart({
 				</div>
 				<div aria-hidden="true" className="flex-2" />
 				<div className="flex w-full flex-col items-center gap-3 text-center">
+					<span
+						aria-hidden="true"
+						className="mb-1 grid size-12 place-items-center rounded-card border border-accent-line bg-accent-soft text-accent-text shadow-card [&_svg]:size-6"
+					>
+						<Sparkles />
+					</span>
 					<p
 						data-testid="home-chat-prompt"
 						className="type-display text-foreground"
@@ -115,6 +144,31 @@ export function CanonChatStart({
 						{CANON_MODE_COPY[mode].hint}
 						{clientId ? " Only this client's." : ""}
 					</p>
+					<ul
+						aria-label="Suggestions"
+						data-testid="home-chat-suggestions"
+						className="mt-4 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2"
+					>
+						{CANON_SUGGESTIONS[mode].map((suggestion) => {
+							const Icon = CANON_MODE_ICON[mode];
+							return (
+								<li key={suggestion}>
+									<button
+										type="button"
+										data-testid="home-chat-suggestion"
+										onClick={() => setText(suggestion)}
+										className="group/s flex h-full w-full items-start gap-2.5 rounded-card border border-border bg-app-panel px-3 py-2.5 text-left shadow-card transition-colors duration-(--duration-micro) ease-avel hover:border-accent-line hover:bg-accent-soft"
+									>
+										<Icon
+											aria-hidden="true"
+											className="mt-0.5 size-4 shrink-0 text-text-subtle group-hover/s:text-accent-text"
+										/>
+										<span className="type-small text-text">{suggestion}</span>
+									</button>
+								</li>
+							);
+						})}
+					</ul>
 				</div>
 				<div aria-hidden="true" className="flex-3" />
 			</div>
@@ -149,12 +203,6 @@ export function CanonChatStart({
 									onChange={setClientId}
 									disabledReason={sending ? "Sending" : undefined}
 								/>
-								<span
-									data-testid="canon-composer-count"
-									className="px-1 type-caption text-text-subtle tabular-nums max-sm:hidden"
-								>
-									{`${formatTokens(text.length)} / ${formatTokens(CANON_MESSAGE_MAX)}`}
-								</span>
 							</>
 						}
 					/>

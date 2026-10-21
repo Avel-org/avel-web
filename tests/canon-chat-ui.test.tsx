@@ -7,16 +7,27 @@ import {
 	canonChatTitle,
 	canonTitleProblem,
 } from "@/components/avel/canon-chat-actions";
-import { CanonModeSwitch } from "@/components/avel/canon-chat-mode";
+import {
+	CanonModeSwitch,
+	canonModeOptions,
+} from "@/components/avel/canon-chat-mode";
 import { formatCell, isUsdColumn } from "@/components/avel/canon-chat-parts";
-import { CanonChatRail } from "@/components/avel/canon-chat-rail";
-import { CanonChatStart } from "@/components/avel/canon-chat-start";
+import {
+	CanonChatRail,
+	chatGroups,
+	initialsOf,
+	shortAge,
+} from "@/components/avel/canon-chat-rail";
+import {
+	CANON_SUGGESTIONS,
+	CanonChatStart,
+} from "@/components/avel/canon-chat-start";
 import {
 	formatDuration,
 	stepsByTurn,
 	traceItems,
 } from "@/components/avel/canon-chat-trace";
-import { endedCopy } from "@/components/avel/canon-chat-view";
+import { endedCopy, startedLabel } from "@/components/avel/canon-chat-view";
 import { CanonMessageRow, CanonThread } from "@/components/avel/canon-panel";
 import { HomeChat } from "@/components/avel/home-chat";
 import { queryKeys } from "@/lib/api/keys";
@@ -57,20 +68,42 @@ const seedChat =
 		qc.setQueryData([...queryKeys.canon.steps(s.id)], steps);
 	};
 
-describe("the mode switch", () => {
-	it("offers ask and fetch on an open chat, and holds draft back with why", async () => {
-		const html = await render(
-			<CanonModeSwitch value="ask" hasIntake={false} onChange={noop} />,
-		);
-		expect(tagOf(html, "canon-mode-ask")).toContain('aria-pressed="true"');
-		expect(tagOf(html, "canon-mode-fetch")).not.toMatch(/\sdisabled=""/);
-		expect(tagOf(html, "canon-mode-draft")).toMatch(/\sdisabled=""/);
-		expect(reasonOf(html, "canon-mode-draft")).toBe(
-			"Draft needs an intake. Brief one from its intake page.",
-		);
+describe("the mode menu", () => {
+	it("offers ask and fetch on an open chat, and holds draft back with why", () => {
+		expect(canonModeOptions("ask", false)).toEqual([
+			{ mode: "ask", selected: true, blocked: undefined },
+			{ mode: "fetch", selected: false, blocked: undefined },
+			{
+				mode: "draft",
+				selected: false,
+				blocked: "Draft needs an intake. Brief one from its intake page.",
+			},
+		]);
 	});
 
-	it("offers draft on an intake's session, and never disables the mode in use", async () => {
+	it("offers draft on an intake's session, and never blocks the mode in use", () => {
+		expect(
+			canonModeOptions("draft", true).every((o) => o.blocked === undefined),
+		).toBe(true);
+		expect(canonModeOptions("draft", false)[2]).toEqual({
+			mode: "draft",
+			selected: true,
+			blocked: undefined,
+		});
+	});
+
+	it("names the mode in use on its trigger, a menu to open", async () => {
+		const html = await render(
+			<CanonModeSwitch value="fetch" hasIntake={false} onChange={noop} />,
+		);
+		const trigger = tagOf(html, "canon-mode");
+		expect(trigger).toContain('data-mode="fetch"');
+		expect(trigger).toContain('aria-haspopup="menu"');
+		expect(trigger).not.toMatch(/\sdisabled=""/);
+		expect(element(html, "canon-mode")).toContain("Fetch");
+	});
+
+	it("while it can't change, shows the mode in use and why, with no menu", async () => {
 		const html = await render(
 			<CanonModeSwitch
 				value="draft"
@@ -79,8 +112,52 @@ describe("the mode switch", () => {
 				onChange={noop}
 			/>,
 		);
-		expect(tagOf(html, "canon-mode-draft")).not.toMatch(/\sdisabled=""/);
-		expect(reasonOf(html, "canon-mode-ask")).toBe("Canon is answering");
+		expect(tagOf(html, "canon-mode")).toMatch(/\sdisabled=""/);
+		expect(tagOf(html, "canon-mode")).not.toContain("aria-haspopup");
+		expect(reasonOf(html, "canon-mode")).toBe("Canon is answering");
+	});
+});
+
+describe("the chat list", () => {
+	const NOW = Date.parse("2026-10-20T15:00:00");
+	const at = (iso: string) => ({ lastActivityAt: new Date(iso).toISOString() });
+
+	it("heads the chats by day, then by month, keeping the server's order", () => {
+		const groups = chatGroups(
+			[
+				at("2026-10-20T09:00:00"),
+				at("2026-10-20T01:00:00"),
+				at("2026-10-19T22:00:00"),
+				at("2026-10-15T12:00:00"),
+				at("2026-10-01T12:00:00"),
+				at("2026-08-02T12:00:00"),
+			],
+			NOW,
+		);
+		expect(groups.map((g) => [g.label, g.chats.length])).toEqual([
+			["Today", 2],
+			["Yesterday", 1],
+			["Previous 7 days", 1],
+			["Previous 30 days", 1],
+			["August 2026", 1],
+		]);
+	});
+
+	it("says how long ago in a row's corner, short", () => {
+		const t = (minutes: number) =>
+			new Date(NOW - minutes * 60_000).toISOString();
+		expect(shortAge(t(0), NOW)).toBe("now");
+		expect(shortAge(t(6), NOW)).toBe("6m");
+		expect(shortAge(t(125), NOW)).toBe("2h");
+		expect(shortAge(t(3 * 1440), NOW)).toBe("3d");
+		expect(shortAge(t(15 * 1440), NOW)).toBe("2w");
+		expect(shortAge(t(80 * 1440), NOW)).toBe("Aug 1");
+	});
+
+	it("marks a client chat with the client's initials", () => {
+		expect(initialsOf("Halvorsen & Pike")).toBe("HP");
+		expect(initialsOf("brightwater clinics group")).toBe("BC");
+		expect(initialsOf("Acme")).toBe("A");
 	});
 });
 
@@ -386,10 +463,13 @@ describe("a new chat", () => {
 		const html = await render(
 			<CanonChatStart onStarted={noop} onShowChats={noop} />,
 		);
-		expect(tagOf(html, "canon-mode-ask")).toContain('aria-pressed="true"');
-		expect(tagOf(html, "canon-mode-fetch")).not.toMatch(/\sdisabled=""/);
-		expect(tagOf(html, "canon-mode-draft")).toMatch(/\sdisabled=""/);
+		expect(tagOf(html, "canon-mode")).toContain('data-mode="ask"');
 		expect(element(html, "canon-chat-client")).toContain("No client");
+		// Ask's suggestions, each a button that fills the composer.
+		expect(element(html, "home-chat-suggestions")).toContain(
+			CANON_SUGGESTIONS.ask[0],
+		);
+		expect(tagOf(html, "home-chat-suggestion")).toContain('type="button"');
 		expect(html).toContain('data-testid="chat-composer-float"');
 	});
 });
@@ -403,6 +483,38 @@ describe("a chat on Home", () => {
 		expect(html).toContain('data-testid="canon-message-1"');
 		expect(html).toContain('data-testid="canon-mode"');
 		expect(html).not.toContain("home-chat-prompt");
+	});
+
+	it("heads a chat with its tile, status, mode, scope, start and usage", async () => {
+		const s = openChat({ title: "Spend", tokensUsed: 12_000, spendUsd: 0.42 });
+		const html = await render(<HomeChat chatId={SESSION} />, seedChat(s));
+		const meta = element(html, "canon-chat-meta");
+		expect(meta).toContain("Open");
+		expect(meta).toContain("Open chat");
+		expect(element(html, "canon-chat-usage")).toContain(
+			"12,000 tokens · $0.42",
+		);
+		// The header's actions are ghosts beside the title.
+		expect(tagOf(html, "canon-halt")).toContain('data-variant="ghost"');
+		expect(html).not.toContain('data-testid="canon-chat-live"');
+	});
+
+	it("says Canon is answering, and draws the live edge, while a turn runs", async () => {
+		const s = openChat({ turn: "canon" });
+		const html = await render(<HomeChat chatId={SESSION} />, seedChat(s));
+		expect(element(html, "canon-chat-meta")).toContain("Canon is answering");
+		expect(html).toContain('data-testid="canon-chat-live"');
+	});
+
+	it("says when a chat started, plainly", () => {
+		const now = Date.parse("2026-10-20T15:00:00.000Z");
+		expect(startedLabel("2026-10-20T15:00:00.000Z", now)).toBe(
+			"Started just now",
+		);
+		expect(startedLabel("2026-10-20T13:00:00.000Z", now)).toBe(
+			"Started 2h ago",
+		);
+		expect(startedLabel("2026-07-01T12:00:00.000Z", now)).toBe("Started Jul 1");
 	});
 
 	it("says why an ended chat takes no message, and what brings it back", async () => {

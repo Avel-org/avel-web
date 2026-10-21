@@ -32,7 +32,7 @@ export function HomeChat({
 			    as tall as the canvas below it, so its own list scrolls. */}
 			<aside
 				data-testid="home-chat-rail"
-				className="sticky top-(--topbar-height) hidden h-[calc(100dvh_-_var(--topbar-height)_-_2_*_var(--canvas-inset))] w-72 shrink-0 flex-col self-start overflow-y-auto border-r border-border p-3 md:flex"
+				className="sticky top-(--topbar-height) hidden h-[calc(100dvh_-_var(--topbar-height)_-_2_*_var(--canvas-inset))] w-72 shrink-0 flex-col self-start overflow-y-auto border-r border-border bg-app-band p-3 md:flex"
 			>
 				<CanonChatRail selectedId={chatId} />
 			</aside>

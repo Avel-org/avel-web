@@ -1,6 +1,9 @@
 import { ArrowUpIcon, ChevronDown, Globe, Paperclip } from "lucide-react";
 import { type ReactNode, useId } from "react";
+import { Kbd } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useShortcutLabel } from "@/shell/shortcut";
 
 /**
  * The Command Center chat composer (AVEL-DESIGN.md sections 5 and 10).
@@ -25,11 +28,27 @@ import { Button } from "@/components/ui/button";
  * can't send (signed out, nothing written, Canon answering), with the reason
  * in its tooltip and linked for screen readers (ruling 11).
  *
+ * No running count: a message is rarely long. Within LIMIT_NEAR characters
+ * of `maxLength` the row says how many are left, warn-toned near the end.
+ *
  * The tool row holds the operator's chosen tools: attach a file, choose a
  * model, search the web. None can act yet, because avel-server has no upload,
  * model list or search behind the chat, so each is real UI disabled by state
  * with its reason (ruling 11). `tools` replaces them, for when they are wired.
  */
+/** How close to the limit the remaining count appears. */
+const LIMIT_NEAR = 1_000;
+
+/** How many characters are left near the limit, else null. */
+export function charactersLeft(
+	length: number,
+	maxLength: number | undefined,
+): number | null {
+	if (maxLength === undefined) return null;
+	const left = maxLength - length;
+	return left <= LIMIT_NEAR ? left : null;
+}
+
 export function ChatComposer({
 	sendDisabledReason,
 	tools,
@@ -59,6 +78,8 @@ export function ChatComposer({
 	maxLength?: number;
 }) {
 	const inputId = useId();
+	const sendKey = useShortcutLabel("↵");
+	const left = charactersLeft(value?.length ?? 0, maxLength);
 	const send = () => {
 		if (sendDisabledReason === undefined && onSend) onSend();
 	};
@@ -90,7 +111,7 @@ export function ChatComposer({
 						send();
 					}
 				}}
-				className="field-sizing-content max-h-40 min-h-10 w-full resize-none bg-transparent px-2 py-1.5 type-body text-text placeholder:text-text-subtle"
+				className="field-sizing-content max-h-48 min-h-12 w-full resize-none bg-transparent px-2 py-1.5 type-body text-text placeholder:text-text-subtle"
 			/>
 			<div
 				data-testid="chat-composer-tool-row"
@@ -105,15 +126,37 @@ export function ChatComposer({
 				>
 					{tools ?? <ComposerTools />}
 				</div>
-				<Button
-					type="submit"
-					size="icon"
-					aria-label="Send"
-					data-testid="chat-composer-send"
-					disabledReason={sendDisabledReason}
-				>
-					<ArrowUpIcon aria-hidden="true" />
-				</Button>
+				<div className="flex shrink-0 items-center gap-2">
+					{left === null ? null : (
+						<span
+							data-testid="chat-composer-left"
+							className={cn(
+								"type-caption tabular-nums",
+								left <= 100 ? "text-gate-warn" : "text-text-subtle",
+							)}
+						>
+							{`${left.toLocaleString("en-US")} left`}
+						</span>
+					)}
+					{sendDisabledReason === undefined ? (
+						<span
+							aria-hidden="true"
+							data-testid="chat-composer-send-hint"
+							className="max-sm:hidden"
+						>
+							<Kbd>{sendKey}</Kbd>
+						</span>
+					) : null}
+					<Button
+						type="submit"
+						size="icon"
+						aria-label="Send"
+						data-testid="chat-composer-send"
+						disabledReason={sendDisabledReason}
+					>
+						<ArrowUpIcon aria-hidden="true" />
+					</Button>
+				</div>
 			</div>
 		</div>
 	);

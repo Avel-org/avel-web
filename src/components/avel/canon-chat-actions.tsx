@@ -193,11 +193,15 @@ export function CanonSessionTitle({
 /** Halt and Close while open; Reopen once ended; Archive or Unarchive. */
 export function CanonSessionActions({
 	session: s,
+	quiet = false,
 	className,
 }: {
 	session: CanonSession;
+	/** Ghost buttons, for a header that is already busy (Home's chat). */
+	quiet?: boolean;
 	className?: string;
 }) {
+	const look = quiet ? "ghost" : "outline";
 	const preview = useIsPreview();
 	const halt = useHaltCanonSession();
 	const close = useCloseCanonSession();
@@ -221,7 +225,7 @@ export function CanonSessionActions({
 					<>
 						<Button
 							type="button"
-							variant="outline"
+							variant={look}
 							size="sm"
 							data-testid="canon-halt"
 							disabledReason={signIn("halt Canon")}
@@ -232,7 +236,7 @@ export function CanonSessionActions({
 						</Button>
 						<Button
 							type="button"
-							variant="outline"
+							variant={look}
 							size="sm"
 							data-testid="canon-close"
 							disabledReason={
@@ -250,7 +254,7 @@ export function CanonSessionActions({
 				) : (
 					<Button
 						type="button"
-						variant="outline"
+						variant={look}
 						size="sm"
 						data-testid="canon-reopen"
 						disabledReason={signIn("reopen the session") ?? reopenBlocked}

@@ -554,12 +554,6 @@ export function CanonComposer({
 								}}
 							/>
 						) : null}
-						<span
-							data-testid="canon-composer-count"
-							className="px-1 type-caption text-text-subtle tabular-nums"
-						>
-							{`${formatTokens(text.length)} / ${formatTokens(CANON_MESSAGE_MAX)}`}
-						</span>
 					</>
 				}
 			/>
