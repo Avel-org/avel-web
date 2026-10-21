@@ -91,8 +91,39 @@ describe("Home", () => {
 		const rail = html.indexOf('data-testid="home-chat-rail"');
 		expect(rail).toBeGreaterThan(-1);
 		expect(rail).toBeLessThan(html.indexOf('data-testid="home-chat-thread"'));
-		expect(tagOf(html, "home-chat-rail")).toMatch(/\bhidden\b[^"]*\bmd:flex\b/);
+		expect(tagOf(html, "home-chat-rail")).toMatch(
+			/\bhidden\b[^"]*\bmd:block\b/,
+		);
 		expect(tagOf(html, "canon-chat-new")).toMatch(/href="\/"/);
+	});
+
+	it("sets the list apart as an inset bordered panel, not a hairline down the canvas", async () => {
+		const html = await renderPage("/");
+		const rail = tagOf(html, "home-chat-rail");
+		expect(rail).not.toMatch(/\bborder-r\b/);
+		// The panel holding the list: its own border and radius.
+		const panel = html.slice(
+			html.indexOf('data-testid="home-chat-rail"'),
+			html.indexOf('data-testid="canon-chat-rail"'),
+		);
+		expect(panel).toMatch(
+			/\brounded-card\b[^"]*\bborder\b[^"]*\bborder-border\b/,
+		);
+	});
+
+	it("shows the list by default, with Hide chats, and the strip that brings it back out of reach", async () => {
+		const html = await renderPage("/");
+		expect(tagOf(html, "home-chat-rail")).toContain('data-state="open"');
+		const hide = tagOf(html, "canon-chat-rail-hide");
+		expect(hide).toContain('aria-label="Hide chats"');
+		expect(hide).toContain('aria-expanded="true"');
+		const strip = tagOf(html, "home-chat-strip");
+		expect(strip).toMatch(/\binert=""/);
+		expect(strip).toMatch(/\bopacity-0\b/);
+		expect(tagOf(html, "home-chat-rail-show")).toContain(
+			'aria-label="Show chats"',
+		);
+		expect(tagOf(html, "home-chat-strip-new")).toMatch(/href="\/"/);
 	});
 
 	it("pins the composer below the thread, on the canvas surface", async () => {

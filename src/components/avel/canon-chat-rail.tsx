@@ -1,11 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { CanonSessionListItem } from "avel-server/contract";
-import { Archive, BotMessageSquare, MessagesSquare, Plus } from "lucide-react";
+import {
+	Archive,
+	BotMessageSquare,
+	MessagesSquare,
+	PanelLeftClose,
+	Plus,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { canonMessagesQuery, useCanonChats } from "@/lib/api/canon";
 import { useClient } from "@/lib/api/clients";
 import { useApiClient } from "@/lib/api/provider";
@@ -119,10 +130,13 @@ function useDebounced(value: string, ms: number): string {
 export function CanonChatRail({
 	selectedId,
 	onPick,
+	onHide,
 }: {
 	selectedId: string | null;
 	/** A row or New chat was followed: a drawer closes. */
 	onPick?: () => void;
+	/** Hides the list beside the chat. Absent in the drawer, which closes. */
+	onHide?: () => void;
 }) {
 	const [shelf, setShelf] = useState<Shelf>("active");
 	const [text, setText] = useState("");
@@ -164,6 +178,25 @@ export function CanonChatRail({
 						New chat
 					</Link>
 				</Button>
+				{onHide ? (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								data-testid="canon-chat-rail-hide"
+								aria-label="Hide chats"
+								aria-expanded={true}
+								className="-mr-1 text-text-subtle hover:text-text"
+								onClick={onHide}
+							>
+								<PanelLeftClose aria-hidden="true" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent side="bottom">Hide chats</TooltipContent>
+					</Tooltip>
+				) : null}
 			</div>
 			<SearchField
 				value={text}
