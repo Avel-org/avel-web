@@ -24,7 +24,11 @@ import {
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { InlineModals } from "@/components/avel/action-modal";
-import { GATE_DOCS } from "@/components/avel/playbook-gate-docs";
+import {
+	GATE_CHECKS,
+	GATE_DOCS,
+	unfedGateEffect,
+} from "@/components/avel/playbook-gate-docs";
 import {
 	fieldCheck,
 	ofType,
@@ -206,6 +210,22 @@ describe("the gate docs", () => {
 		expect(GATE_DOCS.alignment.source).toContain(
 			"CLIENT-CONTRACT-CONFORMANCE.md",
 		);
+	});
+
+	it("say what feeds each gate today, by file, and nothing for the unfed three", () => {
+		expect(Object.keys(GATE_CHECKS).sort()).toEqual([...GATES].sort());
+		const unfed = GATES.filter((g) => GATE_CHECKS[g] === null);
+		expect(unfed).toEqual(["phase1-close", "security", "rollback"]);
+		for (const g of GATES) {
+			const checks = GATE_CHECKS[g];
+			if (checks) expect(checks.source).toMatch(/src\/lib\/gate\//);
+		}
+	});
+
+	it("warn that an unfed mandatory gate blocks every run, and an unfed warn warns", () => {
+		expect(unfedGateEffect("mandatory")).toMatch(/blocks every gate run/);
+		expect(unfedGateEffect("mandatory")).toMatch(/no override clears it/);
+		expect(unfedGateEffect("warn")).toMatch(/warns on every gate run/);
 	});
 });
 
@@ -411,18 +431,22 @@ const text = (html: string) => html.replaceAll("<!-- -->", "");
 const PAGE = "/presets/playbooks/template-booking";
 
 describe("the builder's sections", () => {
-	it("quotes alignment's doc, and marks qa's meaning not built", async () => {
+	it("says what feeds each gate, and keeps alignment's doc beside it", async () => {
 		const html = await render(
 			PAGE,
 			...everything(preset([agent(ATLAS, ["A"])])),
 		);
 		const gates = element(html, "playbook-section-gates");
+		expect(text(element(gates, "playbook-gate-checks-alignment"))).toContain(
+			"Spec-check",
+		);
 		expect(text(element(gates, "playbook-gate-doc-alignment"))).toContain(
 			"Nothing verifies that claim.",
 		);
-		expect(tagOf(gates, "playbook-gate-doc-qa")).toContain(
-			'data-state="not-built"',
+		expect(text(element(gates, "playbook-gate-checks-qa"))).toContain(
+			"test-file checkpoint",
 		);
+		expect(gates).not.toContain('data-state="not-built"');
 	});
 
 	it("lists who can staff each wave, and flags a run wave no template declares", async () => {

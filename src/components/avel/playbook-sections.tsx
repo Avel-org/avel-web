@@ -33,7 +33,13 @@ import { MissionStatusPill } from "./mission-columns";
 import { missionDetailQuery, rowsOf, useMissionList } from "./mission-data";
 import { PanelFooter } from "./panel-footer";
 import { blockCopy, useCoherence, warningCopy } from "./playbook-coherence";
-import { GATE_DOCS, POLICY_DOCS, VOCABULARY_DOC } from "./playbook-gate-docs";
+import {
+	GATE_CHECKS,
+	GATE_DOCS,
+	POLICY_DOCS,
+	unfedGateEffect,
+	VOCABULARY_DOC,
+} from "./playbook-gate-docs";
 import { DELIVERABLE_LABEL, POLICY_LABEL } from "./playbook-list";
 import type { PlaybookDraft } from "./playbook-pipeline";
 import { SectionPanel } from "./section-panel";
@@ -42,7 +48,7 @@ import { ErrorState, Surface } from "./surface";
 
 /*
  * The builder's sections below the canvas (ruling 36): the gates with what
- * the docs say they check, the waves with who can staff them, the inputs a
+ * avel-server checks for each, the waves with who can staff them, the inputs a
  * mission must carry, the default preset's fit, and the missions of this
  * type. Each reads the draft where an edit changes the answer, and says
  * "unknown" where the contract cannot answer, never a guess.
@@ -75,7 +81,7 @@ function GatesSection({ draft }: { draft: PlaybookDraft }) {
 	return (
 		<SectionPanel
 			title="Gates"
-			description="Each gate this playbook declares, its policy, and what avel-server's docs say it checks."
+			description="Each gate this playbook declares, its policy, and what avel-server checks for it today. An open judge finding blocks any gate until it is triaged."
 			data-testid="playbook-section-gates"
 		>
 			{draft.gates.length === 0 ? (
@@ -84,6 +90,7 @@ function GatesSection({ draft }: { draft: PlaybookDraft }) {
 				<ul className="flex flex-col divide-y divide-border">
 					{draft.gates.map(({ gate, policy }) => {
 						const doc = GATE_DOCS[gate];
+						const checks = GATE_CHECKS[gate];
 						return (
 							<li
 								key={gate}
@@ -94,27 +101,54 @@ function GatesSection({ draft }: { draft: PlaybookDraft }) {
 								<span>
 									<Badge variant="outline">{POLICY_LABEL[policy]}</Badge>
 								</span>
-								{doc ? (
-									<blockquote
-										data-testid={`playbook-gate-doc-${gate}`}
-										className="flex flex-col gap-1 border-l border-border-strong pl-3"
-									>
-										<p className="type-small text-foreground">{doc.text}</p>
-										<cite className="type-caption not-italic text-text-subtle">
-											{doc.source}
-										</cite>
-									</blockquote>
-								) : (
-									<Surface
-										data-testid={`playbook-gate-doc-${gate}`}
-										notBuilt={{
-											title: "What this gate checks",
-											what: "avel-server's docs don't define this gate yet. Module 9, the gate, will: its findings and decide() say what passes.",
-											needs: [],
-											compact: true,
-										}}
-									/>
-								)}
+								<div className="flex min-w-0 flex-col gap-2">
+									{checks ? (
+										<blockquote
+											data-testid={`playbook-gate-checks-${gate}`}
+											className="flex flex-col gap-1 border-l border-border-strong pl-3"
+										>
+											<p className="type-small text-foreground">
+												{checks.text}
+											</p>
+											<cite className="type-caption not-italic text-text-subtle">
+												{checks.source}
+											</cite>
+										</blockquote>
+									) : (
+										<p
+											data-testid={`playbook-gate-unfed-${gate}`}
+											data-policy={policy}
+											className={cn(
+												"flex items-start gap-2 rounded-control border px-3 py-2 type-small",
+												policy === "mandatory"
+													? "border-gate-block-line bg-gate-block-soft text-foreground"
+													: "border-gate-warn-line bg-gate-warn-banner text-foreground",
+											)}
+										>
+											<StatusGlyph
+												tone={policy === "mandatory" ? "block" : "warn"}
+												className={cn(
+													"mt-0.5",
+													policy === "mandatory"
+														? "text-gate-block"
+														: "text-gate-warn",
+												)}
+											/>
+											{unfedGateEffect(policy)}
+										</p>
+									)}
+									{doc ? (
+										<blockquote
+											data-testid={`playbook-gate-doc-${gate}`}
+											className="flex flex-col gap-1 border-l border-border pl-3"
+										>
+											<p className="type-small text-text-muted">{doc.text}</p>
+											<cite className="type-caption not-italic text-text-subtle">
+												{doc.source}
+											</cite>
+										</blockquote>
+									) : null}
+								</div>
 							</li>
 						);
 					})}
