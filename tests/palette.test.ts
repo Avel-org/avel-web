@@ -77,6 +77,7 @@ const SURFACES = [
 	"app-well",
 	"app-field",
 	"field-fill",
+	"composer",
 	"app-raised",
 	"app-float",
 	"selected",
@@ -94,16 +95,14 @@ const INKS = [
 ];
 
 /**
- * v3's values as given that measure under 4.5:1. Reported to the operator
- * (2026-10-19), not fixed here: the palette is theirs to change.
+ * Pairs that measure under 4.5:1. Reported to the operator (2026-10-19), not
+ * fixed here: the palette is theirs to change. The solid surfaces
+ * (2026-10-21) deepened light's inks to clear the warm grey; subtle text on
+ * a light well or hover row stays short (4.3:1), as on v3's raised before.
  */
 const KNOWN_SHORT = {
-	light: [
-		"text-subtle on app-raised",
-		"accent-text on app-raised",
-		"gate-pass on app-raised",
-	],
-	dark: ["text-subtle on selected", "text-subtle on chip"],
+	light: ["text-subtle on app-well", "text-subtle on app-raised"],
+	dark: ["text-subtle on selected"],
 };
 
 describe("v3 contrast, from app.css", () => {
@@ -156,10 +155,12 @@ describe("v3 contrast, from app.css", () => {
 					contrast(color("focus-ring"), color(surface)),
 					`focus-ring on ${surface}`,
 				).toBeGreaterThanOrEqual(3);
-			// On the sidebar frame the light control edge measures 2.9:1. No
-			// control sits there today; reported, not fixed.
-			const onFrame = contrast(color("border-control"), color("app-bg"));
-			expect(onFrame >= 3, "border-control on app-bg").toBe(theme === "dark");
+			// One solid surface: the frame is the page, so a control edge
+			// clears 3:1 there too (light's was 2.9:1 on the old frame).
+			expect(
+				contrast(color("border-control"), color("app-bg")),
+				"border-control on app-bg",
+			).toBeGreaterThanOrEqual(3);
 		});
 	}
 
@@ -220,7 +221,7 @@ describe("v3 contrast, from app.css", () => {
 			).toBeGreaterThanOrEqual(3);
 		// The old shared halo was 0.32 of the pale ring.
 		expect(parse(dark.get("field-halo") ?? "")[3]).toBeLessThanOrEqual(0.2);
-		// Light keeps its look: white when focused, the shared ring.
+		// Light lifts to the checkbox fill when focused, in the shared ring.
 		expect(light.get("field-fill-focus")).toBe(light.get("app-field"));
 		expect(light.get("field-focus")).toBe(light.get("focus-ring"));
 	});

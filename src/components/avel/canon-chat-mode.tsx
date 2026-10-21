@@ -128,7 +128,7 @@ export function CanonModeSwitch({
 			aria-label={`Mode: ${CANON_MODE_COPY[value].label}`}
 			disabledReason={disabledReason}
 			className={cn(
-				"gap-1.5 border-border bg-app-panel pr-2 pl-2.5 text-text shadow-btn disabled:bg-app-panel disabled:text-text-muted",
+				"h-7 gap-1.5 border-border bg-composer-chip pr-2 pl-2.5 text-text shadow-none hover:bg-app-raised disabled:bg-composer-chip disabled:text-text-muted",
 				className,
 			)}
 		>

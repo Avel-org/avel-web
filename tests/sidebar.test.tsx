@@ -475,7 +475,8 @@ describe("the canvas (ruling 17)", () => {
 		expect(shell).toMatch(/\bh-dvh overflow-hidden\b/);
 		expect(shell).toContain("pt-[env(safe-area-inset-top)]");
 		const canvas = tag(html, "canvas");
-		expect(canvas).toContain("overflow-hidden bg-app-panel");
+		// The page, not a card: cards sit a hair above it.
+		expect(canvas).toContain("overflow-hidden bg-app-page");
 		expect(canvas).toContain("md:shadow-card");
 		expect(canvas).toContain("md:rounded-dialog");
 		// Inset on all four sides (ruling 17): with no left inset the canvas's

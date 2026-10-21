@@ -182,7 +182,7 @@ export function CanonChatStart({
 			</div>
 			<div
 				data-testid="home-chat-dock"
-				className="sticky bottom-0 bg-card pt-2 pb-10"
+				className="sticky bottom-0 bg-app-page pt-2 pb-10"
 			>
 				<div
 					data-testid="home-chat-composer-column"
@@ -252,7 +252,7 @@ function ClientPicker({
 					id={id}
 					size="sm"
 					data-testid="canon-chat-client"
-					className="h-7 max-w-44 border-transparent bg-transparent shadow-none"
+					className="h-7 max-w-44 border-border bg-composer-chip shadow-none hover:bg-app-raised"
 				>
 					<SelectValue>{chosen ? chosen.name : "No client"}</SelectValue>
 				</SelectTrigger>

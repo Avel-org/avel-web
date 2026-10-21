@@ -107,7 +107,7 @@ export function CanonChatView({
 			<header
 				data-testid="canon-chat-header"
 				data-answering={canonReplying(s) || undefined}
-				className="sticky top-(--topbar-height) z-(--z-raised) border-b border-border bg-card"
+				className="sticky top-(--topbar-height) z-(--z-raised) border-b border-border bg-app-page"
 			>
 				<div className={cn("flex items-start gap-3 py-3", CHAT_COLUMN)}>
 					<ChatsButton onClick={onShowChats} />
@@ -176,7 +176,7 @@ export function CanonChatView({
 			</div>
 			<div
 				data-testid="home-chat-dock"
-				className="sticky bottom-0 bg-card pt-2 pb-10"
+				className="sticky bottom-0 bg-app-page pt-2 pb-10"
 			>
 				<div
 					data-testid="home-chat-composer-column"

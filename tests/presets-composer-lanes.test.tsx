@@ -52,16 +52,17 @@ const lane = (props: Partial<Parameters<typeof WaveLane>[0]> = {}): string =>
 	);
 
 describe("a wave lane as a drop zone", () => {
-	it("is the whole lane, full height, a v3 card at rest", () => {
+	it("is the whole lane, full height, a well at rest that its chips sit above", () => {
 		const tag = tagOf(lane(), "preset-kanban-wave-B");
 		for (const cls of [
 			// As tall as its chips and one slot, 9rem at least: content height.
 			"min-h-36",
 			"rounded-card",
 			"border-border",
-			"bg-app-panel",
+			"bg-app-well",
 		])
 			expect(tag).toContain(cls);
+		expect(tag).not.toContain("shadow-card");
 		expect(tag).not.toContain("data-over");
 	});
 

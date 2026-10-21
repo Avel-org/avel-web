@@ -142,7 +142,7 @@ describe("Home", () => {
 		const classes = tagOf(html, "home-chat-dock");
 		expect(classes).toMatch(/\bsticky\b/);
 		expect(classes).toMatch(/\bbottom-0\b/);
-		expect(classes).toMatch(/\bbg-card\b/);
+		expect(classes).toMatch(/\bbg-app-page\b/);
 	});
 
 	it("sets the prompt at the optical centre: two parts above, three below", async () => {
@@ -236,14 +236,14 @@ describe("the chat composer", () => {
 		expect(input).toMatch(/\bbg-transparent\b/);
 	});
 
-	it("is a v3 card on the field surface, at body size, with room around its contents", () => {
+	it("is a v3 card on its own composer surface, at body size, with room around its contents", () => {
 		const pill = tagOf(html, "chat-composer-pill");
 		for (const cls of [
 			"rounded-dialog",
 			"border",
-			"border-border",
-			"bg-app-field",
-			"shadow-card",
+			"border-composer-edge",
+			"bg-composer",
+			"shadow-composer",
 			"p-3",
 		]) {
 			expect(pill).toMatch(new RegExp(`(?:"|\\s)${cls}(?:"|\\s)`));
@@ -291,8 +291,45 @@ describe("the chat composer", () => {
 		const glow = tagOf(html, "chat-composer-glow");
 		expect(glow).toMatch(/\sopacity-80\s/);
 		expect(glow).toContain("motion-reduce:opacity-50");
-		expect(glow).toContain("in-[.dark]:opacity-55");
-		expect(glow).toContain("in-[.dark]:motion-reduce:opacity-35");
+		// Narrower and quieter in dark, where a wide glow hazes the solid page.
+		expect(glow).toContain(
+			"in-[.dark]:inset-x-[18%] in-[.dark]:opacity-30 in-[.dark]:motion-reduce:opacity-20",
+		);
+	});
+
+	it("raises the composer above the page in both themes, lit along its top in dark", () => {
+		const css = readFileSync(
+			new URL("../src/styles/app.css", import.meta.url),
+			"utf8",
+		);
+		const start = css.indexOf(".dark {");
+		const dark = css.slice(start, css.indexOf("\n}", start));
+		const light = css.slice(0, start);
+		// A hair above the page in both, never white or pitch black (the old
+		// near-black field sank it in dark).
+		const hex = (block: string, token: string) =>
+			Number.parseInt(
+				new RegExp(`--color-${token}: #([0-9a-f]{6});`).exec(block)?.[1] ?? "0",
+				16,
+			) & 255;
+		for (const theme of [light, dark]) {
+			expect(hex(theme, "composer")).toBeGreaterThan(hex(theme, "app-page"));
+			expect(hex(theme, "composer")).toBeLessThan(255);
+		}
+		expect(dark).toMatch(
+			/--shadow-composer:\s*inset 0 1px 0 rgb\(255 255 255 \/ [\d.]+\)/,
+		);
+	});
+
+	it("draws Ask and the client picker as one pair of quiet chips", async () => {
+		const start = await renderPage("/");
+		const mode = tagOf(start, "canon-mode");
+		const client = tagOf(start, "canon-chat-client");
+		for (const chip of [mode, client]) {
+			expect(chip).toContain("h-7");
+			for (const cls of ["border-border", "bg-composer-chip", "shadow-none"])
+				expect(chip).toMatch(new RegExp(`\\s${cls}(?:"|\\s)`));
+		}
 	});
 
 	it("draws the float and the glow from app.css: a 4s float, the pulse half a period ahead", () => {

@@ -33,45 +33,53 @@
 	--font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 	--font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
 
-	/* Surfaces */
-	--color-app-canvas: #ededed; /* behind the app frame */
-	--color-app-bg: #f5f5f5; /* sidebar, frame */
-	--color-app-panel: #ffffff; /* content, cards, dialogs */
-	--color-app-band: #f9f9f9; /* dialog footer, table header */
-	--color-app-well: #f8f8f9; /* summary boxes inside panels and dialogs */
-	--color-app-field: #ffffff; /* checkbox, radio, the chat composer */
-	/* A text field at rest is filled, a step below the panel, with a quiet
+	/* Surfaces (operator, 2026-10-21): one solid warm grey for the frame,
+	   sidebar, page and bands. Components sit a hair above it and never
+	   white, which glared; wells and hovers sit a step below. Hairlines,
+	   not colour jumps, part one surface from the next. */
+	--color-app-canvas: #f1efee; /* behind the app frame */
+	--color-app-bg: #f1efee; /* sidebar, frame */
+	--color-app-page: #f1efee; /* the canvas the pages sit on */
+	--color-app-panel: #f4f3f1; /* content, cards, dialogs */
+	--color-app-band: #f1efee; /* dialog footer, table header */
+	--color-app-well: #e9e7e6; /* summary boxes inside panels and dialogs */
+	--color-app-field: #f8f7f6; /* checkbox, radio */
+	/* The chat composer, a box above the page, and its tool chips. */
+	--color-composer: #f6f5f3;
+	--color-composer-edge: #e6e4e2;
+	--color-composer-chip: rgb(16 24 40 / 0.035);
+	/* A text field at rest is filled a hair above the grey, with a quiet
 	   edge and a hairline of inset shade, so it reads as a place to type and
-	   not a bare box; focused, it lifts to the panel and takes the ring. */
-	--color-field-fill: #f8f8f9;
+	   not a bare box; focused, it lifts a touch more and takes the ring. */
+	--color-field-fill: #f6f5f3;
 	--color-field-edge: rgb(16 24 40 / 0.09);
 	--color-field-edge-hover: rgb(16 24 40 / 0.2);
-	--color-field-fill-focus: #ffffff;
+	--color-field-fill-focus: #f8f7f6;
 	--color-field-focus: #2f86e6;
 	--color-field-halo: rgb(
 		75 155 242 / 0.3
 	); /* the soft halo around a focused field */
-	--color-app-raised: #f2f2f3; /* hover row, pressed control */
-	--color-app-float: #ffffff; /* popover, menu, dialog */
-	--color-skeleton: #ececee;
-	--color-chip: #ffffff; /* the selected chip above its track: segmented, nav */
+	--color-app-raised: #e9e7e6; /* hover row, pressed control */
+	--color-app-float: #f6f5f3; /* popover, menu, dialog */
+	--color-skeleton: #e6e4e2;
+	--color-chip: #f8f7f6; /* the selected chip above its track: segmented, nav */
 
 	/* Text. Muted is 5.2:1 and subtle 4.5:1 on app-bg. */
 	--color-text: #111214;
 	--color-text-muted: #66666d;
-	--color-text-subtle: #707077;
+	--color-text-subtle: #6b6b72;
 	--color-text-on-solid: #ffffff;
 
 	/* Lines. Control is the unchecked edge of a checkbox, radio or switch,
 	   held at 3:1. */
-	--color-border: #ebebec;
-	--color-border-strong: #dfdfe2;
-	--color-border-control: #8f8f97;
+	--color-border: #e6e4e2;
+	--color-border-strong: #dddcda;
+	--color-border-control: #87878f; /* 3:1 on the warm grey page */
 
 	/* Accent: what the operator can act on (focus, selection, the primary
 	   action, links). Machine states never use it (audit D3). */
 	--color-accent: #4b9bf2;
-	--color-accent-text: #1d6fd0; /* 5.0:1 on panel, 4.6:1 on accent-soft */
+	--color-accent-text: #1963bd;
 	--color-accent-soft: #eef6ff;
 	--color-accent-line: #b9d8fa;
 	--color-focus-ring: #2f86e6; /* the 2px ring on every focusable control, 3.7:1 */
@@ -113,11 +121,11 @@
 	   edge). Where v3 names no line, it is the solid at 35%, the rule the
 	   previous palette kept. Stale is pending's neutral grey, told apart by
 	   its broken ring (audit D2). */
-	--color-gate-pass: #1b7f55;
+	--color-gate-pass: #18744d;
 	--color-gate-pass-solid: #1f9d63;
 	--color-gate-pass-soft: #e9f8f1;
 	--color-gate-pass-line: rgb(31 157 99 / 0.35);
-	--color-gate-block: #c0392f;
+	--color-gate-block: #b8352b;
 	--color-gate-block-solid: #d64a3e;
 	--color-gate-block-soft: #fdeeee;
 	--color-gate-block-line: #f3c9c6;
@@ -159,6 +167,8 @@
 		0 24px 56px -12px rgb(16 24 40 / 0.22);
 	--shadow-drag: 0 10px 28px rgb(16 24 40 / 0.12);
 	--shadow-field: inset 0 1px 2px rgb(16 24 40 / 0.05);
+	--shadow-composer:
+		0 1px 2px rgb(16 24 40 / 0.04), 0 1px 1px rgb(16 24 40 / 0.02);
 
 	--z-raised: 10;
 	--z-dock: 200;
@@ -210,12 +220,21 @@
  * surface step and border, not shadow.
  */
 .dark {
-	--color-app-canvas: #09090b;
-	--color-app-bg: #0f1013;
-	--color-app-panel: #16171a;
-	--color-app-band: #1a1b1f;
-	--color-app-well: #1c1d21;
-	--color-app-field: #121316;
+	/* One solid neutral grey (operator, 2026-10-21) for the frame, sidebar,
+	   page and bands. Components a hair above it, wells a hair below:
+	   nothing pitch black, nothing stark. The accent is the only colour. */
+	--color-app-canvas: #141414;
+	--color-app-bg: #141414;
+	--color-app-page: #141414;
+	--color-app-panel: #181818;
+	--color-app-band: #141414;
+	--color-app-well: #101010;
+	--color-app-field: #111111;
+	/* The composer sits a step above the page, lit along its top edge; the
+	   near-black field fill sank it below the page. */
+	--color-composer: #1c1c1c;
+	--color-composer-edge: rgb(255 255 255 / 0.1);
+	--color-composer-chip: rgb(255 255 255 / 0.04);
 	/* A field is a faint white lift over whatever it sits on, so it reads
 	   the same on the panel, the band and a popover. An opaque near-black
 	   fill sank into a pit, deepest inside a menu. Focused, a mid blue edge
@@ -227,18 +246,18 @@
 	--color-field-fill-focus: rgb(255 255 255 / 0.05);
 	--color-field-focus: #4a94e8;
 	--color-field-halo: rgb(74 148 232 / 0.2);
-	--color-app-raised: #222327;
-	--color-app-float: #1d1e22;
-	--color-skeleton: #24252a;
-	--color-chip: #2c2d32;
+	--color-app-raised: #222222;
+	--color-app-float: #1c1c1c;
+	--color-skeleton: #222222;
+	--color-chip: #262626;
 
 	--color-text: #ededee;
 	--color-text-muted: #a3a3aa;
-	--color-text-subtle: #8c8c94;
+	--color-text-subtle: #8f8f97;
 
 	--color-border: rgb(255 255 255 / 0.08);
 	--color-border-strong: rgb(255 255 255 / 0.14);
-	--color-border-control: #6b6b73;
+	--color-border-control: #6e6e76;
 
 	--color-accent: #74b8fc;
 	--color-accent-text: #8cc4fd;
@@ -292,6 +311,9 @@
 		0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 56px -12px rgb(0 0 0 / 0.6);
 	--shadow-drag: 0 10px 28px rgb(0 0 0 / 0.5);
 	--shadow-field: inset 0 1px 1px rgb(0 0 0 / 0.2);
+	--shadow-composer:
+		inset 0 1px 0 rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.4),
+		0 18px 40px -18px rgb(0 0 0 / 0.85);
 
 	color-scheme: dark;
 }
@@ -434,8 +456,8 @@
 }
 
 /*
- * A text field's box. At rest filled a step off its surface (below it in
- * light, a faint lift in dark), with a quiet edge and a hairline of inset
+ * A text field's box. At rest filled a hair above its surface (a warm
+ * off-white in light, a faint white lift in dark), with a quiet edge and a hairline of inset
  * shade; hovered, the edge firms; focused, it lifts with a solid 1px ring in
  * the field's focus colour and a soft halo (v3 UX 2), drawn here because
  * inputs carry no outline; invalid, the
@@ -522,7 +544,7 @@ body {
    dark operator sees the light canvas wherever the page overscrolls. */
 html:has(.app.dark),
 html:has(.app.dark) body {
-	background: #09090b;
+	background: #141414;
 }
 
 /* Body text is 14/20. On body only: the root keeps the browser's 16px, which

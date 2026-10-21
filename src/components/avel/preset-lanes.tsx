@@ -291,7 +291,7 @@ export function WaveLane({
 					? "border-selected-border bg-selected"
 					: holding && chips.some((c) => c.uid === selectedUid)
 						? "border-border bg-selected"
-						: "border-border bg-app-panel shadow-card",
+						: "border-border bg-app-well",
 			)}
 		>
 			{/* One line: the wave, its count, the glyph. Two facts, two

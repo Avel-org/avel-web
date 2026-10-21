@@ -94,7 +94,7 @@ export function Page(props: PageProps) {
 			<header
 				data-testid="topbar"
 				data-scrolled={scrolled.value || undefined}
-				className="sticky top-0 z-(--z-raised) h-(--topbar-height) shrink-0 border-b border-transparent bg-app-panel transition-colors duration-(--duration-micro) ease-avel data-scrolled:border-border"
+				className="sticky top-0 z-(--z-raised) h-(--topbar-height) shrink-0 border-b border-transparent bg-app-page transition-colors duration-(--duration-micro) ease-avel data-scrolled:border-border"
 			>
 				<div
 					data-testid="topbar-row"

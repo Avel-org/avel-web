@@ -66,9 +66,9 @@ describe("the top bar", () => {
 		expect(bar).not.toContain("min-h-16");
 	});
 
-	it("paints the canvas surface, so content scrolls under it unseen", async () => {
+	it("paints the page surface, so content scrolls under it unseen", async () => {
 		expect(classesOf(await renderPage("/clients"), "topbar")).toContain(
-			"bg-app-panel",
+			"bg-app-page",
 		);
 	});
 

@@ -9,15 +9,18 @@ import { useShortcutLabel } from "@/shell/shortcut";
  * The Command Center chat composer (AVEL-DESIGN.md sections 5 and 10).
  *
  * One box with two rows: the message on top, then a tool row with the tools
- * on the left and Send on the right. It is a v3 card on the field surface,
- * at the dialog radius so the two rows read as one large input.
+ * on the left and Send on the right. It is a v3 card on its own composer
+ * surface, a step above the page in both themes (in dark, lit along its top
+ * edge: the near-black field fill sank it below the page), at the dialog
+ * radius so the two rows read as one large input.
  *
  * At rest the composer floats, and a baby blue accent glow under it pulses
  * in step (rulings 21 and 23, restored by the operator). The float is on a
  * wrapper holding both the box and the glow, so they rise together and
  * pause together while anything inside has focus: text never moves under
  * the caret, and a keyboard user never chases a moving button. The glow is
- * stronger in light, where the accent reads fainter on white. Under reduced
+ * stronger in light, where the accent reads fainter on white; in dark it is
+ * narrower and quieter, or it hazes the solid page. Under reduced
  * motion both stop, and the glow stays as a soft static shadow.
  *
  * Clicking or focusing the field draws nothing: no ring, no border step, no
@@ -86,7 +89,7 @@ export function ChatComposer({
 	const pill = (
 		<div
 			data-testid="chat-composer-pill"
-			className="flex flex-col gap-2 rounded-dialog border border-border bg-app-field p-3 shadow-card"
+			className="flex flex-col gap-2 rounded-dialog border border-composer-edge bg-composer p-3 shadow-composer"
 		>
 			<label htmlFor={inputId} className="sr-only">
 				{label}
@@ -176,7 +179,7 @@ export function ChatComposer({
 					<div
 						aria-hidden="true"
 						data-testid="chat-composer-glow"
-						className="pointer-events-none absolute inset-x-[10%] top-3 -bottom-3 -z-10 opacity-80 motion-reduce:opacity-50 in-[.dark]:opacity-55 in-[.dark]:motion-reduce:opacity-35"
+						className="pointer-events-none absolute inset-x-[10%] top-3 -bottom-3 -z-10 opacity-80 motion-reduce:opacity-50 in-[.dark]:inset-x-[18%] in-[.dark]:opacity-30 in-[.dark]:motion-reduce:opacity-20"
 					>
 						<div
 							data-testid="chat-composer-glow-pulse"

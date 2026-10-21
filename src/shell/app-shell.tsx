@@ -169,7 +169,7 @@ function Shell({ children }: { children: ReactNode }) {
 						// The rounded clip: a v3 panel on the frame, at the dialog
 						// radius. The scroller sits inside it, so the scrollbar and
 						// the sticky top bar never cut the corners.
-						className="flex min-w-0 flex-1 flex-col overflow-hidden bg-app-panel md:m-(--canvas-inset) md:rounded-dialog md:border md:border-border md:shadow-card"
+						className="flex min-w-0 flex-1 flex-col overflow-hidden bg-app-page md:m-(--canvas-inset) md:rounded-dialog md:border md:border-border md:shadow-card"
 					>
 						<main
 							id="main"
