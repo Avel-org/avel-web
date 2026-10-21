@@ -1,5 +1,5 @@
 import type { CanonMode, CanonSession } from "avel-server/contract";
-import { Sparkles } from "lucide-react";
+import { BotMessageSquare } from "lucide-react";
 import { useId, useState } from "react";
 import {
 	Select,
@@ -129,7 +129,7 @@ export function CanonChatStart({
 						aria-hidden="true"
 						className="mb-1 grid size-12 place-items-center rounded-card border border-accent-line bg-accent-soft text-accent-text shadow-card [&_svg]:size-6"
 					>
-						<Sparkles />
+						<BotMessageSquare />
 					</span>
 					<p
 						data-testid="home-chat-prompt"

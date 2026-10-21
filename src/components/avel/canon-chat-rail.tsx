@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { CanonSessionListItem } from "avel-server/contract";
-import { Archive, MessagesSquare, Plus, Sparkles } from "lucide-react";
+import { Archive, BotMessageSquare, MessagesSquare, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import { type ViewOption, ViewToggle } from "./view-toggle";
  * title, Active or Archived, then the chats by latest activity under day
  * headings (Today, Yesterday, the last week, the last month, then by month).
  * Each row is a link to its chat (?chat=<id>): a tile that says whose it is
- * (Canon's spark for an open chat, the client's initials for a client's),
+ * (Canon's mark for an open chat, the client's initials for a client's),
  * a dot on it while Canon answers or once halted, the name, and below it
  * the client or "Open chat", the mode and when it last moved.
  */
@@ -141,7 +141,7 @@ export function CanonChatRail({
 					aria-hidden="true"
 					className="grid size-7 place-items-center rounded-tile border border-accent-line bg-accent-soft text-accent-text [&_svg]:size-4"
 				>
-					<Sparkles />
+					<BotMessageSquare />
 				</span>
 				<h2 className="type-small font-semibold text-text">Canon</h2>
 				{total === undefined ? null : (
@@ -360,7 +360,7 @@ function ChatRow({
 }
 
 /**
- * Whose chat it is, as a tile: Canon's spark on an open chat, the client's
+ * Whose chat it is, as a tile: Canon's mark on an open chat, the client's
  * initials on a client's. A dot on its corner pulses while Canon answers,
  * and stays red once the chat is halted.
  */
@@ -387,7 +387,11 @@ export function ChatTile({
 				chat.status !== "open" && "opacity-70",
 			)}
 		>
-			{chat.clientId ? <ClientInitials id={chat.clientId} /> : <Sparkles />}
+			{chat.clientId ? (
+				<ClientInitials id={chat.clientId} />
+			) : (
+				<BotMessageSquare />
+			)}
 			{answering || chat.status === "halted" ? (
 				<span
 					data-testid="canon-chat-row-dot"
