@@ -74,9 +74,9 @@ describe("the field surface", () => {
 		);
 	});
 
-	it("lifts to the field colour when focused, under the ring and halo", () => {
+	it("lifts when focused, under the field's own ring and halo", () => {
 		expect(surface).toMatch(
-			/&:focus-within \{\s*background-color: var\(--color-app-field\);\s*border-color: var\(--color-focus-ring\);/,
+			/&:focus-within \{\s*background-color: var\(--color-field-fill-focus\);\s*border-color: var\(--color-field-focus\);\s*box-shadow:\s*0 0 0 1px var\(--color-field-focus\),\s*0 0 0 4px var\(--color-field-halo\);/,
 		);
 	});
 
@@ -88,6 +88,9 @@ describe("the field surface", () => {
 			"--color-field-fill",
 			"--color-field-edge",
 			"--color-field-edge-hover",
+			"--color-field-fill-focus",
+			"--color-field-focus",
+			"--color-field-halo",
 			"--shadow-field",
 		]) {
 			expect(light, token).toContain(`${token}: `);

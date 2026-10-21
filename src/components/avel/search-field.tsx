@@ -90,7 +90,7 @@ export function SearchField({
 					}
 				}}
 				data-testid={`${testId}-input`}
-				className="min-w-0 flex-1 bg-transparent type-body text-text outline-none placeholder:text-text-subtle [&::-webkit-search-cancel-button]:hidden"
+				className="min-w-0 flex-1 bg-transparent type-body text-text caret-accent-text outline-none placeholder:text-text-subtle [&::-webkit-search-cancel-button]:hidden"
 			/>
 			{value !== "" ? (
 				<button

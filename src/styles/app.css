@@ -46,6 +46,11 @@
 	--color-field-fill: #f8f8f9;
 	--color-field-edge: rgb(16 24 40 / 0.09);
 	--color-field-edge-hover: rgb(16 24 40 / 0.2);
+	--color-field-fill-focus: #ffffff;
+	--color-field-focus: #2f86e6;
+	--color-field-halo: rgb(
+		75 155 242 / 0.3
+	); /* the soft halo around a focused field */
 	--color-app-raised: #f2f2f3; /* hover row, pressed control */
 	--color-app-float: #ffffff; /* popover, menu, dialog */
 	--color-skeleton: #ececee;
@@ -70,9 +75,6 @@
 	--color-accent-soft: #eef6ff;
 	--color-accent-line: #b9d8fa;
 	--color-focus-ring: #2f86e6; /* the 2px ring on every focusable control, 3.7:1 */
-	--color-focus-halo: rgb(
-		75 155 242 / 0.3
-	); /* the soft halo around a focused field */
 	--color-selected: #eef6ff;
 	--color-selected-border: #4a90e2;
 	/* Selected text. accent-soft was too faint to find in dark. */
@@ -214,9 +216,17 @@
 	--color-app-band: #1a1b1f;
 	--color-app-well: #1c1d21;
 	--color-app-field: #121316;
-	--color-field-fill: #111215;
-	--color-field-edge: rgb(255 255 255 / 0.09);
-	--color-field-edge-hover: rgb(255 255 255 / 0.2);
+	/* A field is a faint white lift over whatever it sits on, so it reads
+	   the same on the panel, the band and a popover. An opaque near-black
+	   fill sank into a pit, deepest inside a menu. Focused, a mid blue edge
+	   (5.7:1 on the panel) with a low halo: the pale shared ring glared
+	   round a field's whole edge. */
+	--color-field-fill: rgb(255 255 255 / 0.035);
+	--color-field-edge: rgb(255 255 255 / 0.08);
+	--color-field-edge-hover: rgb(255 255 255 / 0.16);
+	--color-field-fill-focus: rgb(255 255 255 / 0.05);
+	--color-field-focus: #4a94e8;
+	--color-field-halo: rgb(74 148 232 / 0.2);
 	--color-app-raised: #222327;
 	--color-app-float: #1d1e22;
 	--color-skeleton: #24252a;
@@ -235,7 +245,6 @@
 	--color-accent-soft: rgb(116 184 252 / 0.13);
 	--color-accent-line: rgb(116 184 252 / 0.45);
 	--color-focus-ring: #8cc4fd;
-	--color-focus-halo: rgb(116 184 252 / 0.32);
 	--color-selected: rgb(116 184 252 / 0.12);
 	--color-selected-border: rgb(116 184 252 / 0.85);
 	--color-text-selection: rgb(116 184 252 / 0.34);
@@ -282,7 +291,7 @@
 	--shadow-dialog:
 		0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 56px -12px rgb(0 0 0 / 0.6);
 	--shadow-drag: 0 10px 28px rgb(0 0 0 / 0.5);
-	--shadow-field: inset 0 1px 2px rgb(0 0 0 / 0.35);
+	--shadow-field: inset 0 1px 1px rgb(0 0 0 / 0.2);
 
 	color-scheme: dark;
 }
@@ -425,10 +434,11 @@
 }
 
 /*
- * A text field's box. At rest filled, a step below the panel, with a quiet
- * edge and a hairline of inset shade; hovered, the edge firms; focused, it
- * lifts to the panel with a solid 1px ring in the focus colour and a soft
- * halo (v3 UX 2), drawn here because inputs carry no outline; invalid, the
+ * A text field's box. At rest filled a step off its surface (below it in
+ * light, a faint lift in dark), with a quiet edge and a hairline of inset
+ * shade; hovered, the edge firms; focused, it lifts with a solid 1px ring in
+ * the field's focus colour and a soft halo (v3 UX 2), drawn here because
+ * inputs carry no outline; invalid, the
  * same in block. A plain white box with a grey edge read as the browser's
  * default field.
  */
@@ -440,11 +450,11 @@
 		border-color: var(--color-field-edge-hover);
 	}
 	&:focus-within {
-		background-color: var(--color-app-field);
-		border-color: var(--color-focus-ring);
+		background-color: var(--color-field-fill-focus);
+		border-color: var(--color-field-focus);
 		box-shadow:
-			0 0 0 1px var(--color-focus-ring),
-			0 0 0 4px var(--color-focus-halo);
+			0 0 0 1px var(--color-field-focus),
+			0 0 0 4px var(--color-field-halo);
 	}
 	&[aria-invalid="true"],
 	&:has([aria-invalid="true"]) {

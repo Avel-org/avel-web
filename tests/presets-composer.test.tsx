@@ -140,6 +140,23 @@ describe("the team canvas (/presets)", () => {
 		expect(html).toContain('data-testid="preset-tray"');
 	});
 
+	it("draws the switcher as a picker button, its cut and version as quiet text", async () => {
+		const html = await page("/presets", [ONE, TWO]);
+		const trigger = tagOf(html, "preset-switcher");
+		// Nothing is typed into it: the toolbar's outline face, not a field.
+		expect(trigger).not.toContain("field-surface");
+		expect(trigger).toContain(
+			"border border-border-strong bg-app-panel bg-clip-padding",
+		);
+		expect(trigger).toContain("data-[state=open]:bg-app-raised");
+		// The cut is a word, not machine text: no mono tag chips.
+		const meta = tagOf(html, "preset-switcher-meta");
+		expect(meta).toContain("type-small");
+		expect(meta).toContain("text-text-muted");
+		expect(meta).not.toContain("font-mono");
+		expect(tagOf(html, "preset-kanban-version")).not.toContain("font-mono");
+	});
+
 	it("selects the team the URL names", async () => {
 		const html = await page(`/presets?preset=${TWO.id}`, [ONE, TWO]);
 		expect(tagOf(html, "preset-switcher")).toContain(

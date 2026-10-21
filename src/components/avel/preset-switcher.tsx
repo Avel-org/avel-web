@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import type { Preset } from "avel-server/contract";
 import { Check, ChevronsUpDown, GitCompareArrows, Plus } from "lucide-react";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Popover,
@@ -21,8 +20,10 @@ import { COMPARE_FULL } from "./preset-board";
 import { SearchField } from "./search-field";
 
 /*
- * The team switcher at the head of the composer's canvas: a button naming
- * the selected team, its cut and version, that opens a searchable list of
+ * The team switcher at the head of the composer's canvas: a picker button
+ * (the toolbar's outline face, not a field: nothing is typed into it) naming
+ * the selected team, then its cut and version as quiet text, that opens a
+ * searchable list of
  * teams with New team at its foot. It replaces the rail, so the canvas has
  * the page's whole width. Selection is the URL's `?preset`: each team is a
  * link. Compare stays a toggle on each row.
@@ -66,24 +67,37 @@ export function TeamSwitcher({
 						selected ? `Team: ${selected.name}. Switch team` : "Choose a team"
 					}
 					data-testid="preset-switcher"
-					className="field-surface inline-flex h-control-lg min-w-0 max-w-full items-center gap-2 rounded-control px-3 text-left transition-[background-color,border-color,box-shadow] duration-(--duration-micro) ease-avel"
+					className="group/switch inline-flex h-control-lg min-w-0 max-w-full items-center gap-2.5 rounded-control border border-border-strong bg-app-panel bg-clip-padding px-3 text-left shadow-btn transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised data-[state=open]:bg-app-raised"
 				>
 					{selected ? (
 						<>
 							<span className="min-w-0 truncate type-title text-text">
 								{selected.name}
 							</span>
-							<Badge variant="tag">{CUT_LABEL[selected.cut]}</Badge>
-							<Badge variant="tag" data-testid="preset-kanban-version">
-								{`v${selected.version}`}
-							</Badge>
+							<span
+								aria-hidden="true"
+								className="h-4 w-px shrink-0 bg-border-strong"
+							/>
+							<span
+								data-testid="preset-switcher-meta"
+								className="shrink-0 type-small whitespace-nowrap text-text-muted"
+							>
+								{CUT_LABEL[selected.cut]}
+								<span className="px-1.5 text-text-subtle">·</span>
+								<span
+									data-testid="preset-kanban-version"
+									className="tabular-nums"
+								>
+									{`v${selected.version}`}
+								</span>
+							</span>
 						</>
 					) : (
 						<span className="type-title text-text-muted">Choose a team</span>
 					)}
 					<ChevronsUpDown
 						aria-hidden="true"
-						className="size-3.5 shrink-0 text-text-subtle"
+						className="size-3.5 shrink-0 text-text-subtle transition-colors duration-(--duration-micro) ease-avel group-hover/switch:text-text-muted group-data-[state=open]/switch:text-text-muted"
 					/>
 				</button>
 			</PopoverTrigger>

@@ -202,6 +202,29 @@ describe("v3 contrast, from app.css", () => {
 			).toBeLessThanOrEqual(0.3);
 	});
 
+	it("lifts a dark field over its surface, and rings it in a mid blue", () => {
+		// An opaque near-black fill sank into a pit, deepest in a popover. A
+		// translucent white lift reads the same on every surface it sits on.
+		const [r, g, b, a] = parse(dark.get("field-fill") ?? "");
+		expect([r, g, b]).toEqual([255, 255, 255]);
+		expect(a).toBeLessThan(0.06);
+		expect(parse(dark.get("field-fill-focus") ?? "")[3]).toBeGreaterThan(a);
+		// The shared pale ring glared round a whole field; the field's own
+		// edge is a deeper blue that still clears 3:1 wherever a field sits.
+		const ring = parse(dark.get("field-focus") ?? "");
+		expect(ring).not.toEqual(parse(dark.get("focus-ring") ?? ""));
+		for (const surface of ["app-panel", "app-band", "app-float", "app-bg"])
+			expect(
+				contrast(ring, parse(dark.get(surface) ?? "")),
+				surface,
+			).toBeGreaterThanOrEqual(3);
+		// The old shared halo was 0.32 of the pale ring.
+		expect(parse(dark.get("field-halo") ?? "")[3]).toBeLessThanOrEqual(0.2);
+		// Light keeps its look: white when focused, the shared ring.
+		expect(light.get("field-fill-focus")).toBe(light.get("app-field"));
+		expect(light.get("field-focus")).toBe(light.get("focus-ring"));
+	});
+
 	it("deepens the primary gradient in dark, so its label reads better than light's", () => {
 		// The light gradient on the dark panel read as a glare: 2.1:1 at the
 		// top. Dark's own stops: 2.9:1 at the top, 4.7:1 at the bottom.
