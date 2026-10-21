@@ -1,15 +1,18 @@
 import { Link } from "@tanstack/react-router";
 import type { Playbook } from "avel-server/contract";
 import { ListChecks } from "lucide-react";
+import { useState } from "react";
 import { catalogTotal } from "@/lib/api/catalog";
 import { loadedPlaybooks, usePlaybooks } from "@/lib/api/playbooks";
 import { DataPanel } from "./data-panel";
 import { Paging, PanelFooter } from "./panel-footer";
 import {
+	filterPlaybooks,
 	PLAYBOOK_VIEWS,
 	PlaybookList,
 	type PlaybookView,
 } from "./playbook-list";
+import { SearchField } from "./search-field";
 import { ViewToggle } from "./view-toggle";
 
 /*
@@ -23,13 +26,40 @@ import { ViewToggle } from "./view-toggle";
 /** The section's glyph, wherever it is named. */
 export const PLAYBOOKS_ICON = ListChecks;
 
-/** The Playbooks panel: the view in its toolbar, paging and read age below. */
+/** The Playbooks panel, keeping its search for as long as the section is open. */
 export function PlaybooksSection({
 	view,
 	onViewChange,
 }: {
 	view: PlaybookView;
 	onViewChange: (view: PlaybookView) => void;
+}) {
+	const [search, setSearch] = useState("");
+	return (
+		<PlaybooksPanel
+			view={view}
+			onViewChange={onViewChange}
+			search={search}
+			onSearch={setSearch}
+		/>
+	);
+}
+
+/**
+ * The panel: the search and the view in its toolbar, paging and read age
+ * below. The search filters the loaded playbooks in place, so the footer's
+ * "Showing" counts the matches against the server's total.
+ */
+export function PlaybooksPanel({
+	view,
+	onViewChange,
+	search,
+	onSearch,
+}: {
+	view: PlaybookView;
+	onViewChange: (view: PlaybookView) => void;
+	search: string;
+	onSearch: (search: string) => void;
 }) {
 	const playbooks = usePlaybooks();
 	const total = catalogTotal(playbooks.data);
@@ -39,20 +69,32 @@ export function PlaybooksSection({
 			title="Playbooks"
 			count={total}
 			toolbar={
-				<ViewToggle
-					options={PLAYBOOK_VIEWS}
-					testIdPrefix="playbooks-view"
-					view={view}
-					className="ml-auto"
-					onChange={onViewChange}
-				/>
+				<>
+					<SearchField
+						data-testid="playbooks-search"
+						label="Search playbooks by name or mission type"
+						placeholder="Search playbooks"
+						value={search}
+						onChange={onSearch}
+						className="w-full max-w-sm"
+					/>
+					<ViewToggle
+						options={PLAYBOOK_VIEWS}
+						testIdPrefix="playbooks-view"
+						view={view}
+						className="ml-auto"
+						onChange={onViewChange}
+					/>
+				</>
 			}
 			footer={
 				<PanelFooter data-testid="playbooks-read-age" queries={[playbooks]}>
 					{playbooks.data ? (
 						<Paging
 							testIdPrefix="playbooks"
-							loaded={loadedPlaybooks(playbooks.data).length}
+							loaded={
+								filterPlaybooks(loadedPlaybooks(playbooks.data), search).length
+							}
 							total={total}
 							hasMore={playbooks.hasNextPage}
 							loadingMore={playbooks.isFetchingNextPage}
@@ -62,7 +104,12 @@ export function PlaybooksSection({
 				</PanelFooter>
 			}
 		>
-			<PlaybookList query={playbooks} view={view} />
+			<PlaybookList
+				query={playbooks}
+				view={view}
+				search={search}
+				onClearSearch={() => onSearch("")}
+			/>
 		</DataPanel>
 	);
 }

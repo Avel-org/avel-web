@@ -4,7 +4,7 @@ import {
 	type IdentityVersionSummary,
 	ROLE_RUNNER,
 } from "avel-server/contract";
-import { GitCompare, RefreshCw, Sparkles } from "lucide-react";
+import { GitCompare, IdCard, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -214,7 +214,7 @@ export function RegenerateIdentity({ agent }: { agent: AgentTemplate }) {
 				}}
 			>
 				{first ? (
-					<Sparkles aria-hidden="true" />
+					<IdCard aria-hidden="true" />
 				) : (
 					<RefreshCw aria-hidden="true" />
 				)}

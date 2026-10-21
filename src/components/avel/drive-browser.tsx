@@ -148,7 +148,12 @@ export function DriveBrowser({
 							title="The Drive is empty"
 							description="Agreements, call notes, brand kits and exports for the agency and each client live here, one store, scoped by who may read them."
 						/>
-						<DropZone size="large" data-testid="drive-empty-drop" />
+						{/* The top bar has the one Upload button. */}
+						<DropZone
+							size="large"
+							upload={false}
+							data-testid="drive-empty-drop"
+						/>
 					</FilesRegion>
 				}
 				error={failed}
@@ -329,7 +334,7 @@ function DriveLoaded({
 					</aside>
 
 					<div className="flex min-w-0 flex-col gap-4">
-						<DropZone data-testid="drive-drop" />
+						<DropZone upload={false} data-testid="drive-drop" />
 						<FilesRegion>
 							{!filtering && recent.length > 0 ? (
 								<section

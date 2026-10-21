@@ -4,11 +4,9 @@ import { useCallback } from "react";
 import { z } from "zod";
 import {
 	TEMPLATE_SORTS,
-	TEMPLATE_VIEWS,
 	type TemplateFilters,
 	TemplateList,
 } from "@/components/avel/template-list";
-import { ViewToggle } from "@/components/avel/view-toggle";
 import {
 	missionCountLabel,
 	templateCountLabel,
@@ -86,28 +84,21 @@ function TemplatesPage() {
 		<Page
 			to="/templates"
 			subtitle={templates.data ? templatesSubtitle(templates.data) : undefined}
-			actions={
-				<ViewToggle
-					options={TEMPLATE_VIEWS}
-					testIdPrefix="templates-view"
-					view={view}
-					onChange={(next) =>
-						navigate({
-							search: (prev) => ({
-								...prev,
-								view: next === "board" ? undefined : next,
-							}),
-							replace: true,
-						})
-					}
-				/>
-			}
 		>
 			<TemplateList
 				query={templates}
 				view={view}
 				filters={filters}
 				onFilters={onFilters}
+				onView={(next) =>
+					navigate({
+						search: (prev) => ({
+							...prev,
+							view: next === "board" ? undefined : next,
+						}),
+						replace: true,
+					})
+				}
 			/>
 		</Page>
 	);

@@ -318,7 +318,12 @@ describe("the client board", () => {
 		expect(tagOf(cardOf(html, TWO), `client-status-${TWO.id}`)).toContain(
 			'data-tone="stale"',
 		);
-		expect(cardOf(html, THREE_C)).toContain(">No primary contact<");
+		// No contact, no line: the same filler on every card said nothing.
+		expect(cardOf(html, THREE_C)).not.toContain("No primary contact");
+		expect(cardOf(html, THREE_C)).not.toContain(
+			`client-card-contact-${THREE_C.id}`,
+		);
+		expect(tagOf(one, `client-card-contact-${ONE.id}`)).toBeTruthy();
 		expect(cardOf(html, THREE_C)).toMatch(/data-testid="client-tile"[^>]*>HP</);
 		expect(tagOf(cardOf(html, TWO), "client-tile")).toContain(
 			'data-closed="true"',
@@ -537,6 +542,10 @@ describe("the Board | Table toggle (ruling 36)", () => {
 		expect(row.slice(0, row.indexOf("</tr>"))).toContain(
 			">3 engagements, 1 active<",
 		);
+		// A row with a contact names it under the name; one without shows nothing.
+		expect(tagOf(html, `client-row-contact-${ONE.id}`)).toBeTruthy();
+		expect(html).not.toContain(`client-row-contact-${THREE_C.id}`);
+		expect(html).not.toContain("No primary contact");
 	});
 
 	it("reads the table's status from the server's filtered list", async () => {

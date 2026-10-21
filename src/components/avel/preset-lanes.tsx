@@ -9,7 +9,7 @@ import {
 	WAVES,
 	type Wave,
 } from "avel-server/contract";
-import { Check, GripVertical, Lock, MousePointerClick } from "lucide-react";
+import { ArrowDownToLine, Check, GripVertical, Lock } from "lucide-react";
 import { type DragEvent, type KeyboardEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -358,7 +358,7 @@ export function WaveLane({
 						data-testid={`preset-lane-${wave}-ghost`}
 						className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-control border border-dashed border-border-strong type-caption text-text-subtle"
 					>
-						<MousePointerClick aria-hidden="true" className="size-3.5" />
+						<ArrowDownToLine aria-hidden="true" className="size-3.5" />
 						{empty ? "Drop agents here" : "Drop here"}
 					</li>
 				)}

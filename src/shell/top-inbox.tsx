@@ -139,7 +139,9 @@ export function InboxBadge({ total }: { total: number }) {
 		<span
 			aria-hidden="true"
 			data-testid="global-inbox-badge"
-			className="type-mono absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-gate-warn-line bg-gate-warn-soft px-1 text-gate-warn"
+			// The ring is the top bar's own surface: it cuts the badge out of the
+			// glyph it sits on, so neither reads as clipped.
+			className="type-mono absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-gate-warn-line bg-gate-warn-soft px-1 text-gate-warn ring-2 ring-app-panel"
 		>
 			{total > 99 ? "99+" : total}
 		</span>

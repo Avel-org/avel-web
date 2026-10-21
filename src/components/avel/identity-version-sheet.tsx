@@ -15,6 +15,7 @@ import { whenLabel } from "./agent-activity";
 import { generatedByLabel } from "./agent-identity";
 import { IdentityText } from "./catalog-agent-inspector";
 import { ErrorState, Surface } from "./surface";
+import { writablePathText } from "./writable-path";
 
 /*
  * The identity version a dispatch, a report or an agent page names, opened
@@ -187,7 +188,7 @@ export function IdentityVersionView({ version }: { version: IdentityVersion }) {
 					data-testid="identity-version-paths"
 					className="type-mono break-words text-text-muted"
 				>
-					{inputs.writablePaths.join(", ")}
+					{inputs.writablePaths.map(writablePathText).join(", ")}
 				</dd>
 				<dt className="text-text-subtle">Skills</dt>
 				<dd

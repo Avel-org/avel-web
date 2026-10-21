@@ -15,7 +15,9 @@ import { EXPORT_STATUS_TONE, type StatusTone } from "./status-pill";
  * Where a record stands in its own lifecycle (audit D5): the entity's states
  * from the contract's array, the main line left to right, past states
  * filled, the current one ringed in its tone, the rest hollow. Terminal
- * branches (a halt, a failure, a close) sit below the line, off it.
+ * branches (a halt, a failure, a close) follow the line after a divider,
+ * off it. Below the line they wrapped alone onto a row of their own, under
+ * a rule as wide as the card, and read as a fault in the layout.
  *
  * Each entity's places are keyed with `satisfies` on the contract's status
  * union, so a new server state fails the build until it has a place. A
@@ -249,7 +251,7 @@ export function Lifecycle<S extends string>({
 		<div
 			data-testid={testId}
 			data-current={current}
-			className="flex flex-col gap-2"
+			className="flex flex-wrap items-center gap-x-3 gap-y-2"
 		>
 			<ol aria-label={label} className="flex flex-wrap items-start gap-y-2">
 				{main.map(({ state, standing }, i) => (
@@ -291,7 +293,8 @@ export function Lifecycle<S extends string>({
 			{branches.length > 0 ? (
 				<ul
 					aria-label={`${label}: ends off the main line`}
-					className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-dashed border-border pt-2"
+					data-testid={`${testId}-branches`}
+					className="flex flex-wrap items-center gap-x-3 gap-y-1 border-l border-dashed border-border-strong pl-3"
 				>
 					{branches.map((state) => {
 						const standing: StepState = state === current ? "current" : "ahead";

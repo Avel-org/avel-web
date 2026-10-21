@@ -507,6 +507,22 @@ function Exports({
 	);
 }
 
+/**
+ * A repository as Connections names it: owner/repo for GitHub, the address
+ * without its scheme otherwise. The full URL stays the link and its title.
+ */
+export function repoLabel(url: string): string {
+	try {
+		const { host, pathname } = new URL(url);
+		const path = pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/, "");
+		return host === "github.com" && path
+			? path
+			: `${host}${pathname}`.replace(/\/+$/, "");
+	} catch {
+		return url;
+	}
+}
+
 function Repository({ mission }: { mission: MissionDetail }) {
 	return (
 		<SectionPanel
@@ -519,9 +535,11 @@ function Repository({ mission }: { mission: MissionDetail }) {
 						href={mission.repoUrl}
 						target="_blank"
 						rel="noreferrer"
+						title={mission.repoUrl}
+						data-testid="mission-repo-link"
 						className="py-1.5 -my-1.5 type-mono break-all text-accent-text underline-offset-4 hover:underline"
 					>
-						{mission.repoUrl}
+						{repoLabel(mission.repoUrl)}
 					</a>
 				</Field>
 				<Field label="Cut">
@@ -601,7 +619,11 @@ function TeamRoster({ missionId }: { missionId: string }) {
 	);
 }
 
-/** The roster's entries, active first: each agent by name, its waves, and whether it is on. */
+/**
+ * The roster's entries, active first: each agent by name, its waves, and
+ * whether it is on. The waves are words ("Waves A, B"): bare letters beside
+ * the name read as initials.
+ */
 export function TeamEntries({ entries }: { entries: readonly RosterEntry[] }) {
 	const ordered = [...entries].sort(
 		(a, b) => Number(b.active) - Number(a.active),
@@ -621,10 +643,10 @@ export function TeamEntries({ entries }: { entries: readonly RosterEntry[] }) {
 					<span className="flex shrink-0 items-center gap-2">
 						{entry.waves.length > 0 ? (
 							<span
-								className="type-mono text-text-subtle"
+								className="type-caption text-text-subtle"
 								title={entry.waves.map(waveTitle).join(", ")}
 							>
-								{entry.waves.join(" ")}
+								{`${entry.waves.length === 1 ? "Wave" : "Waves"} ${entry.waves.join(", ")}`}
 							</span>
 						) : null}
 						<span className="type-caption text-text-muted">

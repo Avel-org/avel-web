@@ -25,6 +25,7 @@ import type { ApiError } from "@/lib/api/errors";
 import { describeError } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
 import { useIsPreview } from "@/shell/auth-gate";
+import { WritablePath } from "./writable-path";
 
 /*
  * The agent editor (module 5, step 6): an agent's title, description, roles
@@ -881,7 +882,7 @@ export function AgentPathsEdit({ agent }: { agent: AgentTemplate }) {
 				>
 					{agent.writablePaths.map((path) => (
 						<li key={path} className="break-all">
-							{path}
+							<WritablePath glob={path} />
 						</li>
 					))}
 				</ul>

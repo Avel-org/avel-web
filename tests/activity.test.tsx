@@ -1,4 +1,8 @@
-import { QueryClient, type QueryFunctionContext } from "@tanstack/react-query";
+import {
+	QueryClient,
+	QueryClientProvider,
+	type QueryFunctionContext,
+} from "@tanstack/react-query";
 import {
 	createMemoryHistory,
 	createRouter,
@@ -24,7 +28,7 @@ import {
 	ENTITY_LABEL,
 } from "@/components/avel/activity-copy";
 import { COMMON_ENTITIES } from "@/components/avel/activity-filters";
-import { ActivityLog } from "@/components/avel/activity-log";
+import { ActivityLog, ActivityRows } from "@/components/avel/activity-log";
 import { ApiOverrideProvider } from "@/lib/api";
 import {
 	ACTIVITY_PAGE_SIZE,
@@ -38,7 +42,7 @@ import { SessionSourceProvider } from "@/lib/auth";
 import { describeError } from "@/lib/error-map";
 import { activitySearch, Route } from "../src/routes/activity";
 import { routeTree } from "../src/routeTree.gen";
-import { signedIn } from "./auth-session";
+import { signedIn, TEST_OPERATOR } from "./auth-session";
 import { agent } from "./catalog-fixtures";
 import { contractError, fakeApi } from "./clients-fixtures";
 import { tagOf } from "./render-page";
@@ -248,11 +252,11 @@ describe("the Activity page", () => {
 		);
 		// No page for an engagement: plain text, not a link.
 		expect(tagOf(html, `activity-target-${engagement.id}`)).toMatch(/^<span/);
-		// When: relative, with the exact time on hover.
+		// When: the clock under the day heading, with the exact time on hover.
 		const at = tagOf(html, `activity-at-${client.id}`);
 		expect(at).toMatch(/^<time/);
 		expect(at).toContain(`dateTime="${client.at}"`);
-		expect(at).toContain(`title="${client.at}"`);
+		expect(at).toContain(`title="6 Oct, 10:00 UTC (${client.at})"`);
 		expect(html).toMatch(
 			/data-testid="activity-showing"[^>]*>Showing 3 of 120</,
 		);
@@ -347,6 +351,44 @@ describe("who acted", () => {
 		expect(html).not.toContain(ID(902));
 		expect(html).not.toMatch(
 			/>[^<]*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[^<]*</,
+		);
+	});
+
+	it("names the signed-in operator's own entries You, with the login on hover", async () => {
+		const mine = entry(1, {
+			actorUserId: TEST_OPERATOR.id,
+			actor: {
+				kind: "operator",
+				userId: TEST_OPERATOR.id,
+				rosterEntryId: null,
+				canonSessionId: null,
+				display: TEST_OPERATOR.githubLogin,
+				agent: null,
+			},
+		});
+		// Another operator, by user id: keeps their login.
+		const theirs = entry(2);
+		const html = await renderActivity(`/activity?entry=${mine.id}`, {
+			filters: {},
+			rows: [mine, theirs],
+		});
+		const cells = [
+			...html.matchAll(
+				new RegExp(
+					`data-testid="activity-actor-${mine.id}"[^>]*><span data-actor-self="true" title="${TEST_OPERATOR.githubLogin}">You</span>`,
+					"g",
+				),
+			),
+		];
+		// The table's cell and the phone row's.
+		expect(cells).toHaveLength(2);
+		expect(
+			visibleText(within(html, "activity-record-did")).replace(/\s+/g, " "),
+		).toContain(", by You .");
+		expect(html).toMatch(
+			new RegExp(
+				`data-testid="activity-actor-${theirs.id}"[^>]*>octo-operator<`,
+			),
 		);
 	});
 });
@@ -511,6 +553,49 @@ describe("the log by day, with its record docked", () => {
 		// The first cell holds the mark.
 		expect(row.indexOf("activity-actor-mark-")).toBeLessThan(
 			row.indexOf("activity-action-"),
+		);
+	});
+});
+
+describe("time under a day heading", () => {
+	it("gives the clock, not an age, in the table and the phone rows alike", async () => {
+		const morning = entry(1, { at: "2026-10-06T14:02:00.000Z" });
+		const html = await renderActivity("/activity", {
+			filters: {},
+			rows: [morning],
+		});
+		const table = within(html, "activity-audit");
+		expect(table).toContain(">Time (UTC)<");
+		const cells = [
+			...html.matchAll(
+				new RegExp(
+					`data-testid="activity-at-${morning.id}"[^>]*>([^<]*)<`,
+					"g",
+				),
+			),
+		].map((m) => m[1]);
+		// The table's cell and the phone row's, both the clock.
+		expect(cells).toEqual(["14:02", "14:02"]);
+		expect(html).not.toMatch(/ ago<|>last week<|>last month</);
+	});
+
+	it("keeps the age in a list with no day headings", () => {
+		// An engagement is plain text, so the rows need no router (Recent
+		// activity on Missions renders them this way).
+		const one = entry(1, {
+			at: "2026-10-06T10:00:00.000Z",
+			entityType: "engagement",
+		});
+		const html = renderToString(
+			<QueryClientProvider client={new QueryClient()}>
+				<ActivityRows
+					entries={[one]}
+					now={Date.parse("2026-10-06T15:00:00.000Z")}
+				/>
+			</QueryClientProvider>,
+		);
+		expect(html).toMatch(
+			new RegExp(`data-testid="activity-at-${one.id}"[^>]*>5 hours ago<`),
 		);
 	});
 });

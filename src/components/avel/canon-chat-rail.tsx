@@ -158,7 +158,7 @@ export function CanonChatRail({
 					<BotMessageSquare />
 				</span>
 				<h2 className="type-small font-semibold text-text">Canon</h2>
-				{total === undefined ? null : (
+				{!total ? null : (
 					<Badge
 						variant="count"
 						data-testid="canon-chat-count"

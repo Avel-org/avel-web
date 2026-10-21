@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { missionCut, type Preset } from "avel-server/contract";
-import { Layers, MousePointerClick, Plus, Rows3 } from "lucide-react";
+import { Layers, MousePointer2, Plus, Rows3 } from "lucide-react";
 import {
 	type ReactNode,
 	useCallback,
@@ -572,7 +572,7 @@ function TableView({
 				) : (
 					<EmptyState
 						data-testid="presets-choose"
-						icon={MousePointerClick}
+						icon={MousePointer2}
 						title="Choose a team"
 						description={
 							subtitle

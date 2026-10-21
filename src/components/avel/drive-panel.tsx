@@ -1,4 +1,4 @@
-import { Check, Download, Lock, Sparkles, Trash2, X } from "lucide-react";
+import { BookPlus, Check, Download, Lock, Trash2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -401,7 +401,7 @@ export function AccessTab({ file }: { file: SampleFile }) {
 					}
 					className="self-start"
 				>
-					<Sparkles aria-hidden="true" />
+					<BookPlus aria-hidden="true" />
 					Promote to knowledge skill
 				</Button>
 				<ol

@@ -3,7 +3,7 @@ import type {
 	RosterEntry,
 	SkillListItem,
 } from "avel-server/contract";
-import { Layers, List, Sparkles } from "lucide-react";
+import { BadgeCheck, Layers, List } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ import { type ViewOption, ViewToggle } from "./view-toggle";
 type Tier = "recommended" | "available" | "all";
 
 const TIERS = [
-	{ id: "recommended", label: "Recommended", icon: Sparkles },
+	{ id: "recommended", label: "Recommended", icon: BadgeCheck },
 	{ id: "available", label: "Available", icon: Layers },
 	{ id: "all", label: "All", icon: List },
 ] as const satisfies readonly ViewOption<Tier>[];

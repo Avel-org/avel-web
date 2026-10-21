@@ -661,13 +661,32 @@ describe("the sidebar", () => {
 		}
 	});
 
-	it("marks drafts with a dot and quiets retired skills to the subtle ink", async () => {
+	it("tags drafts and retired skills by name, and quiets retired ones to the subtle ink", async () => {
 		const html = await page();
+		expect(SKILLS.some((s) => s.status === "draft")).toBe(true);
+		expect(SKILLS.some((s) => s.status === "retired")).toBe(true);
 		for (const s of SKILLS) {
 			const row = element(html, `skill-row-${s.slug}`);
 			expect(row.includes('data-testid="skill-row-draft"'), s.slug).toBe(
 				s.status === "draft",
 			);
+			expect(row.includes('data-testid="skill-row-retired"'), s.slug).toBe(
+				s.status === "retired",
+			);
+			// The status is a word beside its glyph, with what it means in the
+			// title, never an unlabelled mark.
+			if (s.status === "draft") {
+				expect(element(row, "skill-row-draft")).toMatch(/>Draft</);
+				expect(row).toContain(
+					'title="Draft: waits for review before it can be attached"',
+				);
+			}
+			if (s.status === "retired") {
+				expect(element(row, "skill-row-retired")).toMatch(/>Retired</);
+				expect(row).toContain(
+					`title="Retired: read-only, and it can&#x27;t be attached again"`,
+				);
+			}
 			expect(
 				/\btext-text-subtle\b/.test(tagOf(row, "skill-row-name")),
 				s.slug,

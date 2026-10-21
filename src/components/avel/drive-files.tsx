@@ -135,22 +135,41 @@ export function Uploader({ login }: { login: string }) {
 /** "2026-03-14", the date part only. */
 export const dateLabel = (iso: string) => iso.slice(0, 10);
 
-/** The name, struck through and dimmed for a tombstone, with its badge. */
-function FileName({ file, under }: { file: SampleFile; under?: string }) {
+/**
+ * The name, with the whole of it on hover since it may be cut. In the list a
+ * tombstone's name is struck through and dimmed, with its badge beside it.
+ * A grid card is too narrow for both (the badge left the name one struck
+ * letter wide), so it passes `card`: the name stays plain and the card says
+ * the bytes are gone on its own line.
+ */
+function FileName({
+	file,
+	under,
+	card = false,
+}: {
+	file: SampleFile;
+	under?: string;
+	card?: boolean;
+}) {
 	const purged = file.purgedAt !== null;
 	return (
 		<span className="flex min-w-0 flex-col">
 			<span className="flex min-w-0 items-center gap-2">
 				<span
 					data-testid="drive-file-name"
+					title={file.name}
 					className={cn(
 						"type-small min-w-0 truncate font-medium",
-						purged ? "text-text-subtle line-through" : "text-foreground",
+						!purged
+							? "text-foreground"
+							: card
+								? "text-text-muted"
+								: "text-text-subtle line-through",
 					)}
 				>
 					{file.name}
 				</span>
-				{purged ? (
+				{purged && !card ? (
 					<Badge
 						variant="outline"
 						data-testid="drive-file-purged"
@@ -333,13 +352,24 @@ export function FileGrid({
 						)}
 					>
 						<Thumbnail file={file} />
-						<FileName file={file} />
-						<span className="flex items-center justify-between gap-2 type-mono whitespace-nowrap text-text-subtle">
-							<span>
-								{file.purgedAt !== null ? "—" : sizeLabel(file.bytes)}
+						<FileName file={file} card />
+						{file.purgedAt !== null ? (
+							// The bytes are gone, so there is no size to show; the
+							// card says so in words, with the date they went on hover.
+							<Badge
+								variant="outline"
+								data-testid="drive-file-purged"
+								title={`Destroyed ${dateLabel(file.purgedAt)}`}
+								className="self-start"
+							>
+								Bytes destroyed
+							</Badge>
+						) : (
+							<span className="flex items-center justify-between gap-2 type-mono whitespace-nowrap text-text-subtle">
+								<span>{sizeLabel(file.bytes)}</span>
+								<span>{dateLabel(file.createdAt)}</span>
 							</span>
-							<span>{dateLabel(file.createdAt)}</span>
-						</span>
+						)}
 					</button>
 				</li>
 			))}
@@ -449,12 +479,16 @@ export function UploadButton({
 /**
  * Where files will be dropped: a slim bar over the files, or a large target
  * in an empty folder. Visibly inert, and says why beside its disabled button.
+ * A page whose top bar already has Upload passes `upload={false}`, so the
+ * page has one Upload control and the zone is only the drop target.
  */
 export function DropZone({
 	size = "bar",
+	upload = true,
 	"data-testid": testId,
 }: {
 	size?: "bar" | "large";
+	upload?: boolean;
 	"data-testid": string;
 }) {
 	return (
@@ -480,7 +514,9 @@ export function DropZone({
 					Not yet: storage is built after the first mission.
 				</span>
 			</span>
-			<UploadButton data-testid={`${testId}-upload`} variant="outline" />
+			{upload ? (
+				<UploadButton data-testid={`${testId}-upload`} variant="outline" />
+			) : null}
 		</div>
 	);
 }

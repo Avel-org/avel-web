@@ -2,10 +2,10 @@ import { Link } from "@tanstack/react-router";
 import {
 	Compass,
 	Library,
-	MousePointerClick,
+	MousePointer2,
 	Plus,
+	Puzzle,
 	SearchX,
-	Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -176,7 +176,7 @@ export function CatalogSkills({
 								<EmptyState
 									data-testid="catalog-skills-empty"
 									compact
-									icon={Sparkles}
+									icon={Puzzle}
 									title="No skills yet"
 									description="A skill is text an agent reads, or a tool its room provides. Write one, or import one from a source."
 									action={
@@ -237,7 +237,7 @@ export function CatalogSkills({
 				) : (
 					<EmptyState
 						data-testid="catalog-skills-choose"
-						icon={MousePointerClick}
+						icon={MousePointer2}
 						title="Choose a skill"
 						description="Choose one to see its facts, the roles it attaches to, the agents that carry it and its SKILL.md."
 					/>

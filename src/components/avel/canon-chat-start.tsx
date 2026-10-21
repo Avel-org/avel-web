@@ -118,9 +118,17 @@ export function CanonChatStart({
 			    rather than sinking toward the input. */}
 			<div
 				data-testid="home-chat-thread"
-				className={cn("flex flex-1 flex-col items-center py-8", CHAT_COLUMN)}
+				className={cn(
+					"relative flex flex-1 flex-col items-center py-8",
+					CHAT_COLUMN,
+				)}
 			>
-				<div className="self-start">
+				{/* Over the corner, not on a row of its own: a row pushed the
+				    welcome down on a phone and left a band above it. */}
+				<div
+					data-testid="home-chat-start-chats"
+					className="absolute top-2 left-2"
+				>
 					<ChatsButton onClick={onShowChats} />
 				</div>
 				<div aria-hidden="true" className="flex-2" />

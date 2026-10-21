@@ -69,6 +69,7 @@ import {
 	teamOf,
 } from "@/components/avel/catalog-sample";
 import { CodeView } from "@/components/avel/code-view";
+import { writablePathText } from "@/components/avel/writable-path";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAgentTemplates } from "@/lib/api/catalog";
 import { routeTree } from "../src/routeTree.gen";
@@ -670,9 +671,11 @@ describe("/catalog/agents: the cards", () => {
 		const html = await page();
 		const leonora = element(html, "catalog-agent-paths-leonora");
 		expect(
-			[...leonora.matchAll(/<li[^>]*type-mono[^>]*>([^<]+)</g)].map(
-				(m) => m[1],
-			),
+			[
+				...leonora.matchAll(
+					/<li[^>]*type-mono[^>]*><span[^>]*data-testid="writable-path"[^>]*>([^<]+)</g,
+				),
+			].map((m) => m[1]),
 		).toEqual(agent("leonora").writablePaths);
 		expect(leonora).not.toContain("more");
 		expect(element(html, "catalog-agent-card-paths-canon")).toContain(
@@ -697,6 +700,30 @@ describe("/catalog/agents: the cards", () => {
 		expect(element(card, "catalog-agent-card-paths-zane")).toMatch(
 			/Files it may change<\/span><span[^>]*>5</,
 		);
+	});
+
+	it("names a glob that matches every file Any file, the glob kept in its title", () => {
+		expect(writablePathText("**")).toBe("Any file");
+		expect(writablePathText("**/*")).toBe("Any file");
+		expect(writablePathText("src/**")).toBe("src/**");
+		const card = tip(
+			<ul>
+				<AgentCard
+					agent={{ ...agent("zane"), writablePaths: ["**", "src/**"] }}
+				/>
+			</ul>,
+		);
+		const paths = element(card, "catalog-agent-paths-zane");
+		const [any, src] = [
+			...paths.matchAll(/<span[^>]*data-testid="writable-path"[^>]*>[^<]*</g),
+		].map((m) => m[0]);
+		expect(any).toContain('title="**"');
+		expect(any).toContain('data-glob="**"');
+		// Prose, so it leaves the list's mono.
+		expect(any).toMatch(/class="[^"]*\bfont-sans\b[^"]*"[^>]*>Any file<$/);
+		expect(paths).not.toMatch(/>\*\*</);
+		expect(src).toMatch(/>src\/\*\*<$/);
+		expect(src).not.toContain("font-sans");
 	});
 
 	it("is one link to the agent's page, stretched over the card", async () => {
@@ -761,6 +788,11 @@ describe("/catalog/agents: the cards", () => {
 		expect(tagOf(html, "catalog-agents-search")).toMatch(
 			/^<input[^>]*type="search"/,
 		);
+		// Short enough to show whole in the field; the label says the rest.
+		expect(tagOf(html, "catalog-agents-search")).toContain(
+			'placeholder="Search agents"',
+		);
+		expect(html).toMatch(/<label[^>]*>Search agents by name or role<\/label>/);
 		expect(tagOf(html, "catalog-agents-filter")).toContain(
 			'aria-label="Filter by wave and kind"',
 		);

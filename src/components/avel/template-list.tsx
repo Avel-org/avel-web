@@ -45,7 +45,7 @@ import {
 	type TemplateLinks,
 	useTemplateLinks,
 } from "./template-links";
-import type { ViewOption } from "./view-toggle";
+import { type ViewOption, ViewToggle } from "./view-toggle";
 
 /*
  * Templates, /templates: the AVEL project templates, the repositories a
@@ -184,11 +184,13 @@ export function TemplateList({
 	view = "board",
 	filters = { q: "", sort: "missions" },
 	onFilters = () => {},
+	onView = () => {},
 }: {
 	query: ReturnType<typeof useTemplates>;
 	view?: TemplateView;
 	filters?: TemplateFilters;
 	onFilters?: (next: Partial<TemplateFilters>) => void;
+	onView?: (view: TemplateView) => void;
 }) {
 	const links = useTemplateLinks();
 	const lastUsed = useTemplatesLastUsed(query.data);
@@ -249,6 +251,8 @@ export function TemplateList({
 								templates={templates}
 								filters={filters}
 								onFilters={onFilters}
+								view={view}
+								onView={onView}
 							/>
 							{shown.length === 0 ? (
 								<EmptyState
@@ -347,16 +351,22 @@ function Segments<V extends string>({
 /**
  * Scope and starting state as segmented controls, each with its count over
  * the whole list (scopes in contract order, only those present), then the
- * search ("/" focuses it) and the sort.
+ * search ("/" focuses it), the sort and the Board | Table switch. The switch
+ * ends the row, as it ends the panel toolbar on Clients, Connections and
+ * Playbooks, so every Board | Table page keeps it in the same place.
  */
 function TemplateFilterRow({
 	templates,
 	filters,
 	onFilters,
+	view,
+	onView,
 }: {
 	templates: readonly Template[];
 	filters: TemplateFilters;
 	onFilters: (next: Partial<TemplateFilters>) => void;
+	view: TemplateView;
+	onView: (view: TemplateView) => void;
 }) {
 	const [draft, setDraft] = useState(filters.q);
 	// The URL keeps q trimmed. A change from elsewhere (Back, a link) replaces
@@ -448,6 +458,12 @@ function TemplateFilterRow({
 						))}
 					</SelectContent>
 				</Select>
+				<ViewToggle
+					options={TEMPLATE_VIEWS}
+					testIdPrefix="templates-view"
+					view={view}
+					onChange={onView}
+				/>
 			</div>
 		</div>
 	);

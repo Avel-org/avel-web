@@ -94,18 +94,31 @@ export const MISSION_COLUMN_LABEL: Record<MissionColumnId, string> = {
 	lastActivity: "Last activity",
 };
 
+/**
+ * The Missions panel draws one table per status group, and each table sized
+ * its own columns to its rows, so Sprint and Last export moved from group to
+ * group. Fixed shares line every group up; Last activity takes the rest.
+ */
+const MISSION_COLUMN_WIDTH = {
+	client: "26%",
+	type: "22%",
+	lastExport: "20%",
+} as const satisfies Partial<Record<MissionColumnId, string>>;
+
 export function missionColumns(now: number): DataColumn<MissionListItem>[] {
 	return [
 		{
 			id: "client",
 			header: MISSION_COLUMN_LABEL.client,
 			cell: (m) => <ClientName mission={m} />,
+			width: MISSION_COLUMN_WIDTH.client,
 			sortable: true,
 		},
 		{
 			id: "type",
 			header: MISSION_COLUMN_LABEL.type,
 			cell: (m) => m.type,
+			width: MISSION_COLUMN_WIDTH.type,
 		},
 		{
 			id: "sprint",
@@ -125,6 +138,7 @@ export function missionColumns(now: number): DataColumn<MissionListItem>[] {
 			id: "lastExport",
 			header: MISSION_COLUMN_LABEL.lastExport,
 			cell: (m) => <LastExport mission={m} />,
+			width: MISSION_COLUMN_WIDTH.lastExport,
 		},
 		{
 			id: "lastActivity",

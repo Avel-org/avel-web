@@ -11,6 +11,7 @@ import {
 } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { ResultCell } from "@/components/avel/activity-audit";
 import {
 	INVERSE,
 	labelOf,
@@ -191,16 +192,30 @@ function element(html: string, testid: string): string {
 
 const text = (html: string) => html.replaceAll("<!-- -->", "");
 
+describe("the result cell", () => {
+	it("is a pill only when the entry was not applied", () => {
+		const held = renderToString(<ResultCell id="x" result="Held" />);
+		expect(held).toContain('data-slot="badge"');
+		expect(held).toMatch(/data-result="Held"[^>]*>Held</);
+		const applied = renderToString(<ResultCell id="x" result="Applied" />);
+		expect(applied).not.toContain('data-slot="badge"');
+	});
+});
+
 describe("the audit log", () => {
 	it("is a table of time, actor, action, object and result", async () => {
 		const html = await render("/activity", [ADDED, CREATED]);
 		const table = element(html, "activity-audit");
-		for (const head of ["Time", "Actor", "Action", "Object", "Result"]) {
+		for (const head of ["Time (UTC)", "Actor", "Action", "Object", "Result"]) {
 			expect(table).toContain(`>${head}<`);
 		}
-		expect(element(table, `activity-result-${ADDED.id}`)).toContain(
-			">Applied<",
-		);
+		// Applied is every entry's result, so it is a quiet dash, not a pill;
+		// a screen reader still hears it.
+		const applied = element(table, `activity-result-${ADDED.id}`);
+		expect(applied).toMatch(/^<span/);
+		expect(applied).toContain('data-result="Applied"');
+		expect(applied).toContain('<span class="sr-only">Applied</span>');
+		expect(table).not.toContain('data-slot="badge"');
 		expect(tagOf(table, `activity-actor-${ADDED.id}`)).toContain(
 			'data-actor-kind="agent"',
 		);

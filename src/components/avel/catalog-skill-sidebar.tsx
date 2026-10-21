@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { skillsNeedingReview } from "./catalog-placeholders";
+import { SkillStatusPill } from "./catalog-sample";
 import { ROW_LINK_GROUP, RowChevron } from "./row-link";
 import { StatusGlyph } from "./status-pill";
 
@@ -208,10 +209,12 @@ function ReviewBanner({
 }
 
 /**
- * One skill in the sidebar: its name, its description on one line, and a
- * small mark for its status. A draft carries a pending dot; a retired skill
- * goes quiet, its words in the subtle ink (v3 UX 6), never faded by opacity.
- * The row is a link, so a selection is a URL.
+ * One skill in the sidebar: its name, its description on one line, and its
+ * status when it is not plain approved. A draft and a retired skill each
+ * carry the status pill the inspector shows, glyph and word, because a bare
+ * dot or a greyed row alone does not say which state it is. A retired skill
+ * also goes quiet, its words in the subtle ink (v3 UX 6), never faded by
+ * opacity. The row is a link, so a selection is a URL.
  */
 export function SkillRegistryRow({
 	skill,
@@ -254,15 +257,18 @@ export function SkillRegistryRow({
 				</span>
 				{skill.status === "draft" ? (
 					<span
-						data-testid="skill-row-draft"
-						className="inline-flex text-gate-pending"
-						title="Draft"
+						className="inline-flex"
+						title="Draft: waits for review before it can be attached"
 					>
-						<StatusGlyph tone="pending" />
-						<span className="sr-only">, draft</span>
+						<SkillStatusPill status="draft" data-testid="skill-row-draft" />
 					</span>
 				) : skill.status === "retired" ? (
-					<span className="sr-only">, retired</span>
+					<span
+						className="inline-flex"
+						title="Retired: read-only, and it can't be attached again"
+					>
+						<SkillStatusPill status="retired" data-testid="skill-row-retired" />
+					</span>
 				) : null}
 			</span>
 			<span

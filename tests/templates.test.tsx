@@ -279,6 +279,20 @@ describe("/templates, the board", () => {
 		expect(text(html)).toContain("3 templates");
 	});
 
+	it("ends the filter row with Board | Table, as the panel toolbars do, not in the top bar", async () => {
+		const html = await render(
+			"/templates",
+			withTemplates([BOOKING, AUDIT]),
+			withLinks,
+		);
+		const filters = element(html, "templates-filters");
+		expect(filters).toContain('data-testid="templates-view"');
+		expect(filters.indexOf('data-testid="templates-sort"')).toBeLessThan(
+			filters.indexOf('data-testid="templates-view"'),
+		);
+		expect(html).not.toContain('data-testid="topbar-actions"');
+	});
+
 	it("sets each card at the reference's density: tile, name, two lines, tags, numbers", async () => {
 		const html = await render(
 			"/templates",

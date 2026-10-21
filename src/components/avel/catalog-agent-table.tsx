@@ -211,7 +211,7 @@ export function AgentFilterRow({
 			<div className="flex items-center gap-2">
 				<div className="relative">
 					<label htmlFor={searchId} className="sr-only">
-						Search agents
+						Search agents by name or role
 					</label>
 					<Search
 						aria-hidden="true"
@@ -221,7 +221,9 @@ export function AgentFilterRow({
 						id={searchId}
 						type="search"
 						data-testid="catalog-agents-search"
-						placeholder="Search by name or role"
+						// Short enough to show whole in the field; the label says
+						// what it searches.
+						placeholder="Search agents"
 						value={filters.q ?? ""}
 						onChange={(event) =>
 							onChange({ ...filters, q: event.target.value })

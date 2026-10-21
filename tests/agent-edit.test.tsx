@@ -435,6 +435,19 @@ describe("who may edit", () => {
 		}
 	});
 
+	it("shows a glob that matches every file as Any file, the glob in its title", () => {
+		const html = asUser(
+			"user-1",
+			<AgentPathsEdit agent={{ ...nemi, writablePaths: ["**", "src/**"] }} />,
+		);
+		const value = html.slice(
+			html.indexOf('data-testid="agent-edit-paths-value"'),
+		);
+		expect(value).toMatch(/title="\*\*"[^>]*>Any file</);
+		expect(value).toMatch(/>src\/\*\*</);
+		expect(value.slice(0, value.indexOf("</ul>"))).not.toMatch(/>\*\*</);
+	});
+
 	it("lets the signed-in operator edit, and shows the saved values", () => {
 		const html = asUser("user-1", <AgentTitleEdit agent={nemi} />);
 		expect(isDisabled(html, "agent-edit-title-edit")).toBe(false);

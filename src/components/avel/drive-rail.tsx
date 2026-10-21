@@ -241,6 +241,9 @@ export function FolderCrumbs({
 	onChange: (folder: string | undefined) => void;
 }) {
 	const path = folderPath(folder);
+	// At the top the path is "Drive" alone, which the top bar's title already
+	// says, so there is no trail to show until a folder is chosen.
+	if (path.length < 2) return null;
 	// Where each crumb leads: Drive to all, Clients to all, a client to itself.
 	const target = (i: number): string | undefined => {
 		if (folder.kind === "engagement" && i === 2) {

@@ -13,18 +13,18 @@ import {
 } from "@/components/ui/table";
 import { relativeTime } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
+import { ActivityActor, ActivityActorName } from "./activity-actor";
 import { AgentDid } from "./activity-agent";
 import { ACTION_COPY, ENTITY_LABEL } from "./activity-copy";
 import { ActivityTarget } from "./activity-log";
 import {
+	type ActivityResult,
 	entityNameOf,
 	INVERSE,
 	type PayloadFact,
 	payloadFacts,
 	resultOf,
 } from "./activity-record";
-import { ActorMark } from "./actor";
-import { ActorLabel } from "./agent-actor";
 import { CodeView } from "./code-view";
 import { SectionPanel } from "./section-panel";
 import { HiddenId, ShortHash } from "./short-hash";
@@ -79,6 +79,76 @@ export function shortStamp(iso: string): string {
 	return `${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}, ${hh}:${mm}`;
 }
 
+/** The clock time, "14:02", in UTC as the day headings are. */
+export function clockTime(iso: string): string {
+	const d = new Date(iso);
+	const hh = String(d.getUTCHours()).padStart(2, "0");
+	const mm = String(d.getUTCMinutes()).padStart(2, "0");
+	return `${hh}:${mm}`;
+}
+
+/**
+ * An entry's time under its day heading: the clock only, since the heading
+ * already says the day, with the full stamp on hover. UTC, so a time never
+ * sits under a heading for a different day than the one it reads.
+ */
+export function ClockTime({
+	at,
+	id,
+	mono = false,
+}: {
+	at: string;
+	id: string;
+	mono?: boolean;
+}) {
+	return (
+		<time
+			dateTime={at}
+			title={`${shortStamp(at)} UTC (${at})`}
+			data-testid={`activity-at-${id}`}
+			className={cn(
+				"tabular-nums",
+				mono ? "type-mono text-text-muted" : "type-small text-text-subtle",
+			)}
+		>
+			{clockTime(at)}
+		</time>
+	);
+}
+
+/**
+ * The result, shown only when it is not Applied. Every logged entry is
+ * applied today (resultOf), so a pill on each row says nothing; a quiet dash
+ * keeps the column's shape, and a held, stopped or reverted entry, once the
+ * server logs one, is the only pill and stands out.
+ */
+export function ResultCell({
+	id,
+	result,
+}: {
+	id: string;
+	result: ActivityResult;
+}) {
+	const testId = `activity-result-${id}`;
+	if (result === "Applied")
+		return (
+			<span
+				data-testid={testId}
+				data-result="Applied"
+				title="Applied"
+				className="type-small text-text-subtle"
+			>
+				<span aria-hidden="true">–</span>
+				<span className="sr-only">Applied</span>
+			</span>
+		);
+	return (
+		<Badge variant="outline" data-testid={testId} data-result={result}>
+			{result}
+		</Badge>
+	);
+}
+
 /** Entries in their order, cut into runs of one day each. */
 export function groupByDay<T extends Pick<ActivityEntry, "at">>(
 	entries: readonly T[],
@@ -130,7 +200,9 @@ export function AuditTable({
 					<TableHead>Action</TableHead>
 					<TableHead>Object</TableHead>
 					<TableHead className="w-28">Result</TableHead>
-					<TableHead className="w-32">Time</TableHead>
+					{/* The day heads each group, so the column is the clock, in UTC
+					    as the headings are. */}
+					<TableHead className="w-32">Time (UTC)</TableHead>
 				</TableRow>
 			</TableHeader>
 			{groupByDay(entries).map((group) => (
@@ -162,23 +234,7 @@ export function AuditTable({
 								)}
 							>
 								<TableCell>
-									<span className="inline-flex items-center gap-2">
-										<ActorMark
-											kind={entry.actor.kind}
-											name={entry.actor.agent?.name}
-											data-testid={`activity-actor-mark-${entry.id}`}
-										/>
-										<span
-											data-testid={`activity-actor-${entry.id}`}
-											data-actor-kind={entry.actor.kind}
-											className="type-small text-text-muted"
-										>
-											<ActorLabel
-												actor={entry.actor}
-												data-testid={`activity-actor-agent-${entry.id}`}
-											/>
-										</span>
-									</span>
+									<ActivityActor entry={entry} />
 								</TableCell>
 								<TableCell>
 									<span
@@ -192,22 +248,10 @@ export function AuditTable({
 									<ActivityTarget entry={entry} />
 								</TableCell>
 								<TableCell>
-									<Badge
-										variant="outline"
-										data-testid={`activity-result-${entry.id}`}
-									>
-										{resultOf(entry)}
-									</Badge>
+									<ResultCell id={entry.id} result={resultOf(entry)} />
 								</TableCell>
 								<TableCell>
-									<time
-										dateTime={entry.at}
-										title={entry.at}
-										data-testid={`activity-at-${entry.id}`}
-										className="type-mono text-text-muted tabular-nums"
-									>
-										{relativeTime(entry.at, now)}
-									</time>
+									<ClockTime at={entry.at} id={entry.id} mono />
 								</TableCell>
 							</TableRow>
 						);
@@ -316,7 +360,7 @@ function RecordBody({ entry, now }: { entry: ActivityEntry; now: number }) {
 						</span>
 					)}
 					{", by "}
-					<ActorLabel
+					<ActivityActorName
 						actor={entry.actor}
 						data-testid={`activity-record-actor-${entry.id}`}
 					/>

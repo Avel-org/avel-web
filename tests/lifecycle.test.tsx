@@ -64,6 +64,14 @@ describe("Lifecycle (audit D5)", () => {
 		expect(out).not.toContain("lc-step-halted");
 	});
 
+	it("sets the branches beside the line after a divider, never on a row of their own", () => {
+		const out = html(MISSION_LIFECYCLE, "active");
+		expect(tagOf(out, "lc")).toMatch(/\bflex-wrap\b/);
+		expect(tagOf(out, "lc")).not.toMatch(/\bflex-col\b/);
+		expect(tagOf(out, "lc-branches")).toMatch(/\bborder-l\b/);
+		expect(tagOf(out, "lc-branches")).not.toMatch(/\bborder-t\b/);
+	});
+
 	it("never guesses where an export failed or closed: nothing on the line is passed", () => {
 		for (const end of ["failed", "closed"] as const satisfies ExportStatus[]) {
 			const line = mainLine(EXPORT_LIFECYCLE, end);

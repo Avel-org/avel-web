@@ -402,8 +402,45 @@ describe("/drive", () => {
 			new Set([DRIVE_MISSING.folders, DRIVE_MISSING.files]),
 		);
 		expectDisabledWithReason(html, "drive-upload", DRIVE_WRITE_REASON);
-		expectDisabledWithReason(html, "drive-drop-upload", DRIVE_WRITE_REASON);
 		expect(tagOf(html, "drive-drop")).toContain('aria-disabled="true"');
+	});
+
+	it("has one Upload control: the top bar's, the drop zone only a target", async () => {
+		const html = await renderPage(`/drive?folder=engagement:${booking.id}`);
+		expect(html).not.toContain('data-testid="drive-drop-upload"');
+		expect(text(element(html, "drive-drop"))).toContain(
+			"Drop files here to upload",
+		);
+		const buttons = [
+			...html.matchAll(
+				/<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?Upload<\/button>/g,
+			),
+		];
+		expect(buttons).toHaveLength(1);
+		expect(buttons[0]?.[0]).toContain('data-testid="drive-upload"');
+		// An empty Drive's large target has no button of its own either.
+		const empty = tip(
+			<DriveBrowser
+				query={{ status: "success", data: [] }}
+				state={{ sort: "newest", view: "list" }}
+				onChange={() => {}}
+			/>,
+		);
+		expect(empty).toContain('data-testid="drive-empty-drop"');
+		expect(empty).not.toContain('data-testid="drive-empty-drop-upload"');
+	});
+
+	it("prints no Drive heading of its own at the top: the top bar names the page", async () => {
+		const html = browse();
+		expect(html).not.toContain('data-testid="drive-crumbs"');
+		expect(text(element(html, "drive-canvas-header"))).not.toMatch(/^Drive/);
+		expect(text(element(html, "drive-showing"))).toBe(
+			`Showing ${SAMPLE_FILES.length} of ${SAMPLE_FILES.length}`,
+		);
+		// One level down, the trail returns, so the way back is there.
+		expect(text(element(browse({ folder: "general" }), "drive-crumbs"))).toBe(
+			"Drive/General",
+		);
 	});
 
 	it("rails every folder with its count: General, then each client and its engagements", async () => {
@@ -520,6 +557,27 @@ describe("/drive", () => {
 		expect(text(row)).not.toContain(sizeLabel(tomb.bytes));
 		const live = element(html, `drive-file-list-row-${pdf.id}`);
 		expect(tagOf(live, "drive-file-name")).not.toMatch(/line-through/);
+	});
+
+	it("names a tombstone's card in full on hover, and says its bytes are gone on their own line", async () => {
+		const card = element(browse({ view: "grid" }), `drive-card-${tomb.id}`);
+		const name = tagOf(card, "drive-file-name");
+		expect(name).toContain(
+			`title="${fromAttr(tomb.name).replaceAll("&", "&amp;")}"`,
+		);
+		expect(name).toMatch(/\btruncate\b/);
+		// Plain, not struck: a struck name cut to a letter read as garbage.
+		expect(name).not.toMatch(/line-through/);
+		const badge = element(card, "drive-file-purged");
+		expect(text(badge)).toBe("Bytes destroyed");
+		expect(badge).toContain(`title="Destroyed ${tomb.purgedAt?.slice(0, 10)}"`);
+		// Not beside the name, where it squeezed it, and no dash for a size.
+		expect(card.indexOf('data-testid="drive-file-purged"')).toBeGreaterThan(
+			card.indexOf('data-testid="drive-file-name"'),
+		);
+		expect(element(card, "drive-file-name")).not.toContain("drive-file-purged");
+		expect(text(card)).not.toContain("—");
+		expect(text(card)).not.toContain(sizeLabel(tomb.bytes));
 	});
 
 	it("shows cards in the grid view, with a placeholder thumbnail for images", async () => {

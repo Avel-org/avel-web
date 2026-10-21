@@ -14,10 +14,13 @@ import {
 	BUILDER_HINT,
 	PlaybookBuilderBody,
 } from "@/components/avel/playbook-builder";
-import { gateSummary } from "@/components/avel/playbook-list";
+import { filterPlaybooks, gateSummary } from "@/components/avel/playbook-list";
 import { draftOf, draftReducer } from "@/components/avel/playbook-pipeline";
 import { PublishConfirm } from "@/components/avel/playbook-publish";
-import { playbooksStartingFrom } from "@/components/avel/playbook-section";
+import {
+	PlaybooksPanel,
+	playbooksStartingFrom,
+} from "@/components/avel/playbook-section";
 import { PlaybookVersions } from "@/components/avel/playbook-versions";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -131,6 +134,45 @@ const withPlaybook =
 			row,
 		);
 	};
+
+/** The Playbooks panel alone, with a search already typed. */
+async function panel(
+	search: string,
+	...seeds: ((client: QueryClient) => void)[]
+): Promise<string> {
+	const queryClient = new QueryClient({
+		defaultOptions: {
+			queries: {
+				retry: false,
+				retryOnMount: false,
+				staleTime: Number.POSITIVE_INFINITY,
+			},
+		},
+	});
+	for (const seed of seeds) seed(queryClient);
+	const root = createRootRoute({
+		component: () => (
+			<ApiOverrideProvider queryClient={queryClient}>
+				<ApiProvider>
+					<TooltipProvider>
+						<PlaybooksPanel
+							view="board"
+							onViewChange={() => {}}
+							search={search}
+							onSearch={() => {}}
+						/>
+					</TooltipProvider>
+				</ApiProvider>
+			</ApiOverrideProvider>
+		),
+	});
+	const router = createRouter({
+		routeTree: root,
+		history: createMemoryHistory({ initialEntries: ["/"] }),
+	});
+	await router.load();
+	return renderToString(<RouterProvider router={router} />);
+}
 
 const failing =
 	(key: readonly unknown[], status: number, code: "NOT_FOUND" | "INTERNAL") =>
@@ -276,6 +318,52 @@ describe("/presets?section=playbooks", () => {
 		);
 		expect(html).toContain("5 playbooks");
 		expect(element(html, "playbooks-showing")).toContain("Showing 2 of 5");
+	});
+
+	it("searches from the toolbar's left, the view switch on its right", async () => {
+		const html = await render(
+			"/presets?section=playbooks",
+			withList([FULL_BUILD, DISCOVERY]),
+		);
+		const panel = element(html, "playbooks-panel");
+		expect(tagOf(panel, "playbooks-search-input")).toContain(
+			'placeholder="Search playbooks"',
+		);
+		expect(panel).toContain(
+			">Search playbooks by name or mission type</label>",
+		);
+		expect(panel.indexOf('data-testid="playbooks-search"')).toBeLessThan(
+			panel.indexOf('data-testid="playbooks-view"'),
+		);
+		// No search yet: every playbook shows.
+		expect(element(html, "playbooks-showing")).toContain("Showing 2 of 2");
+	});
+
+	it("matches a playbook by name or mission type, any case", () => {
+		const rows = [FULL_BUILD, DISCOVERY];
+		expect(filterPlaybooks(rows, "")).toEqual(rows);
+		expect(filterPlaybooks(rows, "  DISCO ")).toEqual([DISCOVERY]);
+		expect(filterPlaybooks(rows, "template-book")).toEqual([FULL_BUILD]);
+		expect(filterPlaybooks(rows, "nothing")).toEqual([]);
+	});
+
+	it("shows only the matches, counted in the footer, or says none match", async () => {
+		const some = await panel("disc", withList([FULL_BUILD, DISCOVERY]));
+		expect(some).toContain('data-testid="playbook-card-discovery"');
+		expect(some).not.toContain('data-testid="playbook-card-template-booking"');
+		expect(element(some, "playbooks-showing")).toContain("Showing 1 of 2");
+
+		const none = await panel("zzz", withList([FULL_BUILD, DISCOVERY]));
+		expect(none).not.toContain('data-testid="playbook-board"');
+		expect(text(element(none, "playbooks-no-match"))).toContain(
+			"No playbooks match",
+		);
+		expect(none).toContain('data-testid="playbooks-clear-search"');
+		expect(element(none, "playbooks-showing")).toContain("Showing 0 of 2");
+		// No playbooks at all is the first-run state, never a failed search.
+		const empty = await panel("zzz", withList([], 0));
+		expect(empty).toContain('data-testid="playbooks-empty"');
+		expect(empty).not.toContain('data-testid="playbooks-no-match"');
 	});
 
 	it("has no write controls", async () => {

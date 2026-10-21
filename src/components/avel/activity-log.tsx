@@ -10,6 +10,7 @@ import { ActivityActor } from "./activity-actor";
 import { AgentTarget } from "./activity-agent";
 import {
 	AuditTable,
+	ClockTime,
 	DecisionRecord,
 	dayLabel,
 	groupByDay,
@@ -208,15 +209,21 @@ export function ActivityRows({
 						<span aria-hidden="true" className="text-text-subtle">
 							·
 						</span>
-						{/* The exact time on hover, as the mission list does. */}
-						<time
-							dateTime={entry.at}
-							title={entry.at}
-							data-testid={`activity-at-${entry.id}`}
-							className="type-small text-text-subtle tabular-nums"
-						>
-							{relativeTime(entry.at, now)}
-						</time>
+						{/* Under a day heading the day is said, so the row gives the
+						    clock; a list with no headings keeps the age. The exact
+						    time is on hover either way. */}
+						{nested ? (
+							<ClockTime at={entry.at} id={entry.id} />
+						) : (
+							<time
+								dateTime={entry.at}
+								title={entry.at}
+								data-testid={`activity-at-${entry.id}`}
+								className="type-small text-text-subtle tabular-nums"
+							>
+								{relativeTime(entry.at, now)}
+							</time>
+						)}
 						{withRecordLinks ? <RecordLink id={entry.id} /> : null}
 					</span>
 				</li>

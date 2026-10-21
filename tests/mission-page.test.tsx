@@ -249,6 +249,10 @@ describe("the page from the contract", () => {
 		expect(element(html, "mission-section-repository")).toContain(
 			'href="https://github.com/example/app"',
 		);
+		// Named as Connections names it, the full URL kept as its title.
+		expect(visibleText(element(html, "mission-repo-link")).trim()).toBe(
+			"example/app",
+		);
 		expect(element(html, "mission-section-playbook-page")).toContain(
 			"Template booking",
 		);
@@ -355,7 +359,9 @@ describe("the page from the contract", () => {
 		);
 		const team = element(html, "mission-team-entries");
 		const text = visibleText(team);
-		expect(text).toMatch(/Leon · Booking\s*A B\s*Active.*Iyo\s*C\s*Idle/s);
+		expect(text).toMatch(
+			/Leon · Booking\s*Waves A, B\s*Active.*Iyo\s*Wave C\s*Idle/s,
+		);
 		expect(text).not.toMatch(UUID_FRAGMENT);
 		expect(pills(team)).toBe(0);
 		expect(team).toContain('title="A · Setup, B · Build"');

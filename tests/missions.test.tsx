@@ -17,7 +17,10 @@ import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { actionLabel } from "@/components/avel/activity-copy";
 import { DataPanel } from "@/components/avel/data-panel";
-import { MISSION_STATUS_TONE } from "@/components/avel/mission-columns";
+import {
+	MISSION_STATUS_TONE,
+	missionColumns,
+} from "@/components/avel/mission-columns";
 import {
 	type MissionListParams,
 	missionListQuery,
@@ -1185,5 +1188,16 @@ describe("the page", () => {
 		const html = await render("/missions");
 		expect(tagOf(html, "missions-new")).toMatch(/\sdisabled=""/);
 		expect(html).toContain(NOT_YET["mission.create"]);
+	});
+});
+
+describe("the mission tables' columns", () => {
+	it("give every column but Last activity a fixed share, so each status group's table lines up", () => {
+		const widths = Object.fromEntries(
+			missionColumns(0).map((column) => [column.id, column.width]),
+		);
+		for (const id of ["client", "type", "sprint", "lastExport"])
+			expect(widths[id], id).toBeDefined();
+		expect(widths.lastActivity).toBeUndefined();
 	});
 });

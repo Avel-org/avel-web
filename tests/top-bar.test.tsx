@@ -285,6 +285,10 @@ describe("the top-right cluster", () => {
 			'aria-label="Inbox, 3 items need you (2 client, 1 internal)"',
 		);
 		expect(html).toMatch(/data-testid="global-inbox-badge"[^>]*>3</);
+		// Cut out of the glyph by a ring of the top bar's own surface.
+		expect(tagOf(html, "global-inbox-badge")).toMatch(
+			/\bring-2\b[^"]*\bring-app-panel\b/,
+		);
 	});
 
 	it("shows no badge when nothing needs you", async () => {

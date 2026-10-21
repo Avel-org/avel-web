@@ -28,6 +28,7 @@ import {
 	teamsOf,
 } from "./catalog-sample";
 import { SampleData } from "./sample-data";
+import { WritablePath } from "./writable-path";
 
 /*
  * All agents as cards (ruling 44): one v3 card per agent, built from
@@ -437,12 +438,8 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 							className="flex min-w-0 flex-col gap-0.5"
 						>
 							{paths.slice(0, CARD_PATHS).map((glob) => (
-								<li
-									key={glob}
-									title={glob}
-									className="truncate type-mono text-text-muted"
-								>
-									{glob}
+								<li key={glob} className="truncate type-mono text-text-muted">
+									<WritablePath glob={glob} />
 								</li>
 							))}
 							{paths.length > CARD_PATHS ? (

@@ -20,6 +20,16 @@ const ThemeContext = createContext<{
 
 const PortalContainerContext = createContext<HTMLElement | null>(null);
 
+/**
+ * Runs inline, before the first paint. The stored theme otherwise applies
+ * only after hydration (useStoredState), so a dark viewer saw the light
+ * shell, the checking screen included, until then. It marks the wrapper
+ * it sits in; React leaves the class alone while hydrating
+ * (suppressHydrationWarning) and sets the same one once the stored value
+ * loads.
+ */
+export const BOOT_THEME_SCRIPT = `try{if(localStorage.getItem("avel.theme")==="dark"){var a=document.currentScript.parentElement;a.classList.add("dark");a.setAttribute("data-theme","dark")}}catch(e){}`;
+
 export function ThemeRoot({ children }: { children: ReactNode }) {
 	const [theme, setTheme] = useStoredState<Theme>(
 		"avel.theme",
@@ -36,7 +46,12 @@ export function ThemeRoot({ children }: { children: ReactNode }) {
 				<div
 					data-theme={theme}
 					className={cn("app", theme === "dark" && "dark")}
+					suppressHydrationWarning
 				>
+					<script
+						// biome-ignore lint/security/noDangerouslySetInnerHtml: a fixed string, written here, that must run before paint.
+						dangerouslySetInnerHTML={{ __html: BOOT_THEME_SCRIPT }}
+					/>
 					{children}
 					<div data-slot="portal-root" ref={setPortalContainer} />
 				</div>

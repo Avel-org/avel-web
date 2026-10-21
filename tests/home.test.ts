@@ -126,6 +126,12 @@ describe("Home", () => {
 		expect(tagOf(html, "home-chat-strip-new")).toMatch(/href="\/"/);
 	});
 
+	it("lays the phone's Chats button over the corner, not on a row above the welcome", async () => {
+		const html = await renderPage("/");
+		expect(tagOf(html, "home-chat-thread")).toMatch(/\brelative\b/);
+		expect(tagOf(html, "home-chat-start-chats")).toMatch(/\babsolute\b/);
+	});
+
 	it("pins the composer below the thread, on the canvas surface", async () => {
 		const html = await renderPage("/");
 		const thread = html.indexOf('data-testid="home-chat-thread"');

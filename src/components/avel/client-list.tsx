@@ -125,9 +125,15 @@ function ClientRow({ client, now }: { client: Client; now: number }) {
 						>
 							{client.name}
 						</Link>
-						<span className="type-caption truncate text-text-subtle">
-							{client.primaryContact ?? "No primary contact"}
-						</span>
+						{/* As on the card: no contact, no line, rather than filler. */}
+						{client.primaryContact === null ? null : (
+							<span
+								data-testid={`client-row-contact-${client.id}`}
+								className="type-caption truncate text-text-subtle"
+							>
+								{client.primaryContact}
+							</span>
+						)}
 					</div>
 				</div>
 			</TableCell>

@@ -6,7 +6,8 @@ import type {
 	PlaybookGate,
 } from "avel-server/contract";
 import { WAVES } from "avel-server/contract";
-import { ListChecks, Rows3, SquareKanban, Users } from "lucide-react";
+import { ListChecks, Rows3, SearchX, SquareKanban, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadedPlaybooks, type usePlaybooks } from "@/lib/api/playbooks";
 import { usePreset } from "@/lib/api/presets";
@@ -113,6 +114,22 @@ const COLUMNS: DataColumn<Playbook>[] = [
 	},
 ];
 
+/**
+ * The loaded playbooks whose name or mission type holds the search, any case.
+ * An empty search keeps them all. Pure, so it tests.
+ */
+export function filterPlaybooks<
+	T extends Pick<Playbook, "name" | "missionType">,
+>(playbooks: readonly T[], search: string): T[] {
+	const q = search.trim().toLowerCase();
+	if (q === "") return [...playbooks];
+	return playbooks.filter(
+		(p) =>
+			p.name.toLowerCase().includes(q) ||
+			p.missionType.toLowerCase().includes(q),
+	);
+}
+
 /** Board (cards, the default) or Table (the rows), as the URL's `view` says. */
 export type PlaybookView = "board" | "table";
 
@@ -129,9 +146,14 @@ export const PLAYBOOK_VIEWS = [
 export function PlaybookList({
 	query,
 	view = "board",
+	search = "",
+	onClearSearch = () => {},
 }: {
 	query: ReturnType<typeof usePlaybooks>;
 	view?: PlaybookView;
+	/** The toolbar's search, applied to the loaded playbooks. */
+	search?: string;
+	onClearSearch?: () => void;
 }) {
 	return (
 		<div data-testid="playbooks" className="flex flex-col">
@@ -151,8 +173,26 @@ export function PlaybookList({
 				error={ErrorState}
 			>
 				{(data) => {
-					const rows = loadedPlaybooks(data);
-					return view === "table" ? (
+					const rows = filterPlaybooks(loadedPlaybooks(data), search);
+					return rows.length === 0 ? (
+						<EmptyState
+							data-testid="playbooks-no-match"
+							compact
+							icon={SearchX}
+							title="No playbooks match"
+							description={`Nothing matches “${search.trim()}” in a playbook's name or mission type.`}
+							action={
+								<Button
+									size="sm"
+									variant="outline"
+									data-testid="playbooks-clear-search"
+									onClick={onClearSearch}
+								>
+									Clear search
+								</Button>
+							}
+						/>
+					) : view === "table" ? (
 						<DataTable
 							label="Playbooks"
 							data-testid="playbook-table"

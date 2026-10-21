@@ -274,12 +274,16 @@ export function ClientCard({
 							{client.name}
 						</Link>
 					</h3>
-					<p
-						data-testid={`client-card-contact-${client.id}`}
-						className="type-caption truncate text-text-muted"
-					>
-						{client.primaryContact ?? "No primary contact"}
-					</p>
+					{/* No contact leaves the line out: the same filler on every card
+					    says nothing, and the meter below already counts engagements. */}
+					{client.primaryContact === null ? null : (
+						<p
+							data-testid={`client-card-contact-${client.id}`}
+							className="type-caption truncate text-text-muted"
+						>
+							{client.primaryContact}
+						</p>
+					)}
 				</div>
 				<StatusPill
 					size="sm"

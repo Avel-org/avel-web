@@ -447,6 +447,7 @@ describe("the chat list", () => {
 		expect(tagOf(html, "canon-chat-shelf-active")).toContain(
 			'aria-pressed="true"',
 		);
+		expect(html).toMatch(/data-testid="canon-chat-count"[^>]*>2</);
 	});
 
 	it("says there are no chats yet, and how to start one", async () => {
@@ -455,6 +456,8 @@ describe("the chat list", () => {
 			seedList([]),
 		);
 		expect(element(html, "canon-chat-list-empty")).toContain("No chats yet");
+		// The empty state says it; a 0 beside the name would repeat it.
+		expect(html).not.toContain('data-testid="canon-chat-count"');
 	});
 });
 
