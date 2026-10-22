@@ -228,7 +228,10 @@
 	--color-app-page: #141414;
 	--color-app-panel: #181818;
 	--color-app-band: #141414;
-	--color-app-well: #101010;
+	/* No well in dark (operator, 2026-10-22): a near-black box inside a
+	   card read as a hole. A summary box is its hairline alone; a meter
+	   track or a sticky gutter that needs a fill uses another token. */
+	--color-app-well: rgb(0 0 0 / 0);
 	--color-app-field: #111111;
 	/* The composer sits a step above the page, lit along its top edge; the
 	   near-black field fill sank it below the page. */

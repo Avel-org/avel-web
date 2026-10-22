@@ -44,7 +44,7 @@ export function CodeView({
 			aria-label={label}
 			data-testid={testId}
 			className={cn(
-				"flex min-w-0 flex-col overflow-hidden rounded-xs border border-border bg-app-well",
+				"flex min-w-0 flex-col overflow-hidden rounded-xs border border-border bg-app-panel",
 				className,
 			)}
 		>
@@ -52,7 +52,7 @@ export function CodeView({
 				<div
 					aria-hidden="true"
 					data-testid={`${testId}-gutter`}
-					className="sticky left-0 shrink-0 select-none border-r border-border bg-app-well py-3 pr-3 pl-3 text-right type-mono text-text-subtle tabular-nums"
+					className="sticky left-0 shrink-0 select-none border-r border-border bg-app-panel py-3 pr-3 pl-3 text-right type-mono text-text-subtle tabular-nums"
 				>
 					{lines.map((_, i) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: a line number is its index

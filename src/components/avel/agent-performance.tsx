@@ -253,7 +253,7 @@ function OutcomeMix({
 			</p>
 			<div
 				aria-hidden="true"
-				className="flex h-2.5 w-full overflow-hidden rounded-full bg-app-well"
+				className="flex h-2.5 w-full overflow-hidden rounded-full bg-app-raised"
 			>
 				{segments.map((s) => (
 					<span
@@ -330,7 +330,7 @@ function SpendAndTokens({ totals }: { totals: DispatchTotals }) {
 			</p>
 			<div
 				aria-hidden="true"
-				className="relative h-2.5 w-full overflow-hidden rounded-full bg-app-well"
+				className="relative h-2.5 w-full overflow-hidden rounded-full bg-app-raised"
 			>
 				<span
 					data-testid="agent-performance-tokens-bar"
