@@ -89,7 +89,7 @@ const RUN_BLOCK: GateRun = gateRun.parse({
 	missionId: MISSION,
 	commitSha: COMMIT,
 	baseSha: BASE,
-	verdict: "block",
+	result: "fail",
 	decideVersion: 1,
 	receiptVersion: 1,
 	configSha256: "e".repeat(64),
@@ -98,10 +98,10 @@ const RUN_BLOCK: GateRun = gateRun.parse({
 		{
 			gate: "qa",
 			policy: "mandatory",
-			verdict: "block",
+			result: "fail",
 			reasons: [OVERRIDABLE, FIXED],
 		},
-		{ gate: "security", policy: "warn", verdict: "warn", reasons: [DEGRADED] },
+		{ gate: "security", policy: "warn", result: "pass", reasons: [DEGRADED] },
 	],
 	reasons: [OVERRIDABLE, FIXED, DEGRADED],
 	ignoredOverrides: [
@@ -219,15 +219,15 @@ function element(html: string, testid: string): string {
 // ---------------------------------------------------------------------------
 
 describe("the gate panel", () => {
-	it("heads the panel with the latest verdict, in its tone, never the accent", async () => {
+	it("heads the panel with the latest result, in its tone, never the accent", async () => {
 		const html = await render(
 			<GatePanel missionId={MISSION} />,
 			withRuns([SUMMARY], 4),
 		);
-		const pill = tagOf(html, "gate-verdict");
+		const pill = tagOf(html, "gate-result");
 		expect(pill).toContain('data-tone="block"');
 		expect(pill).not.toMatch(/accent/);
-		expect(element(html, "gate-verdict")).toContain(">Block<");
+		expect(element(html, "gate-result")).toContain(">Fail<");
 		expect(element(html, "gate-run-count")).toContain(">4 runs<");
 	});
 
@@ -265,7 +265,7 @@ describe("a gate run's receipt", () => {
 	const receipt = (drafts: Record<string, string> = {}) =>
 		render(<GateReceipt run={RUN_BLOCK} drafts={drafts} onDraft={() => {}} />);
 
-	it("lists each gate with its policy's shape and its verdict, a block opened", async () => {
+	it("lists each gate with its policy's shape and its result, a fail opened", async () => {
 		const html = await receipt();
 		expect(html.indexOf('data-testid="gate-row-qa"')).toBeLessThan(
 			html.indexOf('data-testid="gate-row-security"'),
@@ -278,8 +278,8 @@ describe("a gate run's receipt", () => {
 		expect(tagOf(html, "gate-row-security-toggle")).toContain(
 			'aria-expanded="false"',
 		);
-		expect(tagOf(html, "gate-row-qa-verdict")).toContain('data-tone="block"');
-		expect(tagOf(html, "gate-row-security-verdict")).toContain(
+		expect(tagOf(html, "gate-row-qa-result")).toContain('data-tone="block"');
+		expect(tagOf(html, "gate-row-security-result")).toContain(
 			'data-tone="warn"',
 		);
 	});
@@ -325,7 +325,7 @@ describe("a gate run's receipt", () => {
 					gates: [
 						{
 							...RUN_BLOCK.gates[1],
-							verdict: "block",
+							result: "fail",
 						} as GateRun["gates"][number],
 					],
 				}}

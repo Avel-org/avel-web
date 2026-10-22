@@ -1,7 +1,7 @@
 import type {
 	DECIDE_RULES,
 	FindingSeverity,
-	GATE_VERDICTS,
+	GATE_RESULTS,
 	IGNORED_OVERRIDE_WHYS,
 	REASON_EFFECTS,
 } from "avel-server/contract";
@@ -9,14 +9,14 @@ import type { StatusTone } from "./status-pill";
 
 /*
  * The gate's words (module 9). Each table is keyed on the contract's own
- * list with `satisfies`, so a rule, effect or verdict the server adds fails
+ * list with `satisfies`, so a rule, effect or result the server adds fails
  * this build until it has words, and one it removes fails until they go.
  * The copy says what the rule found, never more than the receipt states.
  */
 
 type Rule = (typeof DECIDE_RULES)[number];
 type Effect = (typeof REASON_EFFECTS)[number];
-type Verdict = (typeof GATE_VERDICTS)[number];
+type Result = (typeof GATE_RESULTS)[number];
 type IgnoredWhy = (typeof IGNORED_OVERRIDE_WHYS)[number];
 
 /** Each rule decide() applies, in words. */
@@ -45,14 +45,14 @@ export const EFFECT_WORDS = {
 	ignored: "Ignored",
 } as const satisfies Record<Effect, string>;
 
-/** A verdict as its pill says it, and its tone: never the accent. */
-export const VERDICT = {
-	pass: { label: "Pass", tone: "pass" },
-	warn: { label: "Warn", tone: "warn" },
-	// Cleared by a written override: it ships, with a note, so warn.
-	overridden: { label: "Overridden", tone: "warn" },
-	block: { label: "Block", tone: "block" },
-} as const satisfies Record<Verdict, { label: string; tone: StatusTone }>;
+/** A result as its pill says it, and its tone: never the accent. */
+export const RESULT = {
+	verified: { label: "Verified", tone: "pass" },
+	// Nothing blocks, but something warned, was overridden or wasn't
+	// checked. Only verified work ships, so warn.
+	pass: { label: "Pass", tone: "warn" },
+	fail: { label: "Fail", tone: "block" },
+} as const satisfies Record<Result, { label: string; tone: StatusTone }>;
 
 /** Why an override sent with the run was not applied. */
 export const IGNORED_WHY = {

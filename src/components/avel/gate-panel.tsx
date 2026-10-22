@@ -25,9 +25,9 @@ import { shortStamp } from "./activity-audit";
 import {
 	EFFECT_WORDS,
 	IGNORED_WHY,
+	RESULT,
 	RULE_WORDS,
 	SEVERITY,
-	VERDICT,
 } from "./gate-copy";
 import { GatePolicyGlyph } from "./gate-policy-glyph";
 import { PanelFooter } from "./panel-footer";
@@ -39,9 +39,9 @@ import { StatusGlyph, StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
 /*
- * The gate on a mission's page (module 9). The latest run is the verdict
+ * The gate on a mission's page (module 9). The latest run is the result
  * now: its pill and the commit it judged in the header, each listed gate
- * with its policy and verdict, and each gate's reasons on expand. A blocking
+ * with its policy and result, and each gate's reasons on expand. A blocking
  * reason a written override would clear offers one; the rationale is bound
  * to the run's commit and kept until the commit changes. Run gate re-judges,
  * sending the overrides; a resend of the same attempt replays, never judges
@@ -67,9 +67,9 @@ export function GatePanel({ missionId }: { missionId: string }) {
 						<span className="flex items-center gap-2">
 							<StatusPill
 								size="sm"
-								tone={VERDICT[latest.verdict].tone}
-								label={VERDICT[latest.verdict].label}
-								data-testid="gate-verdict"
+								tone={RESULT[latest.result].tone}
+								label={RESULT[latest.result].label}
+								data-testid="gate-result"
 							/>
 						</span>
 					) : null
@@ -373,7 +373,7 @@ export function GateReceipt({
 	);
 }
 
-/** One gate: its policy and verdict, its reasons on expand. */
+/** One gate: its policy and result, its reasons on expand. */
 function GateRow({
 	gate,
 	commitSha,
@@ -386,11 +386,11 @@ function GateRow({
 	onDraft: (findingId: string, rationale: string) => void;
 }) {
 	// A blocking gate opens: what stops the ship is read first.
-	const [open, setOpen] = useState(gate.verdict === "block");
+	const [open, setOpen] = useState(gate.result === "fail");
 	const panelId = useId();
-	const verdict = VERDICT[gate.verdict];
+	const result = RESULT[gate.result];
 	return (
-		<li data-testid={`gate-row-${gate.gate}`} data-verdict={gate.verdict}>
+		<li data-testid={`gate-row-${gate.gate}`} data-result={gate.result}>
 			<button
 				type="button"
 				aria-expanded={open}
@@ -415,9 +415,9 @@ function GateRow({
 				</span>
 				<StatusPill
 					size="sm"
-					tone={verdict.tone}
-					label={verdict.label}
-					data-testid={`gate-row-${gate.gate}-verdict`}
+					tone={result.tone}
+					label={result.label}
+					data-testid={`gate-row-${gate.gate}-result`}
 				/>
 			</button>
 			{open ? (

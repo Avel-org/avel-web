@@ -43,7 +43,7 @@ describe("panels at a phone's width", () => {
 					missionId: MISSION,
 					commitSha: "c".repeat(40),
 					baseSha: "b".repeat(40),
-					verdict: "block",
+					result: "fail",
 					decideVersion: 1,
 					receiptVersion: 1,
 					configSha256: "e".repeat(64),
@@ -52,7 +52,7 @@ describe("panels at a phone's width", () => {
 						{
 							gate: "qa",
 							policy: "mandatory",
-							verdict: "block",
+							result: "fail",
 							reasons: [reason],
 						},
 					],
