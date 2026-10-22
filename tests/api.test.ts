@@ -13,12 +13,10 @@ import {
 import { describeError } from "@/lib/error-map";
 
 const NOW = "2026-10-05T12:00:00.000Z";
-// `preview` is false everywhere but a local dev-preview run.
 const HEALTH = {
 	ok: true,
 	service: "avel-server",
 	time: NOW,
-	preview: false,
 } as const;
 const FIRST_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -40,7 +38,6 @@ const { createApp } = (await import(/* @vite-ignore */ `${server}app.ts`)) as {
 		auth: unknown;
 		db: () => unknown;
 		webOrigins: readonly string[];
-		preview: boolean;
 		drive: unknown;
 	}) => ServerApp;
 };
@@ -78,7 +75,7 @@ const noDatabase = () => {
 	throw new Error("this test runs no database");
 };
 
-const realApp = ({ preview = false } = {}) =>
+const realApp = () =>
 	createApp({
 		clock: fixedClock(NOW),
 		ids: sequentialIds(),
@@ -86,7 +83,6 @@ const realApp = ({ preview = false } = {}) =>
 		auth: signedOut,
 		db: noDatabase,
 		webOrigins: [],
-		preview,
 		drive: { blobs: memoryBlobs(), maxBytes: DEFAULT_UPLOAD_MAX_BYTES },
 	});
 
@@ -146,17 +142,6 @@ describe("the data layer against avel-server's real health route", () => {
 		const res = await realApp().request("/api/health");
 		expect(res.headers.get("x-request-id")).toBe(FIRST_ID);
 		expect(await res.json()).toEqual({ success: true, data: HEALTH });
-	});
-
-	it("says when dev preview is on, and marks every answer with its header", async () => {
-		const res = await realApp({ preview: true }).request("/api/health");
-		expect(res.headers.get("x-avel-preview")).toBe("1");
-		expect(await res.json()).toEqual({
-			success: true,
-			data: { ...HEALTH, preview: true },
-		});
-		const off = await realApp().request("/api/health");
-		expect(off.headers.get("x-avel-preview")).toBeNull();
 	});
 
 	it("returns the envelope's data through a query, end to end", async () => {
