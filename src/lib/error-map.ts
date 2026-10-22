@@ -393,6 +393,14 @@ export const PRECONDITION_COPY = {
 		next: "Answer, acknowledge or dismiss each question, then approve again.",
 		retry: false,
 	},
+	// Brief sources (2026-10-21): approval waits on the operator confirming
+	// or rejecting every passage Canon cited.
+	brief_sources_unconfirmed: {
+		what: "Some of this brief's sources haven't been checked.",
+		written: NOTHING_WRITTEN,
+		next: "Confirm or reject each source on the brief, then approve again.",
+		retry: false,
+	},
 	// src/routes/intake.ts: approval while the repository's cut has not been
 	// derived. Every approval gets this until repo read (module 2) exists.
 	intake_cut_not_derived: {
