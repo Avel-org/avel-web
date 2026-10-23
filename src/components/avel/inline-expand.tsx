@@ -54,7 +54,18 @@ export function InlineExpand<T>({
 							open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
 						)}
 					>
-						<div id={restId} className="min-h-0 overflow-hidden" inert={!open}>
+						<div
+							id={restId}
+							// Open, the clip leaves room for a row's focus ring (2px gap
+							// and 2px ring); closed, nothing may show past the fold.
+							className={cn(
+								"min-h-0",
+								open
+									? "overflow-clip [overflow-clip-margin:4px]"
+									: "overflow-hidden",
+							)}
+							inert={!open}
+						>
 							<ul
 								data-testid={`${testId}-rest`}
 								className={cn("flex flex-col", className)}

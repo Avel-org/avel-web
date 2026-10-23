@@ -116,7 +116,9 @@ export function Page(props: PageProps) {
 						className="flex min-w-0 flex-1 flex-col justify-center"
 					>
 						<Breadcrumbs crumbs={crumbs} />
-						<h1 className="type-page truncate text-text">{title}</h1>
+						<h1 title={title} className="type-page truncate text-text">
+							{title}
+						</h1>
 						<SecondLine
 							subtitle={subtitle}
 							definition={crumbs.length > 0 ? undefined : definition}
@@ -171,6 +173,7 @@ function SecondLine({
 		return (
 			<p
 				data-testid="topbar-subtitle"
+				title={subtitle}
 				className="type-small truncate text-text-subtle tabular-nums"
 			>
 				{subtitle}

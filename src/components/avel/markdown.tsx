@@ -213,7 +213,7 @@ export function Markdown({
 						return (
 							<pre
 								key={block.key}
-								className="app-scroll overflow-x-auto rounded-control bg-app-well px-3 py-2 type-mono text-text"
+								className="app-scroll overflow-x-auto rounded-card border border-border bg-app-well px-3 py-2 type-mono text-text"
 							>
 								<code>{block.text}</code>
 							</pre>

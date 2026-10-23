@@ -86,7 +86,7 @@ function CommandInput({
 			<CommandPrimitive.Input
 				data-slot="command-input"
 				className={cn(
-					"flex h-10 w-full bg-transparent py-3 type-body text-text outline-hidden placeholder:text-text-subtle disabled:cursor-not-allowed",
+					"flex h-full w-full bg-transparent type-body text-text outline-hidden placeholder:text-text-subtle disabled:cursor-not-allowed",
 					className,
 				)}
 				{...props}
@@ -141,19 +141,6 @@ function CommandGroup({
 				"overflow-hidden text-text [&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:type-caption [&_[cmdk-group-heading]]:text-text-subtle",
 				className,
 			)}
-			{...props}
-		/>
-	);
-}
-
-function CommandSeparator({
-	className,
-	...props
-}: React.ComponentProps<typeof CommandPrimitive.Separator>) {
-	return (
-		<CommandPrimitive.Separator
-			data-slot="command-separator"
-			className={cn("my-1.5 h-px bg-border", className)}
 			{...props}
 		/>
 	);
@@ -222,5 +209,4 @@ export {
 	CommandGroup,
 	CommandItem,
 	CommandShortcut,
-	CommandSeparator,
 };

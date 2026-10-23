@@ -31,8 +31,6 @@ const badgeVariants = cva(
 					"bg-gate-block-soft text-gate-block in-[.dark]:border-gate-block-line",
 				outline:
 					"border-border-strong bg-app-panel font-normal text-text-muted [a&]:hover:bg-app-raised",
-				ghost: "text-text [a&]:hover:bg-app-raised",
-				link: "text-accent-text underline-offset-3 [a&]:hover:underline",
 				tag: "h-auto rounded-xs bg-gate-pending-soft px-1.5 py-px font-mono font-normal text-text-muted tabular-nums",
 				count:
 					"h-5 min-w-6 border-border bg-app-panel px-1.5 text-text tabular-nums",
@@ -75,4 +73,4 @@ function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
 	);
 }
 
-export { Badge, badgeVariants, Kbd };
+export { Badge, Kbd };

@@ -1,4 +1,4 @@
-import type { ExportStatus } from "avel-server/contract";
+import type { ExportStatus, ExportWire } from "avel-server/contract";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,6 +27,18 @@ const TONE: Record<StatusTone, string> = {
 	pending: "bg-gate-pending-soft text-gate-pending ring-gate-pending-line",
 	stale: "bg-gate-stale-soft text-gate-stale ring-gate-stale-line",
 };
+
+/**
+ * A tone's text colour, which is also its glyph's: StatusGlyph draws in
+ * currentColor, so a glyph outside a pill takes its ink from here.
+ */
+export const TONE_TEXT = {
+	pass: "text-gate-pass",
+	block: "text-gate-block",
+	warn: "text-gate-warn",
+	pending: "text-gate-pending",
+	stale: "text-gate-stale",
+} as const satisfies Record<StatusTone, string>;
 
 /** The glyph alone, for places where the word is already beside it. */
 export function StatusGlyph({
@@ -132,6 +144,27 @@ export const EXPORT_STATUS_TONE = {
 } as const satisfies Record<ExportStatus, StatusTone>;
 
 export type { ExportStatus };
+
+/** Each export status in words. */
+export const EXPORT_STATUS_LABEL = {
+	pending: "Pending",
+	rendering: "Rendering",
+	verifying: "Verifying",
+	previewing: "Previewing",
+	previewed: "Previewed",
+	delivering: "Delivering",
+	"pr-open": "PR open",
+	done: "Done",
+	closed: "Closed",
+	failed: "Failed",
+} as const satisfies Record<ExportStatus, string>;
+
+/** Where an export delivers, in words. */
+export const EXPORT_TARGET_LABEL = {
+	zip: "Zip",
+	github_pr: "GitHub PR",
+	github_push: "GitHub push",
+} as const satisfies Record<ExportWire["targetKind"], string>;
 
 export function exportStatusTone(status: ExportStatus): StatusTone {
 	return EXPORT_STATUS_TONE[status];

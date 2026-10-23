@@ -39,6 +39,7 @@ const { createApp } = (await import(/* @vite-ignore */ `${server}app.ts`)) as {
 		db: () => unknown;
 		webOrigins: readonly string[];
 		drive: unknown;
+		checkRunner: unknown;
 	}) => ServerApp;
 };
 const { fixedClock } = (await import(
@@ -84,6 +85,9 @@ const realApp = () =>
 		db: noDatabase,
 		webOrigins: [],
 		drive: { blobs: memoryBlobs(), maxBytes: DEFAULT_UPLOAD_MAX_BYTES },
+		// The gate's check runner (avel-server, gate-check-runner): null runs
+		// no test, typecheck or command check, as the server's own stubs do.
+		checkRunner: null,
 	});
 
 async function read(res: Response) {

@@ -1,19 +1,14 @@
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { Select as SelectPrimitive } from "radix-ui";
-import type * as React from "react";
+import * as React from "react";
 import { usePortalContainer } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { DisabledReason } from "./button";
 
 function Select({
 	...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
 	return <SelectPrimitive.Root data-slot="select" {...props} />;
-}
-
-function SelectGroup({
-	...props
-}: React.ComponentProps<typeof SelectPrimitive.Group>) {
-	return <SelectPrimitive.Group data-slot="select-group" {...props} />;
 }
 
 function SelectValue({
@@ -25,12 +20,20 @@ function SelectValue({
 function SelectTrigger({
 	className,
 	size = "default",
+	disabledReason,
+	disabled,
 	children,
 	...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
 	size?: "sm" | "default";
+	/**
+	 * Disables the select and says why, in a tooltip on a focusable wrapper,
+	 * exactly as Button's disabledReason does (AVEL-DESIGN.md ruling 11).
+	 */
+	disabledReason?: string;
 }) {
-	return (
+	const reasonId = React.useId();
+	const trigger = (
 		<SelectPrimitive.Trigger
 			data-slot="select-trigger"
 			data-size={size}
@@ -42,12 +45,22 @@ function SelectTrigger({
 				className,
 			)}
 			{...props}
+			disabled={disabled === true || disabledReason !== undefined}
+			aria-describedby={
+				disabledReason === undefined ? props["aria-describedby"] : reasonId
+			}
 		>
 			{children}
 			<SelectPrimitive.Icon asChild>
 				<ChevronDownIcon className="size-3.5 text-text-subtle" />
 			</SelectPrimitive.Icon>
 		</SelectPrimitive.Trigger>
+	);
+	if (disabledReason === undefined) return trigger;
+	return (
+		<DisabledReason reason={disabledReason} reasonId={reasonId}>
+			{trigger}
+		</DisabledReason>
 	);
 }
 
@@ -86,22 +99,6 @@ function SelectContent({
 				<SelectScrollDownButton />
 			</SelectPrimitive.Content>
 		</SelectPrimitive.Portal>
-	);
-}
-
-function SelectLabel({
-	className,
-	...props
-}: React.ComponentProps<typeof SelectPrimitive.Label>) {
-	return (
-		<SelectPrimitive.Label
-			data-slot="select-label"
-			className={cn(
-				"px-2.5 pt-2 pb-1 type-caption text-text-subtle",
-				className,
-			)}
-			{...props}
-		/>
 	);
 }
 
@@ -151,22 +148,6 @@ function SelectItem({
 	);
 }
 
-function SelectSeparator({
-	className,
-	...props
-}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
-	return (
-		<SelectPrimitive.Separator
-			data-slot="select-separator"
-			className={cn(
-				"pointer-events-none -mx-1.5 my-1.5 h-px bg-border",
-				className,
-			)}
-			{...props}
-		/>
-	);
-}
-
 function SelectScrollUpButton({
 	className,
 	...props
@@ -203,15 +184,4 @@ function SelectScrollDownButton({
 	);
 }
 
-export {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectScrollDownButton,
-	SelectScrollUpButton,
-	SelectSeparator,
-	SelectTrigger,
-	SelectValue,
-};
+export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue };

@@ -43,7 +43,8 @@
 	--color-app-panel: #f4f3f1; /* content, cards, dialogs */
 	--color-app-band: #f1efee; /* dialog footer, table header */
 	--color-app-well: #e9e7e6; /* summary boxes inside panels and dialogs */
-	--color-app-field: #f8f7f6; /* checkbox, radio */
+	/* A placeholder or a bordered box inside a panel: the band's tone. */
+	--color-app-hollow: #f1efee;
 	/* The chat composer, a box above the page, and its tool chips. */
 	--color-composer: #f6f5f3;
 	--color-composer-edge: #e6e4e2;
@@ -232,7 +233,10 @@
 	   card read as a hole. A summary box is its hairline alone; a meter
 	   track or a sticky gutter that needs a fill uses another token. */
 	--color-app-well: rgb(0 0 0 / 0);
-	--color-app-field: #111111;
+	/* The band is near-black in dark, so a box filled with it inside a
+	   panel read as a hole (operator, 2026-10-22). Its dashed or hairline
+	   edge bounds it alone. */
+	--color-app-hollow: rgb(0 0 0 / 0);
 	/* The composer sits a step above the page, lit along its top edge; the
 	   near-black field fill sank it below the page. */
 	--color-composer: #1c1c1c;

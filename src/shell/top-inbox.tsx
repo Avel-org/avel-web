@@ -117,7 +117,7 @@ export function Inbox() {
 			</Tooltip>
 			<PopoverContent
 				align="end"
-				className="w-96 p-0"
+				className="w-[min(24rem,calc(100vw-1rem))] p-0"
 				data-testid="global-inbox-panel"
 			>
 				<InboxPanel
@@ -141,7 +141,7 @@ export function InboxBadge({ total }: { total: number }) {
 			data-testid="global-inbox-badge"
 			// The ring is the top bar's own surface: it cuts the badge out of the
 			// glyph it sits on, so neither reads as clipped.
-			className="type-mono absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-gate-warn-line bg-gate-warn-soft px-1 text-gate-warn ring-2 ring-app-panel"
+			className="type-mono absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-gate-warn-line bg-gate-warn-soft px-1 text-gate-warn ring-2 ring-app-page"
 		>
 			{total > 99 ? "99+" : total}
 		</span>

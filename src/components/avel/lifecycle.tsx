@@ -9,7 +9,11 @@ import {
 import { cn } from "@/lib/utils";
 import { MISSION_STATUS_TONE } from "./mission-columns";
 import { STATUS_PANEL } from "./mission-search";
-import { EXPORT_STATUS_TONE, type StatusTone } from "./status-pill";
+import {
+	EXPORT_STATUS_LABEL,
+	EXPORT_STATUS_TONE,
+	type StatusTone,
+} from "./status-pill";
 
 /*
  * Where a record stands in its own lifecycle (audit D5): the entity's states
@@ -72,20 +76,6 @@ const EXPORT_PLACE = {
 	closed: { line: "branch", after: null },
 	failed: { line: "branch", after: null },
 } as const satisfies Record<ExportStatus, Place<ExportStatus>>;
-
-/** Each export status in words. */
-export const EXPORT_STATUS_LABEL = {
-	pending: "Pending",
-	rendering: "Rendering",
-	verifying: "Verifying",
-	previewing: "Previewing",
-	previewed: "Previewed",
-	delivering: "Delivering",
-	"pr-open": "PR open",
-	done: "Done",
-	closed: "Closed",
-	failed: "Failed",
-} as const satisfies Record<ExportStatus, string>;
 
 export const EXPORT_LIFECYCLE: LifecycleSpec<ExportStatus> = {
 	states: EXPORT_STATUSES,
@@ -196,7 +186,7 @@ export function Lifecycle<S extends string>({
 	label: string;
 	/**
 	 * One line, for a list row: the branches follow the main line after a
-	 * dot (draft → proposed → approved · rejected) instead of under it.
+	 * hairline (draft → proposed → approved | rejected) instead of under it.
 	 */
 	compact?: boolean;
 	"data-testid": string;
@@ -225,11 +215,18 @@ export function Lifecycle<S extends string>({
 						aria-current={standing === "current" ? "step" : undefined}
 						className="inline-flex items-center gap-1.5"
 					>
-						{i > 0 ? (
+						{i === 0 ? null : i === main.length ? (
+							// The branches leave the line: the full track's divider,
+							// a hairline, rather than another arrow.
+							<span
+								aria-hidden="true"
+								className="mx-0.5 h-3 w-px bg-border-strong"
+							/>
+						) : (
 							<span aria-hidden="true" className="text-text-subtle">
-								{i === main.length ? "·" : "→"}
+								→
 							</span>
-						) : null}
+						)}
 						<Dot standing={standing} tone={spec.tone[state]} />
 						<span
 							className={cn(

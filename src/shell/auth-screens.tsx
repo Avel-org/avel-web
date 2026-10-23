@@ -73,13 +73,10 @@ export function CheckingScreen() {
 export function SignInScreen({
 	onSignIn,
 	notice,
-	onPreview,
 }: {
 	onSignIn: () => Promise<void>;
 	/** Why a previous attempt ended here, when it did. */
 	notice?: string;
-	/** Development only: look at the interface without signing in. */
-	onPreview?: () => void;
 }) {
 	const [state, setState] = useState<"idle" | "starting" | "failed">("idle");
 	const start = async () => {
@@ -130,23 +127,6 @@ export function SignInScreen({
 			<p className="mt-4 type-caption text-text-subtle">
 				Only operators on this Command Center's allowlist can sign in.
 			</p>
-			{onPreview ? (
-				<>
-					<Button
-						variant="ghost"
-						size="lg"
-						data-testid="auth-sign-in-preview"
-						className="mt-6 w-full"
-						onClick={onPreview}
-					>
-						Preview without signing in
-					</Button>
-					<p className="mt-2 type-caption text-text-subtle">
-						Development only. avel-server refuses data to anyone not signed in,
-						so pages that need data say so.
-					</p>
-				</>
-			) : null}
 		</AuthScreen>
 	);
 }
@@ -225,12 +205,9 @@ export function NotAllowedScreen({
 export function UnreachableScreen({
 	onRetry,
 	retrying,
-	onPreview,
 }: {
 	onRetry: () => void;
 	retrying: boolean;
-	/** Development only: look at the interface while avel-server is down. */
-	onPreview?: () => void;
 }) {
 	return (
 		<AuthScreen testId="auth-unreachable">
@@ -252,23 +229,6 @@ export function UnreachableScreen({
 			>
 				{retrying ? "Trying again" : "Try again"}
 			</Button>
-			{onPreview ? (
-				<>
-					<Button
-						variant="ghost"
-						size="lg"
-						data-testid="auth-unreachable-preview"
-						className="mt-2 w-full"
-						onClick={onPreview}
-					>
-						Preview without avel-server
-					</Button>
-					<p className="mt-2 type-caption text-text-subtle">
-						Development only. Pages that need data say avel-server is
-						unreachable until it runs.
-					</p>
-				</>
-			) : null}
 		</AuthScreen>
 	);
 }

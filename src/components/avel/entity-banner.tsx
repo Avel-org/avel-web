@@ -51,7 +51,7 @@ export function EntityBanner({
 	name: string;
 	/** A BannerStatus, when the entity has a state to show. */
 	status?: ReactNode;
-	/** One line under the name: "Schema agent · since March 2026 · v3". */
+	/** One line under the name: "Schema agent, since March 2026, v3". */
 	facts: ReactNode;
 	/** BannerStat items. */
 	stats?: ReactNode;
@@ -87,6 +87,7 @@ export function EntityBanner({
 								<p
 									aria-hidden="true"
 									data-testid={`${testId}-name`}
+									title={name}
 									className="type-display truncate text-text"
 								>
 									{name}
@@ -128,7 +129,7 @@ export function EntityBanner({
 							value={tab.id}
 							aria-keyshortcuts={tab.shortcut}
 							data-testid={`${testId}-tab-${tab.id}`}
-							className="h-full flex-none rounded-none px-3 text-text-muted after:bottom-0! hover:text-text data-[state=active]:text-text"
+							className="focus-inset h-full flex-none rounded-none px-3 text-text-muted after:bottom-0! hover:text-text data-[state=active]:text-text"
 						>
 							{tab.label}
 							{tab.count === undefined ? null : (
@@ -303,6 +304,7 @@ function usePastTop(watch: RefObject<HTMLElement | null>): boolean {
 export function PinnedBanner({
 	watch,
 	icon,
+	tile,
 	name,
 	tabs,
 	value,
@@ -312,7 +314,9 @@ export function PinnedBanner({
 }: {
 	/** The banner it stands in for. */
 	watch: RefObject<HTMLElement | null>;
-	icon: LucideIcon;
+	/** The banner's tile, small: its icon, or a tile of the page's own. */
+	icon?: LucideIcon;
+	tile?: ReactNode;
 	name: string;
 	tabs: readonly BannerTab[];
 	value: string;
@@ -352,7 +356,10 @@ export function PinnedBanner({
 						: "pointer-events-none -translate-y-1 opacity-0",
 				)}
 			>
-				<BannerTile icon={icon} size="sm" data-testid={`${testId}-tile`} />
+				{tile ??
+					(icon ? (
+						<BannerTile icon={icon} size="sm" data-testid={`${testId}-tile`} />
+					) : null)}
 				<p
 					aria-hidden="true"
 					className="min-w-0 shrink truncate type-small font-medium"
@@ -373,7 +380,7 @@ export function PinnedBanner({
 							className={cn(
 								"focus-inset relative flex flex-none items-center gap-1.5 px-3 type-small transition-colors duration-(--duration-micro) ease-avel hover:text-text",
 								tab.id === value
-									? "text-text after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent"
+									? "text-text after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent-text"
 									: "text-text-muted",
 							)}
 						>

@@ -1,6 +1,5 @@
 "use client";
 
-import { CheckIcon, ChevronRightIcon } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import type * as React from "react";
 import { usePortalContainer } from "@/lib/theme";
@@ -10,18 +9,6 @@ function DropdownMenu({
 	...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
 	return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
-}
-
-function DropdownMenuPortal({
-	...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
-	return (
-		<DropdownMenuPrimitive.Portal
-			data-slot="dropdown-menu-portal"
-			container={usePortalContainer()}
-			{...props}
-		/>
-	);
 }
 
 function DropdownMenuTrigger({
@@ -54,14 +41,6 @@ function DropdownMenuContent({
 				{...props}
 			/>
 		</DropdownMenuPrimitive.Portal>
-	);
-}
-
-function DropdownMenuGroup({
-	...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Group>) {
-	return (
-		<DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
 	);
 }
 
@@ -117,32 +96,6 @@ function DropdownMenuItem({
 				<ItemReason>{disabledReason}</ItemReason>
 			)}
 		</DropdownMenuPrimitive.Item>
-	);
-}
-
-function DropdownMenuCheckboxItem({
-	className,
-	children,
-	checked,
-	...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
-	return (
-		<DropdownMenuPrimitive.CheckboxItem
-			data-slot="dropdown-menu-checkbox-item"
-			className={cn(
-				"relative flex h-9 cursor-default items-center gap-2.5 rounded-control pr-2.5 pl-8 type-body outline-hidden select-none focus:bg-app-raised focus:text-text data-[disabled]:pointer-events-none data-[disabled]:text-text-subtle [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-				className,
-			)}
-			checked={checked}
-			{...props}
-		>
-			<span className="pointer-events-none absolute left-2.5 flex size-4 items-center justify-center">
-				<DropdownMenuPrimitive.ItemIndicator>
-					<CheckIcon className="size-4 text-accent-text" />
-				</DropdownMenuPrimitive.ItemIndicator>
-			</span>
-			{children}
-		</DropdownMenuPrimitive.CheckboxItem>
 	);
 }
 
@@ -227,66 +180,14 @@ function DropdownMenuShortcut({
 	);
 }
 
-function DropdownMenuSub({
-	...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
-	return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />;
-}
-
-function DropdownMenuSubTrigger({
-	className,
-	inset,
-	children,
-	...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
-	inset?: boolean;
-}) {
-	return (
-		<DropdownMenuPrimitive.SubTrigger
-			data-slot="dropdown-menu-sub-trigger"
-			data-inset={inset}
-			className={cn(
-				"flex h-9 cursor-default items-center gap-2.5 rounded-control px-2.5 type-body outline-hidden select-none focus:bg-app-raised focus:text-text data-[inset]:pl-8 data-[state=open]:bg-app-raised data-[state=open]:text-text [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-text-subtle",
-				className,
-			)}
-			{...props}
-		>
-			{children}
-			<ChevronRightIcon className="ml-auto size-3.5" />
-		</DropdownMenuPrimitive.SubTrigger>
-	);
-}
-
-function DropdownMenuSubContent({
-	className,
-	...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
-	return (
-		<DropdownMenuPrimitive.SubContent
-			data-slot="dropdown-menu-sub-content"
-			className={cn(
-				"z-(--z-popover) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-card bg-app-float bg-clip-padding p-1.5 text-text shadow-popover data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-(--duration-micro) ease-avel",
-				className,
-			)}
-			{...props}
-		/>
-	);
-}
-
 export {
 	DropdownMenu,
-	DropdownMenuPortal,
 	DropdownMenuTrigger,
 	DropdownMenuContent,
-	DropdownMenuGroup,
 	DropdownMenuLabel,
 	DropdownMenuItem,
-	DropdownMenuCheckboxItem,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
 	DropdownMenuShortcut,
-	DropdownMenuSub,
-	DropdownMenuSubTrigger,
-	DropdownMenuSubContent,
 };

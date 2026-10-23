@@ -31,7 +31,7 @@ const cardClass = (off: boolean) =>
 	cn(
 		"flex items-start gap-2.5 rounded-card border border-border bg-app-panel px-3 py-2.5 transition-colors duration-(--duration-micro) ease-avel",
 		off
-			? "cursor-not-allowed bg-app-band"
+			? "cursor-not-allowed bg-app-raised"
 			: "cursor-pointer hover:border-border-strong has-[[data-state=checked]]:border-selected-border has-[[data-state=checked]]:bg-selected",
 	);
 

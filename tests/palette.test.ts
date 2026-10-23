@@ -75,7 +75,7 @@ const SURFACES = [
 	"app-panel",
 	"app-band",
 	"app-well",
-	"app-field",
+	"app-hollow",
 	"field-fill",
 	"composer",
 	"app-raised",
@@ -140,17 +140,12 @@ describe("v3 contrast, from app.css", () => {
 
 		it(`${theme}: control edges and the focus ring clear 3:1 where controls sit`, () => {
 			// v3 measures the control edge on white: panels, fields, menus.
-			for (const surface of [
-				"app-panel",
-				"app-field",
-				"field-fill",
-				"app-float",
-			])
+			for (const surface of ["app-panel", "field-fill", "app-float"])
 				expect(
 					contrast(color("border-control"), color(surface)),
 					`border-control on ${surface}`,
 				).toBeGreaterThanOrEqual(3);
-			for (const surface of ["app-panel", "app-bg", "app-field"])
+			for (const surface of ["app-panel", "app-bg", "field-fill"])
 				expect(
 					contrast(color("focus-ring"), color(surface)),
 					`focus-ring on ${surface}`,
@@ -221,8 +216,8 @@ describe("v3 contrast, from app.css", () => {
 			).toBeGreaterThanOrEqual(3);
 		// The old shared halo was 0.32 of the pale ring.
 		expect(parse(dark.get("field-halo") ?? "")[3]).toBeLessThanOrEqual(0.2);
-		// Light lifts to the checkbox fill when focused, in the shared ring.
-		expect(light.get("field-fill-focus")).toBe(light.get("app-field"));
+		// Light lifts a step toward the panel when focused, in the shared ring.
+		expect(light.get("field-fill-focus")).toBe("#f8f7f6");
 		expect(light.get("field-focus")).toBe(light.get("focus-ring"));
 	});
 

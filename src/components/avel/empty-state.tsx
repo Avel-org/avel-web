@@ -44,7 +44,7 @@ export function EmptyState({
 		<div
 			data-testid={testId}
 			className={cn(
-				"flex flex-1 flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-border-strong bg-app-band text-center",
+				"flex flex-1 flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-border-strong bg-app-hollow text-center",
 				compact ? "px-4 py-7" : "px-6 py-16",
 			)}
 		>

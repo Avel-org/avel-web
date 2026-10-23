@@ -38,7 +38,7 @@ export function VersionChip({
 					label={versionRef}
 					data-testid={testId ? `${testId}-ref` : undefined}
 					className={cn(
-						"inline-flex h-5 items-center rounded-xs border px-1.5 type-mono text-text-muted no-underline hover:bg-app-raised hover:text-text",
+						"relative inline-flex h-5 items-center rounded-xs border px-1.5 after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] type-mono text-text-muted no-underline hover:bg-app-raised hover:text-text",
 						source === "recorded"
 							? "border-border-strong"
 							: "border-dashed border-border-strong",

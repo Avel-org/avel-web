@@ -143,8 +143,8 @@ function TabsTrigger({
 			data-slot="tabs-trigger"
 			className={cn(
 				"relative inline-flex flex-1 items-center justify-center gap-1.5 border border-transparent whitespace-nowrap text-text-muted transition-colors duration-(--duration-micro) ease-avel group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-text disabled:pointer-events-none disabled:text-text-subtle data-[state=active]:text-text [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-				// Segmented: a 26px option, a chip when active.
-				"group-data-[variant=default]/tabs-list:h-[26px] group-data-[variant=default]/tabs-list:rounded-sm group-data-[variant=default]/tabs-list:px-2.5 group-data-[variant=default]/tabs-list:type-small group-data-[variant=default]/tabs-list:data-[state=active]:border-border group-data-[variant=default]/tabs-list:data-[state=active]:bg-chip group-data-[variant=default]/tabs-list:data-[state=active]:shadow-btn",
+				// Segmented: a 24px option in a 32px track, a chip when active.
+				"group-data-[variant=default]/tabs-list:h-6 group-data-[variant=default]/tabs-list:rounded-sm group-data-[variant=default]/tabs-list:px-2.5 group-data-[variant=default]/tabs-list:type-small group-data-[variant=default]/tabs-list:data-[state=active]:border-border group-data-[variant=default]/tabs-list:data-[state=active]:bg-chip group-data-[variant=default]/tabs-list:data-[state=active]:shadow-btn",
 				// Line: the label. The sliding indicator is the underline; until
 				// it has measured (the server's paint), and in a vertical list,
 				// the active trigger draws its own 2px bar.

@@ -30,7 +30,7 @@ describe("EmptyState", () => {
 			"rounded-card",
 			"border-dashed",
 			"border-border-strong",
-			"bg-app-band",
+			"bg-app-hollow",
 		]) {
 			expect(root).toMatch(new RegExp(`(?:"|\\s)${cls}(?:"|\\s)`));
 		}

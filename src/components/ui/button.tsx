@@ -53,16 +53,16 @@ const buttonVariants = cva(
 				// inside dense rows. Its icon is the small 14px size.
 				"icon-xs": "size-tile-sm [&_svg:not([class*='size-'])]:size-3.5",
 				"icon-sm": "size-control-sm",
-				"icon-lg": "size-control-lg",
 			},
 		},
 		compoundVariants: [
 			// A link is text, not a box: no height or padding of its own, but
 			// still a 24px target (v3 UX 1).
 			{ variant: "link", class: "h-auto min-h-6 px-0" },
-			// 26px inside the track's 3px padding; the chip's radius follows
+			// 24px inside the track's 3px padding and 1px edge, so the track is
+			// 32px, a control's height; the chip's radius follows
 			// the track's (10 - 3, the nearest token being 6).
-			{ variant: "segment", class: "h-[26px] rounded-sm px-2.5 type-small" },
+			{ variant: "segment", class: "h-6 rounded-sm px-2.5 type-small" },
 		],
 		defaultVariants: {
 			variant: "default",
@@ -235,7 +235,8 @@ function DisabledReason({
 						// biome-ignore lint/a11y/noNoninteractiveTabindex: the disabled button inside cannot take focus, so this wrapper is how a keyboard reaches its reason.
 						tabIndex={0}
 						aria-describedby={reasonId}
-						className="inline-flex cursor-not-allowed rounded-control"
+						// A full-width control keeps its width inside the wrapper.
+						className="inline-flex cursor-not-allowed rounded-control has-[>.w-full]:flex has-[>.w-full]:w-full"
 						onPointerDown={(event) => {
 							// Touch has no hover. A tap toggles the reason, and Radix's
 							// own pointerdown handling, which closes it, is skipped.

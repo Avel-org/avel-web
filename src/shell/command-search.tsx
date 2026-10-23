@@ -157,7 +157,7 @@ function OriginResults({
 /** A state line inside the list: quiet, and not selectable. */
 function Quiet({ testid, children }: { testid: string; children: string }) {
 	return (
-		<p data-testid={testid} className="type-small px-2 py-2 text-text-subtle">
+		<p data-testid={testid} className="type-small px-4 py-2 text-text-subtle">
 			{children}
 		</p>
 	);

@@ -283,7 +283,7 @@ export type ActionModalProps = {
 	step?: number;
 	/**
 	 * How the steps show: v3's numbered discs (.steps-num), or its pills,
-	 * "1 · Agent" (.steps-pills), for a form whose steps are short nouns.
+	 * "1 Agent", its number quiet before its name (.steps-pills), for a form whose steps are short nouns.
 	 */
 	stepStyle?: "numbered" | "pills";
 	onBack?: () => void;
@@ -462,7 +462,7 @@ export function ActionModalFrame({
 					) : null}
 				</div>
 			) : null}
-			<footer className="flex flex-col gap-3 border-t border-border bg-app-band py-3 pr-4 pl-6">
+			<footer className="flex flex-col gap-3 border-t border-border bg-app-band py-3 pr-4 pl-6 max-md:pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
 				{confirmingDiscard ? (
 					<div
 						role="alertdialog"
@@ -531,7 +531,7 @@ export function ActionModalFrame({
 }
 
 /**
- * Where a stepper stands, as v3's step pills: each step a small pill, "1 ·
+ * Where a stepper stands, as v3's step pills: each step a small pill, "1
  * Agent", the current one in the selected fill with the accent ring and
  * text (Polish 10), the rest quiet.
  */
@@ -556,7 +556,7 @@ function StepPills({
 					data-testid={`${testId}-step-${i}`}
 					aria-current={i === step ? "step" : undefined}
 					className={cn(
-						"inline-flex h-6 items-center rounded-sm px-2 type-small",
+						"inline-flex h-6 items-center gap-1.5 rounded-sm px-2 type-small",
 						i === step
 							? "bg-selected text-accent-text ring-1 ring-accent-line ring-inset"
 							: i < step
@@ -564,7 +564,8 @@ function StepPills({
 								: "bg-gate-pending-soft text-text-subtle",
 					)}
 				>
-					{`${i + 1} · ${name}`}
+					<span className="tabular-nums opacity-70">{i + 1}</span>
+					{name}
 					{i < step ? <span className="sr-only">, done</span> : null}
 				</li>
 			))}

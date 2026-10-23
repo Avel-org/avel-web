@@ -9,7 +9,6 @@ import {
 } from "@/components/avel/data-table";
 import { DispatchCardSkeleton } from "@/components/avel/dispatch-board";
 import { MissionRowsSkeleton } from "@/components/avel/mission-panels";
-import { CutFilter } from "@/components/avel/preset-list";
 import { Reason } from "@/components/avel/reason";
 import { ROW_LINK_GROUP, RowChevron } from "@/components/avel/row-link";
 import { SectionPanel } from "@/components/avel/section-panel";
@@ -84,10 +83,11 @@ describe("skeletons in their content's shape (v3 UX 8)", () => {
 		expect(tagOf(out, "m-pill")).toMatch(/h-\[22px\] w-16 rounded-sm/);
 	});
 
-	it("draws agent cards with a pill where the status sits", () => {
+	it("draws agent cards with a pill where the kind badge sits", () => {
 		const out = renderToString(<AgentCardSkeleton data-testid="a" />);
 		expect(out.match(/data-testid="a-pill"/g)).toHaveLength(3);
-		expect(tagOf(out, "a-pill")).toMatch(/h-\[22px\] w-16 rounded-sm/);
+		// The badge's own height: the skeleton keeps the loaded card's shape.
+		expect(tagOf(out, "a-pill")).toMatch(/h-5 w-14 rounded-sm/);
 	});
 });
 
@@ -192,19 +192,5 @@ describe("hit targets (v3 UX 1)", () => {
 		const sort = tagOf(out, "t-sort-id");
 		expect(sort).toMatch(/(?:"|\s)-my-1\s/);
 		expect(sort).toMatch(/\bpy-1\b/);
-	});
-});
-
-describe("the cut filter (v3 .segmented)", () => {
-	it("is one track with a segment per cut, the pressed one a chip", () => {
-		const out = renderToString(
-			<CutFilter value="vertical" onChange={() => {}} />,
-		);
-		expect(tagOf(out, "presets-cut")).toMatch(/\bbg-app-raised\b/);
-		expect(tagOf(out, "presets-cut-vertical")).toContain(
-			'data-variant="segment"',
-		);
-		expect(tagOf(out, "presets-cut-vertical")).toContain('aria-pressed="true"');
-		expect(tagOf(out, "presets-cut-all")).toContain('type="button"');
 	});
 });

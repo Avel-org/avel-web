@@ -36,6 +36,7 @@ import {
 	useDebounced,
 } from "./command-search";
 import { ALL_LINKS, isParent, NAV, type NavLink } from "./nav";
+import { useShortcutLabel } from "./shortcut";
 
 /** The sidebar's rail, from the shell, for the collapse action. */
 export type SidebarControl = { collapsed: boolean; toggle: () => void };
@@ -210,6 +211,7 @@ export function CommandMenu({
 }) {
 	const query = useDebounced(search.trim(), SEARCH_DEBOUNCE_MS);
 	const nextTheme = theme === "dark" ? "light" : "dark";
+	const collapseShortcut = useShortcutLabel("b");
 
 	return (
 		<>
@@ -300,7 +302,9 @@ export function CommandMenu({
 								<PanelLeftClose aria-hidden="true" />
 							)}
 							{sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-							<CommandShortcut className="type-mono">⌘B</CommandShortcut>
+							<CommandShortcut className="type-mono">
+								{collapseShortcut}
+							</CommandShortcut>
 						</CommandItem>
 					) : null}
 					<CommandItem

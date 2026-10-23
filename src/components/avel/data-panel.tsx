@@ -128,20 +128,22 @@ export function DataPanel({
 						</Badge>
 					)}
 				</button>
-				{toolbar ? (
-					<div
-						data-testid={`${testId}-toolbar`}
-						className="flex min-w-0 basis-full flex-wrap items-center gap-2 px-3 pb-3"
-					>
-						{toolbar}
-					</div>
-				) : null}
+				{/* Actions before the toolbar: they end the title's row (section
+				    10), and the toolbar's full-width row falls beneath both. */}
 				{actions ? (
 					<div
 						data-testid={`${testId}-actions`}
 						className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1 max-sm:pb-2 max-sm:pl-3"
 					>
 						{actions}
+					</div>
+				) : null}
+				{toolbar ? (
+					<div
+						data-testid={`${testId}-toolbar`}
+						className="flex min-w-0 basis-full flex-wrap items-center gap-2 px-3 pb-3"
+					>
+						{toolbar}
 					</div>
 				) : null}
 			</header>

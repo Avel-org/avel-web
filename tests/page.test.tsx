@@ -129,7 +129,7 @@ describe("the top bar", () => {
 
 	it("sets its title and definition in the type scale", async () => {
 		const html = await renderPage("/clients");
-		expect(topbarOf(html)).toMatch(/<h1 class="type-page\b/);
+		expect(topbarOf(html)).toMatch(/<h1 title="[^"]*" class="type-page\b/);
 		const definition = classesOf(html, "topbar-definition");
 		expect(definition).toContain("type-small");
 		expect(definition).toContain("text-text-subtle");

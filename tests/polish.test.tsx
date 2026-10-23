@@ -166,9 +166,6 @@ describe("(6) menu and select rows (v3 .menu-row, UX 6 .is-unavailable)", () => 
 		expect(source("select.tsx")).toContain(
 			'CheckIcon className="size-4 text-accent-text"',
 		);
-		expect(source("dropdown-menu.tsx")).toContain(
-			'CheckIcon className="size-4 text-accent-text"',
-		);
 	});
 
 	it("prints a select option's reason outside its text", () => {
