@@ -18,7 +18,6 @@ import { RecentActivity } from "@/components/avel/mission-details";
 import { nowBanner, shortDuration } from "@/components/avel/mission-page";
 import {
 	MISSING_ROUTE,
-	sampleExports,
 	sampleHaltReason,
 } from "@/components/avel/mission-placeholders";
 import { ApiError, ApiOverrideProvider, queryKeys } from "@/lib/api";
@@ -403,10 +402,10 @@ describe("the page from the contract", () => {
 });
 
 describe("sample data (ruling 29)", () => {
-	const SAMPLE_REGIONS = ["mission-exports-earlier"];
 	const REAL_REGIONS = [
 		"mission-page-header",
 		"mission-export-latest",
+		"mission-exports-earlier",
 		"mission-section-activity-page",
 		"mission-section-repository",
 		"mission-section-playbook-page",
@@ -415,19 +414,15 @@ describe("sample data (ruling 29)", () => {
 		"mission-team-entries",
 	];
 
-	it("labels every sample region, once, and no real one", async () => {
+	it("labels no real region: exports.list replaced the export samples", async () => {
 		const html = await render(
 			`/missions/${ID}`,
 			withMission(detail({ lastExport: exported("verifying") })),
 		);
-		for (const id of SAMPLE_REGIONS) {
-			expect(pills(element(html, id)), id).toBe(1);
-		}
 		for (const id of REAL_REGIONS) {
 			expect(pills(element(html, id)), id).toBe(0);
 		}
-		// Nowhere else: every pill on the page is one of the above.
-		expect(pills(html)).toBe(SAMPLE_REGIONS.length);
+		expect(pills(html)).toBe(0);
 	});
 
 	it("labels the halt reason apart from the real halted state", async () => {
@@ -444,23 +439,21 @@ describe("sample data (ruling 29)", () => {
 	});
 
 	it("names the missing route on each pill", async () => {
-		const html = await render(`/missions/${ID}`, withMission(detail()));
+		const html = await render(
+			`/missions/${ID}`,
+			withMission(detail({ status: "halted" })),
+		);
 		const missing = [
 			...html.matchAll(/data-testid="sample-data" data-missing="([^"]+)"/g),
 		].map((m) => m[1]);
-		expect(new Set(missing)).toEqual(new Set([MISSING_ROUTE.exports]));
+		expect(new Set(missing)).toEqual(new Set([MISSING_ROUTE.haltReason]));
 		expect(html).toContain(
-			`placeholder until avel-server has ${MISSING_ROUTE.exports}`,
+			`placeholder until avel-server has ${MISSING_ROUTE.haltReason}`,
 		);
 	});
 
 	it("gives one mission the same samples every time", () => {
-		expect(sampleExports(ID)).toEqual(sampleExports(ID));
 		expect(sampleHaltReason(ID)).toBe(sampleHaltReason(ID));
-		const other = "0a1b2c3d-0000-4000-8000-000000000002";
-		expect(JSON.stringify(sampleExports(other))).not.toBe(
-			JSON.stringify(sampleExports(ID)),
-		);
 	});
 });
 
@@ -497,7 +490,12 @@ describe("the lifecycles", () => {
 	it("wraps the Now banner's action under its text on a phone, aligned to the end (v3 UX 7)", async () => {
 		const html = await render(
 			`/missions/${ID}`,
-			withMission(detail({ needsYou: { reason: "export_previewed" } })),
+			withMission(
+				detail({
+					needsYou: { reason: "export_previewed" },
+					lastExport: exported("previewed"),
+				}),
+			),
 		);
 		const actions = tagOf(html, "mission-now-actions");
 		for (const cls of ["ml-auto", "max-sm:basis-full", "max-sm:justify-end"])
@@ -505,6 +503,10 @@ describe("the lifecycles", () => {
 		expect(
 			html.indexOf('data-testid="mission-now-open-export"'),
 		).toBeGreaterThan(html.indexOf('data-testid="mission-now-actions"'));
+		// It opens the export the banner is about.
+		expect(tagOf(html, "mission-now-open-export")).toMatch(
+			/href="\/missions\/[^"]+\/exports\/[^"]+"/,
+		);
 	});
 
 	it("draws the mission's and the last export's lifecycle from their real status, with no sample stages (audit D5, F5)", async () => {

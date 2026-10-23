@@ -9,11 +9,8 @@
  * samples: a page that reshuffled on every visit would look like live data.
  */
 
-import type { Gate } from "avel-server/contract";
-
 /** The route each kind of sample stands in for, named in its pill. */
 export const MISSING_ROUTE = {
-	exports: "exports.list",
 	haltReason: "a halt reason on the mission",
 } as const;
 
@@ -43,48 +40,6 @@ function sequence(id: string): () => number {
 
 const pick = <T>(next: () => number, items: readonly T[]): T =>
 	items[Math.floor(next() * items.length)] as T;
-
-/** A gate's verdict, as an export's gate summary would show it. */
-export type SampleGate = {
-	name: Gate;
-	verdict: "pass" | "warn" | "block";
-	attested: boolean;
-};
-
-export type SampleExport = {
-	id: string;
-	status: "done" | "failed" | "closed";
-	targetKind: "zip" | "github_pr" | "github_push";
-	/** Hours it spent in its final status. */
-	hoursInStage: number;
-	gates: SampleGate[];
-};
-
-// Real names from the contract's closed gate vocabulary; only the verdicts
-// are invented.
-const SAMPLE_GATES = [
-	"phase1-close",
-	"alignment",
-	"qa",
-	"security",
-] as const satisfies readonly Gate[];
-
-/** Two or three earlier exports, newest first. */
-export function sampleExports(id: string): SampleExport[] {
-	const next = sequence(`${id}:exports`);
-	const count = 2 + Math.floor(next() * 2);
-	return Array.from({ length: count }, (_, i) => ({
-		id: `sample-${i + 1}`,
-		status: pick(next, ["done", "done", "failed", "closed"] as const),
-		targetKind: pick(next, ["github_pr", "zip", "github_push"] as const),
-		hoursInStage: 1 + Math.floor(next() * 47),
-		gates: SAMPLE_GATES.map((name) => ({
-			name,
-			verdict: pick(next, ["pass", "pass", "pass", "warn", "block"] as const),
-			attested: next() < 0.25,
-		})),
-	}));
-}
 
 /**
  * Why the runner halted the mission. The words are DATA-CONTRACTS-V2.md's

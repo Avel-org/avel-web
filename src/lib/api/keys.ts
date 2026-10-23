@@ -429,6 +429,16 @@ export const queryKeys = {
 		run: (missionId: string, runId: string) =>
 			["missions", "detail", missionId, "gate-runs", runId] as const,
 	},
+	exports: {
+		/**
+		 * contract.exports.list: a mission's exports, newest first. Under the
+		 * mission's detail key, so a mission write reads it again.
+		 */
+		list: (missionId: string) =>
+			["missions", "detail", missionId, "exports"] as const,
+		/** contract.exports.get: one export. */
+		detail: (id: string) => ["exports", "detail", id] as const,
+	},
 	findings: {
 		/** Every findings list of one mission: a triage or a run reads them all. */
 		all: (missionId: string) =>

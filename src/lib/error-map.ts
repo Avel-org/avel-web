@@ -728,6 +728,125 @@ export const PRECONDITION_COPY = {
 		next: "Review the files listed. Give them to the agent that owns them, or widen this agent's writable paths.",
 		retry: false,
 	},
+	// Modules 10 and 11, slice 1 (2026-10-22): export preview and create. A
+	// refusal writes no export. Only verified work ships, whatever overrides
+	// the run carries.
+	gate_not_run: {
+		what: "The gate hasn't judged this mission, so there is nothing to export.",
+		written: NOTHING_WRITTEN,
+		next: "Run the gate, then preview the export.",
+		retry: false,
+	},
+	gate_run_not_latest: {
+		what: "The gate ran again after you looked, so this isn't the latest run.",
+		written: NOTHING_WRITTEN,
+		next: "Review the latest gate run, then export it.",
+		retry: false,
+	},
+	gate_pass_not_verified: {
+		what: "The gate passed this work but didn't verify it, and only verified work ships.",
+		written: NOTHING_WRITTEN,
+		next: "See what the gate couldn't check, close those gaps, and run the gate again.",
+		retry: false,
+	},
+	gate_failed: {
+		what: "The gate failed this work, so it can't ship.",
+		written: NOTHING_WRITTEN,
+		next: "Fix what the gate blocked on, then run the gate again.",
+		retry: false,
+	},
+	preview_mission_mismatch: {
+		what: "That preview belongs to another mission.",
+		written: NOTHING_WRITTEN,
+		next: "Preview this mission's export, then deliver from that preview.",
+		retry: false,
+	},
+	preview_target_mismatch: {
+		what: "That preview was made for a different target.",
+		written: NOTHING_WRITTEN,
+		next: "Preview again for the target you're delivering to.",
+		retry: false,
+	},
+	package_hash_version_mismatch: {
+		what: "That preview was hashed under an older package format.",
+		written: NOTHING_WRITTEN,
+		next: "Preview again, then deliver from the new preview.",
+		retry: false,
+	},
+	integration_commit_moved: {
+		what: "The work no longer rebuilds to the commit the gate judged.",
+		written: NOTHING_WRITTEN,
+		next: "Run the gate again, so it judges the work as it is now.",
+		retry: false,
+	},
+	// The package_* reasons: the work holds something a package can't carry.
+	// details.issues names each path.
+	package_symlink: {
+		what: "The work adds a symbolic link, which a package can't carry.",
+		written: NOTHING_WRITTEN,
+		next: "Replace each listed link with a file, then run the gate again.",
+		retry: false,
+	},
+	package_submodule: {
+		what: "The work adds a git submodule, which a package can't carry.",
+		written: NOTHING_WRITTEN,
+		next: "Remove each listed submodule, then run the gate again.",
+		retry: false,
+	},
+	package_mode_only: {
+		what: "The work changes only a file's permissions, which a package can't carry.",
+		written: NOTHING_WRITTEN,
+		next: "Revert the permission change on each listed file, then run the gate again.",
+		retry: false,
+	},
+	package_unsupported_mode: {
+		what: "A file in the work has a mode a package can't carry.",
+		written: NOTHING_WRITTEN,
+		next: "Make each listed file a regular or executable file, then run the gate again.",
+		retry: false,
+	},
+	package_path_not_utf8: {
+		what: "A file in the work has a name that isn't valid text.",
+		written: NOTHING_WRITTEN,
+		next: "Rename each listed file, then run the gate again.",
+		retry: false,
+	},
+	package_reserved_path: {
+		what: "The work writes inside .avel/, which AVEL keeps for the receipt.",
+		written: NOTHING_WRITTEN,
+		next: "Move each listed file out of .avel/, then run the gate again.",
+		retry: false,
+	},
+	package_unsafe_path: {
+		what: "A file in the work has a path a package can't safely write.",
+		written: NOTHING_WRITTEN,
+		next: "Rename each listed file, then run the gate again.",
+		retry: false,
+	},
+	package_duplicate_path: {
+		what: "Two files in the work would land on the same path.",
+		written: NOTHING_WRITTEN,
+		next: "Rename one of each listed pair, then run the gate again.",
+		retry: false,
+	},
+	package_too_large: {
+		what: "The work is too large to package.",
+		written: NOTHING_WRITTEN,
+		next: "Split the work across missions, or remove large generated files, then run the gate again.",
+		retry: false,
+	},
+	export_target_repo_missing: {
+		what: "This mission has no client repository to deliver to.",
+		written: NOTHING_WRITTEN,
+		next: "Export it as a zip instead.",
+		retry: false,
+	},
+	export_target_not_built: {
+		what: "Delivery to GitHub isn't built yet.",
+		written: NOTHING_WRITTEN,
+		next: "Export it as a zip for now.",
+		retry: false,
+	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;
 
 /**

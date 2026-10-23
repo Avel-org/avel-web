@@ -26,6 +26,7 @@ export type Table =
 	| "dispatch"
 	| "dispatch_step"
 	| "engagement"
+	| "export"
 	| "finding"
 	| "intake"
 	| "intake_files"
@@ -76,6 +77,8 @@ export const WRITES = {
 	runGate: ["verification", "finding", "activity_log"],
 	confirmFinding: ["finding", "activity_log"],
 	dismissFinding: ["finding", "activity_log"],
+	previewExport: ["export", "activity_log"],
+	createExport: ["export", "activity_log"],
 	uploadIntakeFile: ["intake_files", "activity_log"],
 	purgeIntakeFile: ["intake_files", "activity_log"],
 	createIntake: ["intake", "activity_log"],
@@ -164,6 +167,7 @@ export const READS = {
 	"templateMissions.latest": ["mission"],
 	"missions.detail": [
 		"mission",
+		"export",
 		"roster_entry",
 		"playbook",
 		"dispatch",
@@ -193,6 +197,8 @@ export const READS = {
 	"gate.runs": ["verification"],
 	"gate.run": ["verification"],
 	"findings.list": ["finding"],
+	"exports.list": ["export"],
+	"exports.detail": ["export"],
 	"intakes.byEngagement": ["intake"],
 	"intakes.detail": ["intake"],
 	"intakes.files": ["intake_files"],

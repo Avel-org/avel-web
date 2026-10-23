@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/clients";
 import { afterConnectionCreated } from "@/lib/api/connections";
 import { afterDispatchCreated, afterDispatchMoved } from "@/lib/api/dispatches";
+import { afterExport } from "@/lib/api/exports";
 import { afterGateRun, afterTriage } from "@/lib/api/gate";
 import { afterIntakeFileWrite } from "@/lib/api/intake-files";
 import {
@@ -137,6 +138,8 @@ const KEY: Record<ReadName, readonly unknown[]> = {
 	"gate.runs": queryKeys.gate.runs(M),
 	"gate.run": queryKeys.gate.run(M, RUN),
 	"findings.list": queryKeys.findings.list(M),
+	"exports.list": queryKeys.exports.list(M),
+	"exports.detail": queryKeys.exports.detail(id(13)),
 	"intakes.byEngagement": queryKeys.intakes.byEngagement(E, 50),
 	"intakes.detail": queryKeys.intakes.detail(I),
 	"intakes.files": queryKeys.intakes.files(I, false),
@@ -211,6 +214,8 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	runGate: (qc) => afterGateRun(qc, M),
 	confirmFinding: (qc) => afterTriage(qc, M),
 	dismissFinding: (qc) => afterTriage(qc, M),
+	previewExport: (qc) => afterExport(qc),
+	createExport: (qc) => afterExport(qc),
 	uploadIntakeFile: (qc) => afterIntakeFileWrite(qc, I),
 	purgeIntakeFile: (qc) => afterIntakeFileWrite(qc, I),
 	createIntake: (qc) =>
@@ -261,6 +266,8 @@ const MISSION_READS_OF_A_NEW_PARENT = {
 	"missionLifecycle.readiness": "a new one has no missions yet",
 } as const;
 const FROZEN_BRIEF = "a dispatch's brief is fixed when it is queued";
+const OTHER_EXPORT =
+	"a new export is a new row; one already read is final when its route answers";
 const FILED_REPORT =
 	"a halt files a new report; a report already read never changes";
 const PLAN_ONLY =
@@ -279,6 +286,8 @@ const STATUS_NOT_COUNT =
 const EXEMPT: Partial<Record<WriteName, Partial<Record<ReadName, string>>>> = {
 	createClient: MISSION_READS_OF_A_NEW_PARENT,
 	createEngagement: MISSION_READS_OF_A_NEW_PARENT,
+	previewExport: { "exports.detail": OTHER_EXPORT },
+	createExport: { "exports.detail": OTHER_EXPORT },
 	addRosterEntry: { "presets.presetApplications": NOT_AN_APPLICATION },
 	updateRosterEntry: { "presets.presetApplications": NOT_AN_APPLICATION },
 	removeRosterEntry: { "presets.presetApplications": NOT_AN_APPLICATION },

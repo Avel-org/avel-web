@@ -4,7 +4,7 @@ import type {
 	needsYouReason,
 	RosterEntry,
 } from "avel-server/contract";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, PackagePlus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -25,12 +25,9 @@ import { ClientName, MissionStatusPill } from "./mission-columns";
 import { useMission } from "./mission-data";
 import { Brief, RecentActivity } from "./mission-details";
 import { MissionDispatches } from "./mission-dispatches";
+import { MissionExportList } from "./mission-exports";
 import { MissionRowsSkeleton } from "./mission-panels";
-import {
-	MISSING_ROUTE,
-	sampleExports,
-	sampleHaltReason,
-} from "./mission-placeholders";
+import { MISSING_ROUTE, sampleHaltReason } from "./mission-placeholders";
 import { ORIGIN_LABEL } from "./mission-search";
 import { MissionStartLive } from "./mission-start";
 import {
@@ -402,13 +399,16 @@ function NowBanner({ mission, now }: { mission: MissionDetail; now: number }) {
 					data-testid="mission-now-actions"
 					className="ml-auto flex shrink-0 items-center gap-2.5 max-sm:basis-full max-sm:justify-end"
 				>
-					<Button
-						size="sm"
-						data-testid="mission-now-open-export"
-						disabledReason="Needs the export routes"
-					>
-						Open export
-					</Button>
+					{mission.lastExport ? (
+						<Button asChild size="sm" data-testid="mission-now-open-export">
+							<Link
+								to="/missions/$id/exports/$exportId"
+								params={{ id: mission.id, exportId: mission.lastExport.id }}
+							>
+								Open export
+							</Link>
+						</Button>
+					) : null}
 				</div>
 			) : null}
 		</section>
@@ -430,6 +430,18 @@ function Exports({
 			title="Exports"
 			data-testid="mission-section-exports"
 			footer={footer}
+			actions={
+				<Button asChild variant="ghost" size="sm">
+					<Link
+						to="/missions/$id/exports/new"
+						params={{ id: mission.id }}
+						data-testid="mission-export-new"
+					>
+						<PackagePlus aria-hidden="true" />
+						New export
+					</Link>
+				</Button>
+			}
 		>
 			{/* The newest export is real: the contract's lastExport. */}
 			<ul className="flex flex-col">
@@ -464,44 +476,10 @@ function Exports({
 			</ul>
 			<div
 				data-testid="mission-exports-earlier"
-				className="mt-3 flex flex-col gap-2 rounded-control border border-dashed border-border p-2"
+				className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3"
 			>
-				<SampleData missing={MISSING_ROUTE.exports} />
-				<ul className="flex flex-col divide-y divide-border">
-					{sampleExports(mission.id).map((sample) => (
-						<li
-							key={sample.id}
-							data-testid="mission-export-sample"
-							className="flex flex-wrap items-center gap-3 py-2 opacity-80"
-						>
-							<StatusPill
-								size="sm"
-								tone={exportStatusTone(sample.status)}
-								label={sample.status}
-							/>
-							<span className="type-mono text-text-subtle">
-								{sample.targetKind}
-							</span>
-							<span className="type-caption text-text-muted">
-								{`${sample.hoursInStage}h in ${sample.status}`}
-							</span>
-							<span className="ml-auto flex items-center gap-1.5">
-								{sample.gates.map((gate) => (
-									<span
-										key={gate.name}
-										title={`${gate.name}: ${gate.verdict}${gate.attested ? ", attested" : ""}`}
-										className="inline-flex"
-									>
-										<StatusGlyph tone={gate.verdict} attested={gate.attested} />
-										<span className="sr-only">
-											{`${gate.name} ${gate.verdict}${gate.attested ? ", attested" : ""}`}
-										</span>
-									</span>
-								))}
-							</span>
-						</li>
-					))}
-				</ul>
+				<h3 className="type-eyebrow">All exports</h3>
+				<MissionExportList missionId={mission.id} />
 			</div>
 		</SectionPanel>
 	);
