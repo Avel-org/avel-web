@@ -5,7 +5,6 @@ import { useHaltDispatch, useStartDispatch } from "@/lib/api/dispatches";
 import type { ApiError } from "@/lib/api/errors";
 import { useMissionPlan } from "@/lib/api/mission-plans";
 import { describeError } from "@/lib/error-map";
-import { useIsPreview } from "@/shell/auth-gate";
 
 /*
  * Start on a queued dispatch card and Halt on a running one (module 6).
@@ -144,7 +143,6 @@ export function DispatchControls({
 	/** The plan's template, which a missing source's line names. */
 	templateRef?: string | null;
 }) {
-	const preview = useIsPreview();
 	const { status, id } = dispatch;
 	if (status !== "queued" && status !== "running") return null;
 	return (
@@ -157,13 +155,7 @@ export function DispatchControls({
 					size="sm"
 					className="self-start"
 					onClick={onStart}
-					disabledReason={
-						preview
-							? "Sign in to start"
-							: pending === "start"
-								? "Starting"
-								: undefined
-					}
+					disabledReason={pending === "start" ? "Starting" : undefined}
 					data-testid={`dispatch-card-start-${id}`}
 				>
 					<Play aria-hidden="true" />
@@ -176,13 +168,7 @@ export function DispatchControls({
 					className="self-start"
 					holdToConfirm
 					onConfirm={onHalt}
-					disabledReason={
-						preview
-							? "Sign in to halt"
-							: pending === "halt"
-								? "Halting"
-								: undefined
-					}
+					disabledReason={pending === "halt" ? "Halting" : undefined}
 					data-testid={`dispatch-card-halt-${id}`}
 				>
 					<Square aria-hidden="true" />

@@ -298,7 +298,7 @@ describe("the page from the contract", () => {
 			/data-testid="mission-activity-actor-0"[^>]*>Atlas<\/a>/,
 		);
 		expect(visibleText(activity)).toContain("Report filed");
-		expect(visibleText(activity)).toContain("Atlas · scheduling");
+		expect(visibleText(activity)).toMatch(/Atlas ?, scheduling/);
 		expect(visibleText(activity)).not.toMatch(UUID_FRAGMENT);
 	});
 
@@ -359,11 +359,11 @@ describe("the page from the contract", () => {
 		const team = element(html, "mission-team-entries");
 		const text = visibleText(team);
 		expect(text).toMatch(
-			/Leon · Booking\s*Waves A, B\s*Active.*Iyo\s*Wave C\s*Idle/s,
+			/Leon, Booking\s*Waves A, B\s*Active.*Iyo\s*Wave C\s*Idle/s,
 		);
 		expect(text).not.toMatch(UUID_FRAGMENT);
 		expect(pills(team)).toBe(0);
-		expect(team).toContain('title="A · Setup, B · Build"');
+		expect(team).toContain('title="A, Setup; B, Build"');
 	});
 
 	it("reads the roster only when the mission counts an agent", async () => {

@@ -189,7 +189,7 @@ describe("readiness with nothing to place", () => {
 describe("the counts line", () => {
 	it("names only the states that occur, in words, never a score", () => {
 		const line = countsLine(readinessOf(plan())?.segments ?? []);
-		expect(line).toBe("1 placed · 1 in no module");
+		expect(line).toBe("1 placed, 1 in no module");
 		expect(line).not.toMatch(/%|\//);
 	});
 });
@@ -259,7 +259,7 @@ describe("the compact readiness (mission page's Brief panel)", () => {
 		const html = render(true, { plan: plan() });
 		expect(html).toContain('data-testid="plan-readiness-bar"');
 		expect(html).toMatch(
-			/data-testid="plan-readiness-counts"[^>]*>1 placed · 1 in no module</,
+			/data-testid="plan-readiness-counts"[^>]*>1 placed, 1 in no module</,
 		);
 		expect(html).not.toContain('data-testid="plan-readiness-modules"');
 	});

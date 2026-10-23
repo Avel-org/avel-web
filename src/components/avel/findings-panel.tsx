@@ -14,7 +14,6 @@ import {
 } from "@/lib/api/gate";
 import { describeError } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
-import { useIsPreview } from "@/shell/auth-gate";
 import { ActionModal } from "./action-modal";
 import { EmptyState } from "./empty-state";
 import { SEVERITY } from "./gate-copy";
@@ -170,11 +169,9 @@ export function FindingRow({
 	/** The latest gate run blocks on it: a join, never a field it carries. */
 	blocking?: boolean;
 }) {
-	const preview = useIsPreview();
 	const confirm = useConfirmFinding(missionId);
 	const [dismissing, setDismissing] = useState(false);
 	const severity = SEVERITY[finding.severity];
-	const signIn = preview ? "Sign in to triage findings" : undefined;
 	return (
 		<li
 			data-testid={`finding-${finding.id}`}
@@ -230,9 +227,7 @@ export function FindingRow({
 							variant="secondary"
 							size="sm"
 							data-testid={`finding-${finding.id}-confirm`}
-							disabledReason={
-								signIn ?? (confirm.isPending ? "Confirming" : undefined)
-							}
+							disabledReason={confirm.isPending ? "Confirming" : undefined}
 							onClick={() => confirm.mutate(finding.id)}
 						>
 							<Check aria-hidden="true" />
@@ -243,7 +238,6 @@ export function FindingRow({
 							variant="outline"
 							size="sm"
 							data-testid={`finding-${finding.id}-dismiss`}
-							disabledReason={signIn}
 							onClick={() => setDismissing(true)}
 						>
 							<X aria-hidden="true" />

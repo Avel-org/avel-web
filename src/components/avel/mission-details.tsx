@@ -5,19 +5,28 @@ import {
 	type MissionDetail,
 } from "avel-server/contract";
 import {
+	Activity,
 	ArrowLeft,
 	ArrowUpRight,
-	ChevronRight,
+	Briefcase,
+	Building2,
 	CircleCheck,
+	Clock,
+	FileText,
+	Hash,
+	Info,
+	Link2,
+	ListChecks,
+	type LucideIcon,
+	PackageCheck,
+	Rocket,
+	ScrollText,
+	Shapes,
+	Users,
+	Wallet,
 	X,
 } from "lucide-react";
-import {
-	createContext,
-	type ReactNode,
-	useContext,
-	useId,
-	useState,
-} from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,14 +36,23 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { relativeTime } from "@/lib/api/clients";
 import type { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 import { ACTOR_KIND_LABEL, actionLabel } from "./activity-copy";
 import { ActorLabel } from "./agent-actor";
-import { ClientName, MissionStatusPill } from "./mission-columns";
+import { formatUsd } from "./dispatch-budget";
+import { ClientName, ExportSince, MissionStatusPill } from "./mission-columns";
 import { NEEDS_YOU_COPY, useMission } from "./mission-data";
-import { exportStatusTone, StatusGlyph, StatusPill } from "./status-pill";
+import { missionShortLabel } from "./missions-dashboard";
+import {
+	EXPORT_STATUS_LABEL,
+	EXPORT_TARGET_LABEL,
+	exportStatusTone,
+	StatusGlyph,
+	StatusPill,
+} from "./status-pill";
 import { ErrorState, type ErrorStateProps, Surface } from "./surface";
 
 /** Closes the details panel, for the error state's way back. */
@@ -44,6 +62,12 @@ const CloseContext = createContext<() => void>(() => {});
  * One mission's details, a sheet over the list at every width. Opened by a
  * row in either view, named by the URL's `mission`, so it is a link. The
  * sheet closes on Esc by itself.
+ *
+ * Laid out after the operator's record panel reference (2026-10-23): a
+ * sticky bar with the trail and the ways out, a head (tile, name, where it
+ * lives, its state), its actions, then tabs. Details is a list of facts, an
+ * icon and a label beside each value, then an Overview of its real numbers.
+ * The panel scrolls with no scrollbar drawn.
  */
 export function MissionDetails({
 	id,
@@ -63,8 +87,9 @@ export function MissionDetails({
 				// G F opens this mission's full page from inside the sheet.
 				data-allow-shortcuts=""
 				// A drawer over the page from sm up, so opening a mission never
-				// reflows the grid; the whole width on a phone.
-				className="w-full gap-0 p-0 sm:max-w-md"
+				// reflows the grid; the whole width on a phone. It scrolls as one
+				// column, its scrollbar not drawn; the bar above stays.
+				className="no-scrollbar w-full gap-0 overflow-y-auto p-0 sm:max-w-xl"
 			>
 				<SheetTitle className="sr-only">Mission details</SheetTitle>
 				<SheetDescription className="sr-only">
@@ -90,8 +115,30 @@ function DetailsBody({
 	const mission = useMission(id);
 	return (
 		<>
-			<div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
-				<span className="type-caption text-text-subtle">Mission</span>
+			<div className="sticky top-0 z-(--z-raised) flex h-12 shrink-0 items-center gap-2 border-b border-border bg-app-panel pr-2 pl-5">
+				<nav
+					aria-label="Trail"
+					className="flex min-w-0 flex-1 items-center gap-1.5 type-small"
+				>
+					<span className="text-text-muted">Missions</span>
+					<span aria-hidden="true" className="text-text-subtle">
+						/
+					</span>
+					<span className="min-w-0 truncate text-text">
+						{mission.data ? missionShortLabel(mission.data) : "Mission"}
+					</span>
+				</nav>
+				<Button asChild variant="ghost" size="sm">
+					<Link
+						to="/missions/$id"
+						params={{ id }}
+						data-testid="mission-details-full-page"
+					>
+						<ArrowUpRight aria-hidden="true" />
+						Full page
+					</Link>
+				</Button>
+				<span aria-hidden="true" className="h-4 w-px bg-border" />
 				<Button
 					variant="ghost"
 					size="icon-sm"
@@ -166,131 +213,306 @@ function DetailsContent({
 	mission: MissionDetail;
 	now: number;
 }) {
+	const requirements = requirementCount(mission.brief);
 	return (
 		<div data-testid="mission-details-content" className="flex flex-col">
 			<header
 				data-testid="mission-details-header"
-				className="flex flex-col gap-2 border-b border-border px-4 py-4"
+				className="flex flex-col gap-4 px-5 pt-5 pb-4"
 			>
-				<div className="flex items-center gap-2">
-					<MissionStatusPill status={mission.status} />
-					{mission.needsYou ? (
-						<StatusPill
-							size="sm"
-							tone="warn"
-							label={NEEDS_YOU_COPY[mission.needsYou.reason]}
-						/>
-					) : null}
-				</div>
-				<h2 className="type-page text-foreground">
-					<ClientName mission={mission} />
-				</h2>
-				<p className="flex flex-wrap gap-x-3 type-small text-text-muted">
-					<span>{mission.type}</span>
-					<span className="type-mono">sprint {mission.sprintN}</span>
-					<span>{mission.engagement?.name ?? "No engagement"}</span>
-				</p>
-				<Button asChild variant="outline" size="sm" className="self-start">
-					<Link
-						to="/missions/$id"
-						params={{ id: mission.id }}
-						data-testid="mission-details-full-page"
+				<div className="flex items-start gap-4">
+					<span
+						aria-hidden="true"
+						className="inline-flex size-14 shrink-0 items-center justify-center rounded-card border border-border bg-app-raised text-text-muted shadow-card"
 					>
-						Open full page
-						<ArrowUpRight aria-hidden="true" />
-					</Link>
-				</Button>
+						<Rocket className="size-6" />
+					</span>
+					<div className="flex min-w-0 flex-1 flex-col gap-1">
+						<h2
+							title={missionShortLabel(mission)}
+							className="truncate type-page text-text"
+						>
+							<ClientName mission={mission} />
+						</h2>
+						<p className="flex min-w-0 items-center gap-1.5 type-small text-text-muted">
+							<Link2 aria-hidden="true" className="size-3.5 shrink-0" />
+							<span title={mission.repoUrl} className="truncate type-mono">
+								{repoLabel(mission.repoUrl)}
+							</span>
+						</p>
+					</div>
+					<div className="flex shrink-0 flex-col items-end gap-1.5">
+						<MissionStatusPill status={mission.status} />
+						{mission.needsYou ? (
+							<StatusPill
+								size="sm"
+								tone="warn"
+								label={NEEDS_YOU_COPY[mission.needsYou.reason]}
+							/>
+						) : null}
+					</div>
+				</div>
+				<div className="flex flex-wrap gap-2">
+					<Button asChild variant="outline" size="sm">
+						<Link to="/missions/$id" params={{ id: mission.id }}>
+							<ArrowUpRight aria-hidden="true" />
+							Open mission
+						</Link>
+					</Button>
+					<Button asChild variant="outline" size="sm">
+						<Link to="/missions/$id/plan" params={{ id: mission.id }}>
+							<ListChecks aria-hidden="true" />
+							Plan
+						</Link>
+					</Button>
+					<Button asChild variant="outline" size="sm">
+						<Link to="/missions/$id/roster" params={{ id: mission.id }}>
+							<Users aria-hidden="true" />
+							Team
+						</Link>
+					</Button>
+				</div>
 			</header>
-			<Section title="Brief" testId="mission-section-brief">
-				<Brief brief={mission.brief} />
-			</Section>
-			<Section title="Roster" testId="mission-section-roster">
-				<p className="type-small text-text-muted">
-					<span className="type-mono text-foreground">
-						{mission.roster.agents}
-					</span>{" "}
-					{mission.roster.agents === 1 ? "agent" : "agents"},{" "}
-					<span className="type-mono text-foreground">
-						{mission.roster.active}
-					</span>{" "}
-					active
-				</p>
-			</Section>
-			<Section title="Playbook" testId="mission-section-playbook">
-				{mission.playbook ? (
-					<p className="flex flex-col type-small">
-						<span className="text-foreground">{mission.playbook.name}</span>
-						<span className="type-mono text-text-subtle">
-							{mission.playbook.missionType}
-						</span>
-					</p>
-				) : (
-					<p className="type-small text-text-subtle">
-						No live playbook for this mission type.
-					</p>
-				)}
-			</Section>
-			<Section title="Last export" testId="mission-section-export">
-				<LastExportDetail mission={mission} now={now} />
-			</Section>
-			<Section title="Recent activity" testId="mission-section-activity">
-				<RecentActivity mission={mission} now={now} />
-			</Section>
-			<Section title="Spend ceiling" testId="mission-section-spend">
-				{mission.spendCeilingUsd === null ? (
-					<p className="type-small text-text-subtle">None set</p>
-				) : (
-					<p className="type-mono text-foreground">
-						${mission.spendCeilingUsd.toFixed(2)}
-					</p>
-				)}
-			</Section>
+			<Tabs defaultValue="details" className="gap-0">
+				<TabsList
+					variant="line"
+					aria-label="Mission"
+					className="h-11! w-full justify-start gap-1 rounded-none border-y border-border bg-app-band px-3"
+				>
+					{DETAIL_TABS.map(({ id, label, icon: Icon }) => (
+						<TabsTrigger
+							key={id}
+							value={id}
+							data-testid={`mission-details-tab-${id}`}
+							className="focus-inset h-full flex-none gap-1.5 px-2.5"
+						>
+							<Icon aria-hidden="true" className="size-3.5" />
+							{label}
+						</TabsTrigger>
+					))}
+				</TabsList>
+				<TabsContent
+					value="details"
+					forceMount
+					className="data-[state=inactive]:hidden"
+				>
+					<dl className="flex flex-col gap-0.5 px-5 py-4">
+						<Fact icon={Building2} label="Client">
+							<ClientName mission={mission} />
+						</Fact>
+						<Fact icon={Briefcase} label="Engagement">
+							{mission.engagement?.name ?? (
+								<span className="text-text-subtle">No engagement</span>
+							)}
+						</Fact>
+						<Fact icon={Shapes} label="Type">
+							<span className="type-mono">{mission.type}</span>
+						</Fact>
+						<Fact icon={Hash} label="Sprint">
+							<span className="type-mono">{mission.sprintN}</span>
+						</Fact>
+						<Fact
+							icon={ScrollText}
+							label="Playbook"
+							data-testid="mission-section-playbook"
+						>
+							{mission.playbook ? (
+								<span className="flex min-w-0 items-baseline gap-2">
+									<span className="truncate">{mission.playbook.name}</span>
+									<span className="type-mono text-text-subtle">
+										{mission.playbook.missionType}
+									</span>
+								</span>
+							) : (
+								<span className="text-text-subtle">
+									No live playbook for this mission type
+								</span>
+							)}
+						</Fact>
+						<Fact
+							icon={Users}
+							label="Team"
+							data-testid="mission-section-roster"
+						>
+							{`${mission.roster.agents} ${mission.roster.agents === 1 ? "agent" : "agents"}, ${mission.roster.active} active`}
+						</Fact>
+						<Fact
+							icon={Wallet}
+							label="Spend limit"
+							data-testid="mission-section-spend"
+						>
+							{mission.spendCeilingUsd === null ? (
+								<span className="text-text-subtle">No spend limit</span>
+							) : (
+								<span className="type-mono">
+									{formatUsd(mission.spendCeilingUsd)}
+								</span>
+							)}
+						</Fact>
+						<Fact
+							icon={PackageCheck}
+							label="Last export"
+							data-testid="mission-section-export"
+						>
+							<LastExportDetail mission={mission} now={now} />
+						</Fact>
+						<Fact icon={Clock} label="Last activity">
+							{mission.lastActivityAt ? (
+								<time
+									dateTime={mission.lastActivityAt}
+									title={mission.lastActivityAt}
+								>
+									{relativeTime(mission.lastActivityAt, now)}
+								</time>
+							) : (
+								<span className="text-text-subtle">No activity yet</span>
+							)}
+						</Fact>
+					</dl>
+					<section
+						aria-labelledby="mission-overview"
+						className="flex flex-col gap-3 border-t border-border px-5 pt-4 pb-6"
+					>
+						<h3 id="mission-overview" className="type-title text-text">
+							Overview
+						</h3>
+						<div className="grid grid-cols-2 gap-3">
+							<Metric
+								label="Team"
+								value={String(mission.roster.agents)}
+								chip={
+									<StatusPill
+										size="sm"
+										tone={mission.roster.active > 0 ? "pass" : "pending"}
+										label={`${mission.roster.active} active`}
+									/>
+								}
+								note="Agents on this mission's roster, and how many are active."
+							/>
+							<Metric
+								label="Spent"
+								value={formatUsd(mission.spentUsd)}
+								chip={
+									mission.spendCeilingUsd !== null &&
+									mission.spentUsd >= mission.spendCeilingUsd ? (
+										<StatusPill size="sm" tone="block" label="At its limit" />
+									) : (
+										<Badge variant="outline">
+											{mission.spendCeilingUsd === null
+												? "No limit"
+												: `of ${formatUsd(mission.spendCeilingUsd)}`}
+										</Badge>
+									)
+								}
+								note="Every dispatch's spend on this mission, summed."
+							/>
+							{requirements === null ? null : (
+								<Metric
+									label="Requirements"
+									value={String(requirements)}
+									chip={<Badge variant="outline">in the brief</Badge>}
+									note="What the approved brief asks for, each with its checks."
+								/>
+							)}
+							<Metric
+								label="Sprint"
+								value={String(mission.sprintN)}
+								chip={<MissionStatusPill status={mission.status} />}
+								note="The sprint this mission runs as, and where it stands."
+							/>
+						</div>
+					</section>
+				</TabsContent>
+				<TabsContent
+					value="brief"
+					forceMount
+					className="px-5 py-4 data-[state=inactive]:hidden"
+				>
+					<div data-testid="mission-section-brief">
+						<Brief brief={mission.brief} />
+					</div>
+				</TabsContent>
+				<TabsContent
+					value="activity"
+					forceMount
+					className="px-5 py-4 data-[state=inactive]:hidden"
+				>
+					<div data-testid="mission-section-activity">
+						<RecentActivity mission={mission} now={now} />
+					</div>
+				</TabsContent>
+			</Tabs>
 		</div>
 	);
 }
 
-/** A compact section that opens and closes; open by default. */
-function Section({
-	title,
-	testId,
+const DETAIL_TABS = [
+	{ id: "details", label: "Details", icon: Info },
+	{ id: "brief", label: "Brief", icon: FileText },
+	{ id: "activity", label: "Activity", icon: Activity },
+] as const;
+
+/** The repository as its host and path, without the scheme. */
+export function repoLabel(url: string): string {
+	return url.replace(/^[a-z]+:\/\//, "").replace(/\.git$/, "");
+}
+
+/** How many requirements the brief holds, when it is in the plan's shape. */
+export function requirementCount(
+	brief: Record<string, unknown>,
+): number | null {
+	const parsed = briefSchema.safeParse(brief);
+	return parsed.success ? parsed.data.requirements.length : null;
+}
+
+/** One fact: its icon and label in a fixed column, then its value. */
+function Fact({
+	icon: Icon,
+	label,
 	children,
+	"data-testid": testId,
 }: {
-	title: string;
-	testId: string;
+	icon: LucideIcon;
+	label: string;
 	children: ReactNode;
+	"data-testid"?: string;
 }) {
-	const [open, setOpen] = useState(true);
-	const bodyId = useId();
 	return (
-		<section data-testid={testId} className="border-b border-border">
-			<button
-				type="button"
-				aria-expanded={open}
-				aria-controls={bodyId}
-				data-testid={`${testId}-toggle`}
-				onClick={() => setOpen(!open)}
-				className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-title text-foreground transition-colors duration-(--duration-micro) ease-avel focus-inset hover:bg-app-raised"
-			>
-				<ChevronRight
-					aria-hidden="true"
-					className={cn(
-						"size-3.5 text-text-subtle transition-transform duration-(--duration-state) ease-avel",
-						open && "rotate-90",
-					)}
-				/>
-				{title}
-			</button>
-			<div
-				className={cn(
-					"grid transition-[grid-template-rows] duration-(--duration-state) ease-avel",
-					open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-				)}
-			>
-				<div id={bodyId} className="min-h-0 overflow-hidden" inert={!open}>
-					<div className="px-4 pb-3">{children}</div>
-				</div>
-			</div>
-		</section>
+		<div
+			data-testid={testId}
+			className="grid min-h-9 grid-cols-[9rem_minmax(0,1fr)] items-center gap-3 py-1"
+		>
+			<dt className="flex items-center gap-2 type-small text-text-muted">
+				<Icon aria-hidden="true" className="size-4 shrink-0" />
+				{label}
+			</dt>
+			<dd className="min-w-0 type-small text-text">{children}</dd>
+		</div>
+	);
+}
+
+/** An overview card: what it counts, the number, a word on it, and why. */
+function Metric({
+	label,
+	value,
+	chip,
+	note,
+}: {
+	label: string;
+	value: string;
+	/** A state's pill, or a plain word's outline badge. */
+	chip: ReactNode;
+	note: string;
+}) {
+	return (
+		<div className="flex min-w-0 flex-col gap-1.5 rounded-card border border-border bg-app-panel p-3.5 shadow-card">
+			<span className="type-small text-text-muted">{label}</span>
+			<span className="flex flex-wrap items-center gap-2">
+				<span className="type-metric text-text tabular-nums">{value}</span>
+				{chip}
+			</span>
+			<span className="line-clamp-2 type-caption text-text-subtle">{note}</span>
+		</div>
 	);
 }
 
@@ -651,15 +873,16 @@ function LastExportDetail({
 				<StatusPill
 					size="sm"
 					tone={exportStatusTone(last.status)}
-					label={last.status}
+					label={EXPORT_STATUS_LABEL[last.status]}
 				/>
-				<span className="type-mono text-text-muted">{last.targetKind}</span>
-				<span
-					data-testid="mission-export-since"
-					className="type-caption text-text-muted"
-				>
-					{`In ${last.status} since ${relativeTime(last.statusChangedAt, now)}`}
+				<span className="type-small text-text">
+					{EXPORT_TARGET_LABEL[last.targetKind]}
 				</span>
+				<ExportSince
+					at={last.statusChangedAt}
+					now={now}
+					data-testid="mission-export-since"
+				/>
 			</div>
 			{/* Gate results live in the mission page's Gate panel. */}
 		</div>

@@ -427,7 +427,7 @@ describe("the table view", () => {
 		expect(html).toContain('data-testid="loadout-table"');
 		expect(html).not.toContain('data-testid="loadout-board"');
 		expect(text(element(html, `loadout-row-${uuid(202)}`))).toContain(
-			"Nemi · Booking",
+			"Nemi, Booking",
 		);
 		expect(tagOf(html, "loadout-view-table")).toContain('aria-pressed="true"');
 	});
@@ -640,7 +640,7 @@ describe("save as preset", () => {
 				/>,
 			),
 		);
-		expect(html).toContain("Left out, being idle: Nemi · Booking.");
+		expect(html).toContain("Left out, being idle: Nemi, Booking.");
 		expect(html).toContain("Save 1 agent as a team");
 		expect(html).toContain('data-state="checked"');
 	});

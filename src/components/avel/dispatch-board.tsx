@@ -19,12 +19,12 @@ import {
 	formatUsd,
 	minutesRun,
 } from "./dispatch-budget";
-import { DISPATCH_STATUS_LABEL } from "./dispatch-labels";
+import { DISPATCH_STATUS_LABEL, DISPATCH_STATUS_TONE } from "./dispatch-labels";
 import { DispatchRun } from "./dispatch-run";
 import { IdentityVersionTrigger, lookupRef } from "./identity-version-sheet";
 import { CompactBudget } from "./missions-dashboard";
 import { ShortHash } from "./short-hash";
-import { StatusGlyph, type StatusTone } from "./status-pill";
+import { StatusGlyph, TONE_TEXT } from "./status-pill";
 
 /*
  * A mission's dispatches as a board (module 6): one lane per status, the
@@ -58,21 +58,6 @@ export const DISPATCH_LANES: readonly DispatchStatus[] = [
 export function isOpenLane(status: DispatchStatus): boolean {
 	return LANE_PLACE[status] < LANE_PLACE.complete;
 }
-
-/**
- * Each status as a tone, read as the export statuses are (ruling 27): in
- * motion is pending, waiting on a person is warn, done is pass, failed is
- * block, and halted is stale: stopped at a limit or by the operator, with
- * nothing in the system broken.
- */
-export const DISPATCH_STATUS_TONE = {
-	queued: "pending",
-	running: "pending",
-	blocked: "warn",
-	complete: "pass",
-	failed: "block",
-	halted: "stale",
-} as const satisfies Record<DispatchStatus, StatusTone>;
 
 /**
  * A lane's cards in order: waiting ones oldest first (the next to start
@@ -242,14 +227,6 @@ export function DispatchCardSkeleton() {
 		</div>
 	);
 }
-
-const TONE_TEXT: Record<StatusTone, string> = {
-	pass: "text-gate-pass",
-	block: "text-gate-block",
-	warn: "text-gate-warn",
-	pending: "text-gate-pending",
-	stale: "text-gate-stale",
-};
 
 /** One dispatch: who, on what, as which version, when, and its budget. */
 export function DispatchCard({

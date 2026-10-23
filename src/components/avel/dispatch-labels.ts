@@ -3,6 +3,7 @@ import type {
 	HaltReason,
 	VersionSource,
 } from "avel-server/contract";
+import type { StatusTone } from "./status-pill";
 
 /**
  * Plain names for a dispatch's state, keyed on the contract's closed enums:
@@ -17,6 +18,21 @@ export const DISPATCH_STATUS_LABEL = {
 	failed: "Failed",
 	halted: "Halted",
 } as const satisfies Record<DispatchStatus, string>;
+
+/**
+ * Each status as a tone, read as the export statuses are (ruling 27): in
+ * motion is pending, waiting on a person is warn, done is pass, failed is
+ * block, and halted is stale: stopped at a limit or by the operator, with
+ * nothing in the system broken.
+ */
+export const DISPATCH_STATUS_TONE = {
+	queued: "pending",
+	running: "pending",
+	blocked: "warn",
+	complete: "pass",
+	failed: "block",
+	halted: "stale",
+} as const satisfies Record<DispatchStatus, StatusTone>;
 
 /** Why a dispatch halted: a limit the runner enforces, or the operator. */
 export const HALT_REASON_LABEL = {

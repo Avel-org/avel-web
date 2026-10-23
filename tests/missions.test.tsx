@@ -532,7 +532,7 @@ describe("the strips in the dashboard's side column", () => {
 		expect(visibleText(strip)).not.toMatch(UUID_FRAGMENT);
 		// The export method gives way first, whole on hover (QA item c).
 		expect(strip).toContain(
-			'title="github_pr" class="min-w-0 truncate type-mono text-text-subtle"',
+			'title="GitHub PR" class="min-w-0 truncate type-small text-text-muted"',
 		);
 	});
 });
@@ -649,11 +649,11 @@ describe("what to keep an eye on", () => {
 			await render("/missions", withStrips([], [VERIFYING])),
 			"missions-watch-in-flight",
 		);
-		expect(strip).toMatch(/data-tone="pending"[^>]*>[\s\S]*?verifying/);
-		expect(strip).toContain(">github_pr<");
+		expect(strip).toMatch(/data-tone="pending"[^>]*>[\s\S]*?Verifying/);
+		expect(strip).toContain(">GitHub PR<");
 		// In the shared time column, so it lines up with the tree's.
 		expect(strip).toMatch(
-			/data-testid="missions-watch-in-flight-time"[^>]*>since 2 hours ago</,
+			/data-testid="missions-watch-in-flight-time"[^>]*><time[^>]*>2 hours ago</,
 		);
 		expect(strip).not.toContain("Waiting on you");
 	});
@@ -899,7 +899,7 @@ describe("the tree, in steel", () => {
 		const html = await render("/missions?view=tree", seed);
 		const client = region(html, `mission-tree-client:${id(931)}`);
 		expect(client).toMatch(
-			/data-testid="mission-tree-group-row" class="[^"]*h-10 border-border bg-app-band/,
+			/data-testid="mission-tree-group-row" class="[^"]*h-10 border-border bg-app-hollow/,
 		);
 		expect(client).toMatch(
 			/data-testid="mission-tree-count"[^>]*data-variant="count"|data-variant="count"[^>]*data-testid="mission-tree-count"/,
@@ -977,8 +977,16 @@ describe("the details panel", () => {
 		expect(header).toContain('data-testid="mission-status"');
 	});
 
-	it("has each section, collapsible", async () => {
+	it("opens on Details, with Brief and Activity as tabs, every fact in reach", async () => {
 		const html = await render(`/missions?mission=${ACTIVE.id}`, withDetail);
+		expect(tagOf(html, "mission-details-tab-details")).toContain(
+			'aria-selected="true"',
+		);
+		for (const tab of ["brief", "activity"])
+			expect(tagOf(html, `mission-details-tab-${tab}`)).toContain(
+				'aria-selected="false"',
+			);
+		// Every fact is in the markup; the tabs only choose what shows.
 		for (const section of [
 			"brief",
 			"roster",
@@ -986,11 +994,10 @@ describe("the details panel", () => {
 			"export",
 			"activity",
 			"spend",
-		]) {
-			expect(tagOf(html, `mission-section-${section}-toggle`)).toContain(
-				'aria-expanded="true"',
-			);
-		}
+		])
+			expect(html).toContain(`data-testid="mission-section-${section}"`);
+		// It scrolls as one column with no scrollbar drawn.
+		expect(tagOf(html, "mission-details")).toMatch(/\bno-scrollbar\b/);
 	});
 
 	it("shows the brief as keys and values, without a typed shape", async () => {
@@ -1053,16 +1060,17 @@ describe("the details panel", () => {
 		try {
 			const html = await render(`/missions?mission=${ACTIVE.id}`, withDetail);
 			expect(html).toMatch(
-				/data-testid="mission-export-since"[^>]*>In pr-open since 2 hours ago</,
+				/data-testid="mission-export-since"[^>]*>2 hours ago</,
 			);
 		} finally {
 			vi.useRealTimers();
 		}
 	});
 
-	it("says none set for a missing spend ceiling, and leaves gates to the mission page", async () => {
+	it("says no spend limit when none is set, and leaves gates to the mission page", async () => {
 		const html = await render(`/missions?mission=${ACTIVE.id}`, withDetail);
-		expect(region(html, "mission-section-spend")).toContain("None set");
+		// The mission page's words, so the same fact reads the same way.
+		expect(region(html, "mission-section-spend")).toContain("No spend limit");
 		// Module 9 is built: the gate's results are the mission page's Gate
 		// panel, so the side panel no longer stands in for them.
 		expect(html).not.toContain('data-testid="mission-export-gates"');

@@ -253,7 +253,7 @@ function LoadoutWorkspace({
 			{readOnlyReason ? (
 				<p
 					data-testid="loadout-read-only"
-					className="type-small rounded-card border border-border-strong bg-app-band px-3 py-2 text-foreground"
+					className="type-small rounded-card border border-border-strong bg-app-hollow px-3 py-2 text-foreground"
 				>
 					{readOnlyReason}
 				</p>
@@ -413,7 +413,7 @@ function LoadoutTable({ roster }: { roster: readonly RosterEntry[] }) {
 						<TableCell className="type-small">
 							{e.active ? "Active" : "Idle"}
 						</TableCell>
-						<TableCell className="type-mono">{e.waves.join(" · ")}</TableCell>
+						<TableCell className="type-mono">{e.waves.join(", ")}</TableCell>
 						<TableCell className="type-mono text-right tabular-nums">
 							{tokens(e.estimatedTokens)}
 						</TableCell>

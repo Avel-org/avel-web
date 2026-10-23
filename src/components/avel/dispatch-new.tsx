@@ -26,7 +26,6 @@ import {
 import type { ApiError } from "@/lib/api/errors";
 import { useMissionPlan } from "@/lib/api/mission-plans";
 import { entryName, useRoster } from "@/lib/api/roster";
-import { useIsPreview } from "@/shell/auth-gate";
 import {
 	ActionModal,
 	type FieldIssue,
@@ -420,12 +419,16 @@ export function NewDispatchForm({
 						testid="dispatch-new-module"
 					>
 						{(props) => (
-							<Select
-								value={draft.moduleId}
-								onValueChange={chooseModule}
-								disabled={modules.length === 0}
-							>
-								<SelectTrigger {...props} className="w-full">
+							<Select value={draft.moduleId} onValueChange={chooseModule}>
+								<SelectTrigger
+									{...props}
+									className="w-full"
+									disabledReason={
+										modules.length === 0
+											? "The mission's plan has no modules yet"
+											: undefined
+									}
+								>
 									<SelectValue placeholder="The plan has no modules" />
 								</SelectTrigger>
 								<SelectContent>
@@ -604,7 +607,6 @@ export function NewDispatch({
 }
 
 function NewDispatchActive({ missionId }: { missionId: string }) {
-	const preview = useIsPreview();
 	const [open, setOpen] = useState(false);
 	const generation = useOpenGeneration(open);
 	const [last, setLast] = useState<DispatchAttempt | null>(null);
@@ -639,13 +641,7 @@ function NewDispatchActive({ missionId }: { missionId: string }) {
 			<Button
 				size="sm"
 				onClick={() => setOpen(true)}
-				disabledReason={
-					preview
-						? "Sign in to dispatch"
-						: loading
-							? "Reading the roster and plan"
-							: undefined
-				}
+				disabledReason={loading ? "Reading the roster and plan" : undefined}
 				data-testid="dispatch-new-button"
 			>
 				<Plus aria-hidden="true" />

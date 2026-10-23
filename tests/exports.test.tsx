@@ -11,9 +11,11 @@ import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+	briefDispatchId,
 	checkStates,
 	DeliveryChecks,
 	PackageMap,
+	packageBriefs,
 	packageEntries,
 } from "@/components/avel/export-package";
 import { ExportPreflight } from "@/components/avel/export-preflight";
@@ -195,6 +197,33 @@ describe("the package", () => {
 		expect(html).not.toContain('data-testid="export-file-scripts/seed.sh"');
 	});
 
+	it("lists the dispatch briefs apart from the work's files", async () => {
+		const RUN_ID = "00000000-0000-4000-8000-000000000301";
+		const brief = {
+			path: `.avel/dispatches/${RUN_ID}.md`,
+			mode: "100644",
+			bytes: 1500,
+			blobSha: sha("4", 40),
+			change: "create" as const,
+		};
+		const withBrief = exp({
+			package: { ...exp().package, files: [brief, ...exp().package.files] },
+		});
+		expect(packageBriefs(withBrief)).toEqual([
+			{ dispatchId: RUN_ID, bytes: 1500 },
+		]);
+		// The map, its folders and its counts are what the work wrote.
+		expect(packageEntries(withBrief).map((e) => e.path)).not.toContain(
+			brief.path,
+		);
+		const html = await render(<PackageMap exp={withBrief} />);
+		expect(html).not.toContain('data-testid="export-package-folder-.avel');
+		expect(tagOf(html, `export-brief-open-${RUN_ID}`)).toContain("button");
+		expect(element(html, "export-package-briefs")).toContain("Dispatch briefs");
+		// A work path that only looks like one is still the work's.
+		expect(briefDispatchId(".avel/dispatches/notes.md")).toBeNull();
+	});
+
 	it("names the zip's deletes file, which a GitHub delivery doesn't carry", async () => {
 		const html = await render(<PackageMap exp={exp()} />);
 		expect(html).toContain(".avel/deletes.json");
@@ -312,9 +341,7 @@ describe("a mission's exports", () => {
 		expect(tagOf(html, `mission-export-${done.id}`)).toContain(
 			`href="/missions/${MISSION}/exports/${done.id}"`,
 		);
-		expect(element(html, `mission-export-${PREVIEW}`)).toContain(
-			"Preview, zip",
-		);
+		expect(element(html, `mission-export-${PREVIEW}`)).toContain("Zip preview");
 	});
 });
 

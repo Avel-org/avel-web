@@ -153,7 +153,7 @@ describe("the mission page header", () => {
 		expect(h).toContain(
 			'data-testid="mission-readiness-warning-spend_ceiling_missing"',
 		);
-		expect(visibleText(h)).toContain("Leon · Booking has no token estimate.");
+		expect(visibleText(h)).toContain("Leon, Booking has no token estimate.");
 		expect(visibleText(h)).not.toMatch(UUID_FRAGMENT);
 		expect(h).not.toContain("for logs");
 	});

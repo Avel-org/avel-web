@@ -3,23 +3,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useMissionExports } from "@/lib/api/exports";
 import { shortStamp } from "./activity-audit";
 import { RESULT } from "./gate-copy";
-import { EXPORT_STATUS_LABEL } from "./lifecycle";
 import { ROW_LINK_GROUP, RowChevron } from "./row-link";
-import { exportStatusTone, StatusGlyph, StatusPill } from "./status-pill";
+import {
+	EXPORT_STATUS_LABEL,
+	EXPORT_TARGET_LABEL,
+	exportStatusTone,
+	StatusGlyph,
+	StatusPill,
+	TONE_TEXT,
+} from "./status-pill";
 import { ErrorState, Surface } from "./surface";
-
-/** The glyph's ink for each gate result: the glyph draws in currentColor. */
-const RESULT_INK = {
-	verified: "text-gate-pass",
-	pass: "text-gate-warn",
-	fail: "text-gate-block",
-} as const;
-
-const TARGET_WORD = {
-	zip: "zip",
-	github_pr: "GitHub PR",
-	github_push: "GitHub push",
-} as const;
 
 /**
  * A mission's exports, previews included, newest first (contract
@@ -66,8 +59,8 @@ export function MissionExportList({ missionId }: { missionId: string }) {
 									/>
 									<span className="min-w-0 flex-1 truncate type-small text-text">
 										{exp.dryRun
-											? `Preview, ${TARGET_WORD[exp.targetKind]}`
-											: TARGET_WORD[exp.targetKind]}
+											? `${EXPORT_TARGET_LABEL[exp.targetKind]} preview`
+											: EXPORT_TARGET_LABEL[exp.targetKind]}
 									</span>
 									<span
 										title={`Gate run: ${result.label}`}
@@ -75,7 +68,7 @@ export function MissionExportList({ missionId }: { missionId: string }) {
 									>
 										<StatusGlyph
 											tone={result.tone}
-											className={RESULT_INK[exp.gateRun.result]}
+											className={TONE_TEXT[result.tone]}
 										/>
 										<span className="sr-only">{`Gate run ${result.label}`}</span>
 									</span>

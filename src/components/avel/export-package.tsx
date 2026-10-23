@@ -1,17 +1,19 @@
 import type { ExportWire } from "avel-server/contract";
-import { ChevronRight, FilePen, FilePlus, FileX } from "lucide-react";
+import { ChevronRight, FilePen, FilePlus, FileText, FileX } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { tabsListVariants } from "@/components/ui/tabs";
+import { useDispatch } from "@/lib/api/dispatches";
 import {
 	CONTRACT_ERROR_COPY,
 	type CodeCopy,
 	PRECONDITION_COPY,
 } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
+import { BriefModal } from "./dispatch-brief";
 import { RESULT } from "./gate-copy";
 import { fileSize } from "./intake-files";
-import { ShortHash } from "./short-hash";
+import { HiddenId, ShortHash } from "./short-hash";
 import { StatusGlyph, StatusPill } from "./status-pill";
 
 /*
@@ -35,23 +37,50 @@ export type PackageEntry = {
 
 const CHANGE = {
 	create: { label: "Created", icon: FilePlus, ink: "text-gate-pass" },
-	overwrite: { label: "Changed", icon: FilePen, ink: "text-text-muted" },
+	overwrite: { label: "Changed", icon: FilePen, ink: "text-gate-warn" },
 	delete: { label: "Deleted", icon: FileX, ink: "text-gate-block" },
 } as const;
 
-/** The package's files and deletes, each with the violations on its path. */
+/**
+ * A completed dispatch's brief, which the server adds to the package at
+ * `.avel/dispatches/<dispatch id>.md` (avel-server, 2026-10-22). It records
+ * what each run was told, beside the gate's receipt; it is not the work.
+ */
+const BRIEF_PATH = /^\.avel\/dispatches\/([0-9a-f-]{36})\.md$/;
+
+/** The id of the dispatch whose brief a package path holds, or null. */
+export function briefDispatchId(path: string): string | null {
+	return BRIEF_PATH.exec(path)?.[1] ?? null;
+}
+
+/** The briefs a package carries: each dispatch's id and the file's size. */
+export function packageBriefs(
+	exp: ExportWire,
+): { dispatchId: string; bytes: number }[] {
+	return exp.package.files.flatMap((f) => {
+		const dispatchId = briefDispatchId(f.path);
+		return dispatchId ? [{ dispatchId, bytes: f.bytes }] : [];
+	});
+}
+
+/**
+ * The package's files and deletes, each with the violations on its path.
+ * The dispatch briefs are left out: the map shows what the work wrote.
+ */
 export function packageEntries(exp: ExportWire): PackageEntry[] {
 	const byPath = new Map<string, ExportWire["violations"]>();
 	for (const v of exp.violations)
 		byPath.set(v.path, [...(byPath.get(v.path) ?? []), v]);
 	const entries: PackageEntry[] = [
-		...exp.package.files.map((f) => ({
-			path: f.path,
-			change: f.change,
-			bytes: f.bytes,
-			mode: f.mode,
-			violations: byPath.get(f.path) ?? [],
-		})),
+		...exp.package.files
+			.filter((f) => briefDispatchId(f.path) === null)
+			.map((f) => ({
+				path: f.path,
+				change: f.change,
+				bytes: f.bytes,
+				mode: f.mode,
+				violations: byPath.get(f.path) ?? [],
+			})),
 		...exp.package.deletes.map((path) => ({
 			path,
 			change: "delete" as const,
@@ -111,6 +140,7 @@ export function PackageMap({
 		folders.set(folder, [...(folders.get(folder) ?? []), e]);
 	}
 	const count = (f: Filter) => entries.filter((e) => matches(e, f)).length;
+	const briefs = packageBriefs(exp);
 	return (
 		<div data-testid={testId} className="flex flex-col gap-3">
 			<fieldset
@@ -157,6 +187,13 @@ export function PackageMap({
 					))}
 				</ul>
 			)}
+			{briefs.length > 0 ? (
+				<PackageBriefs
+					missionId={exp.missionId}
+					briefs={briefs}
+					testId={`${testId}-briefs`}
+				/>
+			) : null}
 			<p className="type-caption text-text-subtle">
 				The package also carries the gate's receipt at{" "}
 				<code className="type-mono">.avel/receipt.json</code>
@@ -290,6 +327,101 @@ function Row({ row }: { row: PackageEntry }) {
 	);
 }
 
+/**
+ * The briefs the package carries, one per completed dispatch, under
+ * `.avel/dispatches/`. Each names its run and opens the same brief the
+ * dispatch card does: the file's bytes are that brief exactly.
+ */
+function PackageBriefs({
+	missionId,
+	briefs,
+	testId,
+}: {
+	missionId: string;
+	briefs: { dispatchId: string; bytes: number }[];
+	testId: string;
+}) {
+	return (
+		<section data-testid={testId} className="flex flex-col gap-2">
+			<h3 className="flex items-baseline gap-2 type-eyebrow">
+				Dispatch briefs
+				<span className="tabular-nums">{briefs.length}</span>
+			</h3>
+			<p className="type-caption text-text-muted">
+				What each run was told, frozen when it started. They ship under{" "}
+				<code className="type-mono">.avel/dispatches/</code>.
+			</p>
+			<ul className="flex flex-col divide-y divide-border rounded-card border border-border">
+				{briefs.map((b) => (
+					<BriefRow key={b.dispatchId} missionId={missionId} {...b} />
+				))}
+			</ul>
+		</section>
+	);
+}
+
+/** One brief: whose run, which module, its size, and Read brief. */
+function BriefRow({
+	missionId,
+	dispatchId,
+	bytes,
+}: {
+	missionId: string;
+	dispatchId: string;
+	bytes: number;
+}) {
+	const dispatch = useDispatch(missionId, dispatchId);
+	const [open, setOpen] = useState(false);
+	const run = dispatch.data;
+	return (
+		<li
+			data-testid={`export-brief-${dispatchId}`}
+			className="flex min-w-0 items-center gap-2.5 py-1 pr-1 pl-3"
+		>
+			<FileText
+				aria-hidden="true"
+				className="size-3.5 shrink-0 text-text-subtle"
+			/>
+			<span className="flex min-w-0 flex-1 items-baseline gap-2">
+				<span className="min-w-0 truncate type-small text-text">
+					<HiddenId id={dispatchId} label="the dispatch's id">
+						{run
+							? run.agent.name
+							: dispatch.status === "error"
+								? "A dispatch"
+								: "Reading the dispatch"}
+					</HiddenId>
+				</span>
+				{run?.briefRef ? (
+					<span className="shrink-0 type-caption text-text-muted">
+						{"Module "}
+						<span className="type-mono">{run.briefRef.moduleId}</span>
+					</span>
+				) : null}
+			</span>
+			<span className="shrink-0 type-caption tabular-nums text-text-subtle">
+				{fileSize(bytes)}
+			</span>
+			<Button
+				size="sm"
+				variant="ghost"
+				data-testid={`export-brief-open-${dispatchId}`}
+				onClick={() => setOpen(true)}
+			>
+				<FileText aria-hidden="true" />
+				Read brief
+			</Button>
+			{open ? (
+				<BriefModal
+					dispatchId={dispatchId}
+					agentName={run?.agent.name ?? "This run"}
+					onClose={() => setOpen(false)}
+				/>
+			) : null}
+		</li>
+	);
+}
+
 // ---------------------------------------------------------------------------
 // The delivery check.
 
@@ -362,9 +494,8 @@ function blockedCopy(blocked: NonNullable<ExportWire["blocked"]>) {
 					blocked.reason
 				]
 			: CONTRACT_ERROR_COPY[blocked.code];
-	return copy
-		? { what: copy.what, next: asWrite(copy.next) }
-		: { what: blocked.message, next: "" };
+	const shown = copy ?? CONTRACT_ERROR_COPY.PRECONDITION_FAILED;
+	return { what: shown.what, next: asWrite(shown.next) };
 }
 
 export function DeliveryChecks({ exp }: { exp: ExportWire }) {

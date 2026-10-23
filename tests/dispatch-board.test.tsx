@@ -363,8 +363,9 @@ describe("a dispatch's budget", () => {
 		expect(text(element(html, `dispatch-budget-tokens-${d.id}`))).toBe(
 			"24,000 of 40,000 estimated tokens",
 		);
-		expect(text(element(html, `dispatch-budget-ceilings-${d.id}`))).toBe(
-			"Soft limit 60,000 (1.5×) · Hard limit 120,000 (3×)",
+		// The parts are separate text nodes; the rendered line has no space before the comma.
+		expect(text(element(html, `dispatch-budget-ceilings-${d.id}`))).toMatch(
+			/^Soft limit 60,000 \(1\.5×\) ?, hard limit 120,000 \(3×\)$/,
 		);
 		expect(text(element(html, `dispatch-budget-spend-${d.id}`))).toBe(
 			"$0.0421 spent",
@@ -504,7 +505,7 @@ describe("the mission's spend bar", () => {
 
 	it("says when no ceiling is set, with no bar", () => {
 		const html = bar(3.5, null);
-		expect(text(html)).toBe("$3.50 spent · No spend limit");
+		expect(text(html)).toBe("$3.50 spent, no spend limit");
 		expect(html).not.toContain("mission-spend-fill");
 		expect(html).not.toContain("<meter");
 	});

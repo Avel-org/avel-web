@@ -15,13 +15,8 @@ import { cn } from "@/lib/utils";
 import { MissionSpendBar } from "./dispatch-budget";
 import { FindingsPanel } from "./findings-panel";
 import { GatePanel } from "./gate-panel";
-import {
-	EXPORT_LIFECYCLE,
-	EXPORT_STATUS_LABEL,
-	Lifecycle,
-	MISSION_LIFECYCLE,
-} from "./lifecycle";
-import { ClientName, MissionStatusPill } from "./mission-columns";
+import { EXPORT_LIFECYCLE, Lifecycle, MISSION_LIFECYCLE } from "./lifecycle";
+import { ClientName, ExportSince, MissionStatusPill } from "./mission-columns";
 import { useMission } from "./mission-data";
 import { Brief, RecentActivity } from "./mission-details";
 import { MissionDispatches } from "./mission-dispatches";
@@ -45,6 +40,8 @@ import { SectionPanel } from "./section-panel";
 import { HiddenId } from "./short-hash";
 import { SpendLimitControl } from "./spend-limit";
 import {
+	EXPORT_STATUS_LABEL,
+	EXPORT_TARGET_LABEL,
 	exportStatusTone,
 	StatusGlyph,
 	StatusPill,
@@ -102,10 +99,9 @@ export function nowBanner(mission: MissionDetail, now: number): Now | null {
 	}
 	const last = mission.lastExport;
 	if (last && EXPORT_PHASE[last.status] === "moving") {
-		const status = last.status.charAt(0).toUpperCase() + last.status.slice(1);
 		return {
 			kind: "in-flight",
-			text: `${status} for ${shortDuration(now - Date.parse(last.statusChangedAt))}`,
+			text: `${EXPORT_STATUS_LABEL[last.status]} for ${shortDuration(now - Date.parse(last.statusChangedAt))}`,
 		};
 	}
 	if (mission.status === "active") {
@@ -207,7 +203,7 @@ function MissionContent({
 				<SectionPanel
 					title="Brief"
 					data-testid="mission-section-brief-page"
-					actions={<PlanLink missionId={mission.id} />}
+					actions={<PlanLink missionId={mission.id} status={mission.status} />}
 				>
 					<PlanReadiness missionId={mission.id} compact />
 					<Brief brief={mission.brief} />
@@ -364,7 +360,7 @@ function NowBanner({ mission, now }: { mission: MissionDetail; now: number }) {
 					? "border-gate-warn-line bg-gate-warn-banner"
 					: banner.kind === "halted"
 						? "border-gate-block-line bg-gate-block-soft"
-						: "border-border bg-app-band",
+						: "border-border bg-app-hollow",
 			)}
 		>
 			<StatusGlyph
@@ -456,12 +452,10 @@ function Exports({
 								tone={exportStatusTone(last.status)}
 								label={EXPORT_STATUS_LABEL[last.status]}
 							/>
-							<span className="type-mono text-text-subtle">
-								{last.targetKind}
+							<span className="type-small text-text">
+								{EXPORT_TARGET_LABEL[last.targetKind]}
 							</span>
-							<span className="type-caption text-text-muted">
-								{`In ${last.status} for ${shortDuration(now - Date.parse(last.statusChangedAt))}`}
-							</span>
+							<ExportSince at={last.statusChangedAt} now={now} />
 						</span>
 						<Lifecycle
 							spec={EXPORT_LIFECYCLE}
@@ -622,7 +616,7 @@ export function TeamEntries({ entries }: { entries: readonly RosterEntry[] }) {
 						{entry.waves.length > 0 ? (
 							<span
 								className="type-caption text-text-subtle"
-								title={entry.waves.map(waveTitle).join(", ")}
+								title={entry.waves.map(waveTitle).join("; ")}
 							>
 								{`${entry.waves.length === 1 ? "Wave" : "Waves"} ${entry.waves.join(", ")}`}
 							</span>

@@ -29,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { Field, FormError } from "./client-form";
 import { CodeView } from "./code-view";
 import { groupBrief, type RequirementGroup } from "./mission-details";
+import { SectionPanel } from "./section-panel";
+import { StatusGlyph, StatusPill } from "./status-pill";
 import { LatestCommit, TemplatePicker } from "./template-picker";
 
 /**
@@ -186,130 +188,148 @@ export function PlanEditor({
 					if (!unchanged && !pending) save();
 				}
 			}}
-			className={cn("flex flex-col gap-6 pb-4", landed && "landed")}
-		>
-			{readOnly ? (
-				<p
-					data-testid="plan-read-only"
-					className="type-small flex items-start gap-2 rounded-control border border-border bg-app-band px-3 py-2 text-text-muted"
-				>
-					<Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-					{readOnlyReason}
-				</p>
-			) : null}
-
-			<PlanCheck plan={plan} />
-
-			<Tabs
-				defaultValue="fields"
-				data-testid="plan-inspector"
-				className="flex flex-col gap-4"
-			>
-				<TabsList aria-label="Plan views">
-					<TabsTrigger value="fields" data-testid="plan-inspector-fields">
-						Fields
-					</TabsTrigger>
-					<TabsTrigger value="json" data-testid="plan-inspector-json">
-						JSON
-					</TabsTrigger>
-					<TabsTrigger value="request" data-testid="plan-inspector-request">
-						Request
-					</TabsTrigger>
-				</TabsList>
-				<TabsContent
-					value="fields"
-					forceMount
-					className="flex flex-col gap-6 data-[state=inactive]:hidden"
-				>
-					<SummaryField
-						value={draft.brief.summary}
-						locked={locks.summary}
-						readOnly={readOnly}
-						errors={at("summary")}
-						checks={checkAt.get("summary") ?? []}
-						onChange={(summary) => setBrief((b) => ({ ...b, summary }))}
-					/>
-
-					<Requirements
-						focusAdd={landed}
-						brief={draft.brief}
-						locks={locks}
-						readOnly={readOnly}
-						errorsAt={at}
-						checkAt={checkAt}
-						onChange={setBrief}
-					/>
-
-					<Modules
-						brief={draft.brief}
-						readOnly={readOnly}
-						errorsAt={at}
-						checkAt={checkAt}
-						onChange={setBrief}
-					/>
-
-					<TemplateFields
-						draft={draft}
-						readOnly={readOnly}
-						errorsAt={at}
-						onChange={(change) =>
-							setDraft((d) => (d ? { ...d, ...change } : d))
-						}
-					/>
-				</TabsContent>
-				<TabsContent
-					value="json"
-					forceMount
-					className="data-[state=inactive]:hidden"
-				>
-					<CodeView
-						data-testid="plan-json"
-						label="The plan as the contract serves it"
-						text={JSON.stringify(plan, null, 2)}
-					/>
-				</TabsContent>
-				<TabsContent
-					value="request"
-					forceMount
-					className="flex flex-col gap-2 data-[state=inactive]:hidden"
-				>
-					<p className="type-mono text-text-subtle">
-						{`PUT /api/missions/${plan.missionId}/plan`}
-					</p>
-					<p className="type-caption text-text-subtle">
-						{unchanged
-							? "The whole plan, as a save would send it. Nothing has changed yet."
-							: "The whole plan, as a save will send it: PUT replaces the stored plan."}
-					</p>
-					<CodeView
-						data-testid="plan-request"
-						label="The request body a save will send"
-						text={JSON.stringify(planBodyOf(draft), null, 2)}
-					/>
-				</TabsContent>
-			</Tabs>
-
-			<FormError error={error} hasFieldErrors={refused.length > 0} />
-			{refused.length > 0 ? (
-				<IssueList
-					data-testid="plan-refused-issues"
-					title="What the save changed or got wrong"
-					issues={refused}
-				/>
-			) : null}
-
-			{readOnly ? null : (
-				<div className="mt-auto flex justify-end">
-					<Button
-						type="submit"
-						data-testid="plan-save"
-						disabled={pending}
-						disabledReason={unchanged ? "Nothing has changed yet." : undefined}
-					>
-						{pending ? "Saving" : "Save plan"}
-					</Button>
-				</div>
+			// The intake page's two stacks: the plan (8), and its check with
+			// Save beside it (4), the rail held in view while the plan scrolls.
+			// Stacked below lg.
+			className={cn(
+				"flex min-w-0 flex-col gap-4 pb-4 lg:grid lg:grid-cols-12 lg:items-start",
+				landed && "landed",
 			)}
+		>
+			<div className="flex min-w-0 flex-col gap-4 lg:col-span-8">
+				{readOnly ? (
+					<p
+						data-testid="plan-read-only"
+						className="type-small flex items-start gap-2 rounded-control border border-border bg-app-hollow px-3 py-2 text-text-muted"
+					>
+						<Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+						{readOnlyReason}
+					</p>
+				) : null}
+
+				<SectionPanel title="Plan" data-testid="plan-panel">
+					<Tabs
+						defaultValue="fields"
+						data-testid="plan-inspector"
+						className="flex flex-col gap-4"
+					>
+						<TabsList aria-label="Plan views">
+							<TabsTrigger value="fields" data-testid="plan-inspector-fields">
+								Fields
+							</TabsTrigger>
+							<TabsTrigger value="json" data-testid="plan-inspector-json">
+								JSON
+							</TabsTrigger>
+							<TabsTrigger value="request" data-testid="plan-inspector-request">
+								Request
+							</TabsTrigger>
+						</TabsList>
+						<TabsContent
+							value="fields"
+							forceMount
+							className="flex flex-col gap-6 data-[state=inactive]:hidden"
+						>
+							<SummaryField
+								value={draft.brief.summary}
+								locked={locks.summary}
+								readOnly={readOnly}
+								errors={at("summary")}
+								checks={checkAt.get("summary") ?? []}
+								onChange={(summary) => setBrief((b) => ({ ...b, summary }))}
+							/>
+
+							<Requirements
+								focusAdd={landed}
+								brief={draft.brief}
+								locks={locks}
+								readOnly={readOnly}
+								errorsAt={at}
+								checkAt={checkAt}
+								onChange={setBrief}
+							/>
+
+							<Modules
+								brief={draft.brief}
+								readOnly={readOnly}
+								errorsAt={at}
+								checkAt={checkAt}
+								onChange={setBrief}
+							/>
+
+							<TemplateFields
+								draft={draft}
+								readOnly={readOnly}
+								errorsAt={at}
+								onChange={(change) =>
+									setDraft((d) => (d ? { ...d, ...change } : d))
+								}
+							/>
+						</TabsContent>
+						<TabsContent
+							value="json"
+							forceMount
+							className="data-[state=inactive]:hidden"
+						>
+							<CodeView
+								data-testid="plan-json"
+								label="The plan as the contract serves it"
+								text={JSON.stringify(plan, null, 2)}
+							/>
+						</TabsContent>
+						<TabsContent
+							value="request"
+							forceMount
+							className="flex flex-col gap-2 data-[state=inactive]:hidden"
+						>
+							<p className="type-mono text-text-subtle">
+								{`PUT /api/missions/${plan.missionId}/plan`}
+							</p>
+							<p className="type-caption text-text-subtle">
+								{unchanged
+									? "The whole plan, as a save would send it. Nothing has changed yet."
+									: "The whole plan, as a save will send it: PUT replaces the stored plan."}
+							</p>
+							<CodeView
+								data-testid="plan-request"
+								label="The request body a save will send"
+								text={JSON.stringify(planBodyOf(draft), null, 2)}
+							/>
+						</TabsContent>
+					</Tabs>
+				</SectionPanel>
+			</div>
+
+			<div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-[calc(var(--topbar-height)+1rem)] lg:col-span-4">
+				<PlanCheck plan={plan}>
+					<FormError error={error} hasFieldErrors={refused.length > 0} />
+					{refused.length > 0 ? (
+						<IssueList
+							data-testid="plan-refused-issues"
+							title="What the save changed or got wrong"
+							issues={refused}
+						/>
+					) : null}
+					{readOnly ? null : (
+						<div className="flex flex-col gap-1.5 border-t border-border pt-3">
+							<Button
+								type="submit"
+								data-testid="plan-save"
+								className="w-full"
+								disabled={pending}
+								disabledReason={
+									unchanged ? "Nothing has changed yet." : undefined
+								}
+							>
+								{pending ? "Saving" : "Save plan"}
+							</Button>
+							<p className="type-caption text-text-subtle">
+								Saving replaces the stored plan; the check runs on what is
+								saved.
+							</p>
+						</div>
+					)}
+				</PlanCheck>
+			</div>
 		</form>
 	);
 }
@@ -318,43 +338,55 @@ export function PlanEditor({
  * The stored plan's check, as a to-do list. The messages are the server's,
  * shown as given. Saving does not need it to pass, so this is guidance.
  */
-function PlanCheck({ plan }: { plan: MissionPlan }) {
+function PlanCheck({
+	plan,
+	children,
+}: {
+	plan: MissionPlan;
+	/** What acts on the plan, under its check: errors and Save. */
+	children?: ReactNode;
+}) {
 	const { passed, issues } = plan.check;
 	return (
-		<section data-testid="plan-check" className="flex flex-col gap-2">
-			<div className="flex items-center gap-2">
-				<h3 className="type-title text-foreground">Plan check</h3>
-				<Badge
-					variant={passed ? "default" : "outline"}
+		<SectionPanel
+			title="Plan check"
+			data-testid="plan-check"
+			actions={
+				<StatusPill
+					size="sm"
+					tone={passed ? "pass" : "warn"}
+					label={
+						passed
+							? "Passes"
+							: issues.length === 1
+								? "1 to do"
+								: `${issues.length} to do`
+					}
 					data-testid="plan-check-status"
-				>
-					{passed
-						? "Passes"
-						: issues.length === 1
-							? "1 to do"
-							: `${issues.length} to do`}
-				</Badge>
+				/>
+			}
+		>
+			<div className="flex flex-col gap-3">
+				<p className="type-caption text-text-subtle">
+					Checked on the saved plan. A plan can be saved before it passes.
+				</p>
+				{issues.length > 0 ? (
+					<ul data-testid="plan-check-issues" className="flex flex-col gap-1">
+						{issues.map((issue, i) => (
+							<li
+								key={occurrenceKeys(issues, (x) => x.message)[i]}
+								data-testid="plan-check-issue"
+								className="type-small flex gap-2 text-foreground"
+							>
+								<StatusGlyph tone="warn" className="mt-1 text-gate-warn" />
+								{issue.message}
+							</li>
+						))}
+					</ul>
+				) : null}
+				{children}
 			</div>
-			<p className="type-caption text-text-subtle">
-				Checked on the saved plan. A plan can be saved before it passes.
-			</p>
-			{issues.length > 0 ? (
-				<ul data-testid="plan-check-issues" className="flex flex-col gap-1">
-					{issues.map((issue, i) => (
-						<li
-							key={occurrenceKeys(issues, (x) => x.message)[i]}
-							data-testid="plan-check-issue"
-							className="type-small flex gap-2 text-foreground"
-						>
-							<span aria-hidden="true" className="text-text-subtle">
-								○
-							</span>
-							{issue.message}
-						</li>
-					))}
-				</ul>
-			) : null}
-		</section>
+		</SectionPanel>
 	);
 }
 

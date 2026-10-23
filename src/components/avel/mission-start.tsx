@@ -30,7 +30,6 @@ import { useApiClient } from "@/lib/api/provider";
 import { entryName, waveTitle } from "@/lib/api/roster";
 import { describeError } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
-import { useIsPreview } from "@/shell/auth-gate";
 import { Reason } from "./reason";
 import { StatusGlyph } from "./status-pill";
 import { ErrorState, Surface, type SurfaceQuery } from "./surface";
@@ -567,9 +566,7 @@ function useWrite(run: () => Promise<unknown>) {
 /** Why Start is off, or undefined when it can be pressed. */
 export function startBlockedReason(
 	readiness: SurfaceQuery<MissionReadiness, ApiError>,
-	preview: boolean,
 ): string | undefined {
-	if (preview) return "Sign in to start a mission";
 	if (readiness.status === "pending") return "Checking whether it's ready";
 	if (readiness.status === "error") return "Readiness couldn't be checked";
 	// The first blocker, as start would refuse with it (audit D6).
@@ -611,7 +608,6 @@ export function MissionStart({
 	/** POST halt; rejects with the ApiError it was refused with. */
 	halt: () => Promise<unknown>;
 }) {
-	const preview = useIsPreview();
 	const [starting, doStart] = useWrite(start);
 	const [halting, doHalt] = useWrite(halt);
 
@@ -623,13 +619,7 @@ export function MissionStart({
 					size="sm"
 					holdToConfirm
 					onConfirm={doHalt}
-					disabledReason={
-						preview
-							? "Sign in to halt a mission"
-							: halting.pending
-								? "Halting"
-								: undefined
-					}
+					disabledReason={halting.pending ? "Halting" : undefined}
 					data-testid="mission-halt-button"
 				>
 					<Square aria-hidden="true" />
@@ -654,7 +644,7 @@ export function MissionStart({
 
 	if (mission.status !== "draft") return null;
 
-	const blocked = startBlockedReason(readiness, preview);
+	const blocked = startBlockedReason(readiness);
 	return (
 		<div data-testid="mission-start" className="flex flex-col gap-3">
 			<Button

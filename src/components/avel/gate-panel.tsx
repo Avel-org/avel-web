@@ -19,9 +19,9 @@ import {
 	useRunGate,
 } from "@/lib/api/gate";
 import { cn } from "@/lib/utils";
-import { useIsPreview } from "@/shell/auth-gate";
 import { issuesOf } from "./action-modal";
 import { shortStamp } from "./activity-audit";
+import { DISPATCH_STATUS_LABEL, DISPATCH_STATUS_TONE } from "./dispatch-labels";
 import {
 	EFFECT_WORDS,
 	IGNORED_WHY,
@@ -114,7 +114,6 @@ function GateBody({
 }) {
 	const run = useGateRun(missionId, latest?.id ?? null);
 	const runGate = useRunGate(missionId);
-	const preview = useIsPreview();
 	const [last, setLast] = useState<GateAttempt | null>(null);
 	const sent = { onSuccess: () => setLast(null) };
 	const [drafts, setDrafts] = useState<Drafts>({ commitSha: "", byId: {} });
@@ -166,13 +165,7 @@ function GateBody({
 					size="sm"
 					className="ml-auto"
 					data-testid="gate-run"
-					disabledReason={
-						preview
-							? "Sign in to run the gate"
-							: runGate.isPending
-								? "The gate is judging"
-								: undefined
-					}
+					disabledReason={runGate.isPending ? "The gate is judging" : undefined}
 					onClick={judge}
 				>
 					<Play aria-hidden="true" />
@@ -345,8 +338,8 @@ export function GateReceipt({
 							>
 								<StatusPill
 									size="sm"
-									tone={d.status === "failed" ? "block" : "stale"}
-									label={d.status}
+									tone={DISPATCH_STATUS_TONE[d.status]}
+									label={DISPATCH_STATUS_LABEL[d.status]}
 								/>
 								<time
 									dateTime={d.closedAt}
@@ -520,10 +513,12 @@ function ReasonRow({
 							value={draft ?? ""}
 							onChange={(e) => onDraft(e.target.value)}
 						/>
-						<span className="flex items-center gap-1.5 type-caption text-text-subtle">
+						<span className="flex flex-wrap items-center gap-x-1.5 type-caption text-text-subtle">
 							<span>Holds for commit</span>
-							<ShortHash value={commitSha} label="the commit it holds for" />
-							<span>. Sent with the next run.</span>
+							<span className="inline-flex items-center">
+								<ShortHash value={commitSha} label="the commit it holds for" />.
+							</span>
+							<span>Sent with the next run.</span>
 						</span>
 					</div>
 				) : (

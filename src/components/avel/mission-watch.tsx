@@ -5,13 +5,13 @@ import {
 } from "avel-server/contract";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { relativeTime } from "@/lib/api/clients";
 import type { ApiError } from "@/lib/api/errors";
 import { QUERY_STALE_MS } from "@/lib/api/provider";
 import { cn } from "@/lib/utils";
 import { DataPanel } from "./data-panel";
 import {
 	ClientName,
+	ExportSince,
 	MISSION_ROW,
 	MISSION_ROW_SUBJECT,
 	MISSION_ROW_TIME,
@@ -26,7 +26,12 @@ import {
 import { MissionRowsSkeleton } from "./mission-panels";
 import { ReadAge } from "./read-age";
 import { ROW_LINK_GROUP, RowChevron } from "./row-link";
-import { exportStatusTone, StatusPill } from "./status-pill";
+import {
+	EXPORT_STATUS_LABEL,
+	EXPORT_TARGET_LABEL,
+	exportStatusTone,
+	StatusPill,
+} from "./status-pill";
 import { ErrorState, Surface, type SurfaceQuery } from "./surface";
 
 /**
@@ -355,7 +360,9 @@ export function InFlight({
 				if (!last) return { mission, time: null };
 				return {
 					mission,
-					time: `since ${relativeTime(last.statusChangedAt, now)}`,
+					time: (
+						<ExportSince at={last.statusChangedAt} now={now} className="" />
+					),
 					badges: (
 						// min-w-0: the badges give way before the row overflows, and the
 						// export method ellipsises first (whole on hover).
@@ -371,13 +378,13 @@ export function InFlight({
 							<StatusPill
 								size="sm"
 								tone={exportStatusTone(last.status)}
-								label={last.status}
+								label={EXPORT_STATUS_LABEL[last.status]}
 							/>
 							<span
-								title={last.targetKind}
-								className="min-w-0 truncate type-mono text-text-subtle"
+								title={EXPORT_TARGET_LABEL[last.targetKind]}
+								className="min-w-0 truncate type-small text-text-muted"
 							>
-								{last.targetKind}
+								{EXPORT_TARGET_LABEL[last.targetKind]}
 							</span>
 						</span>
 					),

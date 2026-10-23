@@ -347,7 +347,7 @@ describe("a gate run's receipt", () => {
 			"Written for another commit",
 		);
 		const excluded = element(html, `gate-excluded-${DISPATCH}`);
-		expect(excluded).toContain(">halted<");
+		expect(excluded).toContain(">Halted<");
 		expect(excluded).toContain('dateTime="2026-10-18T09:30:00.000Z"');
 	});
 });

@@ -8,6 +8,7 @@ import {
 	useMissionPlan,
 } from "@/lib/api/mission-plans";
 import { cn } from "@/lib/utils";
+import { SectionPanel } from "./section-panel";
 import { ErrorState, Surface } from "./surface";
 
 /*
@@ -155,7 +156,7 @@ function Bar({ segments }: { segments: ReadinessSegment[] }) {
 	);
 }
 
-/** "3 placed · 1 with issues · 2 in no module": counts in words, the states that occur. */
+/** "3 placed, 1 with issues, 2 in no module": counts in words, the states that occur. */
 export function countsLine(segments: ReadinessSegment[]): string {
 	const count = (state: SegmentState) =>
 		segments.filter((s) => s.state === state).length;
@@ -163,7 +164,7 @@ export function countsLine(segments: ReadinessSegment[]): string {
 	if (count("solid") > 0) parts.push(`${count("solid")} placed`);
 	if (count("hatched") > 0) parts.push(`${count("hatched")} with issues`);
 	if (count("empty") > 0) parts.push(`${count("empty")} in no module`);
-	return parts.join(" · ");
+	return parts.join(", ");
 }
 
 function CompactReadiness({ readiness }: { readiness: Readiness }) {
@@ -176,7 +177,7 @@ function CompactReadiness({ readiness }: { readiness: Readiness }) {
 			>
 				{countsLine(readiness.segments)}
 				{readiness.planWide.length > 0
-					? ` · ${readiness.planWide.length === 1 ? "1 plan-wide issue" : `${readiness.planWide.length} plan-wide issues`}`
+					? `, ${readiness.planWide.length === 1 ? "1 plan-wide issue" : `${readiness.planWide.length} plan-wide issues`}`
 					: ""}
 			</p>
 		</div>
@@ -189,86 +190,92 @@ function FullReadiness({ readiness }: { readiness: Readiness }) {
 	const unplaced = readiness.segments.filter((s) => s.state === "empty");
 	const moduleKeys = occurrenceKeys(readiness.modules, (m) => m.id);
 	return (
-		<section
-			aria-label="Plan readiness"
-			className="flex flex-col gap-4 p-4 rounded-card border border-border bg-app-panel shadow-card"
+		// The shared panel (section 10), never a card of its own: its head
+		// carries the counts where a panel's actions sit.
+		<SectionPanel
+			title="Readiness"
+			data-testid="plan-readiness-panel"
+			actions={
+				<p
+					data-testid="plan-readiness-counts"
+					className="type-caption text-text-subtle tabular-nums"
+				>
+					{countsLine(readiness.segments)}
+				</p>
+			}
 		>
-			<div className="flex flex-col gap-1.5">
-				<div className="flex items-baseline justify-between gap-2">
-					<h2 className="type-title text-foreground">Readiness</h2>
-					<p
-						data-testid="plan-readiness-counts"
-						className="type-caption text-text-subtle tabular-nums"
-					>
-						{countsLine(readiness.segments)}
-					</p>
+			<div className="flex flex-col gap-4">
+				<div className="flex flex-col gap-1.5">
+					<Bar segments={readiness.segments} />
+					<Legend />
 				</div>
-				<Bar segments={readiness.segments} />
-				<Legend />
-			</div>
 
-			<ul data-testid="plan-readiness-modules" className="flex flex-col gap-2">
-				{readiness.modules.map((m, k) => (
-					<li
-						key={moduleKeys[k]}
-						data-testid={`plan-readiness-module-${m.id}`}
+				<ul
+					data-testid="plan-readiness-modules"
+					className="flex flex-col gap-2"
+				>
+					{readiness.modules.map((m, k) => (
+						<li
+							key={moduleKeys[k]}
+							data-testid={`plan-readiness-module-${m.id}`}
+							className="flex flex-col gap-1"
+						>
+							<div className="flex flex-wrap items-center gap-2">
+								<span className="type-mono text-foreground">{m.id}</span>
+								<span className="type-small text-foreground">{m.name}</span>
+								<span className="flex flex-wrap gap-1">
+									{m.requirementIds.map((rid, j) => (
+										<RequirementChip
+											key={occurrenceKeys(m.requirementIds, (x) => x)[j]}
+											id={rid}
+											state={stateOf(rid)}
+										/>
+									))}
+								</span>
+							</div>
+							{m.issues.map((message, j) => (
+								<p
+									key={occurrenceKeys(m.issues, (x) => x)[j]}
+									className="type-caption text-text-muted"
+								>
+									{message}
+								</p>
+							))}
+						</li>
+					))}
+					{unplaced.length > 0 ? (
+						<li
+							data-testid="plan-readiness-unplaced"
+							className="flex flex-wrap items-center gap-2"
+						>
+							<span className="type-small text-text-muted">In no module</span>
+							{unplaced.map((s) => (
+								<RequirementChip key={s.index} id={s.id} state="empty" />
+							))}
+						</li>
+					) : null}
+				</ul>
+
+				{readiness.planWide.length > 0 ? (
+					<div
+						data-testid="plan-readiness-plan-wide"
 						className="flex flex-col gap-1"
 					>
-						<div className="flex flex-wrap items-center gap-2">
-							<span className="type-mono text-foreground">{m.id}</span>
-							<span className="type-small text-foreground">{m.name}</span>
-							<span className="flex flex-wrap gap-1">
-								{m.requirementIds.map((rid, j) => (
-									<RequirementChip
-										key={occurrenceKeys(m.requirementIds, (x) => x)[j]}
-										id={rid}
-										state={stateOf(rid)}
-									/>
-								))}
-							</span>
-						</div>
-						{m.issues.map((message, j) => (
-							<p
-								key={occurrenceKeys(m.issues, (x) => x)[j]}
-								className="type-caption text-text-muted"
-							>
-								{message}
-							</p>
-						))}
-					</li>
-				))}
-				{unplaced.length > 0 ? (
-					<li
-						data-testid="plan-readiness-unplaced"
-						className="flex flex-wrap items-center gap-2"
-					>
-						<span className="type-small text-text-muted">In no module</span>
-						{unplaced.map((s) => (
-							<RequirementChip key={s.index} id={s.id} state="empty" />
-						))}
-					</li>
+						<p className="type-small font-medium text-foreground">Plan-wide</p>
+						<ul className="flex flex-col gap-0.5">
+							{readiness.planWide.map((message, i) => (
+								<li
+									key={occurrenceKeys(readiness.planWide, (x) => x)[i]}
+									className="type-small text-text-muted"
+								>
+									{message}
+								</li>
+							))}
+						</ul>
+					</div>
 				) : null}
-			</ul>
-
-			{readiness.planWide.length > 0 ? (
-				<div
-					data-testid="plan-readiness-plan-wide"
-					className="flex flex-col gap-1"
-				>
-					<p className="type-small font-medium text-foreground">Plan-wide</p>
-					<ul className="flex flex-col gap-0.5">
-						{readiness.planWide.map((message, i) => (
-							<li
-								key={occurrenceKeys(readiness.planWide, (x) => x)[i]}
-								className="type-small text-text-muted"
-							>
-								{message}
-							</li>
-						))}
-					</ul>
-				</div>
-			) : null}
-		</section>
+			</div>
+		</SectionPanel>
 	);
 }
 

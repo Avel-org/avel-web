@@ -23,7 +23,6 @@ import type { SurfaceQuery } from "@/components/avel/surface";
 import { ApiError } from "@/lib/api/errors";
 import { waveTitle } from "@/lib/api/roster";
 import { PRECONDITION_COPY } from "@/lib/error-map";
-import { PREVIEW_USER, SignedInProvider } from "@/shell/auth-gate";
 import { catalogSeed, inProviders, seededClient } from "./catalog-fixtures";
 import { tagOf } from "./render-page";
 import { UUID_FRAGMENT, visibleText } from "./visible-text";
@@ -147,15 +146,8 @@ function refusal(details: PreconditionDetails): ApiError {
 	});
 }
 
-function render(node: ReactNode, preview = false) {
-	const wrapped = preview ? (
-		<SignedInProvider value={{ user: PREVIEW_USER, signOut: async () => {} }}>
-			{node}
-		</SignedInProvider>
-	) : (
-		node
-	);
-	return inProviders(wrapped, seededClient(catalogSeed()));
+function render(node: ReactNode) {
+	return inProviders(node, seededClient(catalogSeed()));
 }
 
 const region = (html: string, testId: string) => {
@@ -224,7 +216,7 @@ describe("blockerDetails", () => {
 			{ roster: ROSTER },
 		);
 		expect(lines.map((l) => l.text)).toEqual([
-			"Atlas · Booking has no token estimate.",
+			"Atlas, Booking has no token estimate.",
 			"Leon has no token estimate.",
 			"An agent no longer on the roster has no token estimate.",
 		]);
@@ -362,16 +354,15 @@ describe("blockerDetails", () => {
 });
 
 describe("startBlockedReason", () => {
-	it("enables Start only when ready and signed in", () => {
-		expect(startBlockedReason(READY, false)).toBeUndefined();
+	it("enables Start only when ready", () => {
+		expect(startBlockedReason(READY)).toBeUndefined();
 		// The first blocker, as start would refuse with it.
-		expect(startBlockedReason(NOT_READY, false)).toBe(
+		expect(startBlockedReason(NOT_READY)).toBe(
 			PRECONDITION_COPY.mission_not_draft.what,
 		);
-		expect(startBlockedReason({ status: "pending" }, false)).toBe(
+		expect(startBlockedReason({ status: "pending" })).toBe(
 			"Checking whether it's ready",
 		);
-		expect(startBlockedReason(READY, true)).toBe("Sign in to start a mission");
 	});
 });
 
@@ -417,10 +408,10 @@ describe("MissionStart", () => {
 			`href="/missions/${MISSION_ID}/plan#plan-requirement-R2"`,
 		);
 		expect(region(html, "mission-readiness-3-lines-0")).toMatch(
-			/^ ?No active agent in wave A · /,
+			/^ ?No active agent in wave A, /,
 		);
 		expect(region(html, "mission-readiness-4-lines-0")).toMatch(
-			/^ ?Atlas · Booking has no token estimate\. Open the roster/,
+			/^ ?Atlas, Booking has no token estimate\. Open the roster/,
 		);
 		expect(region(html, "mission-readiness-4-lines-1")).toMatch(
 			/^ ?Leon has no token estimate\./,
@@ -507,18 +498,6 @@ describe("MissionStart", () => {
 		expect(html).not.toMatch(
 			/data-testid="mission-start-button"[^>]*disabled=""|disabled=""[^>]*data-testid="mission-start-button"/,
 		);
-	});
-
-	it("says Sign in in the preview, even when ready", () => {
-		const html = render(
-			<MissionStart
-				mission={{ id: MISSION_ID, status: "draft" }}
-				readiness={READY}
-				{...props}
-			/>,
-			true,
-		);
-		expect(html).toContain("Sign in to start a mission");
 	});
 
 	it("an active mission offers Halt, held to confirm, and no Start", () => {

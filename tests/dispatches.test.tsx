@@ -58,7 +58,6 @@ import {
 import { queryKeys } from "@/lib/api/keys";
 import { SessionSourceProvider } from "@/lib/auth";
 import { routeTree } from "@/routeTree.gen";
-import { PREVIEW_USER, SignedInProvider } from "@/shell/auth-gate";
 import { signedIn } from "./auth-session";
 import { inProviders, seededClient } from "./catalog-fixtures";
 import { tagOf } from "./render-page";
@@ -470,10 +469,10 @@ describe("the New dispatch form", () => {
 		const html = form(null);
 		const pills = [
 			...html.matchAll(
-				/data-testid="dispatch-new-modal-step-\d"[^>]*>([^<]+)</g,
+				/data-testid="dispatch-new-modal-step-\d"[^>]*><span[^>]*>(\d)<\/span>([^<]+)</g,
 			),
-		].map((m) => m[1]);
-		expect(pills).toEqual(["1 · Agent", "2 · Brief", "3 · Ceilings"]);
+		].map((m) => `${m[1]} ${m[2]}`);
+		expect(pills).toEqual(["1 Agent", "2 Brief", "3 Ceilings"]);
 		expect(tagOf(html, "dispatch-new-modal-step-0")).toContain(
 			'aria-current="step"',
 		);
@@ -585,23 +584,14 @@ describe("the New dispatch form", () => {
 		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
 	});
 
-	it("says Sign in to dispatch in the preview, and shows nothing unless active", () => {
-		const render = (status: MissionDetail["status"], preview: boolean) =>
+	it("shows nothing unless the mission is active", () => {
+		const render = (status: MissionDetail["status"]) =>
 			inProviders(
-				preview ? (
-					<SignedInProvider
-						value={{ user: PREVIEW_USER, signOut: async () => {} }}
-					>
-						<NewDispatch mission={{ id: MISSION_ID, status }} />
-					</SignedInProvider>
-				) : (
-					<NewDispatch mission={{ id: MISSION_ID, status }} />
-				),
+				<NewDispatch mission={{ id: MISSION_ID, status }} />,
 				seededClient(),
 			);
-		expect(render("active", true)).toContain("Sign in to dispatch");
-		expect(render("halted", false)).not.toContain("dispatch-new-button");
-		expect(render("draft", false)).not.toContain("dispatch-new-button");
+		expect(render("halted")).not.toContain("dispatch-new-button");
+		expect(render("draft")).not.toContain("dispatch-new-button");
 	});
 });
 
@@ -961,21 +951,6 @@ describe("starting and halting a dispatch", () => {
 		expect(card(DONE)).not.toContain("dispatch-card-controls-");
 		expect(card(QUEUED, { pending: "start" })).toContain("Starting");
 		expect(card(RUNNING, { pending: "halt" })).toContain("Halting");
-	});
-
-	it("says Sign in to start and Sign in to halt in the preview", () => {
-		const preview = (d: Dispatch) =>
-			inProviders(
-				<SignedInProvider
-					value={{ user: PREVIEW_USER, signOut: async () => {} }}
-				>
-					<DispatchControls dispatch={d} onStart={() => {}} onHalt={() => {}} />
-				</SignedInProvider>,
-				seededClient(),
-			);
-		expect(preview(QUEUED)).toContain("Sign in to start");
-		expect(preview(RUNNING)).toContain("Sign in to halt");
-		expect(card(QUEUED)).not.toContain("Sign in to");
 	});
 });
 

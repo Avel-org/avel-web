@@ -18,6 +18,7 @@ import {
 	useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { tabsListVariants } from "@/components/ui/tabs";
 import type { ApiError } from "@/lib/api";
@@ -38,6 +39,7 @@ import { HoverCard } from "./hover-card";
 import { focusParam } from "./loadout-coherence";
 import type { AllTemplates } from "./preset-detail";
 import { useFlip } from "./preset-flip";
+import { ErrorState } from "./surface";
 
 /** Why a Firm template is shown but cannot be added. */
 const NOT_ROSTERABLE = PRECONDITION_COPY.template_not_rosterable.what;
@@ -323,8 +325,8 @@ export function LoadoutBoard({
 						data-testid="loadout-board-keys"
 						className="type-caption text-text-subtle"
 					>
-						Enter picks a chip up · ← → carry it · Enter moves it · Shift+Enter
-						adds that wave · Esc puts it back · Delete takes it off a wave. Drag
+						Enter picks a chip up, ← → carry it, Enter moves it, Shift+Enter
+						adds that wave, Esc puts it back, Delete takes it off a wave. Drag
 						to move; hold Alt or Ctrl as you drop to add the wave.
 					</p>
 				) : null}
@@ -488,9 +490,9 @@ function WaveColumn({
 							className={cn(
 								"flex flex-col gap-1 rounded-control border bg-card px-2 py-1.5",
 								"border-border",
-								// Idle: v3's absent look, a dashed edge on the band, at
+								// Idle: v3's absent look, a dashed edge on the hollow, at
 								// full contrast; it is still a chip that can move.
-								!entry.active && "border-dashed bg-app-band",
+								!entry.active && "border-dashed bg-app-hollow",
 								isSelected && "border-selected-border bg-selected",
 								isHeld && "shadow-drag",
 							)}
@@ -622,20 +624,33 @@ function Palette({
 				</div>
 			</fieldset>
 			{templates.status === "pending" ? (
-				<p
+				// The chips' own shape while the agents read (section 8).
+				<ul
 					data-testid="loadout-palette-loading"
-					className="type-small text-text-muted"
+					aria-hidden="true"
+					className="flex flex-wrap gap-1 2xl:flex-col"
 				>
-					Reading the agents.
-				</p>
+					{(
+						[
+							["a", "w-24"],
+							["b", "w-28"],
+							["c", "w-20"],
+							["d", "w-24"],
+						] as const
+					).map(([key, width]) => (
+						<li key={key}>
+							<Skeleton className={cn("h-control-sm rounded-control", width)} />
+						</li>
+					))}
+				</ul>
 			) : templates.status === "error" ? (
-				<p
-					data-testid="loadout-palette-error"
-					className="type-small text-text-muted"
-				>
-					The agents could not be read, so none can be added. Reload to try
-					again.
-				</p>
+				<div data-testid="loadout-palette-error">
+					<ErrorState
+						error={templates.error}
+						retry={templates.retry}
+						retrying={templates.retrying}
+					/>
+				</div>
 			) : (
 				<ul className="flex flex-wrap gap-1 2xl:flex-col">
 					{list.map((t) => {

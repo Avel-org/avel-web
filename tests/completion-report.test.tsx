@@ -133,7 +133,7 @@ describe("CompletionReportView", () => {
 			/^ ?src\/components\/slot-picker\.tsx eeeeeee/,
 		);
 		expect(region(html, "report-files-touched")).toMatch(
-			/^ ?2 files touched · 1 reread/,
+			/^ ?2 files touched ?, 1 reread/,
 		);
 		expect(region(html, "report-file-types")).toMatch(/^ ?tsx/);
 		expect(text).not.toMatch(UUID_FRAGMENT);

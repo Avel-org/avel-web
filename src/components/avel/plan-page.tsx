@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import type { MissionStatus } from "avel-server/contract";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMission } from "./mission-data";
@@ -16,7 +17,7 @@ import { ErrorState, Surface } from "./surface";
 export function MissionPlanPage({ id }: { id: string }) {
 	const mission = useMission(id);
 	return (
-		<div data-testid="plan-page" className="flex flex-col gap-6">
+		<div data-testid="plan-page" className="flex flex-col gap-4">
 			<PlanReadiness missionId={id} />
 			<Surface
 				data-testid="plan-page-mission"
@@ -43,7 +44,14 @@ export function MissionPlanPage({ id }: { id: string }) {
  * The way from a mission to its plan, for the mission page's Brief panel.
  * Always shown: a mission that is not a draft opens the plan read-only.
  */
-export function PlanLink({ missionId }: { missionId: string }) {
+export function PlanLink({
+	missionId,
+	status,
+}: {
+	missionId: string;
+	/** Only a draft's plan changes: any other mission opens it to read. */
+	status: MissionStatus;
+}) {
 	return (
 		<Button asChild variant="ghost" size="sm">
 			<Link
@@ -51,7 +59,7 @@ export function PlanLink({ missionId }: { missionId: string }) {
 				params={{ id: missionId }}
 				data-testid="mission-plan-open"
 			>
-				Edit plan
+				{status === "draft" ? "Edit plan" : "Open plan"}
 				<ArrowUpRight aria-hidden="true" />
 			</Link>
 		</Button>

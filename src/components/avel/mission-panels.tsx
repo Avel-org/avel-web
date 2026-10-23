@@ -25,7 +25,7 @@ import {
 	showsNeedsYou,
 	visibleStatuses,
 } from "./mission-search";
-import { StatusGlyph } from "./status-pill";
+import { StatusGlyph, TONE_TEXT } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
 const route = getRouteApi("/missions");
@@ -317,7 +317,7 @@ function SubSection({
 					)}
 				/>
 				{tone === "neutral" ? null : (
-					<StatusGlyph tone={tone} className={GLYPH_TEXT[tone]} />
+					<StatusGlyph tone={tone} className={TONE_TEXT[tone]} />
 				)}
 				<h3 id={titleId} className="type-eyebrow">
 					{title}
@@ -340,10 +340,3 @@ function SubSection({
 		</section>
 	);
 }
-
-const GLYPH_TEXT = {
-	warn: "text-gate-warn",
-	pending: "text-gate-pending",
-	block: "text-gate-block",
-	pass: "text-gate-pass",
-} as const satisfies Record<Exclude<DataPanelTone, "neutral">, string>;

@@ -22,7 +22,7 @@ import { retryOf } from "./retry";
 import { SectionPanel } from "./section-panel";
 import { ShortHash } from "./short-hash";
 import { StatusPill } from "./status-pill";
-import { ErrorState } from "./surface";
+import { ErrorState, Surface } from "./surface";
 
 /*
  * The pre-flight screen (ROUTES.md, /missions/:id/exports/new). One flow,
@@ -85,17 +85,22 @@ export function ExportPreflight({
 					title="Package"
 					description="The files the work wrote and deleted against the mission's base."
 					data-testid="export-package-panel"
+					footer={
+						previewId ? (
+							<PanelFooter
+								data-testid="export-package-read-age"
+								queries={[preview]}
+							/>
+						) : undefined
+					}
 				>
-					{shown ? (
-						<PackageMap exp={shown} />
-					) : previewId && preview.status === "error" ? (
-						<ErrorState
-							error={preview.error}
-							retry={() => preview.refetch()}
-							retrying={preview.isFetching}
-						/>
-					) : previewId ? (
-						<PreflightSkeleton />
+					{previewId ? (
+						<PreviewSurface
+							query={preview}
+							data-testid="export-package-surface"
+						>
+							{(exp) => <PackageMap exp={exp} />}
+						</PreviewSurface>
 					) : (
 						<p className="type-small text-text-subtle">
 							Preview the export to see its files.
@@ -105,16 +110,20 @@ export function ExportPreflight({
 			</div>
 			<div className="flex min-w-0 flex-col gap-4 lg:col-span-4">
 				<SectionPanel title="Delivery check" data-testid="export-check-panel">
-					{shown ? (
-						<div className="flex flex-col gap-3">
-							<DeliveryChecks exp={shown} />
-							<Deliver
-								missionId={missionId}
-								preview={shown}
-								outdated={outdated}
-								onDelivered={onDelivered}
-							/>
-						</div>
+					{previewId ? (
+						<PreviewSurface query={preview} data-testid="export-check-surface">
+							{(exp) => (
+								<div className="flex flex-col gap-3">
+									<DeliveryChecks exp={exp} />
+									<Deliver
+										missionId={missionId}
+										preview={exp}
+										outdated={outdated}
+										onDelivered={onDelivered}
+									/>
+								</div>
+							)}
+						</PreviewSurface>
 					) : (
 						<p className="type-small text-text-subtle">
 							A preview runs every check delivery would, and says which one
@@ -323,6 +332,34 @@ function Deliver({
 
 function Note({ children }: { children: ReactNode }) {
 	return <p className="type-caption text-text-muted">{children}</p>;
+}
+
+/**
+ * The preview named in the URL, through the four states every data region
+ * has (section 8): its skeleton while it reads, the error map's copy with
+ * Try again when it fails. One export is never empty: a missing one is 404.
+ */
+function PreviewSurface({
+	query,
+	children,
+	"data-testid": testId,
+}: {
+	query: ReturnType<typeof useExport>;
+	children: (exp: ExportWire) => ReactNode;
+	"data-testid": string;
+}) {
+	return (
+		<Surface
+			data-testid={testId}
+			query={query}
+			isEmpty={() => false}
+			empty={null}
+			loading={<PreflightSkeleton />}
+			error={ErrorState}
+		>
+			{children}
+		</Surface>
+	);
 }
 
 export function PreflightSkeleton() {

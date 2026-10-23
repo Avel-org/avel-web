@@ -292,9 +292,9 @@ function RemoveEntryConfirm({
 					data-testid="loadout-remove-changes"
 					changes={[
 						{
-							label: `Agent · ${entryName(entry)}`,
+							label: `Agent, ${entryName(entry)}`,
 							kind: "remove",
-							from: entry.waves.join(" · "),
+							from: entry.waves.join(", "),
 							mono: true,
 						},
 					]}
@@ -407,9 +407,9 @@ export function SaveRosterPresetForm({
 				<WhatChanges
 					data-testid="loadout-save-preset-changes"
 					changes={active.map((e) => ({
-						label: `Agent · ${entryName(e)}`,
+						label: `Agent, ${entryName(e)}`,
 						kind: "add" as const,
-						to: e.waves.join(" · "),
+						to: e.waves.join(", "),
 						mono: true,
 					}))}
 				/>
@@ -470,7 +470,7 @@ export function SaveRosterPresetForm({
 					data-testid="loadout-save-preset-idle"
 					className="type-small text-text-muted"
 				>
-					{`Left out, being idle: ${idle.map(entryName).join(", ")}. Applying a team makes every agent active.`}
+					{`Left out, being idle: ${idle.map(entryName).join("; ")}. Applying a team makes every agent active.`}
 				</p>
 			) : null}
 		</ActionModal>

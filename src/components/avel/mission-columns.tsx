@@ -1,9 +1,15 @@
 import type { MissionListItem, MissionStatus } from "avel-server/contract";
 import { relativeTime } from "@/lib/api/clients";
+import { shortStamp } from "./activity-audit";
 import type { DataColumn } from "./data-table";
 import { NEEDS_YOU_COPY } from "./mission-data";
 import { STATUS_PANEL } from "./mission-search";
-import { exportStatusTone, StatusPill, type StatusTone } from "./status-pill";
+import {
+	EXPORT_STATUS_LABEL,
+	exportStatusTone,
+	StatusPill,
+	type StatusTone,
+} from "./status-pill";
 
 /**
  * A mission status as a pill tone. Keyed on the contract's union, so a new
@@ -31,7 +37,9 @@ function Absent({ reason }: { reason: string }) {
 export function ClientName({ mission }: { mission: MissionListItem }) {
 	// Internal missions belong to no client or engagement.
 	return mission.client ? (
-		<span className="truncate">{mission.client.name}</span>
+		<span className="truncate" title={mission.client.name}>
+			{mission.client.name}
+		</span>
 	) : (
 		<Absent reason="No client: an internal mission" />
 	);
@@ -54,9 +62,37 @@ export function LastExport({ mission }: { mission: MissionListItem }) {
 		<StatusPill
 			size="sm"
 			tone={exportStatusTone(mission.lastExport.status)}
-			label={mission.lastExport.status}
+			label={EXPORT_STATUS_LABEL[mission.lastExport.status]}
 			data-testid="mission-last-export"
 		/>
+	);
+}
+
+/**
+ * How long an export has been in its status: the relative age, with the
+ * stamp on hover. One form wherever an export's status is shown.
+ */
+export function ExportSince({
+	at,
+	now,
+	className = "type-caption text-text-muted",
+	"data-testid": testId,
+}: {
+	at: string;
+	now: number;
+	/** The row's own type and colour, where the time sits in a styled column. */
+	className?: string;
+	"data-testid"?: string;
+}) {
+	return (
+		<time
+			dateTime={at}
+			title={shortStamp(at)}
+			data-testid={testId}
+			className={className}
+		>
+			{relativeTime(at, now)}
+		</time>
 	);
 }
 

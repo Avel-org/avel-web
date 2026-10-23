@@ -28,6 +28,7 @@ import {
 	multipleOf,
 	tokenTrack,
 } from "./dispatch-budget";
+import { DISPATCH_STATUS_LABEL, DISPATCH_STATUS_TONE } from "./dispatch-labels";
 import { MISSION_STATUS_TONE } from "./mission-columns";
 import {
 	MISSIONS_PAGE_SIZE,
@@ -43,7 +44,12 @@ import type { MissionCounts } from "./mission-filters";
 import { STATUS_PANEL, type StatusFilter } from "./mission-search";
 import { GoingQuiet, InFlight } from "./mission-watch";
 import { ReadAge } from "./read-age";
-import { StatusGlyph, StatusPill, type StatusTone } from "./status-pill";
+import {
+	StatusGlyph,
+	StatusPill,
+	type StatusTone,
+	TONE_TEXT,
+} from "./status-pill";
 import { ErrorState, Surface, type SurfaceQuery } from "./surface";
 
 /*
@@ -196,7 +202,7 @@ export function MissionsDashboard({
 
 type LiveView = ReturnType<typeof useLiveDispatches>;
 
-/** "2 previews to read · 1 PR open", over the needs-you rows read. */
+/** "2 previews to read, 1 PR open", over the needs-you rows read. */
 export function needsYouSubline(rows: readonly MissionListItem[]): string {
 	const by = new Map<NeedsYouReason, number>();
 	for (const row of rows) {
@@ -209,7 +215,7 @@ export function needsYouSubline(rows: readonly MissionListItem[]): string {
 			const n = by.get(reason) ?? 0;
 			return `${n} ${NEEDS_YOU_COUNT[reason][n === 1 ? 0 : 1]}`;
 		});
-	return parts.length ? parts.join(" · ") : "Nothing waiting on you";
+	return parts.length ? parts.join(", ") : "Nothing waiting on you";
 }
 
 /**
@@ -230,12 +236,12 @@ export function needsYouLine(
 		return more > 0 ? `${more} waiting on you` : needsYouSubline(rows);
 	}
 	const line = needsYouSubline(rows);
-	return more > 0 ? `${line} · +${more} more` : line;
+	return more > 0 ? `${line}, +${more} more` : line;
 }
 
 /**
  * What the live view holds, zero parts left out: "1 dispatch running",
- * "1 queued", "2 running · 1 queued", or "Nothing running".
+ * "1 queued", "2 running, 1 queued", or "Nothing running".
  */
 export function activeSubline(moving: readonly Dispatch[]): string {
 	const running = moving.filter((d) => d.status === "running").length;
@@ -244,7 +250,7 @@ export function activeSubline(moving: readonly Dispatch[]): string {
 	if (queued === 0)
 		return `${running} ${running === 1 ? "dispatch" : "dispatches"} running`;
 	if (running === 0) return `${queued} queued`;
-	return `${running} running · ${queued} queued`;
+	return `${running} running, ${queued} queued`;
 }
 
 /**
@@ -464,15 +470,6 @@ function StatusCards({
 	);
 }
 
-/** A glyph in its tone's text colour, which is also its glyph colour. */
-const TONE_TEXT: Record<StatusTone, string> = {
-	pass: "text-gate-pass",
-	block: "text-gate-block",
-	warn: "text-gate-warn",
-	pending: "text-gate-pending",
-	stale: "text-gate-stale",
-};
-
 /**
  * One status's newest mission by last activity: a one-row read sorted by
  * lastActivity, newest first (limit 1), so the page's own sort never picks
@@ -493,7 +490,7 @@ function NewestLine({
 	const newest = newestOf(newestRead.data ? [newestRead.data] : [], now);
 	if (!newest) return part === "label" ? <span>None yet</span> : null;
 	return part === "age" ? (
-		<>{newest.age}</>
+		newest.age
 	) : (
 		<span className="truncate" title={newest.full}>
 			{newest.label}
@@ -677,7 +674,7 @@ function RunningRow({
 						</Link>
 						{mission.client ? (
 							<span className="min-w-0 truncate text-text-subtle">
-								{`· ${mission.client.name}`}
+								{mission.client.name}
 							</span>
 						) : null}
 					</span>
@@ -687,8 +684,8 @@ function RunningRow({
 			    hollow glyph, never the accent (audit D3). */}
 			<StatusPill
 				size="sm"
-				tone="pending"
-				label={dispatch.status}
+				tone={DISPATCH_STATUS_TONE[dispatch.status]}
+				label={DISPATCH_STATUS_LABEL[dispatch.status]}
 				data-testid={`missions-running-status-${dispatch.id}`}
 			/>
 			<div className="col-span-3 flex min-w-0 flex-col gap-1 md:col-span-1">
@@ -926,7 +923,7 @@ function NeedsYouRow({
 				<span className="type-caption text-gate-warn">
 					{reason ? NEEDS_YOU_DETAIL[reason] : null}
 					{since ? (
-						<span className="text-text-subtle">{` · since ${relativeTime(since, now)}`}</span>
+						<span className="text-text-subtle">{`, since ${relativeTime(since, now)}`}</span>
 					) : null}
 				</span>
 			</span>

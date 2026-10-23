@@ -212,7 +212,7 @@ export function DispatchBudget({
 					{formatTokens(dispatch.tokenSoftCeiling)}
 				</span>
 				{soft ? ` (${soft})` : null}
-				{" · Hard limit "}
+				{", hard limit "}
 				<span className="type-mono tabular-nums">
 					{formatTokens(dispatch.tokenHardCeiling)}
 				</span>
@@ -330,8 +330,8 @@ export function MissionSpendBar({
 				</span>
 				{spendCeilingUsd === null ? (
 					<>
-						{" spent · "}
-						<span className="text-text-subtle">No spend limit</span>
+						{" spent, "}
+						<span className="text-text-subtle">no spend limit</span>
 					</>
 				) : (
 					<>

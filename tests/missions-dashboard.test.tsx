@@ -276,9 +276,9 @@ describe("the status cards", () => {
 	it("say why missions need you, counted by reason", async () => {
 		expect(
 			textOf(await render("/missions"), "missions-card-needs-you-subline"),
-		).toBe("1 preview to read · 1 PR open");
+		).toBe("1 preview to read, 1 PR open");
 		expect(needsYouSubline([PREVIEW, PREVIEW, PR])).toBe(
-			"2 previews to read · 1 PR open",
+			"2 previews to read, 1 PR open",
 		);
 		// Zero parts drop out.
 		expect(needsYouSubline([PREVIEW])).toBe("1 preview to read");
@@ -289,7 +289,7 @@ describe("the status cards", () => {
 	it("take the Active sub-line from the live dispatches, not the list", async () => {
 		expect(
 			textOf(await render("/missions"), "missions-card-active-subline"),
-		).toBe("1 running · 1 queued");
+		).toBe("1 running, 1 queued");
 	});
 
 	it("never says Nothing waiting under a count above zero (review 3, 3)", async () => {
@@ -297,7 +297,7 @@ describe("the status cards", () => {
 		expect(needsYouLine("pending", [], 3)).toBeNull();
 		expect(needsYouLine("error", [], 3)).toBe("Couldn't load these");
 		expect(needsYouLine("success", [PREVIEW], 3)).toBe(
-			`${needsYouSubline([PREVIEW])} · +2 more`,
+			`${needsYouSubline([PREVIEW])}, +2 more`,
 		);
 		expect(needsYouLine("success", [], 2)).toBe("2 waiting on you");
 		expect(needsYouLine("success", [], 0)).toBe("Nothing waiting on you");
@@ -336,7 +336,7 @@ describe("the status cards", () => {
 		expect(activeSubline([RUNNING, running2])).toBe("2 dispatches running");
 		expect(activeSubline([QUEUED])).toBe("1 queued");
 		expect(activeSubline([RUNNING, running2, QUEUED])).toBe(
-			"2 running · 1 queued",
+			"2 running, 1 queued",
 		);
 		expect(activeSubline([QUEUED, queued2])).not.toMatch(/\b0\b/);
 	});
@@ -464,7 +464,7 @@ describe("Needs you", () => {
 			"Client 1",
 		);
 		const row = region(html, `missions-needs-you-row-${PREVIEW.id}`);
-		expect(visibleText(row)).toMatch(/ · since /);
+		expect(visibleText(row)).toMatch(/ ?, since /);
 		// A divided row, no card of its own: 40px at least, compact padding.
 		expect(tagOf(html, `missions-needs-you-row-${PREVIEW.id}`)).toMatch(
 			/\bmin-h-10\b[^"]*\bpy-2\b/,

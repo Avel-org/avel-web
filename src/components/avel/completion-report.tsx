@@ -412,7 +412,7 @@ export function CompletionReportView({
 					<span data-testid="report-files-touched">
 						{plural(report.filesTouched, "file touched", "files touched")}
 					</span>
-					{" · "}
+					{", "}
 					<span data-testid="report-rereads">
 						{plural(report.rereads, "reread", "rereads")}
 					</span>

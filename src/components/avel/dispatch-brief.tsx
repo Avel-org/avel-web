@@ -63,17 +63,42 @@ export function DispatchBriefLine({
 				Read brief
 			</Button>
 			{open ? (
-				<DetailModal
-					open
-					onOpenChange={setOpen}
-					title={`${agentName}'s brief`}
-					description="What this run was given, frozen when it started: its scope, what to read, its method, and the checks that say it is done."
-					data-testid="dispatch-brief-modal"
-				>
-					<BriefText dispatchId={dispatch.id} agentName={agentName} />
-				</DetailModal>
+				<BriefModal
+					dispatchId={dispatch.id}
+					agentName={agentName}
+					onClose={() => setOpen(false)}
+				/>
 			) : null}
 		</div>
+	);
+}
+
+/**
+ * A dispatch's brief in a modal, read from its route when it opens. The
+ * dispatch card and an export's package both open it, so a brief reads the
+ * same wherever it is found.
+ */
+export function BriefModal({
+	dispatchId,
+	agentName,
+	onClose,
+}: {
+	dispatchId: string;
+	agentName: string;
+	onClose: () => void;
+}) {
+	return (
+		<DetailModal
+			open
+			onOpenChange={(open) => {
+				if (!open) onClose();
+			}}
+			title={`${agentName}'s brief`}
+			description="What this run was given, frozen when it started: its scope, what to read, its method, and the checks that say it is done."
+			data-testid="dispatch-brief-modal"
+		>
+			<BriefText dispatchId={dispatchId} agentName={agentName} />
+		</DetailModal>
 	);
 }
 

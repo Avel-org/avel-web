@@ -3,13 +3,18 @@ import type { ExportWire } from "avel-server/contract";
 import { Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportZipUrl, useExport } from "@/lib/api/exports";
-import { shortStamp } from "./activity-audit";
 import { DeliveryChecks, PackageFacts, PackageMap } from "./export-package";
 import { PreflightSkeleton } from "./export-preflight";
-import { EXPORT_LIFECYCLE, EXPORT_STATUS_LABEL, Lifecycle } from "./lifecycle";
+import { EXPORT_LIFECYCLE, Lifecycle } from "./lifecycle";
+import { ExportSince } from "./mission-columns";
 import { PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
-import { exportStatusTone, StatusPill } from "./status-pill";
+import {
+	EXPORT_STATUS_LABEL,
+	EXPORT_TARGET_LABEL,
+	exportStatusTone,
+	StatusPill,
+} from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
 /*
@@ -19,12 +24,6 @@ import { ErrorState, Surface } from "./surface";
  * page reads it once. A preview offers its way back into pre-flight; a done
  * zip offers its bytes, which the server renders again on each download.
  */
-
-const TARGET_LABEL = {
-	zip: "Zip",
-	github_pr: "GitHub PR",
-	github_push: "GitHub push",
-} as const satisfies Record<ExportWire["targetKind"], string>;
 
 export function ExportStatus({
 	missionId,
@@ -95,11 +94,9 @@ function Head({ exp, missionId }: { exp: ExportWire; missionId: string }) {
 					label={EXPORT_STATUS_LABEL[exp.status]}
 					data-testid="export-status-pill"
 				/>
-				<span className="text-text">{TARGET_LABEL[exp.targetKind]}</span>
+				<span className="text-text">{EXPORT_TARGET_LABEL[exp.targetKind]}</span>
 				<span>{`Sprint ${exp.sprintN}`}</span>
-				<time dateTime={exp.statusChangedAt} title={exp.statusChangedAt}>
-					{`since ${shortStamp(exp.statusChangedAt)}`}
-				</time>
+				<ExportSince at={exp.statusChangedAt} now={Date.now()} />
 			</p>
 			<Lifecycle
 				spec={EXPORT_LIFECYCLE}

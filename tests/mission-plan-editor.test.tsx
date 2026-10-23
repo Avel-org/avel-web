@@ -50,7 +50,9 @@ describe("the plan check, as a to-do list", () => {
 	it("lists every issue with the server's own words", () => {
 		const html = render(plan());
 		expect(tagOf(html, "plan-check-status")).toBeDefined();
-		expect(html).toMatch(/data-testid="plan-check-status"[^>]*>1 to do</);
+		expect(html).toMatch(
+			/data-testid="plan-check-status"[^>]*data-tone="warn"[^>]*>[\s\S]*?<\/svg>1 to do</,
+		);
 		expect(html).toMatch(
 			/data-testid="plan-check-issue"[^>]*>.*R2 is in no module</,
 		);
@@ -66,7 +68,9 @@ describe("the plan check, as a to-do list", () => {
 
 	it("says a passing plan passes, with nothing to do", () => {
 		const html = render(plan({ check: { passed: true, issues: [] } }));
-		expect(html).toMatch(/data-testid="plan-check-status"[^>]*>Passes</);
+		expect(html).toMatch(
+			/data-testid="plan-check-status"[^>]*data-tone="pass"[^>]*>[\s\S]*?<\/svg>Passes</,
+		);
 		expect(html).not.toContain('data-testid="plan-check-issues"');
 	});
 });

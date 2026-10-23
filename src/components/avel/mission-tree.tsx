@@ -438,7 +438,7 @@ function Tree({
 					className={cn(
 						"flex cursor-pointer items-center gap-2 rounded-control border px-2 transition-colors duration-(--duration-micro) ease-avel",
 						top
-							? "h-10 border-border bg-app-band hover:bg-app-raised"
+							? "h-10 border-border bg-app-hollow hover:bg-app-raised"
 							: "h-9 border-transparent hover:bg-app-raised",
 					)}
 				>
