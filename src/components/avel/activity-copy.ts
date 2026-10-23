@@ -47,6 +47,7 @@ export const ACTION_COPY = {
 	"mission.plan_updated": "Mission plan updated",
 	"playbook.created": "Playbook created",
 	"playbook.updated": "Playbook published",
+	"agent_template.created": "Agent created",
 	"agent_template.updated": "Agent changed",
 	"agent_template.identity_regenerated": "Identity regenerated",
 	"dispatch.created": "Dispatch created",

@@ -105,8 +105,9 @@ export const INVERSE = {
 		route: "PUT /api/playbooks/by-type/:missionType",
 		note: "Publish the earlier version's fields again. That makes a new version.",
 	},
-	// No contract request writes an agent template: the identity generator
-	// does, and its versions are never changed or deleted.
+	// No route deletes an agent template, and its identity versions are
+	// never changed or deleted, so none of these is undone.
+	"agent_template.created": null,
 	"agent_template.updated": null,
 	"agent_template.identity_regenerated": null,
 	// A dispatch runs once and its report is filed once: a halted or failed
