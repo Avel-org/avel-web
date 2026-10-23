@@ -164,13 +164,14 @@ describe("the team canvas (/presets)", () => {
 		);
 	});
 
-	it("has one view control, Lanes | Coverage | Table, and no toggle in the page's actions", async () => {
+	it("has one view control, Lanes | Coverage, and no toggle in the page's actions", async () => {
 		const html = await page("/presets", [ONE]);
 		expect(tagOf(html, "preset-view-lanes")).toContain('aria-pressed="true"');
 		expect(tagOf(html, "preset-view-coverage")).toContain(
 			'aria-pressed="false"',
 		);
-		expect(tagOf(html, "preset-view-table")).toContain('aria-pressed="false"');
+		// Ruling 55: Teams has no table view.
+		expect(html).not.toContain('data-testid="preset-view-table"');
 		const count = (re: RegExp) => html.match(re)?.length ?? 0;
 		expect(count(/data-testid="preset-view"/g)).toBe(1);
 		// The old page-level Board | Table and Lanes | Coverage pairs are gone.
@@ -330,10 +331,19 @@ describe("the team canvas (/presets)", () => {
 		}
 	});
 
-	it("opens the table from the one view control", async () => {
+	it("opens an old ?view=table link on the board, with no table (ruling 55)", async () => {
 		const html = await page("/presets?view=table", [ONE]);
-		expect(html).not.toContain('data-testid="presets-composer"');
-		expect(tagOf(html, "preset-view-table")).toContain('aria-pressed="true"');
+		expect(html).toContain('data-testid="presets-composer"');
+		expect(html).toContain('data-testid="preset-canvas"');
+		expect(tagOf(html, "preset-view-lanes")).toContain('aria-pressed="true"');
+		for (const table of [
+			"preset-view-table",
+			"presets-panes",
+			"presets-toolbar",
+			"preset-rows",
+			"preset-detail",
+		])
+			expect(html).not.toContain(`data-testid="${table}"`);
 	});
 });
 

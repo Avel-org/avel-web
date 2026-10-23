@@ -518,9 +518,10 @@ describe("the editor in the page", () => {
 		// Nothing typed yet: the save waits, saying why.
 		expect(tagOf(html, "skill-editor-submit")).toMatch(/\sdisabled=""/);
 		expect(html).toContain("Nothing has changed yet.");
-		// The selected row stays marked in the sidebar.
-		expect(tagOf(html, `skill-row-${APPROVED.slug}`)).toContain(
-			"data-selected",
+		// The trail names the skill being edited, and leads back to Skills.
+		expect(tagOf(html, "catalog-skills-back")).toContain('aria-label="Skill"');
+		expect(html).toMatch(
+			new RegExp(`aria-current="page"[^>]*>${APPROVED.slug}, edit<`),
 		);
 	});
 

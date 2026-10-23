@@ -4,44 +4,29 @@ import {
 	createRouter,
 	RouterProvider,
 } from "@tanstack/react-router";
-import type { AgentTemplate, Preset } from "avel-server/contract";
+import type { Preset } from "avel-server/contract";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { noMatchCopy } from "@/components/avel/preset-list";
 import { ApiError, ApiOverrideProvider } from "@/lib/api";
-import { CATALOG_PAGE_SIZE } from "@/lib/api/catalog";
 import { queryKeys } from "@/lib/api/keys";
 import {
 	PRESETS_PAGE_SIZE,
-	type PresetCut,
 	type PresetPage,
 	presetCountLabel,
 	presetSearchText,
 	templateLabel,
 } from "@/lib/api/presets";
 import { SessionSourceProvider } from "@/lib/auth";
-import { presetsSearch, Route, searchDraft } from "../src/routes/presets";
+import { presetsSearch, Route } from "../src/routes/presets";
 import { routeTree } from "../src/routeTree.gen";
 import { signedIn } from "./auth-session";
-import {
-	contractError,
-	ID,
-	preset,
-	TEMPLATE,
-	template,
-	unreachable,
-} from "./presets-fixtures";
+import { ID, preset, TEMPLATE, unreachable } from "./presets-fixtures";
 import { renderPage, tagOf } from "./render-page";
-import { UUID_FRAGMENT, visibleText } from "./visible-text";
 
 type Seed = {
 	path?: string;
-	q?: string;
-	cut?: PresetCut;
 	/** The selected preset, or the error its fetch failed with. */
 	detail?: Preset | ApiError;
-	/** The catalog's templates, or the error the list failed with. */
-	templates?: AgentTemplate[] | ApiError;
 };
 
 /** The real page with a seeded first page of presets, as Clients' tests do. */
@@ -55,10 +40,10 @@ async function renderSeeded(first: PresetPage, seed: Seed = {}) {
 			},
 		},
 	});
-	queryClient.setQueryData(
-		queryKeys.presets.list(PRESETS_PAGE_SIZE, { q: seed.q, cut: seed.cut }),
-		{ pages: [first], pageParams: [undefined] },
-	);
+	queryClient.setQueryData(queryKeys.presets.list(PRESETS_PAGE_SIZE, {}), {
+		pages: [first],
+		pageParams: [undefined],
+	});
 	const path = seed.path ?? "/presets";
 	if (seed.detail instanceof ApiError) {
 		const id = new URLSearchParams(path.split("?")[1]).get("preset") ?? "";
@@ -71,22 +56,6 @@ async function renderSeeded(first: PresetPage, seed: Seed = {}) {
 			queryKeys.presets.detail(seed.detail.id),
 			seed.detail,
 		);
-	}
-	const templatesKey = queryKeys.catalog.agentTemplates(CATALOG_PAGE_SIZE);
-	if (seed.templates instanceof ApiError) {
-		queryClient
-			.getQueryCache()
-			.build(queryClient, { queryKey: templatesKey })
-			.setState({
-				status: "error",
-				fetchStatus: "idle",
-				error: seed.templates,
-			});
-	} else if (seed.templates) {
-		queryClient.setQueryData(templatesKey, {
-			pages: [{ data: seed.templates, meta: { nextCursor: null } }],
-			pageParams: [undefined],
-		});
 	}
 	const router = createRouter({
 		routeTree,
@@ -142,14 +111,6 @@ describe("the Presets list", () => {
 			meta: { nextCursor: "c1", total: 40 },
 		});
 		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>40 teams</);
-		// On the canvas, Load more lives in the switcher's popover; the table
-		// says how many it shows.
-		const table = await renderSeeded(
-			{ data: [preset(1)], meta: { nextCursor: "c1", total: 40 } },
-			{ path: "/presets?view=table" },
-		);
-		expect(table).toContain('data-testid="presets-load-more"');
-		expect(table).toMatch(/Showing 1 of 40/);
 	});
 
 	it("keeps the definition when the route gives no total", async () => {
@@ -161,69 +122,16 @@ describe("the Presets list", () => {
 		expect(html).toContain('data-testid="topbar-definition"');
 	});
 
-	it("shows each row's name, cut, agent count and version, as a link", async () => {
-		const html = await renderSeeded(
-			one(preset(1, { cut: "horizontal", version: 3 })),
-			{ path: "/presets?view=table" },
-		);
-		const row = tagOf(html, `preset-row-${ID(1)}`);
-		expect(row).toMatch(/^<a/);
-		expect(row).toContain(`preset=${ID(1)}`);
-		expect(html).toMatch(
-			new RegExp(`data-testid="preset-cut-${ID(1)}"[^>]*>By layer<`),
-		);
-		expect(html).toContain(">1 agent · v3<");
-		expect(html).toContain(">Preset 1<");
-	});
-
-	it("is first-run only when nothing is filtered and nothing exists", async () => {
+	it("is first-run when no team exists", async () => {
 		const html = await renderSeeded({
 			data: [],
 			meta: { nextCursor: null, total: 0 },
 		});
 		expect(html).toContain('data-testid="presets-empty"');
-		expect(html).not.toContain('data-testid="presets-no-match"');
 	});
 
-	it("says a search matched nothing, with a way to clear it", async () => {
-		// Search and cut are the Table's, so a no-match is the Table's.
-		const html = await renderSeeded(
-			{ data: [], meta: { nextCursor: null, total: 0 } },
-			{
-				path: "/presets?view=table&q=zzz&cut=vertical",
-				q: "zzz",
-				cut: "vertical",
-			},
-		);
-		expect(html).toContain('data-testid="presets-no-match"');
-		expect(html).toContain('data-testid="presets-clear-filters"');
-		expect(html).not.toContain('data-testid="presets-empty"');
-		// Search and cut belong to the table view, filled from the URL.
-		const table = await renderSeeded(
-			{ data: [], meta: { nextCursor: null, total: 0 } },
-			{
-				path: "/presets?view=table&q=zzz&cut=vertical",
-				q: "zzz",
-				cut: "vertical",
-			},
-		);
-		expect(tagOf(table, "presets-search-input")).toContain('value="zzz"');
-		expect(tagOf(table, "presets-cut-vertical")).toContain(
-			'aria-pressed="true"',
-		);
-		expect(tagOf(table, "presets-cut-all")).toContain('aria-pressed="false"');
-	});
-
-	it("counts a filtered list as matches", async () => {
-		const html = await renderSeeded(one(preset(1), 2), {
-			path: "/presets?view=table&cut=horizontal",
-			cut: "horizontal",
-		});
-		expect(html).toMatch(/data-testid="topbar-subtitle"[^>]*>2 teams match</);
-	});
-
-	it("never filters the Board by the Table's search or cut", async () => {
-		// The unfiltered list is what the Board reads, whatever ?q and ?cut say.
+	it("never filters the board by an old link's ?q or ?cut", async () => {
+		// The URL drops both (ruling 55): the board reads the unfiltered list.
 		const html = await renderSeeded(one(preset(1), 3), {
 			path: "/presets?q=zzz&cut=vertical",
 			detail: preset(1),
@@ -264,206 +172,21 @@ describe("the Presets list", () => {
 	});
 });
 
-describe("the selected preset", () => {
-	const selected = (p: Preset, extra: Seed = {}) =>
-		renderSeeded(one(p), {
-			path: `/presets?view=table&preset=${p.id}`,
-			detail: p,
-			templates: [template(1), template(2)],
-			...extra,
-		});
-
-	it("shows the agents it saves, named from the catalog", async () => {
-		const html = await selected(
-			preset(1, {
-				description: "Full build squad",
-				agents: [
-					{
-						agentTemplateId: TEMPLATE(2),
-						waves: ["C"],
-						territory: "Web · checkout",
-						writablePaths: ["src/checkout/**"],
-						estimatedTokens: 90000,
-					},
-				],
-			}),
-		);
-		expect(tagOf(html, "preset-detail-surface")).toContain(
-			'data-state="success"',
-		);
-		const row = html.slice(html.indexOf('data-testid="preset-agent-0"'));
-		expect(row).toContain(">Template 2<");
-		expect(row).toContain(">template-2<");
-		expect(row).toContain(">C<");
-		expect(row).toContain(">Web · checkout<");
-		expect(row).toContain(">src/checkout/**<");
-		expect(row).toContain(">90,000<");
-		expect(html).toContain(">Full build squad<");
-		expect(html).not.toContain('data-testid="preset-template-unknown"');
-	});
-
-	it("names a template the catalog lacks in words, its id only on hover and Copy", async () => {
-		const missing = TEMPLATE(9);
-		const html = await selected(
-			preset(1, {
-				agents: [
-					{
-						agentTemplateId: missing,
-						waves: ["A"],
-						territory: null,
-						writablePaths: null,
-						estimatedTokens: null,
-					},
-				],
-			}),
-		);
-		const cell = html.slice(
-			html.indexOf('data-testid="preset-template-unknown"'),
-		);
-		expect(cell).toContain(">Unknown agent<");
-		expect(cell).toContain(`title="${missing}"`);
-		expect(cell).toContain('aria-label="Copy the agent&#x27;s id"');
-		expect(visibleText(html)).not.toContain(missing.slice(0, 8));
-		expect(visibleText(cell)).not.toMatch(UUID_FRAGMENT);
-	});
-
-	it("says when names could not load, rather than calling every template unknown", async () => {
-		const html = await selected(preset(1), {
-			templates: unreachable(),
-		});
-		expect(html).toContain('data-testid="preset-names-error"');
-		expect(html).not.toContain(">Unknown agent<");
-		expect(visibleText(html)).not.toContain(TEMPLATE(1).slice(0, 8));
-	});
-
-	it("shows unset fields in words, and the estimate as a default", async () => {
-		const html = await selected(
-			preset(1, {
-				agents: [
-					{
-						agentTemplateId: TEMPLATE(1),
-						waves: [],
-						territory: null,
-						writablePaths: null,
-						estimatedTokens: null,
-					},
-				],
-			}),
-		);
-		const row = html.slice(html.indexOf('data-testid="preset-agent-0"'));
-		for (const text of ["None", "Whole project", "Agent&#x27;s", "Not set"]) {
-			expect(row).toContain(`>${text}<`);
-		}
-		expect(html).toContain(">No description<");
-		expect(html).toContain("Token estimates are defaults.");
-	});
-
-	it("offers Edit, enabled now that the contract can update one", async () => {
-		const html = await selected(preset(1, { version: 4 }));
-		expect(html).toContain(">v4 · updated 2026-10-05<");
-		expect(tagOf(html, "preset-edit")).not.toMatch(/\sdisabled=""/);
-	});
-
-	it("fits a lg pane: prose headers and cells wrap, mono values do not (728e777)", async () => {
-		const html = await selected(
-			preset(1, {
-				agents: [
-					{
-						agentTemplateId: TEMPLATE(1),
-						waves: ["A"],
-						territory: "Web · checkout",
-						writablePaths: null,
-						estimatedTokens: 90000,
-					},
-				],
-			}),
-		);
-		const table = html.slice(
-			html.indexOf('data-testid="preset-agents"'),
-			html.indexOf("</table>"),
-		);
-		const header = (text: string) =>
-			// `<th\s`, so `<thead` never matches.
-			table.match(
-				new RegExp(`<th\\s[^>]*>(?:(?!</th>).)*${text}.*?</th>`),
-			)?.[0] ?? "";
-		for (const text of [
-			"Agent",
-			"Territory",
-			"Writable paths",
-			"Est. tokens",
-		]) {
-			expect(header(text)).toMatch(
-				new RegExp(`<span class="whitespace-normal">${text}<`),
-			);
-		}
-		expect(header("Waves")).not.toContain("whitespace-normal");
-
-		const cell = (testid: string) =>
-			table.match(
-				new RegExp(`<td[^>]*data-testid="${testid}"[^>]*>(?:(?!</td>).)*`),
-			)?.[0] ?? "";
-		expect(cell("preset-agent-territory-0")).toContain(
-			'<span class="whitespace-normal">Web · checkout<',
-		);
-		expect(cell("preset-agent-paths-0")).toContain(
-			'<span class="whitespace-normal">',
-		);
-		// The token count and waves are mono values: never wrapped.
-		const row = table.slice(table.indexOf('data-testid="preset-agent-0"'));
-		expect(row).toMatch(/<td[^>]*>A<\/td>/);
-		expect(row).toMatch(/<td[^>]*>90,000<\/td>/);
-	});
-
-	it("narrows the list pane at lg so the detail's table fits", async () => {
-		const html = await renderSeeded(one(preset(1)), {
-			path: "/presets?view=table",
-		});
-		const pane = tagOf(html, "presets-list-pane");
-		expect(pane).toMatch(/\blg:w-72\b/);
-		expect(pane).not.toMatch(/\blg:w-80\b/);
-	});
-
-	it("shows a gone preset as an error with the way back", async () => {
-		const html = await renderSeeded(one(preset(1)), {
-			path: `/presets?view=table&preset=${ID(7)}`,
-			detail: contractError("NOT_FOUND", 404),
-		});
-		expect(tagOf(html, "preset-detail-surface")).toContain(
-			'data-state="error"',
-		);
-		expect(html).toContain('data-testid="preset-back"');
-	});
-});
-
-describe("the Presets views", () => {
-	it("opens the table view from the URL, and the board without one", async () => {
-		const table = await renderSeeded(one(preset(1)), {
-			path: "/presets?view=table",
-		});
-		expect(tagOf(table, "preset-view-table")).toContain('aria-pressed="true"');
-		expect(table).toContain('data-testid="presets-panes"');
-		expect(table).not.toContain('data-testid="preset-canvas"');
-
-		const board = await renderSeeded(one(preset(1)), {
-			detail: preset(1),
-		});
-		expect(board).toContain('data-testid="preset-canvas"');
-		expect(board).not.toContain('data-testid="presets-panes"');
-	});
-
-	it("drops an unknown view rather than failing the page", () => {
-		expect(presetsSearch.parse({ view: "graph" }).view).toBeUndefined();
-		expect(presetsSearch.parse({ view: "table" }).view).toBe("table");
-	});
-});
-
 describe("the Presets URL and copy", () => {
-	it("drops a bad cut or preset id rather than failing the page", () => {
+	it("drops a bad preset id rather than failing the page", () => {
+		expect(presetsSearch.parse({ preset: "nope" })).toEqual({
+			preset: undefined,
+		});
+		expect(presetsSearch.parse({ preset: ID(1) }).preset).toBe(ID(1));
+	});
+
+	it("keeps no view, search or cut: an old ?view=table link parses to the board (ruling 55)", () => {
 		expect(
-			presetsSearch.parse({ cut: "diagonal", preset: "nope", q: "  " }),
-		).toEqual({ cut: undefined, preset: undefined, q: undefined });
-		expect(presetsSearch.parse({ cut: "vertical" }).cut).toBe("vertical");
+			presetsSearch.parse({ view: "table", q: "atlas", cut: "vertical" }),
+		).toEqual({});
+		expect(
+			presetsSearch.parse({ view: "table", section: "playbooks" }),
+		).toEqual({ section: "playbooks" });
 	});
 
 	it("trims the search and cuts it to the contract's limit", () => {
@@ -472,25 +195,22 @@ describe("the Presets URL and copy", () => {
 		expect(presetSearchText("   ")).toBeUndefined();
 	});
 
-	it("keys each search and cut apart, and leaves unset filters out", () => {
+	it("keys each search apart, and leaves an unset search out", () => {
 		expect(queryKeys.presets.list(50, {})).toEqual([
 			"presets",
 			"list",
 			{ limit: 50 },
 		]);
-		expect(queryKeys.presets.list(50, { q: "a", cut: "vertical" })).toEqual([
+		expect(queryKeys.presets.list(50, { q: "a" })).toEqual([
 			"presets",
 			"list",
-			{ limit: 50, q: "a", cut: "vertical" },
+			{ limit: 50, q: "a" },
 		]);
 	});
 
-	it("labels counts in the singular and as matches", () => {
-		expect(presetCountLabel(1, false)).toBe("1 team");
-		expect(presetCountLabel(3, true)).toBe("3 teams match");
-		expect(noMatchCopy(undefined, "vertical")).toBe(
-			"There are no teams cut by feature.",
-		);
+	it("labels counts in the singular and the plural", () => {
+		expect(presetCountLabel(1)).toBe("1 team");
+		expect(presetCountLabel(3)).toBe("3 teams");
 	});
 
 	it("labels a known template by name and an unknown one by its id, for Copy", () => {
@@ -508,7 +228,7 @@ describe("the Presets URL and copy", () => {
 });
 
 describe("a team that can't be read", () => {
-	it("keeps the switcher and a way to the table above the error (a stale ?preset=)", async () => {
+	it("keeps the switcher above the error (a stale ?preset=)", async () => {
 		const gone = new ApiError({
 			method: "GET",
 			path: "/api/presets/:id",
@@ -528,19 +248,7 @@ describe("a team that can't be read", () => {
 		expect(tagOf(html, "preset-switcher")).toContain(
 			'aria-label="Choose a team"',
 		);
-		expect(html).toContain('data-testid="preset-open-table"');
+		expect(html).not.toContain('data-testid="preset-open-table"');
 		expect(html).toContain('data-testid="surface-error"');
-	});
-});
-
-describe("the table's search box", () => {
-	it("keeps a typed trailing space when the URL holds the trimmed query", () => {
-		expect(searchDraft("atlas ", "atlas")).toBe("atlas ");
-		expect(searchDraft("  atlas", "atlas")).toBe("  atlas");
-	});
-
-	it("follows the URL when it changes from outside: Clear filters, Back", () => {
-		expect(searchDraft("atlas", "")).toBe("");
-		expect(searchDraft("atlas", "booking")).toBe("booking");
 	});
 });

@@ -6,14 +6,8 @@ import { catalogTotal } from "@/lib/api/catalog";
 import { loadedPlaybooks, usePlaybooks } from "@/lib/api/playbooks";
 import { DataPanel } from "./data-panel";
 import { Paging, PanelFooter } from "./panel-footer";
-import {
-	filterPlaybooks,
-	PLAYBOOK_VIEWS,
-	PlaybookList,
-	type PlaybookView,
-} from "./playbook-list";
+import { filterPlaybooks, PlaybookList } from "./playbook-list";
 import { SearchField } from "./search-field";
-import { ViewToggle } from "./view-toggle";
 
 /*
  * Playbooks, the second section of Teams: the process each kind of mission
@@ -27,37 +21,20 @@ import { ViewToggle } from "./view-toggle";
 export const PLAYBOOKS_ICON = ListChecks;
 
 /** The Playbooks panel, keeping its search for as long as the section is open. */
-export function PlaybooksSection({
-	view,
-	onViewChange,
-}: {
-	view: PlaybookView;
-	onViewChange: (view: PlaybookView) => void;
-}) {
+export function PlaybooksSection() {
 	const [search, setSearch] = useState("");
-	return (
-		<PlaybooksPanel
-			view={view}
-			onViewChange={onViewChange}
-			search={search}
-			onSearch={setSearch}
-		/>
-	);
+	return <PlaybooksPanel search={search} onSearch={setSearch} />;
 }
 
 /**
- * The panel: the search and the view in its toolbar, paging and read age
- * below. The search filters the loaded playbooks in place, so the footer's
+ * The panel: the search in its toolbar, paging and read age below. The
+ * board is its one view (ruling 55). The search filters the loaded playbooks in place, so the footer's
  * "Showing" counts the matches against the server's total.
  */
 export function PlaybooksPanel({
-	view,
-	onViewChange,
 	search,
 	onSearch,
 }: {
-	view: PlaybookView;
-	onViewChange: (view: PlaybookView) => void;
 	search: string;
 	onSearch: (search: string) => void;
 }) {
@@ -69,23 +46,14 @@ export function PlaybooksPanel({
 			title="Playbooks"
 			count={total}
 			toolbar={
-				<>
-					<SearchField
-						data-testid="playbooks-search"
-						label="Search playbooks by name or mission type"
-						placeholder="Search playbooks"
-						value={search}
-						onChange={onSearch}
-						className="w-full max-w-sm"
-					/>
-					<ViewToggle
-						options={PLAYBOOK_VIEWS}
-						testIdPrefix="playbooks-view"
-						view={view}
-						className="ml-auto"
-						onChange={onViewChange}
-					/>
-				</>
+				<SearchField
+					data-testid="playbooks-search"
+					label="Search playbooks by name or mission type"
+					placeholder="Search playbooks"
+					value={search}
+					onChange={onSearch}
+					className="w-full max-w-sm"
+				/>
 			}
 			footer={
 				<PanelFooter data-testid="playbooks-read-age" queries={[playbooks]}>
@@ -106,7 +74,6 @@ export function PlaybooksPanel({
 		>
 			<PlaybookList
 				query={playbooks}
-				view={view}
 				search={search}
 				onClearSearch={() => onSearch("")}
 			/>

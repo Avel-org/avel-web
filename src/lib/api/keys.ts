@@ -215,17 +215,16 @@ export const queryKeys = {
 		/** Everything under contract.presets. */
 		all: () => ["presets"] as const,
 		/**
-		 * contract.presets.list, paged by cursor. Each search and cut is its own
-		 * entry; a filter is in the key only when it is set.
+		 * contract.presets.list, paged by cursor. Each search is its own entry;
+		 * the search is in the key only when it is set.
 		 */
-		list: (limit: number, filters: { q?: string; cut?: string }) =>
+		list: (limit: number, filters: { q?: string }) =>
 			[
 				"presets",
 				"list",
 				{
 					limit,
 					...(filters.q === undefined ? {} : { q: filters.q }),
-					...(filters.cut === undefined ? {} : { cut: filters.cut }),
 				},
 			] as const,
 		/** contract.presets.get: one preset, under presets so every change refreshes it. */

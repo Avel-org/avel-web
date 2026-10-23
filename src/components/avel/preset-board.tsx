@@ -46,7 +46,7 @@ export function WaveGrid({
 						key={wave}
 						data-testid={`preset-wave-${preset.id}-${wave}`}
 						data-count={agents.length}
-						className="flex min-w-0 flex-col gap-1 rounded-control bg-app-band p-1"
+						className="flex min-w-0 flex-col gap-1 rounded-control bg-app-raised p-1"
 					>
 						<span className="type-mono text-center text-text-subtle">
 							{wave}
@@ -81,7 +81,7 @@ export function WaveGrid({
 					data-testid={`preset-no-wave-${preset.id}`}
 					className="type-caption text-text-subtle"
 				>
-					{`No wave: ${noWave.map((a) => agentName(a, names)).join(", ")}`}
+					{`No wave: ${noWave.map((a) => agentName(a, names)).join("; ")}`}
 				</p>
 			) : null}
 		</div>

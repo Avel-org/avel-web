@@ -66,7 +66,7 @@ function useAllPages(query: {
 /** A mission as the picker names it: type and sprint, then whose. */
 export function missionLabel(m: MissionListItem): string {
 	const whose = m.client ? m.client.name : "Internal";
-	return `${m.type} · sprint ${m.sprintN} · ${whose}`;
+	return `${m.type}, sprint ${m.sprintN}, ${whose}`;
 }
 
 /**
@@ -163,7 +163,7 @@ export function ApplyPresetSteps({
 	const changes: Change[] = [
 		...preset.agents.map(
 			(agent): Change => ({
-				label: `Add · ${agentName(agent, names)}`,
+				label: `Add ${agentName(agent, names)}`,
 				kind: "add",
 				to: fieldText(agent, "waves"),
 				mono: true,
@@ -172,9 +172,9 @@ export function ApplyPresetSteps({
 		...(replace && roster.data
 			? roster.data.map(
 					(entry): Change => ({
-						label: `Remove · ${entry.agentTemplate.name}${entry.territory ? ` · ${entry.territory}` : ""}`,
+						label: `Remove ${entry.agentTemplate.name}${entry.territory ? `, ${entry.territory}` : ""}`,
 						kind: "remove",
-						from: entry.waves.join(" · ") || "No waves",
+						from: entry.waves.join(", ") || "No waves",
 						mono: true,
 					}),
 				)
@@ -328,7 +328,7 @@ export function ApplyToMissionSteps({
 		? [
 				...preset.agents.map(
 					(agent): Change => ({
-						label: `Add · ${agentName(agent, names)}`,
+						label: `Add ${agentName(agent, names)}`,
 						kind: "add",
 						to: fieldText(agent, "waves"),
 						mono: true,
@@ -337,9 +337,9 @@ export function ApplyToMissionSteps({
 				...(replace && roster.data
 					? roster.data.map(
 							(entry): Change => ({
-								label: `Remove · ${entry.agentTemplate.name}${entry.territory ? ` · ${entry.territory}` : ""}`,
+								label: `Remove ${entry.agentTemplate.name}${entry.territory ? `, ${entry.territory}` : ""}`,
 								kind: "remove",
-								from: entry.waves.join(" · ") || "No waves",
+								from: entry.waves.join(", ") || "No waves",
 								mono: true,
 							}),
 						)

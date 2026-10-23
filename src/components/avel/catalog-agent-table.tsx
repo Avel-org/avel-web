@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/select";
 import { tabsListVariants } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { initialsOf } from "./actor";
 import { firstWave, isFirmAgent, sideOf } from "./catalog-agent-placeholders";
 import { teamOf } from "./catalog-sample";
 import type { SortState } from "./data-table";
@@ -113,40 +112,6 @@ export function sortAgents(
 	const sign = sort?.direction === "desc" ? -1 : 1;
 	return [...agents].sort(
 		(a, b) => sign * primary(a, b) || byWave(a, b) || byName(a, b),
-	);
-}
-
-// ---------------------------------------------------------------------------
-// The initials tile.
-
-/**
- * Every side shares v3's ringed tile. A side is not a state and not
- * something to act on, so it takes no gate tone and no accent (audit D3,
- * section 4), and v3 keeps category hues for data series. The side tabs and
- * data-side say which side an agent is on.
- */
-const TILE_TONE = "border border-border bg-app-panel text-text-muted";
-
-export function AgentTile({
-	agent,
-	size = "sm",
-}: {
-	agent: AgentTemplate;
-	size?: "sm" | "lg";
-}) {
-	return (
-		<span
-			aria-hidden="true"
-			data-testid={`catalog-agent-tile-${agent.slug}`}
-			data-side={sideTabOf(agent)}
-			className={cn(
-				"inline-flex shrink-0 items-center justify-center rounded-control font-medium",
-				size === "sm" ? "size-8 type-caption" : "size-11 type-body",
-				TILE_TONE,
-			)}
-		>
-			{initialsOf(agent.name)}
-		</span>
 	);
 }
 

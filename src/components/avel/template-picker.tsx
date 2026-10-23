@@ -86,10 +86,19 @@ export function TemplatePicker({
 	return (
 		<Select
 			value={value === "" ? NO_TEMPLATE : value}
-			disabled={readOnly || query.status === "pending"}
 			onValueChange={(next) => onChange(choiceFor(next, templates))}
 		>
-			<SelectTrigger {...field} className="w-full">
+			<SelectTrigger
+				{...field}
+				className="w-full"
+				disabledReason={
+					readOnly
+						? "Only a draft mission's plan changes"
+						: query.status === "pending"
+							? "Reading the templates"
+							: undefined
+				}
+			>
 				<SelectValue>
 					{query.status === "pending" && value === ""
 						? "Loading templates"

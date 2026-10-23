@@ -155,12 +155,7 @@ async function panel(
 			<ApiOverrideProvider queryClient={queryClient}>
 				<ApiProvider>
 					<TooltipProvider>
-						<PlaybooksPanel
-							view="board"
-							onViewChange={() => {}}
-							search={search}
-							onSearch={() => {}}
-						/>
+						<PlaybooksPanel search={search} onSearch={() => {}} />
 					</TooltipProvider>
 				</ApiProvider>
 			</ApiOverrideProvider>
@@ -256,15 +251,14 @@ describe("/presets?section=playbooks", () => {
 		expect(playbooksStartingFrom([b], "t1")).toEqual([]);
 	});
 
-	it("shows a board by default: a card per playbook, opening its builder", async () => {
+	it("shows a board, its one view: a card per playbook, opening its builder", async () => {
 		const html = await render(
 			"/presets?section=playbooks",
 			withList([FULL_BUILD, DISCOVERY]),
 		);
 		expect(html).not.toContain('data-testid="playbook-table"');
-		expect(tagOf(html, "playbooks-view-board")).toContain(
-			'aria-pressed="true"',
-		);
+		// Ruling 55: no Board | Table toggle.
+		expect(html).not.toContain('data-testid="playbooks-view"');
 		expect(tagOf(html, "playbook-card-template-booking")).toContain(
 			'href="/presets/playbooks/template-booking"',
 		);
@@ -276,39 +270,17 @@ describe("/presets?section=playbooks", () => {
 		);
 	});
 
-	it("lists each playbook in the table view, linked to its builder", async () => {
+	it("opens an old ?view=table link on the board, with no table", async () => {
 		const html = await render(
 			"/presets?section=playbooks&view=table",
 			withList([FULL_BUILD, DISCOVERY]),
 		);
-		expect(tagOf(html, "playbooks-view-table")).toContain(
-			'aria-pressed="true"',
-		);
-		expect(html).not.toContain('data-testid="playbook-board"');
-		const table = element(html, "playbook-table");
-		expect(tagOf(table, "playbook-row-link-template-booking")).toContain(
-			'href="/presets/playbooks/template-booking"',
-		);
-		expect(tagOf(table, "playbook-row-link-discovery")).toContain(
-			'href="/presets/playbooks/discovery"',
-		);
-		// The whole row opens the playbook: its link is stretched over it.
-		expect(tagOf(table, "playbook-row-link-discovery")).toContain(
-			"after:absolute after:inset-0",
-		);
-		expect(tagOf(table, `playbook-table-row-${DISCOVERY.id}`)).toMatch(
-			/\brelative\b/,
-		);
-		expect(table).toContain(">Template booking<");
-		expect(table).toContain(">Pull request<");
-		expect(table).toContain(">Recommendation<");
-		expect(table).toContain(">A B C<");
-		expect(table).toContain(">v3<");
-		expect(text(table)).toContain("2 mandatory, 1 warn");
-		expect(text(table)).toContain("No gates");
+		expect(html).toContain('data-testid="playbook-board"');
+		expect(html).not.toContain('data-testid="playbook-table"');
+		expect(html).not.toContain('data-testid="playbooks-view"');
 	});
 
-	it("counts from meta.total in the top bar and under the table", async () => {
+	it("counts from meta.total in the top bar and under the board", async () => {
 		const html = text(
 			// Two loaded of five: the count is the server's, not the rows'.
 			await render(
@@ -320,7 +292,7 @@ describe("/presets?section=playbooks", () => {
 		expect(element(html, "playbooks-showing")).toContain("Showing 2 of 5");
 	});
 
-	it("searches from the toolbar's left, the view switch on its right", async () => {
+	it("searches from the toolbar", async () => {
 		const html = await render(
 			"/presets?section=playbooks",
 			withList([FULL_BUILD, DISCOVERY]),
@@ -331,9 +303,6 @@ describe("/presets?section=playbooks", () => {
 		);
 		expect(panel).toContain(
 			">Search playbooks by name or mission type</label>",
-		);
-		expect(panel.indexOf('data-testid="playbooks-search"')).toBeLessThan(
-			panel.indexOf('data-testid="playbooks-view"'),
 		);
 		// No search yet: every playbook shows.
 		expect(element(html, "playbooks-showing")).toContain("Showing 2 of 2");

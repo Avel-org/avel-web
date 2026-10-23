@@ -293,7 +293,7 @@ describe("/templates, the board", () => {
 		expect(html).not.toContain('data-testid="topbar-actions"');
 	});
 
-	it("sets each card at the reference's density: tile, name, two lines, tags, numbers", async () => {
+	it("sets each card: tile, name and slug, two lines, tags, what it runs with, numbers", async () => {
 		const html = await render(
 			"/templates",
 			withTemplates([BOOKING]),
@@ -302,6 +302,10 @@ describe("/templates, the board", () => {
 		const card = text(element(html, "template-card-template-booking"));
 		expect(card).toContain('data-testid="template-card-tile-template-booking"');
 		expect(card).toContain(">Booking<");
+		// Its slug in mono under the name (ruling 48).
+		expect(
+			text(element(html, "template-card-slug-template-booking")),
+		).toContain(">template-booking<");
 		// Two lines of what it is: the contract has no description, so the
 		// scope's and starting state's own sentences (docs/TEMPLATES.md).
 		const description = element(
@@ -318,32 +322,44 @@ describe("/templates, the board", () => {
 		expect(
 			text(element(html, "template-card-state-template-booking")),
 		).toContain(">Greenfield<");
-		// Footer: its real numbers, missions and the playbook's gates.
+		// Runs with: the playbook by name, with its version and gates (ruling 49).
+		const runs = element(html, "template-card-runs-template-booking");
+		expect(runs).toContain('data-testid="template-playbook-template-booking"');
+		expect(
+			text(element(runs, "template-playbook-meta-template-booking")),
+		).toMatch(/v\d+, 2 gates/);
+		// Footer: its missions and its latest commit, eight characters.
 		expect(
 			text(element(html, "template-card-missions-template-booking")),
 		).toContain(">3 missions<");
-		expect(
-			text(element(html, "template-card-gates-template-booking")),
-		).toContain(">2 gates<");
+		if (BOOKING.latestSha) {
+			const commit = element(html, "template-card-commit-template-booking");
+			expect(commit).toContain(`title="${BOOKING.latestSha}"`);
+			expect(commit).toContain(`>${BOOKING.latestSha.slice(0, 8)}<`);
+		}
 		// The reference's invented numbers never appear (audit D1).
 		expect(visibleText(html)).not.toMatch(
 			/teams?\b.*\d|h\/week|Featured|\bAI\b/,
 		);
 	});
 
-	it("opens the page from the whole card, with one link in it", async () => {
+	it("opens the page from the whole card; its playbook and team links sit above it", async () => {
 		const html = await render(
 			"/templates",
 			withTemplates([BOOKING, AUDIT]),
 			withLinks,
 		);
-		expect(
-			element(html, "template-card-template-booking").match(/<a[\s>]/g),
-		).toHaveLength(1);
+		const card = element(html, "template-card-template-booking");
+		// One stretched title link; every other link is lifted above it, so
+		// none nests inside it (ruling 48).
 		expect(tagOf(html, "template-card-link-template-booking")).toContain(
 			"after:absolute",
 		);
-		expect(text(element(html, "template-card-gates-template-audit"))).toContain(
+		const others = (card.match(/<a[\s][^>]*>/g) ?? []).filter(
+			(a) => !a.includes("template-card-link-template-booking"),
+		);
+		for (const a of others) expect(a).toMatch(/\brelative\b[^"]*\bz-10\b/);
+		expect(text(element(html, "template-playbook-template-audit"))).toContain(
 			"No playbook",
 		);
 	});
@@ -361,9 +377,10 @@ describe("/templates, the board", () => {
 
 	it("never says No playbook before the playbooks are read", async () => {
 		const html = await render("/templates", withTemplates([AUDIT]));
-		expect(
-			text(element(html, "template-card-gates-template-audit")),
-		).not.toContain("No playbook");
+		// Still reading: a skeleton where the playbook will be.
+		expect(html).toContain(
+			'data-testid="template-playbook-template-audit-loading"',
+		);
 		expect(text(html)).not.toContain("No playbook");
 	});
 
@@ -374,10 +391,10 @@ describe("/templates, the board", () => {
 			withLinks,
 		);
 		expect(text(element(html, "topbar-subtitle"))).toContain(
-			"3 templates · 4 missions built from them",
+			"3 templates, 4 missions built from them",
 		);
 		expect(templatesSubtitle([AUDIT])).toBe(
-			"1 template · no missions built from them yet",
+			"1 template, no missions built from them yet",
 		);
 	});
 });
@@ -613,7 +630,7 @@ describe("/templates/$slug, one template's page", () => {
 		);
 		expect(tagOf(html, "template-banner-back")).toContain('href="/templates"');
 		expect(text(element(html, "template-banner-facts"))).toContain(
-			"Full stack · Greenfield · template-booking",
+			"Full stack, Greenfield, template-booking",
 		);
 		expect(text(element(html, "template-banner-status"))).toContain("Readable");
 	});

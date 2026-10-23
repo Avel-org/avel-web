@@ -39,7 +39,7 @@ export function AgentActor({
 				{agent.name}
 			</Link>
 			{agent.territory ? (
-				<span className="text-text-subtle">{` · ${agent.territory}`}</span>
+				<span className="text-text-subtle">{`, ${agent.territory}`}</span>
 			) : null}
 		</>
 	);

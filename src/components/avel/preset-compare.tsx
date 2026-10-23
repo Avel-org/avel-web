@@ -21,7 +21,7 @@ const FIELD_LABEL: Record<DiffField, string> = {
 export function fieldText(agent: PresetAgent, field: DiffField): string {
 	switch (field) {
 		case "waves":
-			return agent.waves.length === 0 ? "None" : agent.waves.join(" · ");
+			return agent.waves.length === 0 ? "None" : agent.waves.join(", ");
 		case "writablePaths":
 			return agent.writablePaths === null
 				? "Agent's"
@@ -34,7 +34,7 @@ export function fieldText(agent: PresetAgent, field: DiffField): string {
 }
 
 /**
- * An agent as a roster names it: "Atlas · scheduling", name then territory.
+ * An agent as a roster names it: "Atlas, scheduling", name then territory.
  * "Agent" while names load, "Unknown agent" when the catalog lacks it; its
  * id is never the name.
  */
@@ -45,7 +45,7 @@ export function agentName(agent: PresetAgent, names: Names): string {
 			: null;
 	const name =
 		label === null ? "Agent" : label.known ? label.name : "Unknown agent";
-	return agent.territory ? `${name} · ${agent.territory}` : name;
+	return agent.territory ? `${name}, ${agent.territory}` : name;
 }
 
 /**

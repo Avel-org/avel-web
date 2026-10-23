@@ -149,7 +149,7 @@ function DiscoverIndex({
 									</span>
 									<Badge variant="outline">{source.kind}</Badge>
 								</h3>
-								<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-control border border-border bg-app-band">
+								<ul className="flex flex-col divide-y divide-border overflow-hidden rounded-control border border-border bg-app-hollow">
 									{rows.map((entry) => (
 										<RegistryEntryRow key={entry.id} entry={entry} />
 									))}

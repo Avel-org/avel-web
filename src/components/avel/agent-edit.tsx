@@ -24,7 +24,6 @@ import { useUpdateAgentTemplate } from "@/lib/api/catalog";
 import type { ApiError } from "@/lib/api/errors";
 import { describeError } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
-import { useIsPreview } from "@/shell/auth-gate";
 import { WritablePath } from "./writable-path";
 
 /*
@@ -182,11 +181,6 @@ const same = (a: readonly string[], b: readonly string[]) =>
 // ---------------------------------------------------------------------------
 // Shared pieces.
 
-/** "Sign in to edit" in the preview, which the server refuses to write for. */
-export function useEditBlocked(): string | undefined {
-	return useIsPreview() ? "Sign in to edit" : undefined;
-}
-
 /** The last save's result: saved (with the template it returned) or refused. */
 export type Outcome =
 	| { kind: "idle" }
@@ -265,14 +259,12 @@ function FieldHead({
 	label,
 	labelId,
 	editing,
-	blocked,
 	onEdit,
 	testId,
 }: {
 	label: string;
 	labelId: string;
 	editing: boolean;
-	blocked: string | undefined;
 	onEdit: () => void;
 	testId: string;
 }) {
@@ -286,7 +278,6 @@ function FieldHead({
 					variant="ghost"
 					size="sm"
 					data-testid={`${testId}-edit`}
-					disabledReason={blocked}
 					onClick={onEdit}
 				>
 					Edit
@@ -454,7 +445,6 @@ function TextEdit({
 	agent: AgentTemplate;
 	field: TextField;
 }) {
-	const blocked = useEditBlocked();
 	const labelId = useId();
 	const current = agent[field];
 	const [editing, setEditing] = useState(false);
@@ -472,7 +462,6 @@ function TextEdit({
 				label={TEXT[field].label}
 				labelId={labelId}
 				editing={editing}
-				blocked={blocked}
 				onEdit={() => {
 					setDraft(current ?? "");
 					setEditing(true);
@@ -648,7 +637,6 @@ function RoleBox({
 
 /** An agent's roles, chosen by team. Saving one changes the identity's inputs. */
 export function AgentRolesEdit({ agent }: { agent: AgentTemplate }) {
-	const blocked = useEditBlocked();
 	const labelId = useId();
 	const [editing, setEditing] = useState(false);
 	const [chosen, setChosen] = useState<Role[]>(agent.roles);
@@ -664,7 +652,6 @@ export function AgentRolesEdit({ agent }: { agent: AgentTemplate }) {
 				label="Roles"
 				labelId={labelId}
 				editing={editing}
-				blocked={blocked}
 				onEdit={() => {
 					setChosen(agent.roles);
 					setEditing(true);
@@ -828,7 +815,6 @@ export function PathsEditForm({
 
 /** The globs this agent may change. Saving one changes the identity's inputs. */
 export function AgentPathsEdit({ agent }: { agent: AgentTemplate }) {
-	const blocked = useEditBlocked();
 	const labelId = useId();
 	const [editing, setEditing] = useState(false);
 	const [paths, setPaths] = useState<string[]>(agent.writablePaths);
@@ -845,7 +831,6 @@ export function AgentPathsEdit({ agent }: { agent: AgentTemplate }) {
 				label="Writable paths"
 				labelId={labelId}
 				editing={editing}
-				blocked={blocked}
 				onEdit={() => {
 					setPaths(agent.writablePaths);
 					setAdding("");

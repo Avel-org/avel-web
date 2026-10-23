@@ -19,6 +19,7 @@ import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { initialsOf } from "@/components/avel/actor";
+import { avatarCells } from "@/components/avel/agent-avatar";
 import {
 	AgentCard,
 	agentDescription,
@@ -489,18 +490,28 @@ describe("/catalog/agents: the cards", () => {
 		}
 	});
 
-	it("heads each card with its identity: tile, name, kind and identity ref", async () => {
+	it("heads each card with its identity: avatar, name, kind and identity ref", async () => {
 		const html = await page();
 		const atlas = element(html, "catalog-agent-card-identity-atlas");
-		const tile = tagOf(atlas, "catalog-agent-tile-atlas");
-		expect(tile).toContain('aria-hidden="true"');
-		expect(tile).toContain('data-side="author"');
-		expect(atlas).toContain(">AT<");
+		// The avatar is a picture drawn from the slug: decorative, the same
+		// every time, and different from another agent's.
+		const tile = element(atlas, "catalog-agent-tile-atlas");
+		expect(tagOf(atlas, "catalog-agent-tile-atlas")).toContain(
+			'aria-hidden="true"',
+		);
+		expect(tile).toContain("<rect");
+		expect(avatarCells("atlas")).toEqual(avatarCells("atlas"));
+		expect(avatarCells("atlas")).not.toEqual(avatarCells("nemi"));
+		for (const row of avatarCells("atlas"))
+			expect(row).toEqual([...row].reverse());
 		expect(atlas).toMatch(/<h3[^>]*>Atlas<\/h3>/);
 		// No identity in the fixtures yet: the slug, and not generated.
 		const ref = element(atlas, "catalog-agent-ref-atlas");
 		expect(ref).toContain(">atlas<");
-		expect(ref).toContain(">not generated<");
+		// The state rides on the chip: dashed, said on hover and to readers.
+		expect(ref).toContain('data-generated="false"');
+		expect(ref).toContain('title="Identity not generated"');
+		expect(ref).toContain(">, not generated<");
 		// The template's own version (an edit counter) is never on the card.
 		expect(atlas).not.toContain(`>v${agent("atlas").version}<`);
 		// Kind reads as how the agent is used.
@@ -530,10 +541,10 @@ describe("/catalog/agents: the cards", () => {
 			const section = element(html, `catalog-agent-card-description-${a.slug}`);
 			expect(section).toContain('data-source="written"');
 			const p = tagOf(section, `catalog-agent-description-${a.slug}`);
-			// The card's main text: body size, foreground, in full.
-			expect(p).not.toMatch(/line-clamp/);
-			expect(p).toMatch(/class="[^"]*\btype-body\b/);
-			expect(p).toMatch(/class="[^"]*\btext-foreground\b/);
+			// Two lines on the compact card, the whole text on hover.
+			expect(p).toMatch(/class="[^"]*\bline-clamp-2\b/);
+			expect(p).toMatch(/class="[^"]*\btype-small\b/);
+			expect(p).toContain(`title="${a.description}"`);
 			// The server's own words carry no caption.
 			expect(section).not.toContain("catalog-agent-description-source-");
 		}
@@ -646,40 +657,44 @@ describe("/catalog/agents: the cards", () => {
 		expect(AGENTS.filter(isFirmAgent).map((a) => a.slug)).toEqual(["canon"]);
 	});
 
-	it("shows no other sample on a card: waves and side are live, in one section", async () => {
+	it("shows no other sample on a card: roles and waves are live, in one row, and no side", async () => {
 		const html = await page();
 		expectLabelled(html, [
-			"catalog-agents-read-only",
+			"catalog-agents-identity-note",
 			"catalog-agents-view",
 			"catalog-agent-card-identity-atlas",
-			"catalog-agent-card-roles-atlas",
-			"catalog-agent-card-facts-atlas",
-			"catalog-agent-card-paths-atlas",
+			"catalog-agent-card-tags-atlas",
+			"catalog-agent-card-footer-atlas",
 			"catalog-agent-card-open-atlas",
 		]);
 		expect(regions(element(html, "catalog-agents-cards"))).toHaveLength(0);
-		const facts = element(html, "catalog-agent-card-facts-atlas");
-		expect(facts).toContain('data-testid="catalog-agent-waves-atlas"');
-		expect(facts).toContain('data-testid="catalog-agent-side-atlas"');
-		const side = element(html, "catalog-agent-side-atlas");
-		expect(side).toContain(`>${SIDE_LABELS.author}<`);
-		expect(side).not.toContain("border-dashed");
-		expect(element(html, "catalog-agent-side-canon")).toContain(">No side<");
+		const tags = element(html, "catalog-agent-card-tags-atlas");
+		expect(tags).toContain('data-testid="catalog-agent-roles-atlas"');
+		expect(tags).toContain('data-testid="catalog-agent-waves-atlas"');
+		// The side ("Writes code") left the card at the operator's request;
+		// the agent's page still says it.
+		expect(element(html, "catalog-agents-cards")).not.toContain(
+			"catalog-agent-side-",
+		);
+		expect(tags).not.toContain(`>${SIDE_LABELS.author}<`);
 	});
 
-	it("lists writable paths in mono, three at most, then a count", async () => {
+	it("names its first writable path in mono, counts the rest, and lists them all on hover", async () => {
 		const html = await page();
 		const leonora = element(html, "catalog-agent-paths-leonora");
+		const globs = agent("leonora").writablePaths;
 		expect(
 			[
 				...leonora.matchAll(
-					/<li[^>]*type-mono[^>]*><span[^>]*data-testid="writable-path"[^>]*>([^<]+)</g,
+					/<span[^>]*type-mono[^>]*><span[^>]*data-testid="writable-path"[^>]*>([^<]+)</g,
 				),
 			].map((m) => m[1]),
-		).toEqual(agent("leonora").writablePaths);
-		expect(leonora).not.toContain("more");
-		expect(element(html, "catalog-agent-card-paths-canon")).toContain(
-			">Changes no files.<",
+		).toEqual(globs.slice(0, CARD_PATHS));
+		expect(tagOf(html, "catalog-agent-paths-leonora")).toContain(
+			`title="${globs.join("\n")}"`,
+		);
+		expect(element(html, "catalog-agent-paths-canon")).toContain(
+			">Changes no files<",
 		);
 		const many = {
 			...agent("zane"),
@@ -696,10 +711,6 @@ describe("/catalog/agents: the cards", () => {
 		expect(element(card, "catalog-agent-paths-more-zane")).toContain(
 			`>+${5 - CARD_PATHS} more<`,
 		);
-		// The section's label counts every glob, not only those shown.
-		expect(element(card, "catalog-agent-card-paths-zane")).toMatch(
-			/Files it may change<\/span><span[^>]*>5</,
-		);
 	});
 
 	it("names a glob that matches every file Any file, the glob kept in its title", () => {
@@ -714,16 +725,21 @@ describe("/catalog/agents: the cards", () => {
 			</ul>,
 		);
 		const paths = element(card, "catalog-agent-paths-zane");
-		const [any, src] = [
+		const [any] = [
 			...paths.matchAll(/<span[^>]*data-testid="writable-path"[^>]*>[^<]*</g),
 		].map((m) => m[0]);
 		expect(any).toContain('title="**"');
 		expect(any).toContain('data-glob="**"');
-		// Prose, so it leaves the list's mono.
+		// Prose, so it leaves the path's mono.
 		expect(any).toMatch(/class="[^"]*\bfont-sans\b[^"]*"[^>]*>Any file<$/);
 		expect(paths).not.toMatch(/>\*\*</);
-		expect(src).toMatch(/>src\/\*\*<$/);
-		expect(src).not.toContain("font-sans");
+		// The rest is counted, and named whole on hover.
+		expect(element(card, "catalog-agent-paths-more-zane")).toContain(
+			">+1 more<",
+		);
+		expect(tagOf(card, "catalog-agent-paths-zane")).toContain(
+			'title="**\nsrc/**"',
+		);
 	});
 
 	it("is one link to the agent's page, stretched over the card", async () => {
@@ -1069,9 +1085,11 @@ describe("an agent page's tabs", () => {
 		expect(fresh).not.toContain("out of date");
 		const stale = card({ ...atlas, identityVersion: 3, identityStale: true });
 		expect(stale).toContain(">atlas@v3<");
-		expect(stale.match(/out of date/g)).toHaveLength(1);
-		expect(stale).toMatch(/text-gate-warn[^"]*">out of date</);
-		expect(card(atlas)).toContain(">not generated<");
+		// The chip itself turns warn, and says why on hover and to readers.
+		expect(stale).toContain("text-gate-warn");
+		expect(stale).toContain('title="Identity atlas@v3, out of date"');
+		expect(stale.match(/>, out of date</g)).toHaveLength(1);
+		expect(card(atlas)).toContain(">, not generated<");
 		// Said in one place: no second identity line on the card.
 		const whole = tip(
 			<ul>
@@ -1080,7 +1098,7 @@ describe("an agent page's tabs", () => {
 				/>
 			</ul>,
 		);
-		expect(whole.match(/out of date/g)).toHaveLength(1);
+		expect(whole.match(/>, out of date</g)).toHaveLength(1);
 		expect(whole).not.toContain("catalog-agent-identity-cue-");
 	});
 
@@ -1134,7 +1152,7 @@ describe("/catalog/agents: the artifact graph", () => {
 	);
 
 	it("sits in a region whose pill names the artifact edge graph", () => {
-		expectLabelled(page, ["catalog-agents-read-only"]);
+		expectLabelled(page, ["catalog-agents-identity-note"]);
 		expect(tagOf(page, "catalog-agents-graph-region")).toContain(
 			`data-sample-region="${AGENT_MISSING.edges}"`,
 		);
@@ -1352,7 +1370,7 @@ describe("every state of the live template list", () => {
 		expect(html).toContain(">req_catalog<");
 		expect(html).not.toContain("catalog-agents-side-all-count");
 		expect(html).not.toContain('data-testid="sample-data"');
-		expect(html).toContain('data-testid="catalog-agents-read-only"');
+		expect(html).toContain('data-testid="catalog-agents-identity-note"');
 	});
 });
 

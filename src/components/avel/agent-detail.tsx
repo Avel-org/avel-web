@@ -39,6 +39,7 @@ import type { ApiError } from "@/lib/api/errors";
 import { useSessionState } from "@/lib/auth";
 import { AgentTools } from "./agent-access";
 import { AgentActivity } from "./agent-activity";
+import { AgentAvatar } from "./agent-avatar";
 import {
 	AgentDescriptionEdit,
 	AgentPathsEdit,
@@ -60,7 +61,6 @@ import {
 	BannerStat,
 	BannerStatus,
 	type BannerTab,
-	BannerTile,
 	EntityBanner,
 	PinnedBanner,
 } from "./entity-banner";
@@ -112,7 +112,7 @@ export function wavesLabel(
 }
 
 /**
- * "Build team · Writes code · Owns one feature · Wave B · v3": its team, its
+ * "Build team, Writes code, Owns one feature, Wave B, v3": its team, its
  * side when it has one, its kind, when it works and its version.
  */
 export function agentFacts(agent: AgentTemplate): string {
@@ -127,7 +127,28 @@ export function agentFacts(agent: AgentTemplate): string {
 		KIND_LABELS[agent.kind],
 		...(waves ? [waves.charAt(0).toUpperCase() + waves.slice(1)] : []),
 		`v${agent.version}`,
-	].join(" · ");
+	].join(", ");
+}
+
+/**
+ * The banner's tile: the agent's avatar, with what it does (its side's icon)
+ * on a badge at its corner, so the picture names the agent and the badge
+ * says its kind of work (ruling 46).
+ */
+function AgentBannerTile({ agent }: { agent: AgentTemplate }) {
+	const Icon = agentIcon(agent);
+	return (
+		<span
+			aria-hidden="true"
+			data-testid="agent-banner-tile"
+			className="relative inline-flex shrink-0"
+		>
+			<AgentAvatar slug={agent.slug} size="xl" />
+			<span className="absolute -right-1.5 -bottom-1.5 inline-flex size-tile-sm items-center justify-center rounded-full border border-border bg-app-panel text-text-muted shadow-btn">
+				<Icon className="size-3.5" />
+			</span>
+		</span>
+	);
 }
 
 /** The tile's icon: what the agent does, by its side, or the firm's building. */
@@ -296,7 +317,6 @@ function AgentPage({
 	const record = useAgentTemplate(agent.slug);
 	const me = session.status === "signed-in" ? session.user.id : undefined;
 	const tabs = useTabs(agent, mission);
-	const icon = agentIcon(agent);
 	const banner = useRef<HTMLElement>(null);
 	usePageKeys(onTab);
 	return (
@@ -313,7 +333,13 @@ function AgentPage({
 				data-testid="agent-pinned"
 				className="-mb-6"
 				watch={banner}
-				icon={icon}
+				tile={
+					<AgentAvatar
+						slug={agent.slug}
+						size="md"
+						data-testid="agent-pinned-tile"
+					/>
+				}
 				name={agent.name}
 				tabs={tabs}
 				value={tab}
@@ -323,7 +349,7 @@ function AgentPage({
 				ref={banner}
 				data-testid="agent-banner"
 				back={{ label: "All agents", to: "/catalog/agents" }}
-				tile={<BannerTile icon={icon} data-testid="agent-banner-tile" />}
+				tile={<AgentBannerTile agent={agent} />}
 				status={<AgentStatus agent={agent} />}
 				name={agent.name}
 				facts={agentFacts(agent)}

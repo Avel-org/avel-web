@@ -104,7 +104,7 @@ function runQuery<T>(
 }
 
 describe("the preset queries", () => {
-	it("sends the search and cut only when set, and pages by cursor", async () => {
+	it("sends the search only when set, and pages by cursor", async () => {
 		const { client: api, calls } = fakeApi(() => ({
 			status: 200,
 			body: { success: true, data: [preset(1)], meta: { nextCursor: "c2" } },
@@ -112,13 +112,13 @@ describe("the preset queries", () => {
 		await runQuery(presetsQuery(api), undefined);
 		expect(calls[0]?.path).toBe("http://avel.test/api/presets?limit=50");
 
-		const filtered = presetsQuery(api, "  full  ", "horizontal");
+		const filtered = presetsQuery(api, "  full  ");
 		expect(filtered.queryKey).toEqual(
-			queryKeys.presets.list(50, { q: "full", cut: "horizontal" }),
+			queryKeys.presets.list(50, { q: "full" }),
 		);
 		await runQuery(filtered, "c2");
 		expect(calls[1]?.path).toContain("q=full");
-		expect(calls[1]?.path).toContain("cut=horizontal");
+		expect(calls[1]?.path).not.toContain("cut=");
 		expect(calls[1]?.path).toContain("cursor=c2");
 	});
 

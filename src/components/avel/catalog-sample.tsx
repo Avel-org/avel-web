@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiError } from "@/lib/api/errors";
 import { WAVE_TEAM } from "@/lib/api/roster";
 import { cn } from "@/lib/utils";
+import { Paging } from "./panel-footer";
 import { SampleData } from "./sample-data";
 import { StatusPill, type StatusTone } from "./status-pill";
 import type { SurfaceQuery } from "./surface";
@@ -133,7 +134,14 @@ export function CatalogBack({
  * A role in plain words first ("API endpoints"), its slug small and second
  * for technical readers. A role run by code, not a model, says Automated.
  */
-export function RoleTag({ role }: { role: Role }) {
+export function RoleTag({
+	role,
+	compact = false,
+}: {
+	role: Role;
+	/** On a card: the plain name only, the role's slug on hover. */
+	compact?: boolean;
+}) {
 	const automated = ROLE_RUNNER[role] === "code";
 	return (
 		<Badge
@@ -141,10 +149,13 @@ export function RoleTag({ role }: { role: Role }) {
 			data-testid="catalog-role"
 			data-role={role}
 			data-runner={ROLE_RUNNER[role]}
+			title={compact ? role : undefined}
 			className="gap-1.5"
 		>
 			<span data-testid="catalog-role-label">{ROLE_LABELS[role]}</span>
-			<span className="type-mono text-text-subtle">{role}</span>
+			{compact ? null : (
+				<span className="type-mono text-text-subtle">{role}</span>
+			)}
 			{automated ? (
 				<span
 					data-testid="catalog-role-automated"
@@ -227,27 +238,16 @@ export function CatalogListFooter({
 			data-testid={testId}
 			className="flex items-center justify-between gap-2 px-3"
 		>
-			{total === undefined ? (
-				<span />
-			) : (
-				<p
-					data-testid={`${testId}-showing`}
-					className="type-caption text-text-subtle tabular-nums"
-				>
-					{`Showing ${loaded} of ${total}`}
-				</p>
-			)}
-			{hasMore ? (
-				<Button
-					variant="ghost"
-					size="sm"
-					data-testid={`${testId}-load-more`}
-					disabled={loadingMore}
-					onClick={onLoadMore}
-				>
-					{loadingMore ? "Loading" : "Load more"}
-				</Button>
-			) : null}
+			{/* A spacer keeps Load more at the end when there is no total. */}
+			{total === undefined ? <span /> : null}
+			<Paging
+				loaded={loaded}
+				total={total}
+				hasMore={hasMore}
+				loadingMore={loadingMore}
+				onLoadMore={onLoadMore}
+				testIdPrefix={testId}
+			/>
 		</div>
 	);
 }

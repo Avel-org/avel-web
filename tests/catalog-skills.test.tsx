@@ -1,16 +1,10 @@
-import {
-	ROLE_TEAM,
-	ROLES,
-	type Skill,
-	skillSchema,
-} from "avel-server/contract";
+import { ROLES, type Skill, skillSchema, TEAMS } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
 import {
 	agentsOfSkill,
 	CATALOG_MISSING,
 	carryingRoles,
 	SAMPLE_ROLE_ATTACHMENTS,
-	SAMPLE_TEAM_TABLE,
 	sampleRegistry,
 	sampleRoleAttachments,
 	skillsNeedingReview,
@@ -22,18 +16,22 @@ import {
 } from "@/components/avel/catalog-skill-actions";
 import { filterRegistry } from "@/components/avel/catalog-skill-discover";
 import {
-	attachedCount,
+	filterSkills,
+	SKILL_SECTIONS,
+	sectionOf,
+	skillSections,
+	sourceName,
+} from "@/components/avel/catalog-skill-index";
+import {
+	attachedTeams,
+	attachedTotal,
 	HASH_COVERS,
 	SKILL_WRITE_REASON,
 	SkillInspector,
 	skillMarkdown,
 	sourceLine,
 } from "@/components/avel/catalog-skill-inspector";
-import {
-	filterSkills,
-	groupBySource,
-	reviewBannerText,
-} from "@/components/avel/catalog-skill-sidebar";
+import { shortHash } from "@/components/avel/short-hash";
 import {
 	AGENTS,
 	catalogSeed,
@@ -50,12 +48,14 @@ import {
 import { renderPage, tagOf } from "./render-page";
 
 /*
- * /catalog/skills as a registry (the Skill Center brief): a sidebar grouped
- * by source with a review banner, and one skill's inspector, Discover, or a
- * new skill. The skills, the selected skill, the templates that carry it and
- * the sources are live, rendered through the real router with a seeded
- * QueryClient. A role skill's attachments and a source's index are labelled
- * samples (AVEL-DESIGN.md ruling 32). The writes with a route are live
+ * /catalog/skills as one reading column (ruling 52): an index of every skill
+ * in sections (what needs review, then where each is delivered), and in its
+ * place, one at a time, a skill read as a document, Discover, Sources, or a
+ * new skill, under a trail back to the index. The skills, the selected
+ * skill, the templates that carry it and the sources are live, rendered
+ * through the real router with a seeded QueryClient. A role skill's
+ * attachments and a source's index are labelled samples (AVEL-DESIGN.md
+ * ruling 32). The writes with a route are live
  * (tests/catalog-skill-writes.test.tsx); the rest are real controls,
  * disabled with their reason.
  */
@@ -167,10 +167,22 @@ function expectDisabledWithReason(
 	);
 }
 
-/** The slugs of the sidebar's rows: links carrying a data-status. */
+/** The slugs of the index's rows, in order: links carrying a data-status. */
 const rowSlugs = (html: string): string[] =>
 	[
 		...html.matchAll(/data-testid="skill-row-([a-z0-9-]+)"[^>]*data-status=/g),
+	].map((m) => m[1] ?? "");
+
+/** The ids of the index's sections, in order. */
+const sectionIds = (html: string): string[] =>
+	[...html.matchAll(/data-testid="skill-section-([a-z]+)"/g)].map(
+		(m) => m[1] ?? "",
+	);
+
+/** The roles of the RoleTags in a piece of markup, in order. */
+const tagRoles = (html: string): string[] =>
+	[
+		...html.matchAll(/data-testid="catalog-role"[^>]*data-role="([a-z-]+)"/g),
 	].map((m) => m[1] ?? "");
 
 const classes = (html: string, testid: string): string[] =>
@@ -205,21 +217,10 @@ const page = (search = ""): Promise<string> => {
 const inspector = (s: Skill) =>
 	inProviders(<SkillInspector skill={s} />, seededClient({ agents: AGENTS }));
 
-/** Every role switch's state in a page, read from the attach panel once. */
-function switchStates(html: string): Map<string, string> {
-	const panel = element(html, "skill-attach-panel");
-	const states = new Map<string, string>();
-	for (const [tag] of panel.matchAll(/<button[^>]*>/g)) {
-		const role = tag.match(/data-testid="skill-role-([a-z-]+)"/)?.[1];
-		const state = tag.match(/data-state="([a-z]+)"/)?.[1];
-		if (role && state) states.set(role, state);
-	}
-	return states;
-}
-
 const ROLE_SKILL = "property-testing-fast-check";
 const IMPORTED_CAPABILITY = "database-read";
 const WITH_ADDITIONS = "nextjs-route-handlers";
+const RETIRED = "package-registry";
 
 // ---------------------------------------------------------------------------
 // The fixtures and the rules on them.
@@ -242,14 +243,72 @@ describe("skill fixtures and rules", () => {
 	});
 });
 
-describe("sidebar rules", () => {
-	it("puts Yours first, then each other source by name, leaving out empty groups", () => {
-		const groups = groupBySource(SKILLS);
-		expect(groups[0]?.label).toBe("Yours");
-		const rest = groups.slice(1).map((g) => g.label);
-		expect(rest).toEqual([...rest].sort((a, b) => a.localeCompare(b)));
-		expect(groups.reduce((n, g) => n + g.skills.length, 0)).toBe(SKILLS.length);
-		expect(groupBySource([])).toEqual([]);
+describe("index rules", () => {
+	it("orders the sections review first, then role, stack, domain, retired, each said without a middle dot", () => {
+		expect(SKILL_SECTIONS.map((s) => s.id)).toEqual([
+			"review",
+			"role",
+			"stack",
+			"domain",
+			"retired",
+		]);
+		expect(SKILL_SECTIONS[0]?.label).toBe("Needs your review");
+		for (const s of SKILL_SECTIONS) {
+			expect(s.label, s.id).not.toContain(MIDDLE_DOT);
+			expect(s.meaning, s.id).not.toContain(MIDDLE_DOT);
+		}
+	});
+
+	it("sections by status first, then by layer, leaving out empty sections", () => {
+		expect(sectionOf({ status: "draft", layer: "role" })).toBe("review");
+		expect(sectionOf({ status: "draft", layer: "stack" })).toBe("review");
+		expect(sectionOf({ status: "retired", layer: "role" })).toBe("retired");
+		expect(sectionOf({ status: "approved", layer: "domain" })).toBe("domain");
+		const sections = skillSections(SKILLS);
+		expect(sections.reduce((n, s) => n + s.skills.length, 0)).toBe(
+			SKILLS.length,
+		);
+		for (const section of sections) {
+			expect(section.skills.length, section.id).toBeGreaterThan(0);
+		}
+		// The fixtures have no domain skill, so no domain section.
+		expect(sections.map((s) => s.id)).toEqual([
+			"review",
+			"role",
+			"stack",
+			"retired",
+		]);
+		expect(skillSections([])).toEqual([]);
+	});
+
+	it("puts a draft role skill under review, not role, and a retired one under retired", () => {
+		const draftRole = {
+			...skill(ROLE_SKILL),
+			id: "draft-role",
+			slug: "draft-role",
+			status: "draft" as const,
+		};
+		const retiredRole = {
+			...skill("criterion-tags"),
+			id: "retired-role",
+			slug: "retired-role",
+			status: "retired" as const,
+		};
+		const sections = skillSections([...SKILLS, draftRole, retiredRole]);
+		const slugsIn = (id: string) =>
+			sections.find((s) => s.id === id)?.skills.map((s) => s.slug) ?? [];
+		expect(slugsIn("review")).toContain("draft-role");
+		expect(slugsIn("role")).not.toContain("draft-role");
+		expect(slugsIn("retired")).toEqual([RETIRED, "retired-role"]);
+		expect(slugsIn("role")).not.toContain("retired-role");
+	});
+
+	it("names a row's source: Yours for AVEL's own, else the source's name", () => {
+		expect(sourceName(skill(ROLE_SKILL))).toBe("Yours");
+		expect(sourceName(skill(WITH_ADDITIONS))).toBe("Framework vendor pack");
+		expect(sourceName(skill(IMPORTED_CAPABILITY))).toBe(
+			"Community skills index",
+		);
 	});
 
 	it("filters by name, slug or description, ignoring case, and by drafts", () => {
@@ -260,11 +319,6 @@ describe("sidebar rules", () => {
 		const drafts = filterSkills(SKILLS, undefined, true);
 		expect(drafts.length).toBeGreaterThan(0);
 		expect(drafts.every((s) => s.status === "draft")).toBe(true);
-	});
-
-	it("words the banner without a middle dot, singular and plural", () => {
-		expect(reviewBannerText(1)).toBe("1 update needs review");
-		expect(reviewBannerText(2)).toBe("2 updates need review");
 	});
 
 	it("filters the registry by name, path or description", () => {
@@ -332,23 +386,25 @@ describe("/catalog/skills, a skill", () => {
 			[
 				"skills-discover",
 				"skills-new",
+				"catalog-skills-back",
 				"skill-approve",
 				"skill-retire",
-				"skill-filter",
-				`skill-row-${IMPORTED_CAPABILITY}`,
 				"skill-status",
 				"skill-hash",
+				"skill-hash-copy",
 				"skill-description-length",
 				"skill-capability",
 				"skill-code",
+				"skill-markdown-copy",
 				"catalog-agent-link-iyo",
 			],
 			[],
 		);
-		expect(tagOf(html, "skill-filter-input")).toContain(
-			'placeholder="Filter skills"',
+		// One column: a skill replaces the index, it does not sit beside it.
+		expect(html).not.toContain('data-testid="skill-index"');
+		expect(html).not.toContain(
+			`data-testid="skill-row-${IMPORTED_CAPABILITY}"`,
 		);
-		expect(html).toMatch(/<label[^>]*>Filter skills<\/label>/);
 	});
 
 	it("samples only a role skill's attachments and the carriers they imply", async () => {
@@ -356,6 +412,8 @@ describe("/catalog/skills, a skill", () => {
 		expect(new Set(regions(html).map((r) => r.missing))).toEqual(
 			new Set([CATALOG_MISSING.roleAttachments]),
 		);
+		const [first] = attachedTeams(carryingRoles(skill(ROLE_SKILL)));
+		expect(first).toBeDefined();
 		expectLabelled(
 			html,
 			[
@@ -364,8 +422,13 @@ describe("/catalog/skills, a skill", () => {
 				"skill-status",
 				"skill-hash",
 				"skill-code",
+				"skill-attach-change",
 			],
-			["skill-role-property-tests", "skill-carried-by-list"],
+			[
+				"skill-attach-total",
+				`skill-team-${first?.team}`,
+				"skill-carried-by-list",
+			],
 		);
 	});
 
@@ -382,11 +445,11 @@ describe("/catalog/skills, a skill", () => {
 			"skill-approve",
 			approveBlocker(skill(WITH_ADDITIONS)) ?? "",
 		);
-		const retired = await page("?skill=package-registry");
+		const retired = await page(`?skill=${RETIRED}`);
 		for (const [testid, reason] of [
-			["skill-edit", editBlocker(skill("package-registry"))],
-			["skill-approve", approveBlocker(skill("package-registry"))],
-			["skill-retire", retireBlocker(skill("package-registry"))],
+			["skill-edit", editBlocker(skill(RETIRED))],
+			["skill-approve", approveBlocker(skill(RETIRED))],
+			["skill-retire", retireBlocker(skill(RETIRED))],
 		] as const) {
 			expectDisabledWithReason(retired, testid, reason ?? "");
 		}
@@ -399,12 +462,6 @@ describe("/catalog/skills, a skill", () => {
 		expect(facts).toContain(">stack<");
 		expect(facts).toContain(">capability<");
 		expect(element(html, "skill-status")).toContain(">Draft<");
-		expect(element(html, "skill-hash")).toContain(
-			`data-full="${s.contentSha256}"`,
-		);
-		expect(element(html, "skill-hash-covers")).toContain(
-			HASH_COVERS.replaceAll("'", "&#x27;"),
-		);
 		expect(tagOf(html, "skill-description-length")).toContain(
 			`data-length="${s.description.length}"`,
 		);
@@ -415,6 +472,48 @@ describe("/catalog/skills, a skill", () => {
 		expect(element(html, "skill-source-line")).toContain(
 			">From Community skills index<",
 		);
+	});
+
+	it("pins the version by its full hash, with Copy and what the hash covers", async () => {
+		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
+		const s = skill(IMPORTED_CAPABILITY);
+		const pinned = element(html, "skill-pinned");
+		expect(pinned).toContain(`>${s.slug}@v${s.version}<`);
+		const hash = tagOf(pinned, "skill-hash");
+		expect(hash).toMatch(/^<code/);
+		expect(hash).toContain(`data-full="${s.contentSha256}"`);
+		expect(hash).toContain(`title="${s.contentSha256}"`);
+		// Seven characters to the eye, the whole hash to a screen reader.
+		const shown = element(pinned, "skill-hash");
+		expect(shown).toContain(
+			`<span aria-hidden="true">${shortHash(s.contentSha256)}</span>`,
+		);
+		expect(shown).toContain(`<span class="sr-only">${s.contentSha256}</span>`);
+		expect(tagOf(pinned, "skill-hash-copy")).toContain(
+			'aria-label="Copy the content hash"',
+		);
+		expect(element(pinned, "skill-hash-covers")).toContain(
+			HASH_COVERS.replaceAll("'", "&#x27;"),
+		);
+		// The pin comes before the facts: it is what an agent receives.
+		expect(indexOf(html, "skill-pinned")).toBeLessThan(
+			indexOf(html, "skill-facts"),
+		);
+	});
+
+	it("marks a skill that is not approved in its header, and an approved one not at all", async () => {
+		const draft = element(
+			await page(`?skill=${IMPORTED_CAPABILITY}`),
+			"skill-header",
+		);
+		expect(draft).toContain(">Draft<");
+		expect(draft).toContain('data-skill-type="capability"');
+		const approved = element(
+			await page(`?skill=${WITH_ADDITIONS}`),
+			"skill-header",
+		);
+		expect(approved).not.toContain(">Approved<");
+		expect(approved).toContain('data-skill-type="knowledge"');
 	});
 
 	it("never badges a capability as enforced, and says an imported draft can't attach", async () => {
@@ -429,12 +528,16 @@ describe("/catalog/skills, a skill", () => {
 		);
 	});
 
-	it("shows SKILL.md with its frontmatter and headings marked, and AVEL's additions apart", async () => {
+	it("shows SKILL.md with its frontmatter and headings marked, a Copy, and AVEL's additions apart", async () => {
 		const html = await page(`?skill=${WITH_ADDITIONS}`);
 		const code = element(html, "skill-code-text");
 		expect(code).toMatch(/<span data-tone="key"[^>]*>name: /);
 		expect(code).toMatch(/<span data-tone="key"[^>]*>version: /);
 		expect(code).toMatch(/<span data-tone="heading"[^>]*># /);
+		const markdown = element(html, "skill-markdown");
+		expect(tagOf(markdown, "skill-markdown-copy")).toContain(
+			'aria-label="Copy SKILL.md"',
+		);
 		const additions = element(html, "skill-additions");
 		expect(additions).toContain("AVEL&#x27;s additions");
 		expect(code).not.toContain("AVEL&#x27;s additions");
@@ -507,6 +610,10 @@ describe("/catalog/skills, a skill", () => {
 		);
 		expect(stale).not.toContain('data-testid="surface-error"');
 		expect(stale).not.toContain('data-testid="skill-inspector"');
+		// The trail still leads back to the index.
+		expect(tagOf(stale, "skill-trail-index")).toContain(
+			'href="/catalog/skills"',
+		);
 
 		const failed = await renderSeeded(
 			`/catalog/skills?skill=${ROLE_SKILL}`,
@@ -523,10 +630,12 @@ describe("/catalog/skills, a skill", () => {
 
 	it("writes no middle dot anywhere in the skills page", async () => {
 		for (const search of [
+			"",
 			`?skill=${IMPORTED_CAPABILITY}`,
 			`?skill=${ROLE_SKILL}`,
 			"?view=discover",
 			"?view=new",
+			"?view=sources",
 		]) {
 			expect(
 				element(await page(search), "catalog-skills"),
@@ -549,10 +658,11 @@ describe("the live list's four states", () => {
 		expect(html).not.toContain('data-testid="topbar-subtitle"');
 	});
 
-	it("counts from meta.total in the top bar, and offers the next page", async () => {
+	it("counts from meta.total in the top bar, says how old the list is, and offers the next page", async () => {
 		expect(element(await page(), "topbar-subtitle")).toContain(
 			`>${SKILLS.length} skills<`,
 		);
+		expect(await page()).toContain('data-testid="catalog-skills-read-age"');
 		const html = await renderSeeded(
 			"/catalog/skills",
 			seededClient({ skills: { rows: SKILLS, total: 40, nextCursor: "c2" } }),
@@ -563,6 +673,10 @@ describe("the live list's four states", () => {
 		);
 		expect(html).toContain(
 			'data-testid="catalog-skills-list-footer-load-more"',
+		);
+		// The footer sits in the index, under the last section.
+		expect(element(html, "skill-index")).toContain(
+			'data-testid="catalog-skills-list-footer"',
 		);
 		const one = await renderSeeded(
 			"/catalog/skills",
@@ -580,6 +694,7 @@ describe("the live list's four states", () => {
 			'data-state="empty"',
 		);
 		expect(html).toContain('data-testid="catalog-skills-empty"');
+		expect(html).not.toContain('data-testid="skill-index"');
 		expect(tagOf(html, "catalog-skills-empty-new")).toContain(
 			'href="/catalog/skills?view=new"',
 		);
@@ -604,64 +719,127 @@ describe("the live list's four states", () => {
 });
 
 describe("attaching", () => {
-	it("gives a role skill one disabled switch per role, grouped by team, from its sample attachments", async () => {
+	it("shows a role skill's attached roles by team, from its sample attachments, behind the attachment pill", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
 		const s = skill(ROLE_SKILL);
-		const panel = element(html, "skill-attach-panel");
-		for (const { team } of SAMPLE_TEAM_TABLE) {
-			const card = element(panel, `skill-team-${team}`);
-			const roles = ROLES.filter((role) => ROLE_TEAM[role] === team);
-			for (const role of roles) {
-				expect(card, role).toContain(`data-testid="skill-role-${role}"`);
-				const sw = tagOf(card, `skill-role-${role}`);
-				// Attachment (role_skills), never recommendedFor.
-				const on = carryingRoles(s).includes(role);
-				expect(sw, role).toContain(
-					`data-state="${on ? "checked" : "unchecked"}"`,
-				);
-				expect(sw, role).toMatch(/\sdisabled=""/);
-				expect(sw, role).toMatch(/aria-describedby="[^"]+"/);
-			}
-		}
-		expect(html).toContain(SKILL_WRITE_REASON.attach.replaceAll("'", "&#x27;"));
-		// Platform roles are code: no team card, no switch.
-		expect(panel).not.toContain('data-testid="skill-role-render"');
+		const attached = carryingRoles(s);
+		const teams = attachedTeams(attached);
+		expect(teams.length).toBeGreaterThan(0);
+		const sample = element(html, "skill-attach-sample");
 		expect(tagOf(html, "skill-attach-sample")).toContain(
 			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
 		);
+		expect(element(sample, "skill-attach-total")).toContain(
+			`>${attachedTotal(attached.length, teams.length)}<`,
+		);
+		// One row per team that has an attached role, in catalog order.
+		expect(
+			[...sample.matchAll(/data-testid="skill-team-([a-z-]+)"/g)].map(
+				(m) => m[1],
+			),
+		).toEqual(teams.map((t) => t.team));
+		for (const { team, roles } of teams) {
+			// Only the attached roles: attachment (role_skills), never recommendedFor.
+			expect(tagRoles(element(sample, `skill-team-${team}`)), team).toEqual(
+				roles,
+			);
+		}
+		expect(tagRoles(sample).sort()).toEqual([...attached].sort());
+		expect(html).not.toContain('data-slot="switch"');
+		expect(html).not.toContain('data-testid="skill-attach-none"');
 	});
 
-	it("says a stack skill is given at dispatch, live, with no role switches and no pill", async () => {
+	it("says a stack skill is given at dispatch, live, with no team rows, no Change roles and no pill", async () => {
 		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
 		const panel = element(html, "skill-attach-panel");
-		expect(panel).not.toContain('data-slot="switch"');
+		expect(panel).not.toContain('data-testid="skill-attach-change"');
+		expect(panel).not.toContain('data-testid="skill-attach-total"');
+		expect(panel).not.toMatch(/data-testid="skill-team-/);
 		expect(panel).not.toContain("data-sample-region=");
-		expect(html).not.toContain('data-testid="skill-attach-reason"');
 		expect(element(panel, "skill-dispatch")).toContain(
 			"given at dispatch to missions whose roles include",
 		);
-		for (const role of skill(IMPORTED_CAPABILITY).recommendedFor) {
-			expect(panel).toContain(`>${role}<`);
-		}
+		expect(tagRoles(element(panel, "skill-attach-dispatch")).sort()).toEqual(
+			[...skill(IMPORTED_CAPABILITY).recommendedFor].sort(),
+		);
 	});
 });
 
-describe("the sidebar", () => {
-	it("groups rows by source, Yours first, with counts, behind no pill", async () => {
+describe("the index", () => {
+	it("shows the two ways in, then the filter, behind no pill", async () => {
 		const html = await page();
-		const sidebar = element(html, "skill-sidebar");
-		expect(sidebar).not.toContain('data-testid="sample-data"');
-		const order = [
-			...sidebar.matchAll(/data-testid="skill-group-([^"]+)"/g),
-		].map((m) => m[1]);
-		expect(order[0]).toBe("yours");
-		for (const group of groupBySource(SKILLS)) {
-			const el = element(sidebar, `skill-group-${group.id}`);
-			expect(el).toContain(`>${group.label}<`);
-			expect(el).toContain(`>${group.skills.length}<`);
-			for (const s of group.skills) {
-				expect(el).toContain(`data-testid="skill-row-${s.slug}"`);
-			}
+		const index = element(html, "skill-index");
+		expect(index).not.toContain('data-testid="sample-data"');
+		expect(tagOf(index, "skill-entry-new")).toContain(
+			'href="/catalog/skills?view=new"',
+		);
+		expect(tagOf(index, "skill-entry-discover")).toContain(
+			'href="/catalog/skills?view=discover"',
+		);
+		expect(tagOf(html, "skill-filter-input")).toContain(
+			'placeholder="Filter skills"',
+		);
+		expect(html).toMatch(/<label[^>]*>Filter skills<\/label>/);
+		expect(indexOf(index, "skill-entry-new")).toBeLessThan(
+			indexOf(index, "skill-filter"),
+		);
+		expect(indexOf(index, "skill-filter")).toBeLessThan(
+			indexOf(index, "skill-section-review"),
+		);
+	});
+
+	it("sections the rows, Needs your review first, with counts and what each means", async () => {
+		const html = await page();
+		const index = element(html, "skill-index");
+		const sections = skillSections(SKILLS);
+		expect(sectionIds(index)).toEqual(sections.map((s) => s.id));
+		expect(sectionIds(index)[0]).toBe("review");
+		for (const section of sections) {
+			const el = element(index, `skill-section-${section.id}`);
+			expect(el).toContain(`aria-labelledby="skill-section-${section.id}"`);
+			expect(el).toContain(`>${section.label}<`);
+			expect(el).toContain(`>${section.skills.length}<`);
+			expect(el).toContain(section.meaning.replaceAll("'", "&#x27;"));
+			expect(rowSlugs(el)).toEqual(section.skills.map((s) => s.slug));
+		}
+		// Every skill appears in exactly one section.
+		expect(rowSlugs(index).sort()).toEqual(SKILLS.map((s) => s.slug).sort());
+	});
+
+	it("files a draft role skill under review and a retired one under retired, in the page", async () => {
+		const draftRole = {
+			...skill(ROLE_SKILL),
+			id: "draft-role",
+			slug: "draft-role",
+			status: "draft" as const,
+		};
+		const html = await renderSeeded(
+			"/catalog/skills",
+			seededClient({ skills: [...SKILLS, draftRole], agents: AGENTS }),
+		);
+		expect(rowSlugs(element(html, "skill-section-review"))).toContain(
+			"draft-role",
+		);
+		expect(rowSlugs(element(html, "skill-section-role"))).not.toContain(
+			"draft-role",
+		);
+		expect(rowSlugs(element(html, "skill-section-retired"))).toEqual([RETIRED]);
+		expect(rowSlugs(element(html, "skill-section-stack"))).not.toContain(
+			RETIRED,
+		);
+	});
+
+	it("names each row's source on the row, since sections are not by source", async () => {
+		const html = await page();
+		for (const s of SKILLS) {
+			const row = element(html, `skill-row-${s.slug}`);
+			expect(element(row, "skill-row-source"), s.slug).toContain(
+				`>${sourceName(s)}<`,
+			);
+			expect(element(row, "skill-row-name"), s.slug).toContain(`>${s.name}<`);
+			expect(tagOf(html, `skill-row-${s.slug}`)).toContain(
+				`href="/catalog/skills?skill=${s.slug}"`,
+			);
 		}
 	});
 
@@ -671,6 +849,9 @@ describe("the sidebar", () => {
 		expect(SKILLS.some((s) => s.status === "retired")).toBe(true);
 		for (const s of SKILLS) {
 			const row = element(html, `skill-row-${s.slug}`);
+			expect(tagOf(html, `skill-row-${s.slug}`)).toContain(
+				`data-status="${s.status}"`,
+			);
 			expect(row.includes('data-testid="skill-row-draft"'), s.slug).toBe(
 				s.status === "draft",
 			);
@@ -681,14 +862,14 @@ describe("the sidebar", () => {
 			// title, never an unlabelled mark.
 			if (s.status === "draft") {
 				expect(element(row, "skill-row-draft")).toMatch(/>Draft</);
-				expect(row).toContain(
-					'title="Draft: waits for review before it can be attached"',
+				expect(element(row, "skill-row-draft")).toContain(
+					'data-slot="status-glyph"',
 				);
 			}
 			if (s.status === "retired") {
 				expect(element(row, "skill-row-retired")).toMatch(/>Retired</);
-				expect(row).toContain(
-					`title="Retired: read-only, and it can&#x27;t be attached again"`,
+				expect(element(row, "skill-row-retired")).toContain(
+					'data-slot="status-glyph"',
 				);
 			}
 			expect(
@@ -701,33 +882,38 @@ describe("the sidebar", () => {
 		}
 	});
 
-	it("shows the review banner, linking to the drafts and back", async () => {
-		const count = skillsNeedingReview(SKILLS).length;
+	it("shows drafts only under filter=drafts, saying so, with a way back and the filter kept on each row", async () => {
 		const all = await page();
-		const banner = element(all, "skill-review-banner");
-		expect(banner).toContain(reviewBannerText(count));
-		expect(tagOf(all, "skill-review-banner")).toContain(
-			'href="/catalog/skills?filter=drafts"',
-		);
-
+		expect(all).not.toContain('data-testid="skill-drafts-only"');
 		const drafts = await page("?filter=drafts");
-		expect(tagOf(drafts, "skill-review-banner")).toContain(
-			'href="/catalog/skills"',
-		);
-		const shown = rowSlugs(element(drafts, "skill-sidebar"));
-		expect(shown.sort()).toEqual(
+		const note = element(drafts, "skill-drafts-only");
+		expect(note).toContain("Showing drafts only.");
+		expect(note).toContain('href="/catalog/skills"');
+		const index = element(drafts, "skill-index");
+		const shown = rowSlugs(index);
+		expect([...shown].sort()).toEqual(
 			SKILLS.filter((s) => s.status === "draft")
 				.map((s) => s.slug)
 				.sort(),
 		);
+		// Drafts read under review alone.
+		expect(sectionIds(index)).toEqual(["review"]);
+		for (const slug of shown) {
+			expect(tagOf(drafts, `skill-row-${slug}`)).toContain(
+				`href="/catalog/skills?skill=${slug}&amp;filter=drafts"`,
+			);
+		}
 	});
 
 	it("filters by the q in the URL, and says when nothing matches", async () => {
-		const one = element(await page("?q=next.js"), "skill-sidebar");
+		const one = element(await page("?q=next.js"), "skill-index");
 		expect(rowSlugs(one)).toEqual([WITH_ADDITIONS]);
-		expect(await page("?q=zzzz-nothing")).toContain(
-			'data-testid="skill-sidebar-none"',
+		expect(tagOf(one, `skill-row-${WITH_ADDITIONS}`)).toContain(
+			`href="/catalog/skills?skill=${WITH_ADDITIONS}&amp;q=next.js"`,
 		);
+		const none = await page("?q=zzzz-nothing");
+		expect(element(none, "skill-index-none")).toContain("No skill matches.");
+		expect(sectionIds(none)).toEqual([]);
 	});
 });
 
@@ -868,19 +1054,21 @@ describe("review fixes", () => {
 		}
 	});
 
-	it("gives each hash copy a live region that says whether it worked", async () => {
-		const hash = element(
-			await page(`?skill=${IMPORTED_CAPABILITY}`),
-			"skill-hash",
-		);
-		expect(hash).toMatch(
-			/<span aria-live="polite" data-testid="skill-hash-copy-status" class="sr-only">/,
-		);
+	it("gives each copy a live region that says whether it worked", async () => {
+		const html = await page(`?skill=${IMPORTED_CAPABILITY}`);
+		for (const [block, button] of [
+			["skill-pinned", "skill-hash-copy"],
+			["skill-markdown", "skill-markdown-copy"],
+		] as const) {
+			const el = element(html, block);
+			const after = el.slice(indexOf(el, button));
+			expect(after, block).toMatch(/<span aria-live="polite" class="sr-only">/);
+		}
 	});
 });
 
 // ---------------------------------------------------------------------------
-// Attaches to: a role skill's attachments are role_skills (module 5), not
+// Attached to: a role skill's attachments are role_skills (module 5), not
 // recommendedFor, which only filters stack and domain skills at dispatch.
 
 describe("role attachment", () => {
@@ -904,35 +1092,30 @@ describe("role attachment", () => {
 		).toBe(true);
 	});
 
-	it("sets each switch from the attachment, even where recommendedFor disagrees", () => {
+	it("shows the attached roles, even where recommendedFor disagrees", () => {
 		// The two role skills whose attachment and recommendedFor disagree, each
-		// rendered once (the inspector alone), every role's switch checked.
+		// rendered once (the inspector alone).
 		const cases = [
 			// Recommended for property-tests, but not attached to it.
 			{ slug: "criterion-tags", off: "property-tests" },
 			// Attached to backend-tests, though not recommended for it.
 			{ slug: ROLE_SKILL, on: "backend-tests" },
 		] as const;
-		const roles = ROLES.filter((r) => ROLE_TEAM[r] !== "platform");
 		for (const c of cases) {
 			const s = skill(c.slug);
-			const states = switchStates(inspector(s));
-			const attached = carryingRoles(s);
-			// Every role has a switch, and each one follows the attachment.
-			expect([...states.keys()].sort(), c.slug).toEqual([...roles].sort());
-			for (const role of roles) {
-				expect(states.get(role), `${c.slug} ${role}`).toBe(
-					attached.includes(role) ? "checked" : "unchecked",
-				);
-			}
+			const shown = tagRoles(element(inspector(s), "skill-attach-sample"));
+			// Exactly the attachment, in catalog order.
+			expect(shown, c.slug).toEqual(
+				ROLES.filter((role) => carryingRoles(s).includes(role)),
+			);
 			// The disagreement itself, by name.
 			if ("off" in c) {
 				expect(s.recommendedFor).toContain(c.off);
-				expect(states.get(c.off)).toBe("unchecked");
+				expect(shown).not.toContain(c.off);
 			}
 			if ("on" in c) {
 				expect(s.recommendedFor).not.toContain(c.on);
-				expect(states.get(c.on)).toBe("checked");
+				expect(shown).toContain(c.on);
 			}
 		}
 	});
@@ -980,7 +1163,7 @@ describe("role attachment", () => {
 		);
 	});
 
-	it("labels the switches as waiting on module 5's attachment read", async () => {
+	it("labels the attachments as waiting on module 5's attachment read", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
 		expect(tagOf(html, "skill-attach-sample")).toContain(
 			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
@@ -1001,62 +1184,62 @@ describe("role attachment", () => {
 	});
 });
 
-describe("Attaches to, polished", () => {
-	it("explains what turning a role on does", async () => {
+describe("Attached to, polished", () => {
+	it("explains what an attached role means", async () => {
 		const panel = element(
 			await page(`?skill=${ROLE_SKILL}`),
 			"skill-attach-panel",
 		);
 		expect(panel).toContain(
-			"Every agent covering a role turned on here carries the skill in its identity",
+			"Every agent covering one of these roles carries the skill in its identity",
 		);
 	});
 
-	it("counts the attached roles in each team's header", async () => {
-		const html = await page(`?skill=${ROLE_SKILL}`);
-		const on = carryingRoles(skill(ROLE_SKILL));
-		for (const { team } of SAMPLE_TEAM_TABLE) {
-			const roles = ROLES.filter((r) => ROLE_TEAM[r] === team);
-			const n = roles.filter((r) => on.includes(r)).length;
-			expect(element(html, `skill-team-${team}-count`)).toContain(
-				`>${n} of ${roles.length} attached<`,
-			);
+	it("totals the attached roles and teams, singular and plural, without a middle dot", () => {
+		expect(attachedTotal(1, 1)).toBe("1 role on 1 team");
+		expect(attachedTotal(2, 1)).toBe("2 roles on 1 team");
+		expect(attachedTotal(4, 2)).toBe("4 roles across 2 teams");
+		expect(attachedTotal(4, 2)).not.toContain(MIDDLE_DOT);
+	});
+
+	it("groups the attached roles by team in catalog order, leaving out teams with none", () => {
+		expect(attachedTeams([])).toEqual([]);
+		// Given in reverse, read back in the catalog's order.
+		const on = [...ROLES].reverse();
+		const groups = attachedTeams(on);
+		expect(groups.map((g) => g.team)).toEqual(
+			TEAMS.filter((team) => groups.some((g) => g.team === team)),
+		);
+		expect(groups.flatMap((g) => g.roles)).toEqual(
+			TEAMS.flatMap((team) => groups.find((g) => g.team === team)?.roles ?? []),
+		);
+		for (const g of groups) {
+			expect(g.roles).toEqual(ROLES.filter((r) => g.roles.includes(r)));
 		}
-		expect(attachedCount(["schema", "contract"], ["schema"])).toBe(
-			"1 of 2 attached",
-		);
+		expect(groups.flatMap((g) => g.roles).sort()).toEqual([...ROLES].sort());
+		const one = ROLES[0];
+		if (one === undefined) return;
+		expect(attachedTeams([one])).toHaveLength(1);
+		expect(attachedTeams([one])[0]?.roles).toEqual([one]);
 	});
 
-	it("marks the Firm roles, and only them, without blocking them", async () => {
+	it("offers one Change roles, disabled with its reason, outside the samples", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
-		const firm = ROLES.filter((r) => ROLE_TEAM[r] === "firm");
-		expect(firm).toEqual(["intake", "strategy", "research", "client-ops"]);
-		for (const role of firm) {
-			expect(html).toContain(`data-testid="skill-role-${role}-firm"`);
-		}
-		expect(html.match(/data-testid="skill-role-[a-z-]+-firm"/g)).toHaveLength(
-			firm.length,
+		expect(html.match(/data-testid="skill-attach-change"/g)).toHaveLength(1);
+		expect(element(html, "skill-attach-change")).toContain("Change roles");
+		expectDisabledWithReason(
+			html,
+			"skill-attach-change",
+			SKILL_WRITE_REASON.attach,
 		);
-		expect(tagOf(html, "skill-team-firm")).toContain('data-firm="true"');
-		expect(element(html, "skill-team-firm-note")).toContain(
-			"never on a mission roster",
-		);
-	});
-
-	it("shows the disabled reason once, without hovering, outside the samples", async () => {
-		const html = await page(`?skill=${ROLE_SKILL}`);
-		const reason = element(html, "skill-attach-reason");
-		expect(reason).toContain(
-			`Read-only for now. ${SKILL_WRITE_REASON.attach}.`,
-		);
-		expect(html.match(/data-testid="skill-attach-reason"/g)).toHaveLength(1);
-		expect(inside(regions(html), indexOf(html, "skill-attach-reason"))).toBe(
+		expect(inside(regions(html), indexOf(html, "skill-attach-change"))).toBe(
 			false,
 		);
-		// Each switch still carries it in its tooltip and aria-describedby.
-		expect(tagOf(html, "skill-role-domain")).toMatch(
-			/aria-describedby="[^"]+"/,
+		expect(element(html, "skill-attach-panel")).toContain(
+			'data-testid="skill-attach-change"',
 		);
+		// The old per-role caption is gone.
+		expect(html).not.toContain('data-testid="skill-attach-reason"');
 	});
 });
 
@@ -1064,34 +1247,29 @@ describe("Attaches to, polished", () => {
 // From the Skills browser check.
 
 describe("visual-pass fixes", () => {
-	it("captions each attached role, since a disabled switch barely shows on", async () => {
-		const html = await page(`?skill=${ROLE_SKILL}`);
-		const attached = [
-			...html.matchAll(/data-testid="skill-role-([a-z-]+)-attached"/g),
-		].map((m) => m[1]);
-		const on = [...carryingRoles(skill(ROLE_SKILL))];
-		expect(attached.sort()).toEqual(on.sort());
-		for (const role of on) {
-			expect(element(html, `skill-role-${role}-attached`)).toContain(
-				">attached<",
-			);
-			// Inside the sample region, beside its switch.
-			const sample = element(html, "skill-attach-sample");
-			expect(sample).toContain(`data-testid="skill-role-${role}-attached"`);
+	it("shows each attached role as a compact tag: its name, the slug on hover", async () => {
+		const sample = element(
+			await page(`?skill=${ROLE_SKILL}`),
+			"skill-attach-sample",
+		);
+		const tags = [
+			...sample.matchAll(/<[a-z]+[^>]*data-testid="catalog-role"[^>]*>/g),
+		].map((m) => m[0]);
+		expect(tags.length).toBe(carryingRoles(skill(ROLE_SKILL)).length);
+		for (const tag of tags) {
+			const role = tag.match(/data-role="([a-z-]+)"/)?.[1];
+			expect(tag).toContain(`title="${role}"`);
 		}
+		expect(sample).not.toContain('class="type-mono text-text-subtle"');
 	});
 
-	it("puts the actions above the header below lg, beside it from lg", async () => {
+	it("keeps the actions after the header's facts, wrapping under them when narrow", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
-		const header = classes(html, "skill-header");
-		expect(header).toEqual(
-			expect.arrayContaining(["flex-col-reverse", "lg:flex-row"]),
-		);
-		// The actions come last in the markup, so flex-col-reverse lifts them.
 		const block = element(html, "skill-header");
 		expect(block.indexOf('data-testid="skill-actions"')).toBeGreaterThan(
 			block.indexOf('data-testid="skill-header-facts"'),
 		);
+		expect(block).toMatch(/class="flex flex-wrap items-start/);
 	});
 
 	it("marks the headings in AVEL's additions, under a label that doesn't repeat them", async () => {
@@ -1120,41 +1298,53 @@ describe("visual-pass fixes", () => {
 });
 
 describe("layout", () => {
-	it("is the sidebar alone below lg until something is shown", async () => {
+	it("is one column: the index alone, with no trail, no sidebar and no panel", async () => {
 		const html = await page();
-		expect(classes(html, "catalog-skills-list-pane")).not.toContain(
-			"max-lg:hidden",
-		);
-		expect(classes(html, "catalog-skills-detail-pane")).toContain(
-			"max-lg:hidden",
-		);
+		expect(html).toContain('data-testid="skill-index"');
 		expect(html).not.toContain('data-testid="catalog-skills-back"');
-		expect(html).toContain('data-testid="catalog-skills-choose"');
+		expect(html).not.toContain('data-testid="skill-sidebar"');
+		expect(html).not.toContain('data-testid="catalog-skills-list-pane"');
+		expect(html).not.toContain('data-testid="catalog-skills-detail-pane"');
+		expect(classes(html, "catalog-skills")).toEqual(
+			expect.arrayContaining(["mx-auto", "max-w-3xl"]),
+		);
 	});
 
-	for (const search of [
-		`?skill=${ROLE_SKILL}`,
-		"?view=discover",
-		"?view=new",
-	]) {
-		it(`replaces the sidebar below lg with a way back (${search})`, async () => {
+	for (const [search, current] of [
+		[`?skill=${ROLE_SKILL}`, ROLE_SKILL],
+		[`?skill=${ROLE_SKILL}&view=edit`, `${ROLE_SKILL}, edit`],
+		["?view=discover", "Discover"],
+		["?view=new", "New skill"],
+		["?view=sources", "Sources"],
+	] as const) {
+		it(`replaces the index with the view under a trail back (${search})`, async () => {
 			const html = await page(search);
-			expect(classes(html, "catalog-skills-list-pane")).toContain(
-				"max-lg:hidden",
-			);
-			expect(tagOf(html, "catalog-skills-back")).toContain(
+			expect(html).not.toContain('data-testid="skill-index"');
+			const trail = element(html, "catalog-skills-back");
+			expect(trail).toMatch(/^<nav[^>]*aria-label="Skill"/);
+			expect(tagOf(trail, "skill-trail-index")).toContain(
 				'href="/catalog/skills"',
 			);
-			expect(classes(html, "catalog-skills-back")).toContain("lg:hidden");
+			expect(element(trail, "skill-trail-index")).toContain(">Skills<");
+			expect(trail).toMatch(
+				new RegExp(`<span aria-current="page"[^>]*>${current}</span>`),
+			);
 		});
 	}
+
+	it("widens the column for Sources alone", async () => {
+		expect(classes(await page("?view=sources"), "catalog-skills")).toContain(
+			"max-w-5xl",
+		);
+		expect(
+			classes(await page(`?skill=${ROLE_SKILL}`), "catalog-skills"),
+		).toContain("max-w-3xl");
+	});
 
 	it("lets a view outrank a selection", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}&view=new`);
 		expect(html).toContain('data-testid="skill-new"');
 		expect(html).not.toContain('data-testid="skill-inspector"');
-		expect(tagOf(html, `skill-row-${ROLE_SKILL}`)).not.toContain(
-			"data-selected",
-		);
+		expect(element(html, "catalog-skills-back")).toContain(">New skill<");
 	});
 });

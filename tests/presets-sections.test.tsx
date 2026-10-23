@@ -225,7 +225,7 @@ describe("a preset's used-by", () => {
 			[app(1), app(2, { presetVersion: 1 }), app(3, { mission: null })],
 		);
 		expect(html).toMatch(
-			new RegExp(`href="/missions/${ID(101)}"[^>]*>booking · draft<`),
+			new RegExp(`href="/missions/${ID(101)}"[^>]*>booking, draft<`),
 		);
 		expect(html).not.toContain(`preset-application-stale-${ID(101)}`);
 		expect(html).toMatch(
@@ -254,7 +254,7 @@ describe("a preset's used-by", () => {
 				`data-testid="${`preset-application-actor-${ID(104)}`}"[^>]*>Atlas</a>`,
 			),
 		);
-		expect(visibleText(html)).toContain("Atlas · scheduling");
+		expect(visibleText(html)).toMatch(/Atlas ?, scheduling/);
 		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
 	});
 
@@ -300,10 +300,10 @@ describe("a preset's used-by", () => {
 				`data-testid="${`preset-history-actor-${agentRow.id}`}"[^>]*>Atlas</a>`,
 			),
 		);
-		expect(visibleText(html)).toContain("Atlas · scheduling");
+		expect(visibleText(html)).toMatch(/Atlas ?, scheduling/);
 		expect(visibleText(html)).not.toMatch(UUID_FRAGMENT);
 		expect(html).not.toContain(`preset-history-actor-${operatorRow.id}`);
-		expect(visibleText(html)).toContain("javaris · 2026-10-05");
+		expect(visibleText(html)).toMatch(/javaris ?, 2026-10-05/);
 	});
 
 	it("says when no mission has applied it", async () => {

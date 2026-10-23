@@ -32,19 +32,24 @@ import { NOT_YET } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
 import { TemplateCover } from "./template-cover";
 import {
-	gateCountLabel,
+	PlaybookLink,
+	TeamLink,
 	TeamName,
 	type TemplateLinks,
 	UNREADABLE_COPY,
 } from "./template-links";
 
 /*
- * A template as a card, at the density of Javaris's Templates reference: a
- * tile row, the name, two lines of what it is, its scope as a tag, and its
- * numbers in the footer. The contract carries no description, so the two
- * lines are the scope's and starting state's own sentences
+ * A template as a card (rulings 48 and 49, in v3's style; restored
+ * 2026-10-22 at the operator's request): a tile row, the name and its slug,
+ * two lines of what it is, its scope and starting state as tags, then what
+ * a mission from it runs with (the playbook keyed by its slug, by name with
+ * its version and gate count, and the default team), and a footer with its
+ * missions and latest commit. The contract carries no description, so the
+ * two lines are the scope's and starting state's own sentences
  * (docs/TEMPLATES.md). The whole card opens the template's page through its
- * title link, stretched over the card.
+ * title link, stretched over the card; the playbook and team links sit above
+ * it and never nest inside it.
  *
  * The "Recently used" row has wider cards (RecentTemplateCard): the cover
  * band, then the flow a mission built from it follows, scope to playbook to
@@ -123,7 +128,6 @@ export function TemplateCard({
 }) {
 	const { slug } = template;
 	const nameId = `template-card-name-${slug}`;
-	const playbook = links.ready ? links.playbookFor(slug) : undefined;
 	return (
 		<li data-testid={`template-card-item-${slug}`} className="min-w-0">
 			<article
@@ -146,9 +150,22 @@ export function TemplateCard({
 						)}
 					</div>
 					<div className="flex min-w-0 flex-col gap-1">
-						<h2 id={nameId} className="min-w-0 truncate type-title text-text">
-							<TitleLink template={template} />
-						</h2>
+						<span className="flex min-w-0 flex-col">
+							<h2
+								id={nameId}
+								title={templateName(template)}
+								className="min-w-0 truncate type-title text-text"
+							>
+								<TitleLink template={template} />
+							</h2>
+							<span
+								data-testid={`template-card-slug-${slug}`}
+								title={slug}
+								className="truncate type-mono text-text-subtle"
+							>
+								{slug}
+							</span>
+						</span>
 						<p
 							data-testid={`template-card-description-${slug}`}
 							className="line-clamp-2 min-h-9 type-small text-text-muted"
@@ -175,6 +192,37 @@ export function TemplateCard({
 						) : null}
 					</div>
 				</div>
+				{/* What a mission from it runs with: its playbook and team. */}
+				<dl
+					data-testid={`template-card-runs-${slug}`}
+					className="flex flex-col gap-1.5 border-t border-border px-4 py-3 type-small"
+				>
+					<div className="flex min-w-0 items-baseline gap-3">
+						<dt className="w-16 shrink-0 type-caption text-text-subtle">
+							Playbook
+						</dt>
+						<dd className="min-w-0 flex-1">
+							<PlaybookLink slug={slug} links={links} full />
+						</dd>
+					</div>
+					<div className="flex min-w-0 items-baseline gap-3">
+						<dt className="w-16 shrink-0 type-caption text-text-subtle">
+							Team
+						</dt>
+						<dd className="min-w-0 flex-1 truncate">
+							{template.defaultPresetId === null ? (
+								<span
+									data-testid={`template-team-${slug}-none`}
+									className="text-text-subtle"
+								>
+									No default team
+								</span>
+							) : (
+								<TeamLink slug={slug} template={template} />
+							)}
+						</dd>
+					</div>
+				</dl>
 				<div
 					data-testid={`template-card-footer-${slug}`}
 					className="flex items-center gap-3 border-t border-border px-4 py-2 type-caption text-text-muted tabular-nums"
@@ -182,18 +230,16 @@ export function TemplateCard({
 					<span data-testid={`template-card-missions-${slug}`}>
 						{missionCountLabel(template.missionCount)}
 					</span>
-					<span
-						data-testid={`template-card-gates-${slug}`}
-						className="text-text-subtle"
-					>
-						{links.failed
-							? "Playbook unknown"
-							: !links.ready
-								? null
-								: playbook
-									? gateCountLabel(playbook.gates.length)
-									: "No playbook"}
-					</span>
+					{template.latestSha ? (
+						<span
+							data-testid={`template-card-commit-${slug}`}
+							title={template.latestSha}
+							className="type-mono text-text-subtle"
+						>
+							<span aria-hidden="true">{template.latestSha.slice(0, 8)}</span>
+							<span className="sr-only">{`Latest commit ${template.latestSha}`}</span>
+						</span>
+					) : null}
 					{/* The stretched title link is the action; this names it. */}
 					<span
 						aria-hidden="true"
@@ -379,7 +425,7 @@ export function RecentTemplateCard({
 
 /** As many columns as fit, never narrower than a card reads. */
 export const TEMPLATE_GRID =
-	"grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,16rem),1fr))]";
+	"grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,18rem),1fr))]";
 
 /** The board: a card per template, in the order given. */
 export function TemplateBoard({
@@ -419,6 +465,10 @@ export function TemplateCardSkeleton() {
 							<Skeleton className="h-4 w-full" />
 							<Skeleton className="h-4 w-3/4" />
 							<Skeleton className="h-5 w-20 rounded-sm" />
+						</div>
+						<div className="flex flex-col gap-2 border-t border-border px-4 py-3">
+							<Skeleton className="h-4 w-40" />
+							<Skeleton className="h-4 w-28" />
 						</div>
 						<div className="flex justify-between border-t border-border px-4 py-2">
 							<Skeleton className="h-4 w-20" />

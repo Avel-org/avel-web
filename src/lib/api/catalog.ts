@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-query";
 import {
 	type AgentTemplate,
+	type CreateAgentTemplateBody,
 	contract,
 	type PageMeta,
 	type Role,
@@ -266,6 +267,38 @@ export function catalogCountLabel(
 	many: string,
 ): string {
 	return total === 1 ? `1 ${one}` : `${total} ${many}`;
+}
+
+// ---------------------------------------------------------------------------
+// Creating an agent (avel-server, 2026-10-21).
+
+/**
+ * POST /api/agent-templates: a new template at version 1, with no identity
+ * until it is regenerated. The answer is the template.
+ */
+export function useCreateAgentTemplate() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (body: CreateAgentTemplateBody) =>
+			call(contract.agentTemplates.create, () =>
+				api.agentTemplates.create({ body }),
+			),
+		onSuccess: () => afterAgentCreate(queryClient),
+	});
+}
+
+/**
+ * A new template joins every template list, and its creation is logged. It
+ * sits on no roster yet, so no mission's access reads change.
+ */
+export function afterAgentCreate(queryClient: QueryClient) {
+	return Promise.all([
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.catalog.agentTemplatesAll(),
+		}),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
 }
 
 // ---------------------------------------------------------------------------

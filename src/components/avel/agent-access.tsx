@@ -215,11 +215,11 @@ function ContextPicker({
 			<Select
 				value={value ?? TEMPLATE}
 				onValueChange={(next) => onChange(next === TEMPLATE ? undefined : next)}
-				disabled={loading}
 			>
 				<SelectTrigger
 					id={id}
 					size="sm"
+					disabledReason={loading ? "Reading the missions it is on" : undefined}
 					data-testid="agent-access-context"
 					className="w-80 max-w-full"
 				>
@@ -418,7 +418,7 @@ function SystemCell({ row }: { row: Row }) {
 			? ["Repository", "The client's code"]
 			: row.kind === "delivery"
 				? ["Delivery", "To the client"]
-				: [row.system, `${row.skillSlug} · ${row.grant}`];
+				: [row.system, `${row.skillSlug}, ${row.grant}`];
 	return (
 		<span className="flex items-center gap-3">
 			<span
@@ -554,10 +554,10 @@ function ControlCell({
 				<Select
 					value={row.mode}
 					onValueChange={(next) => onRowMode(row, next as GrantRow["mode"])}
-					disabled={readOnly !== null || pending}
 				>
 					<SelectTrigger
 						size="sm"
+						disabledReason={readOnly ?? (pending ? "Saving" : undefined)}
 						aria-label={`Access to ${label}`}
 						data-testid={`agent-access-level-${row.skillId}-${row.grant}`}
 						className="w-32"
@@ -762,7 +762,7 @@ function CannotSee({
 								<PanelRow
 									key={`${row.skillId}:${row.grant}`}
 									icon={Lock}
-									name={`${row.system} · ${row.grant}`}
+									name={`${row.system}, ${row.grant}`}
 									fact="Turned off"
 									data-testid={`agent-hidden-${row.grant}`}
 								/>

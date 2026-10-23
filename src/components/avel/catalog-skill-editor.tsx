@@ -704,12 +704,18 @@ export function SkillEditor({
 							<Select
 								value={draft.sourceId === "" ? undefined : draft.sourceId}
 								onValueChange={(next) => set("sourceId", next)}
-								disabled={sourceOptions.length === 0}
 							>
 								<SelectTrigger
 									id={id}
 									data-testid={testId}
 									className="w-72"
+									disabledReason={
+										sourceOptions.length > 0
+											? undefined
+											: sourcesLoading
+												? "Reading the sources"
+												: "Add a source first, under Sources"
+									}
 									{...aria}
 								>
 									<SelectValue
@@ -851,7 +857,7 @@ export function SkillEditor({
 							? true
 							: undefined
 					}
-					className="flex flex-col gap-1 rounded-control border border-border bg-app-band px-3 py-2"
+					className="flex flex-col gap-1 rounded-control border border-border bg-app-hollow px-3 py-2"
 				>
 					<h3 className="type-caption text-text-subtle">
 						Saving{" "}

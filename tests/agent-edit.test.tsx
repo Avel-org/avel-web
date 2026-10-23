@@ -31,7 +31,6 @@ import {
 	queryKeys,
 } from "@/lib/api";
 import { afterAgentUpdate } from "@/lib/api/catalog";
-import { PREVIEW_USER, SignedInProvider } from "@/shell/auth-gate";
 import { agent } from "./catalog-fixtures";
 import { tagOf, textOfId } from "./render-page";
 
@@ -399,45 +398,24 @@ describe("the paths form", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Signed in or preview.
+// With the data layer, as a page renders them.
 
-function asUser(id: string, node: ReactNode) {
+function withApi(node: ReactNode) {
 	const client = new QueryClient();
 	return renderToString(
 		<ApiOverrideProvider queryClient={client}>
 			<ApiProvider>
-				<SignedInProvider
-					value={{ user: { ...PREVIEW_USER, id }, signOut: async () => {} }}
-				>
-					<TooltipProvider>{node}</TooltipProvider>
-				</SignedInProvider>
+				<TooltipProvider>{node}</TooltipProvider>
 			</ApiProvider>
 		</ApiOverrideProvider>,
 	);
 }
 
-describe("who may edit", () => {
+describe("the edit pieces", () => {
 	const nemi = agent("nemi");
 
-	it("says Sign in to edit in the preview, on every piece", () => {
-		const html = asUser(
-			PREVIEW_USER.id,
-			<>
-				<AgentTitleEdit agent={nemi} />
-				<AgentRolesEdit agent={nemi} />
-				<AgentPathsEdit agent={nemi} />
-			</>,
-		);
-		for (const piece of ["title", "roles", "paths"]) {
-			expect(reasonOf(html, `agent-edit-${piece}-edit`)).toBe(
-				"Sign in to edit",
-			);
-		}
-	});
-
 	it("shows a glob that matches every file as Any file, the glob in its title", () => {
-		const html = asUser(
-			"user-1",
+		const html = withApi(
 			<AgentPathsEdit agent={{ ...nemi, writablePaths: ["**", "src/**"] }} />,
 		);
 		const value = html.slice(
@@ -448,9 +426,17 @@ describe("who may edit", () => {
 		expect(value.slice(0, value.indexOf("</ul>"))).not.toMatch(/>\*\*</);
 	});
 
-	it("lets the signed-in operator edit, and shows the saved values", () => {
-		const html = asUser("user-1", <AgentTitleEdit agent={nemi} />);
-		expect(isDisabled(html, "agent-edit-title-edit")).toBe(false);
+	it("lets the operator edit every piece, and shows the saved values", () => {
+		const html = withApi(
+			<>
+				<AgentTitleEdit agent={nemi} />
+				<AgentRolesEdit agent={nemi} />
+				<AgentPathsEdit agent={nemi} />
+			</>,
+		);
+		for (const piece of ["title", "roles", "paths"]) {
+			expect(isDisabled(html, `agent-edit-${piece}-edit`)).toBe(false);
+		}
 		expect(html).toMatch(
 			/data-testid="agent-edit-title-value"[^>]*>Frontend tester</,
 		);

@@ -5,11 +5,16 @@ import {
 	type Role,
 	type Skill,
 	TEAM_LABELS,
+	TEAMS,
 	type Team,
 } from "avel-server/contract";
+import { Check, Copy, Pencil } from "lucide-react";
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { loadedRows, useAgentTemplates } from "@/lib/api/catalog";
+import { useCopy } from "@/lib/clipboard";
+import { AgentAvatar } from "./agent-avatar";
 import {
 	agentsOfSkill,
 	attachability,
@@ -17,7 +22,6 @@ import {
 	carryingRoles,
 	enforcementBadge,
 	SAMPLE_ROOMS_ENFORCING,
-	SAMPLE_TEAM_TABLE,
 } from "./catalog-placeholders";
 import {
 	AgentLink,
@@ -28,16 +32,16 @@ import {
 	SkillStatusPill,
 } from "./catalog-sample";
 import { SkillActions } from "./catalog-skill-actions";
+import { SkillMark } from "./catalog-skill-index";
 import { type CodeTone, CodeView } from "./code-view";
-import { Reason } from "./reason";
-import { SectionPanel } from "./section-panel";
-import { ShortHash } from "./short-hash";
+import { shortHash } from "./short-hash";
 import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
 /*
- * One skill, inspected: what it is, its technical facts, where it attaches,
- * who carries it, and its SKILL.md. The skill is live (GET
+ * One skill, read as a document (ruling 52): its head, its pin (where the
+ * reference shows an install command: what an agent receives, by hash),
+ * its facts, where it attaches, who carries it, and its SKILL.md. The skill is live (GET
  * /api/skills/by-slug/:slug), and so are the agents that carry a stack or
  * domain skill (GET /api/agent-templates, through recommendedFor). A role
  * skill's attachments, and the carriers derived from them, are labelled
@@ -103,9 +107,10 @@ export function SkillInspector({ skill }: { skill: Skill }) {
 			aria-labelledby="skill-title"
 			data-testid="skill-inspector"
 			data-skill={skill.slug}
-			className="flex flex-col gap-4 pb-6"
+			className="flex flex-col gap-8"
 		>
 			<Header skill={skill} />
+			<Pinned skill={skill} />
 			<Facts skill={skill} />
 			<Attach skill={skill} />
 			<CarriedBy skill={skill} />
@@ -116,29 +121,146 @@ export function SkillInspector({ skill }: { skill: Skill }) {
 
 function Header({ skill }: { skill: Skill }) {
 	return (
-		// Below lg the actions sit above the header, so the title keeps the width.
-		<header
-			data-testid="skill-header"
-			className="flex flex-col-reverse gap-3 lg:flex-row lg:items-start lg:gap-4"
-		>
-			<div
-				data-testid="skill-header-facts"
-				className="flex min-w-0 flex-1 flex-col gap-2"
-			>
-				<h2 id="skill-title" className="type-page text-foreground">
-					{skill.name}
-				</h2>
-				<p
-					data-testid="skill-source-line"
-					className="type-small text-text-subtle"
+		<header data-testid="skill-header" className="flex flex-col gap-3">
+			{/* Below sm the actions wrap under the name, so the title keeps the width. */}
+			<div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+				<div
+					data-testid="skill-header-facts"
+					className="flex min-w-0 flex-1 items-center gap-3"
 				>
-					{sourceLine(skill)}
-				</p>
-				<p className="type-body text-text-muted">{skill.description}</p>
+					<SkillMark type={skill.type} size="lg" />
+					<span className="flex min-w-0 flex-col gap-0.5">
+						<h2
+							id="skill-title"
+							title={skill.name}
+							className="truncate type-page text-foreground"
+						>
+							{skill.name}
+						</h2>
+						<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+							<span
+								data-testid="skill-source-line"
+								className="type-small text-text-subtle"
+							>
+								{sourceLine(skill)}
+							</span>
+							{skill.status === "approved" ? null : (
+								<SkillStatusPill status={skill.status} />
+							)}
+						</span>
+					</span>
+				</div>
+				{/* Operator-only writes: Edit, Approve and Retire. */}
+				<SkillActions skill={skill} />
 			</div>
-			{/* Operator-only writes: Edit, Approve and Retire. */}
-			<SkillActions skill={skill} />
+			<p className="type-body text-text-muted">{skill.description}</p>
 		</header>
+	);
+}
+
+/**
+ * What an agent receives, by hash: this version's ref and its content hash,
+ * in one mono line with Copy (the full hash). It stands where a public
+ * library shows its install command; in AVEL a skill is never installed, it
+ * is pinned, and any change to it is a new hash.
+ */
+function Pinned({ skill }: { skill: Skill }) {
+	const { status, copy } = useCopy();
+	return (
+		<section
+			aria-labelledby="skill-pinned"
+			data-testid="skill-pinned"
+			className="flex flex-col gap-2"
+		>
+			<h3 id="skill-pinned" className="type-small font-medium text-text-muted">
+				Pinned
+			</h3>
+			<div className="flex min-w-0 items-center gap-2 rounded-control border border-border bg-app-raised py-1 pr-1 pl-3">
+				<span className="flex min-w-0 flex-1 items-baseline gap-3">
+					<code className="min-w-0 truncate type-mono text-text">
+						{`${skill.slug}@v${skill.version}`}
+					</code>
+					{/* Seven characters, as a commit shows (section 12); the whole
+					    hash on hover, to screen readers and behind Copy. */}
+					<span className="flex shrink-0 items-baseline gap-1.5">
+						<span className="type-caption text-text-subtle">sha256</span>
+						<code
+							data-testid="skill-hash"
+							data-full={skill.contentSha256}
+							title={skill.contentSha256}
+							className="type-mono text-text-muted"
+						>
+							<span aria-hidden="true">{shortHash(skill.contentSha256)}</span>
+							<span className="sr-only">{skill.contentSha256}</span>
+						</code>
+					</span>
+				</span>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					aria-label="Copy the content hash"
+					data-testid="skill-hash-copy"
+					onClick={() => void copy(skill.contentSha256)}
+				>
+					{status === "Copied" ? (
+						<Check aria-hidden="true" />
+					) : (
+						<Copy aria-hidden="true" />
+					)}
+				</Button>
+				<span aria-live="polite" className="sr-only">
+					{status}
+				</span>
+			</div>
+			<p
+				data-testid="skill-hash-covers"
+				className="type-caption text-text-subtle"
+			>
+				{`Agents receive exactly this text. ${HASH_COVERS}`}
+			</p>
+		</section>
+	);
+}
+
+/**
+ * A section of the document: a hairline above, its title, an optional line
+ * saying what it holds, then its content. Not a boxed panel: the page reads
+ * top to bottom as one column (ruling 52).
+ */
+function DocSection({
+	title,
+	description,
+	action,
+	"data-testid": testId,
+	children,
+}: {
+	title: string;
+	description?: string;
+	/** One control at the end of the title's row, such as Copy. */
+	action?: ReactNode;
+	"data-testid": string;
+	children: ReactNode;
+}) {
+	const id = `${testId}-title`;
+	return (
+		<section
+			aria-labelledby={id}
+			data-testid={testId}
+			className="flex flex-col gap-3 border-t border-border pt-6"
+		>
+			<header className="flex items-end justify-between gap-3">
+				<span className="flex min-w-0 flex-col gap-0.5">
+					<h3 id={id} className="type-title text-text">
+						{title}
+					</h3>
+					{description ? (
+						<p className="type-small text-text-muted">{description}</p>
+					) : null}
+				</span>
+				{action}
+			</header>
+			{children}
+		</section>
 	);
 }
 
@@ -146,7 +268,7 @@ function Facts({ skill }: { skill: Skill }) {
 	const badge = enforcementBadge(skill.type, SAMPLE_ROOMS_ENFORCING);
 	const attach = attachability(skill);
 	return (
-		<SectionPanel title="Facts" data-testid="skill-facts">
+		<DocSection title="Facts" data-testid="skill-facts">
 			<div className="flex flex-col gap-3">
 				<dl className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-x-6 gap-y-3">
 					<CatalogField label="Layer">
@@ -180,20 +302,6 @@ function Facts({ skill }: { skill: Skill }) {
 						</span>
 					</CatalogField>
 				</dl>
-				<div className="flex flex-col gap-1">
-					<span className="type-caption text-text-subtle">Content hash</span>
-					<ShortHash
-						value={skill.contentSha256}
-						label="the content hash"
-						data-testid="skill-hash"
-					/>
-					<p
-						data-testid="skill-hash-covers"
-						className="type-caption text-text-subtle"
-					>
-						{HASH_COVERS}
-					</p>
-				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					{skill.type === "capability" ? (
 						<StatusPill
@@ -239,13 +347,8 @@ function Facts({ skill }: { skill: Skill }) {
 					</div>
 				) : null}
 			</div>
-		</SectionPanel>
+		</DocSection>
 	);
-}
-
-/** The roles of each team, in the contract's catalog order. */
-function rolesOf(team: Team): Role[] {
-	return ROLES.filter((role) => ROLE_TEAM[role] === team);
 }
 
 /**
@@ -256,7 +359,7 @@ function rolesOf(team: Team): Role[] {
 function Attach({ skill }: { skill: Skill }) {
 	if (skill.layer !== "role") {
 		return (
-			<SectionPanel title="Attaches to" data-testid="skill-attach-panel">
+			<DocSection title="Attaches to" data-testid="skill-attach-panel">
 				<div
 					data-testid="skill-attach-dispatch"
 					className="flex flex-col gap-2"
@@ -277,143 +380,97 @@ function Attach({ skill }: { skill: Skill }) {
 						)}
 					</ul>
 				</div>
-			</SectionPanel>
+			</DocSection>
 		);
 	}
 	// A role skill's attachments are role_skills (module 5), never its
 	// recommendedFor, which is the dispatch filter for stack and domain skills.
 	const attached = carryingRoles(skill);
+	const teams = attachedTeams(attached);
 	return (
-		<SectionPanel
-			title="Attaches to"
-			description="Every agent covering a role turned on here carries the skill in its identity, so the skill is part of that agent's version hash."
+		<DocSection
+			title="Attached to"
+			description="Every agent covering one of these roles carries the skill in its identity, so the skill is part of that agent's version hash."
 			data-testid="skill-attach-panel"
 		>
-			<div className="flex flex-col gap-3">
-				{/* Said once, readable without hovering; each switch still has it
-				    in its tooltip and aria-describedby. */}
-				<Reason data-testid="skill-attach-reason">
-					{`Read-only for now. ${SKILL_WRITE_REASON.attach}.`}
-				</Reason>
-				<SampleRegion
-					missing={CATALOG_MISSING.roleAttachments}
-					title="Attaches to"
-					what="One switch per role, grouped by team, on where the skill is attached."
-					data-testid="skill-attach-sample"
-				>
-					<div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
-						{SAMPLE_TEAM_TABLE.map(({ team }) => (
-							<RoleToggleCard
-								key={team}
-								team={team}
-								roles={rolesOf(team)}
-								on={attached}
-							/>
-						))}
+			<SampleRegion
+				missing={CATALOG_MISSING.roleAttachments}
+				title="Attached to"
+				what="The roles this skill is attached to, grouped by team."
+				data-testid="skill-attach-sample"
+			>
+				{teams.length === 0 ? (
+					<p
+						data-testid="skill-attach-none"
+						className="type-small text-text-subtle"
+					>
+						Attached to no role, so no agent carries it.
+					</p>
+				) : (
+					<div className="flex flex-col gap-3">
+						<p
+							data-testid="skill-attach-total"
+							className="type-caption text-text-subtle"
+						>
+							{attachedTotal(attached.length, teams.length)}
+						</p>
+						<dl className="flex flex-col gap-2">
+							{teams.map(({ team, roles }) => (
+								<div
+									key={team}
+									data-testid={`skill-team-${team}`}
+									className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5"
+								>
+									<dt
+										title={TEAM_LABELS[team].meaning}
+										className="w-24 shrink-0 type-small text-text-muted"
+									>
+										{TEAM_LABELS[team].label}
+									</dt>
+									<dd className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+										{roles.map((role) => (
+											<RoleTag key={role} role={role} compact />
+										))}
+									</dd>
+								</div>
+							))}
+						</dl>
 					</div>
-				</SampleRegion>
+				)}
+			</SampleRegion>
+			{/* Changing attachments is a change, so it is a modal (ruling 35),
+			    where the per-team role picker lives once its route exists. */}
+			<div>
+				<Button
+					size="sm"
+					variant="outline"
+					data-testid="skill-attach-change"
+					disabledReason={SKILL_WRITE_REASON.attach}
+				>
+					<Pencil aria-hidden="true" />
+					Change roles
+				</Button>
 			</div>
-		</SectionPanel>
+		</DocSection>
 	);
 }
 
-/** "2 of 5 attached": a team's count, for its card header. */
-export function attachedCount(
-	roles: readonly Role[],
+/** The attached roles by team, in catalog order; teams with none are left out. */
+export function attachedTeams(
 	on: readonly Role[],
-): string {
-	return `${roles.filter((role) => on.includes(role)).length} of ${roles.length} attached`;
+): { team: Team; roles: Role[] }[] {
+	return TEAMS.map((team) => ({
+		team,
+		roles: ROLES.filter(
+			(role) => ROLE_TEAM[role] === team && on.includes(role),
+		),
+	})).filter((group) => group.roles.length > 0);
 }
 
-/**
- * One team's roles, each with a switch showing whether the skill is
- * attached to it. Every switch is disabled with its reason until the write
- * routes exist. Firm roles are marked: firm agents work between missions and
- * never sit on a mission roster, but they can still carry a role skill, so
- * it is a label, not a block.
- */
-export function RoleToggleCard({
-	team,
-	roles,
-	on,
-}: {
-	team: Team;
-	roles: readonly Role[];
-	on: readonly Role[];
-}) {
-	const firm = team === "firm";
-	const { label, meaning } = TEAM_LABELS[team];
-	return (
-		<section
-			aria-label={label}
-			data-testid={`skill-team-${team}`}
-			data-firm={firm || undefined}
-			className="flex flex-col gap-2 rounded-card border border-border bg-app-well p-3"
-		>
-			<header className="flex items-baseline justify-between gap-2 border-b border-border pb-1.5">
-				<h3 title={meaning} className="type-small font-medium text-foreground">
-					{label}
-				</h3>
-				<span
-					data-testid={`skill-team-${team}-count`}
-					className="type-caption text-text-subtle tabular-nums"
-				>
-					{attachedCount(roles, on)}
-				</span>
-			</header>
-			{firm ? (
-				<p
-					data-testid="skill-team-firm-note"
-					className="type-caption text-text-subtle"
-				>
-					Firm roles work between missions, never on a mission roster. A firm
-					agent still carries the role skills attached here.
-				</p>
-			) : null}
-			<ul className="flex flex-col gap-1">
-				{roles.map((role) => {
-					const id = `skill-role-${role}`;
-					const attached = on.includes(role);
-					return (
-						<li key={role} className="flex items-center gap-2">
-							<label
-								htmlFor={id}
-								className="type-mono min-w-0 flex-1 text-foreground"
-							>
-								{role}
-							</label>
-							{firm ? (
-								<Badge
-									variant="outline"
-									data-testid={`${id}-firm`}
-									className="type-caption"
-								>
-									firm
-								</Badge>
-							) : null}
-							{/* A disabled switch is dimmed, so "on" barely shows: say it. */}
-							{attached ? (
-								<span
-									data-testid={`${id}-attached`}
-									aria-hidden="true"
-									className="type-caption font-medium text-accent-text"
-								>
-									attached
-								</span>
-							) : null}
-							<Switch
-								id={id}
-								size="sm"
-								data-testid={id}
-								checked={attached}
-								disabledReason={SKILL_WRITE_REASON.attach}
-							/>
-						</li>
-					);
-				})}
-			</ul>
-		</section>
-	);
+/** "1 role on 1 team", "4 roles across 2 teams". */
+export function attachedTotal(roles: number, teams: number): string {
+	const r = roles === 1 ? "1 role" : `${roles} roles`;
+	return teams === 1 ? `${r} on 1 team` : `${r} across ${teams} teams`;
 }
 
 /**
@@ -425,7 +482,7 @@ export function RoleToggleCard({
 function CarriedBy({ skill }: { skill: Skill }) {
 	const templates = useAgentTemplates();
 	return (
-		<SectionPanel
+		<DocSection
 			title="Carried by"
 			description={
 				skill.layer === "role"
@@ -460,7 +517,7 @@ function CarriedBy({ skill }: { skill: Skill }) {
 					)
 				}
 			</Surface>
-		</SectionPanel>
+		</DocSection>
 	);
 }
 
@@ -492,19 +549,56 @@ function Carriers({
 		<ul
 			aria-label="Agents carrying this skill"
 			data-testid="skill-carried-by-list"
-			className="flex flex-col gap-1.5"
+			className="flex flex-col gap-2"
 		>
 			{agents.map((agent) => (
 				<li key={agent.id} className="flex flex-wrap items-center gap-2">
+					<AgentAvatar slug={agent.slug} size="sm" />
 					<AgentLink agent={agent} />
-					<span className="type-mono text-text-subtle">
+					<span className="flex flex-wrap gap-1.5">
 						{ROLES.filter(
 							(role) => agent.roles.includes(role) && roles.includes(role),
-						).join(", ")}
+						).map((role) => (
+							<RoleTag key={role} role={role} compact />
+						))}
 					</span>
 				</li>
 			))}
 		</ul>
+	);
+}
+
+/** Copy for a whole text, with a polite live region saying how it went. */
+function CopyText({
+	text,
+	label,
+	className,
+}: {
+	text: string;
+	label: string;
+	className?: string;
+}) {
+	const { status, copy } = useCopy();
+	return (
+		<span className={className}>
+			<Button
+				size="sm"
+				variant="outline"
+				aria-label={`Copy ${label}`}
+				data-testid="skill-markdown-copy"
+				onClick={() => void copy(text)}
+			>
+				{status === "Copied" ? (
+					<Check aria-hidden="true" />
+				) : (
+					<Copy aria-hidden="true" />
+				)}
+				{status === "Copied" ? "Copied" : "Copy"}
+			</Button>
+			<span aria-live="polite" className="sr-only">
+				{status}
+			</span>
+		</span>
 	);
 }
 
@@ -513,7 +607,12 @@ function Markdown({ skill }: { skill: Skill }) {
 	// The closing fence of the frontmatter: the second "---".
 	const fenceEnd = text.split("\n").indexOf("---", 1);
 	return (
-		<SectionPanel title="SKILL.md" data-testid="skill-markdown">
+		<DocSection
+			title="SKILL.md"
+			description="As an agent reads it: frontmatter, then the content."
+			data-testid="skill-markdown"
+			action={<CopyText text={text} label="SKILL.md" />}
+		>
 			<div className="flex flex-col gap-3">
 				<CodeView
 					text={text}
@@ -536,6 +635,6 @@ function Markdown({ skill }: { skill: Skill }) {
 					</div>
 				) : null}
 			</div>
-		</SectionPanel>
+		</DocSection>
 	);
 }

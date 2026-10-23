@@ -248,7 +248,7 @@ describe("applying a preset", () => {
 			/^This roster already has 1 agent\./,
 		);
 		expect(missionLabel(mission({ client: null }))).toBe(
-			"booking · sprint 2 · Internal",
+			"booking, sprint 2, Internal",
 		);
 	});
 

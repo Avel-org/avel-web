@@ -8,7 +8,6 @@ import {
 } from "avel-server/contract";
 import { History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isoDate } from "@/lib/api/clients";
 import { presetCoherenceInput } from "@/lib/api/coherence";
@@ -19,6 +18,7 @@ import {
 	usePresetApplications,
 } from "@/lib/api/presets";
 import { ActorLabel } from "./agent-actor";
+import { Paging } from "./panel-footer";
 import { CoherenceView } from "./playbook-coherence";
 import { useAllTemplates } from "./preset-detail";
 import { HiddenId } from "./short-hash";
@@ -214,7 +214,7 @@ export function PresetHistory({ preset }: { preset: Preset }) {
 											actor={entry.actor}
 											data-testid={`preset-history-actor-${entry.id}`}
 										/>
-										{` · ${isoDate(entry.at)}`}
+										{`, ${isoDate(entry.at)}`}
 									</span>
 								</li>
 							);
@@ -272,7 +272,7 @@ export function PresetUsedBy({ preset }: { preset: Preset }) {
 													data-testid={`preset-application-link-${app.missionId}`}
 													className="py-1.5 -my-1.5 text-foreground underline-offset-4 hover:underline"
 												>
-													{`${app.mission.type} · ${app.mission.status}`}
+													{`${app.mission.type}, ${app.mission.status}`}
 												</Link>
 											) : (
 												<HiddenId
@@ -307,7 +307,7 @@ export function PresetUsedBy({ preset }: { preset: Preset }) {
 												actor={app.actor}
 												data-testid={`preset-application-actor-${app.missionId}`}
 											/>
-											{` · ${isoDate(app.appliedAt)}`}
+											{`, ${isoDate(app.appliedAt)}`}
 										</span>
 									</li>
 								);
@@ -315,22 +315,15 @@ export function PresetUsedBy({ preset }: { preset: Preset }) {
 						</ul>
 						{total !== undefined || query.hasNextPage ? (
 							<div className="flex items-center justify-between gap-2">
-								<p className="type-caption text-text-subtle tabular-nums">
-									{total === undefined
-										? ""
-										: `Showing ${rows.length} of ${total}`}
-								</p>
-								{query.hasNextPage ? (
-									<Button
-										variant="ghost"
-										size="sm"
-										data-testid="preset-used-by-more"
-										disabled={query.isFetchingNextPage}
-										onClick={() => query.fetchNextPage()}
-									>
-										{query.isFetchingNextPage ? "Loading" : "Load more"}
-									</Button>
-								) : null}
+								{total === undefined ? <span /> : null}
+								<Paging
+									loaded={rows.length}
+									total={total}
+									hasMore={query.hasNextPage}
+									loadingMore={query.isFetchingNextPage}
+									onLoadMore={() => query.fetchNextPage()}
+									testIdPrefix="preset-used-by"
+								/>
 							</div>
 						) : null}
 					</div>

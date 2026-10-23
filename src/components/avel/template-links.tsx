@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { Playbook, Template } from "avel-server/contract";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ApiError } from "@/lib/api/errors";
 import { loadedPlaybooks, usePlaybooks } from "@/lib/api/playbooks";
 import { usePreset } from "@/lib/api/presets";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,10 @@ export const UNREADABLE_COPY =
 export type TemplateLinks = {
 	ready: boolean;
 	failed: boolean;
+	/** The failed read, for the error map's copy and Try again. */
+	error: ApiError | null;
+	retry: () => void;
+	retrying: boolean;
 	playbookFor: (slug: string) => Playbook | undefined;
 };
 
@@ -37,6 +42,9 @@ export function useTemplateLinks(): TemplateLinks {
 	return {
 		ready: playbooks.status === "success",
 		failed: playbooks.status === "error",
+		error: playbooks.error,
+		retry: () => void playbooks.refetch(),
+		retrying: playbooks.isFetching,
 		playbookFor: (slug) => bySlug.get(slug),
 	};
 }
@@ -118,7 +126,7 @@ export function PlaybookLink({
 				data-testid={`template-playbook-meta-${slug}`}
 				className="shrink-0 type-mono text-text-subtle"
 			>
-				{`v${playbook.version} · ${gateCountLabel(playbook.gates.length)}`}
+				{`v${playbook.version}, ${gateCountLabel(playbook.gates.length)}`}
 			</span>
 		</span>
 	);

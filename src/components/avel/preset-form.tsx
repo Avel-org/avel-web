@@ -147,7 +147,7 @@ export function presetChanges(
 	for (const agent of diff.onlyB) {
 		if (agent.agentTemplateId === "") continue;
 		changes.push({
-			label: `Agent · ${agentName(agent, names)}`,
+			label: `Agent, ${agentName(agent, names)}`,
 			kind: "add",
 			to: fieldText(agent, "waves"),
 			mono: true,
@@ -155,7 +155,7 @@ export function presetChanges(
 	}
 	for (const agent of diff.onlyA) {
 		changes.push({
-			label: `Agent · ${agentName(agent, names)}`,
+			label: `Agent, ${agentName(agent, names)}`,
 			kind: "remove",
 			from: fieldText(agent, "waves"),
 			mono: true,
@@ -163,7 +163,7 @@ export function presetChanges(
 	}
 	for (const { a, b, fields } of diff.changed) {
 		changes.push({
-			label: `Agent · ${agentName(a, names)}`,
+			label: `Agent, ${agentName(a, names)}`,
 			kind: "change",
 			from: fields.map((f) => fieldText(a, f)).join("; "),
 			to: fields.map((f) => fieldText(b, f)).join("; "),

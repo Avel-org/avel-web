@@ -121,7 +121,7 @@ function render({
 describe("the agent banner's words", () => {
 	it("reads team, side, kind, waves and version on one line", () => {
 		expect(agentFacts(atlas)).toBe(
-			`Build team · Writes code · Owns one feature · Wave B · v${atlas.version}`,
+			`Build team, Writes code, Owns one feature, Wave B, v${atlas.version}`,
 		);
 	});
 

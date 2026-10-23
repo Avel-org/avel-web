@@ -675,7 +675,7 @@ function PipelineCard({
 				selected
 					? "border-selected-border bg-selected"
 					: skipped
-						? "border-dashed border-border-strong bg-app-band hover:bg-app-raised"
+						? "border-dashed border-border-strong bg-app-hollow hover:bg-app-raised"
 						: node.kind === "deliverable"
 							? "border-border-strong bg-app-well hover:bg-app-raised"
 							: "border-border bg-app-panel shadow-card hover:bg-app-raised",

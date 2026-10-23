@@ -2,24 +2,22 @@ import { Link } from "@tanstack/react-router";
 import {
 	type AgentTemplate,
 	KIND_LABELS,
-	SIDE_LABELS,
 	TEAM_LABELS,
 	TEAMS,
 	type Team,
 	WAVES,
 } from "avel-server/contract";
 import { ArrowRight } from "lucide-react";
-import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { AgentAvatar } from "./agent-avatar";
 import {
 	AGENT_MISSING,
 	artifactsOf,
 	isFirmAgent,
 	sideOf,
 } from "./catalog-agent-placeholders";
-import { AgentTile } from "./catalog-agent-table";
 import {
 	inCatalogOrder,
 	inWaveOrder,
@@ -31,11 +29,13 @@ import { SampleData } from "./sample-data";
 import { WritablePath } from "./writable-path";
 
 /*
- * All agents as cards (ruling 44): one v3 card per agent, built from
- * sections of related facts, so an agent's shape reads before it is opened.
- * The identity band, then its description, roles, its waves and side, the
- * files it may change, and Open. The whole card opens the agent's page: one
- * link, stretched over the card, so the keyboard meets one link per card.
+ * All agents as cards (ruling 44, compacted 2026-10-22 at the operator's
+ * request: "too big"). Four rows: the identity (avatar, name, kind, title,
+ * identity ref), the description in two lines, one row of tags (roles,
+ * waves, side), and a footer with the files it may change and Open. Every
+ * fact ruling 44 lists is still on the card; the per-section labels went.
+ * The whole card opens the agent's page: one link, stretched over the card,
+ * so the keyboard meets one link per card.
  */
 
 /** What a firm agent's waves section says, and why. */
@@ -54,16 +54,14 @@ export const FIRM_WAVES = {
 export const CARD_SECTIONS = [
 	"identity",
 	"description",
-	"roles",
-	"facts",
-	"paths",
+	"tags",
 	"footer",
 ] as const;
 
-const CARD_SPAN = "row-span-6";
+const CARD_SPAN = "row-span-4";
 
 /** How many globs and roles a card lists before it counts the rest. */
-export const CARD_PATHS = 3;
+export const CARD_PATHS = 1;
 /** Two role chips and the count of the rest fit two lines at the narrowest card. */
 export const CARD_ROLES = 2;
 
@@ -143,12 +141,18 @@ export type AgentDescription = {
 
 /** What a card says the agent is, from the first source that has words. */
 export function agentDescription(agent: AgentTemplate): AgentDescription {
+	const { text, source } = fullDescription(agent);
+	return { text: cap(text), source };
+}
+
+/** The description uncut: the card clamps it and shows this on hover. */
+function fullDescription(agent: AgentTemplate): AgentDescription {
 	// The contract never sends "": null means not written. Trimmed anyway, so
 	// blank text never wins over the roles.
 	const written = plain(agent.description ?? "");
 	return written !== ""
-		? { text: cap(written), source: "written" }
-		: { text: cap(rolesSentence(agent)), source: "roles" };
+		? { text: written, source: "written" }
+		: { text: rolesSentence(agent), source: "roles" };
 }
 
 /** The first section: what the agent is, in prose, with the most room. */
@@ -159,13 +163,15 @@ function DescriptionSection({ agent }: { agent: AgentTemplate }) {
 			data-testid={`catalog-agent-card-description-${agent.slug}`}
 			data-section="description"
 			data-source={source}
-			className="flex min-w-0 flex-col gap-1.5 px-4 py-2.5"
+			className="flex min-w-0 flex-col gap-1.5 px-4 pt-3"
 		>
-			{/* In full: descriptions are short by rule, and the subgrid gives
-			    every card in a row the tallest one's height. */}
+			{/* Two lines, the whole text on hover: the subgrid gives every card
+			    in a row the tallest one's height, so one long description
+			    would otherwise stretch the row. */}
 			<p
 				data-testid={`catalog-agent-description-${agent.slug}`}
-				className="type-body leading-relaxed font-[450] text-foreground"
+				title={fullDescription(agent).text}
+				className="line-clamp-2 type-small text-text-muted"
 			>
 				{text}
 			</p>
@@ -191,50 +197,6 @@ function DescriptionSection({ agent }: { agent: AgentTemplate }) {
 
 // ---------------------------------------------------------------------------
 
-/** A section's label, as an eyebrow, with an optional count in mono. */
-function SectionLabel({
-	children,
-	count,
-}: {
-	children: ReactNode;
-	count?: number;
-}) {
-	return (
-		<span className="flex items-baseline justify-between gap-2">
-			<span className="type-eyebrow">{children}</span>
-			{count === undefined ? null : (
-				<span className="type-mono text-text-subtle tabular-nums">{count}</span>
-			)}
-		</span>
-	);
-}
-
-/** One section of a card: a hairline above it, its label, its content. */
-function CardSection({
-	label,
-	count,
-	section,
-	slug,
-	children,
-}: {
-	label: string;
-	count?: number;
-	section: string;
-	slug: string;
-	children: ReactNode;
-}) {
-	return (
-		<div
-			data-testid={`catalog-agent-card-${section}-${slug}`}
-			data-section={section}
-			className="flex min-w-0 flex-col justify-start gap-2 border-t border-border px-4 py-2.5"
-		>
-			<SectionLabel count={count}>{label}</SectionLabel>
-			{children}
-		</div>
-	);
-}
-
 /**
  * Waves A to E: the ones it runs filled, the rest dashed. Neutral, not
  * accent: a wave is a fact about the agent, not something to act on.
@@ -246,7 +208,7 @@ function WaveStrip({ agent }: { agent: AgentTemplate }) {
 				data-testid={`catalog-agent-waves-${agent.slug}`}
 				data-firm="true"
 				title={FIRM_WAVES.title}
-				className="relative flex h-5 items-center justify-center rounded-sm border border-dashed border-border-strong px-2 type-caption text-text-muted"
+				className="relative flex h-5 items-center justify-center rounded-sm border border-dashed border-border-strong px-1.5 type-caption text-text-muted"
 			>
 				{FIRM_WAVES.text}
 				<span className="sr-only">{`. ${FIRM_WAVES.title}`}</span>
@@ -257,7 +219,7 @@ function WaveStrip({ agent }: { agent: AgentTemplate }) {
 	return (
 		<span
 			data-testid={`catalog-agent-waves-${agent.slug}`}
-			className="flex w-36 shrink-0 gap-0.5"
+			className="flex w-[6.5rem] shrink-0 gap-px"
 		>
 			{WAVES.map((wave) => (
 				<span
@@ -266,7 +228,7 @@ function WaveStrip({ agent }: { agent: AgentTemplate }) {
 					data-wave={wave}
 					data-runs={runs.has(wave)}
 					className={cn(
-						"flex h-5 flex-1 items-center justify-center rounded-sm border type-mono",
+						"flex h-5 flex-1 items-center justify-center rounded-xs border type-caption tabular-nums",
 						runs.has(wave)
 							? "border-border-strong bg-app-raised text-text"
 							: "border-dashed border-border text-text-subtle",
@@ -284,57 +246,43 @@ function WaveStrip({ agent }: { agent: AgentTemplate }) {
 	);
 }
 
-/** What an agent's side reads as; none for Firm and code agents. */
-export const sideLabel = (agent: Pick<AgentTemplate, "roles">) => {
-	const side = sideOf(agent);
-	return side === null ? "No side" : SIDE_LABELS[side];
-};
-
-/** Waves and side on one row: when it works, and what kind of work. */
-function FactsSection({ agent }: { agent: AgentTemplate }) {
-	return (
-		<CardSection label="Waves and side" section="facts" slug={agent.slug}>
-			<span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-				<WaveStrip agent={agent} />
-				<span
-					data-testid={`catalog-agent-side-${agent.slug}`}
-					data-side={sideOf(agent) ?? "none"}
-					className="type-small text-foreground"
-				>
-					{sideLabel(agent)}
-				</span>
-			</span>
-		</CardSection>
-	);
-}
-
 /**
- * The identity in force as its ref, "atlas@v1", in a mono chip; out of date
- * beside it when its inputs moved; not generated when there is none. The
- * template's own version (an edit counter) is never shown on the card.
+ * The identity in force as its ref, "atlas@v1", in one mono chip that
+ * carries its state: dashed when no identity is generated (the slug alone),
+ * warn when its inputs moved since. The words are on hover and for screen
+ * readers, so the chip never wraps the card's head. The template's own
+ * version (an edit counter) is never shown on the card.
  */
 function IdentityRef({ agent }: { agent: AgentTemplate }) {
 	const ref =
 		agent.identityVersion === null
 			? null
 			: `${agent.slug}@v${agent.identityVersion}`;
+	const state =
+		ref === null ? "not generated" : agent.identityStale ? "out of date" : null;
 	return (
 		<span
 			data-testid={`catalog-agent-ref-${agent.slug}`}
 			data-generated={ref !== null}
 			data-stale={agent.identityStale || undefined}
-			className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5"
+			title={
+				ref === null
+					? "Identity not generated"
+					: state === null
+						? `Identity ${ref}`
+						: `Identity ${ref}, ${state}`
+			}
+			className={cn(
+				"inline-flex h-5 min-w-0 shrink-0 items-center rounded-xs border px-1.5 type-mono",
+				ref === null
+					? "border-dashed border-border-strong text-text-subtle"
+					: agent.identityStale
+						? "border-gate-warn-line bg-gate-warn-soft text-gate-warn"
+						: "border-border bg-app-raised text-text-muted",
+			)}
 		>
-			<span className="truncate rounded-xs bg-gate-pending-soft px-1.5 type-mono text-text-muted">
-				{ref ?? agent.slug}
-			</span>
-			{ref === null ? (
-				<span className="type-caption text-text-subtle">not generated</span>
-			) : agent.identityStale ? (
-				<span className="type-caption font-medium text-gate-warn">
-					out of date
-				</span>
-			) : null}
+			<span className="truncate">{ref ?? agent.slug}</span>
+			{state === null ? null : <span className="sr-only">{`, ${state}`}</span>}
 		</span>
 	);
 }
@@ -345,7 +293,7 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 	const nameId = `catalog-agent-card-name-${agent.slug}`;
 	return (
 		// The li and the article both take the grid's rows as a subgrid, so
-		// each section is one row shared with the cards beside it.
+		// each row is shared with the cards beside it.
 		<li
 			data-testid={`catalog-agent-card-${agent.slug}`}
 			className={cn("grid min-w-0 grid-rows-subgrid gap-y-0", CARD_SPAN)}
@@ -360,17 +308,23 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 					CARD_SPAN,
 				)}
 			>
-				{/* Identity: the card's head, set apart by a hairline. */}
 				<div
 					data-testid={`catalog-agent-card-identity-${agent.slug}`}
 					data-section="identity"
-					className="flex min-w-0 items-start gap-3 border-b border-border px-4 py-3"
+					className="flex min-w-0 items-center gap-3 px-4 pt-4"
 				>
-					<AgentTile agent={agent} size="lg" />
-					<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-						{/* The name, then the kind on the same baseline. */}
-						<span className="flex min-w-0 items-baseline justify-between gap-2">
-							<h3 id={nameId} className="truncate type-title text-text">
+					<AgentAvatar
+						slug={agent.slug}
+						size="lg"
+						data-testid={`catalog-agent-tile-${agent.slug}`}
+					/>
+					<span className="flex min-w-0 flex-1 flex-col">
+						<span className="flex min-w-0 items-center justify-between gap-2">
+							<h3
+								id={nameId}
+								title={agent.name}
+								className="truncate type-title text-text"
+							>
 								{agent.name}
 							</h3>
 							<Badge
@@ -382,92 +336,90 @@ export function AgentCard({ agent }: { agent: AgentTemplate }) {
 								{KIND_LABELS[agent.kind]}
 							</Badge>
 						</span>
-						{agent.title === null ? null : (
-							<span
-								data-testid={`catalog-agent-title-${agent.slug}`}
-								className="truncate type-small text-text-muted"
-							>
-								{agent.title}
-							</span>
-						)}
-						<IdentityRef agent={agent} />
+						<span className="flex min-w-0 items-center gap-2">
+							{agent.title === null ? null : (
+								<span
+									data-testid={`catalog-agent-title-${agent.slug}`}
+									title={agent.title}
+									className="min-w-0 truncate type-small text-text-muted"
+								>
+									{agent.title}
+								</span>
+							)}
+							<IdentityRef agent={agent} />
+						</span>
 					</span>
 				</div>
 
 				<DescriptionSection agent={agent} />
 
-				<CardSection
-					label="Roles"
-					count={roles.length}
-					section="roles"
-					slug={agent.slug}
+				{/* What it is, at a glance: its roles, then when it works. Its
+				    side is on its page (operator, 2026-10-22). */}
+				<div
+					data-testid={`catalog-agent-card-tags-${agent.slug}`}
+					data-section="tags"
+					className="flex min-w-0 flex-wrap content-start items-center gap-1.5 px-4 pt-3 pb-4"
 				>
 					<span
 						data-testid={`catalog-agent-roles-${agent.slug}`}
-						className="flex flex-wrap content-start items-start gap-1"
+						className="contents"
 					>
 						{roles.slice(0, CARD_ROLES).map((role) => (
-							<RoleTag key={role} role={role} />
+							<RoleTag key={role} role={role} compact />
 						))}
 						{roles.length > CARD_ROLES ? (
 							<span
 								data-testid={`catalog-agent-roles-more-${agent.slug}`}
-								className="self-center type-caption text-text-subtle"
+								title={roles.slice(CARD_ROLES).join(", ")}
+								className="type-caption text-text-subtle"
 							>
-								{`+${roles.length - CARD_ROLES} more`}
+								{`+${roles.length - CARD_ROLES}`}
 							</span>
 						) : null}
 					</span>
-				</CardSection>
-
-				<FactsSection agent={agent} />
-
-				<CardSection
-					label="Files it may change"
-					count={paths.length}
-					section="paths"
-					slug={agent.slug}
-				>
-					{paths.length === 0 ? (
-						<span className="type-caption text-text-subtle">
-							Changes no files.
-						</span>
-					) : (
-						<ul
-							data-testid={`catalog-agent-paths-${agent.slug}`}
-							className="flex min-w-0 flex-col gap-0.5"
-						>
-							{paths.slice(0, CARD_PATHS).map((glob) => (
-								<li key={glob} className="truncate type-mono text-text-muted">
-									<WritablePath glob={glob} />
-								</li>
-							))}
-							{paths.length > CARD_PATHS ? (
-								<li
-									data-testid={`catalog-agent-paths-more-${agent.slug}`}
-									className="type-caption text-text-subtle"
-								>
-									{`+${paths.length - CARD_PATHS} more`}
-								</li>
-							) : null}
-						</ul>
-					)}
-				</CardSection>
+					<span className="ml-auto flex shrink-0 items-center">
+						<WaveStrip agent={agent} />
+					</span>
+				</div>
 
 				<div
+					data-testid={`catalog-agent-card-footer-${agent.slug}`}
 					data-section="footer"
-					className="flex items-end justify-end border-t border-border px-4 py-2"
+					className="flex min-w-0 items-center gap-3 border-t border-border px-4 py-2"
 				>
+					<span
+						data-testid={`catalog-agent-paths-${agent.slug}`}
+						title={paths.length > 0 ? paths.join("\n") : undefined}
+						className="flex min-w-0 flex-1 items-center gap-1.5 type-caption text-text-subtle"
+					>
+						{paths.length === 0 ? (
+							"Changes no files"
+						) : (
+							<>
+								<span className="min-w-0 truncate type-mono text-text-muted">
+									<WritablePath glob={paths[0] ?? ""} />
+								</span>
+								{paths.length > CARD_PATHS ? (
+									<span
+										data-testid={`catalog-agent-paths-more-${agent.slug}`}
+										className="shrink-0 tabular-nums"
+									>
+										{`+${paths.length - CARD_PATHS} more`}
+									</span>
+								) : null}
+							</>
+						)}
+					</span>
 					<Link
 						to="/catalog/agents/$slug"
 						params={{ slug: agent.slug }}
 						data-testid={`catalog-agent-card-open-${agent.slug}`}
 						aria-label={`Open ${agent.name}`}
 						// Stretched over the card: the whole card is this one link.
-						className="py-1.5 -my-1.5 inline-flex items-center gap-1 rounded-xs type-small font-medium text-accent-text after:absolute after:inset-0 after:content-['']"
+						className="-my-1 inline-flex shrink-0 items-center gap-1 rounded-xs py-1 type-small font-medium text-accent-text after:absolute after:inset-0 after:content-['']"
 					>
 						Open
-						<ArrowRight aria-hidden="true" className="size-4" />
+						<ArrowRight aria-hidden="true" className="size-3.5" />
 					</Link>
 				</div>
 			</article>
@@ -530,7 +482,7 @@ export function AgentCardGrid({
 	);
 }
 
-/** Cards in their real shape while the list loads: band, then sections. */
+/** Cards in their real shape while the list loads: four rows. */
 export function AgentCardSkeleton({
 	"data-testid": testId,
 }: {
@@ -541,33 +493,29 @@ export function AgentCardSkeleton({
 			{[0, 1, 2].map((i) => (
 				<li key={i} className="min-w-0">
 					<div className="flex flex-col rounded-card border border-border bg-app-panel shadow-card">
-						<div className="flex items-center gap-3 border-b border-border px-4 py-3">
-							<Skeleton className="size-11 rounded-control" />
+						<div className="flex items-center gap-3 px-4 pt-4">
+							<Skeleton className="size-tile-lg rounded-tile" />
 							<span className="flex flex-1 flex-col gap-1.5">
 								<Skeleton className="h-4 w-24" />
-								<Skeleton className="h-3 w-16" />
+								<Skeleton className="h-3 w-32" />
 							</span>
-							{/* Where the status pill sits (v3 .skel-pill). */}
+							{/* Where the kind badge sits (v3 .skel-pill). */}
 							<Skeleton
 								data-testid={`${testId}-pill`}
-								className="h-[22px] w-16 rounded-sm"
+								className="h-5 w-14 rounded-sm"
 							/>
 						</div>
-						<div className="flex flex-col gap-1.5 px-4 py-3">
-							<Skeleton className="h-3.5 w-full" />
-							<Skeleton className="h-3.5 w-11/12" />
-							<Skeleton className="h-3.5 w-2/3" />
+						<div className="flex flex-col gap-1.5 px-4 pt-3">
+							<Skeleton className="h-3 w-full" />
+							<Skeleton className="h-3 w-2/3" />
 						</div>
-						{["w-32", "w-full", "w-40"].map((width) => (
-							<div
-								key={width}
-								className="flex flex-col gap-2 border-t border-border px-4 py-3"
-							>
-								<Skeleton className="h-3 w-16" />
-								<Skeleton className={cn("h-5", width)} />
-							</div>
-						))}
-						<div className="flex justify-end border-t border-border px-4 py-2">
+						<div className="flex items-center gap-1.5 px-4 pt-3 pb-4">
+							<Skeleton className="h-5 w-16 rounded-sm" />
+							<Skeleton className="h-5 w-20 rounded-sm" />
+							<Skeleton className="ml-auto h-5 w-[6.5rem] rounded-sm" />
+						</div>
+						<div className="flex items-center justify-between border-t border-border px-4 py-2">
+							<Skeleton className="h-3 w-28" />
 							<Skeleton className="h-4 w-12" />
 						</div>
 					</div>

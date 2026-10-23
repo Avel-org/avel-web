@@ -35,7 +35,7 @@ export const Route = createFileRoute("/templates")({
 });
 
 /**
- * "4 templates · 9 missions built from them": the count, then the real
+ * "4 templates, 9 missions built from them": the count, then the real
  * missions built from them (each template's missionCount, summed).
  */
 export function templatesSubtitle(
@@ -46,7 +46,7 @@ export function templatesSubtitle(
 		missions === 0
 			? "no missions built from them yet"
 			: `${missionCountLabel(missions).toLowerCase()} built from them`;
-	return `${templateCountLabel(templates.length)} · ${built}`;
+	return `${templateCountLabel(templates.length)}, ${built}`;
 }
 
 function TemplatesPage() {

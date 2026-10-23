@@ -326,7 +326,7 @@ function Segments<V extends string>({
 				"max-w-full overflow-x-auto no-scrollbar",
 			)}
 		>
-			<legend className="float-left flex h-[26px] items-center pr-1.5 pl-2 type-eyebrow">
+			<legend className="float-left flex h-6 items-center pr-1.5 pl-2 type-eyebrow">
 				{legend}
 			</legend>
 			{[{ value: undefined, label: "All", count: total }, ...options].map(

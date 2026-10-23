@@ -12,7 +12,6 @@ import {
 	Grid3x3,
 	PanelRightOpen,
 	Rocket,
-	Rows3,
 	Trash2,
 } from "lucide-react";
 import {
@@ -104,13 +103,11 @@ const DRAG_TYPE = "application/x-avel-agent";
 type Lens = "lanes" | "coverage";
 const LENSES = ["lanes", "coverage"] as const;
 
-/** The page's one view control: the two lenses, and the table. */
-type ComposerView = Lens | "table";
-export const VIEW_OPTIONS = [
+/** The canvas's one view control: the two lenses (ruling 55: no table). */
+const LENS_OPTIONS = [
 	{ id: "lanes", label: "Lanes", icon: Columns3 },
 	{ id: "coverage", label: "Coverage", icon: Grid3x3 },
-	{ id: "table", label: "Table", icon: Rows3 },
-] as const satisfies readonly ViewOption<ComposerView>[];
+] as const satisfies readonly ViewOption<Lens>[];
 
 /** The first-time hint and the tray, remembered per viewer. */
 
@@ -215,7 +212,6 @@ export function PresetKanban({
 	preset: latest,
 	names,
 	switcher,
-	onTable,
 	onApply,
 	onSaved,
 }: {
@@ -224,8 +220,6 @@ export function PresetKanban({
 	names: Names;
 	/** The team switcher, at the head of the canvas. */
 	switcher: ReactNode;
-	/** The view control's Table: the route's own view. */
-	onTable: () => void;
 	onApply: (preset: Preset) => void;
 	onSaved: (preset: Preset) => void;
 }) {
@@ -590,9 +584,9 @@ export function PresetKanban({
 			>
 				{switcher}
 				<ViewToggle
-					options={VIEW_OPTIONS}
+					options={LENS_OPTIONS}
 					view={lens}
-					onChange={(next) => (next === "table" ? onTable() : setLens(next))}
+					onChange={setLens}
 					testIdPrefix="preset-view"
 				/>
 				<div className="ml-auto flex items-center gap-2">

@@ -289,7 +289,7 @@ describe("the agent banner", () => {
 		expect(wavesLabel(agent("canon"))).toBe("between missions");
 		expect(
 			element(render({ of: agent("canon") }), "agent-banner-facts"),
-		).toContain(" · Between missions · ");
+		).toContain(", Between missions, ");
 	});
 
 	it("14. pins a compact banner under the top bar, hidden and inert until it scrolls away", () => {
@@ -470,7 +470,7 @@ describe("Recent activity", () => {
 		const text = visibleText(
 			html.slice(html.indexOf(`data-testid="agent-activity-row-${row.id}"`)),
 		);
-		expect(text).toContain("Atlas · scheduling");
+		expect(text).toMatch(/Atlas ?, scheduling/);
 		expect(text.slice(0, 120)).not.toMatch(UUID_FRAGMENT);
 	});
 

@@ -82,8 +82,7 @@ export function TeamSwitcher({
 								data-testid="preset-switcher-meta"
 								className="shrink-0 type-small whitespace-nowrap text-text-muted"
 							>
-								{CUT_LABEL[selected.cut]}
-								<span className="px-1.5 text-text-subtle">·</span>
+								{`${CUT_LABEL[selected.cut]}, `}
 								<span
 									data-testid="preset-kanban-version"
 									className="tabular-nums"
@@ -201,11 +200,7 @@ export function TeamList({
 							>
 								<Link
 									to="/presets"
-									search={(prev) => ({
-										...prev,
-										preset: p.id,
-										view: undefined,
-									})}
+									search={(prev) => ({ ...prev, preset: p.id })}
 									onClick={onChoose}
 									data-testid={`preset-open-${p.id}`}
 									className="flex min-w-0 flex-1 items-center gap-2 rounded-control px-2 py-2"
@@ -222,7 +217,7 @@ export function TeamList({
 											{p.name}
 										</span>
 										<span className="type-caption">
-											{`${CUT_LABEL[p.cut]} · ${agentCount(p.agents.length)} · v${p.version}`}
+											{`${CUT_LABEL[p.cut]}, ${agentCount(p.agents.length)}, v${p.version}`}
 										</span>
 									</span>
 								</Link>

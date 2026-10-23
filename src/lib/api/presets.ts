@@ -58,19 +58,18 @@ export function presetSearchText(text: string | undefined): string | undefined {
 
 /**
  * contract.presets.list, newest first, a page at a time. `q` searches the
- * name; `cut` keeps presets of that cut. meta.total counts the matches.
+ * name. meta.total counts the matches.
  */
-export function presetsQuery(api: ApiClient, search?: string, cut?: PresetCut) {
+export function presetsQuery(api: ApiClient, search?: string) {
 	const q = presetSearchText(search);
 	return infiniteQueryOptions({
-		queryKey: queryKeys.presets.list(PRESETS_PAGE_SIZE, { q, cut }),
+		queryKey: queryKeys.presets.list(PRESETS_PAGE_SIZE, { q }),
 		queryFn: ({ pageParam }) =>
 			callPage(contract.presets.list, () =>
 				api.presets.list({
 					query: {
 						limit: PRESETS_PAGE_SIZE,
 						...(q === undefined ? {} : { q }),
-						...(cut === undefined ? {} : { cut }),
 						...(pageParam ? { cursor: pageParam } : {}),
 					},
 				}),
@@ -80,8 +79,8 @@ export function presetsQuery(api: ApiClient, search?: string, cut?: PresetCut) {
 	});
 }
 
-export function usePresets(search?: string, cut?: PresetCut) {
-	return useInfiniteQuery(presetsQuery(useApiClient(), search, cut));
+export function usePresets(search?: string) {
+	return useInfiniteQuery(presetsQuery(useApiClient(), search));
 }
 
 /**
@@ -106,9 +105,8 @@ export function loadedPresets(data: InfiniteData<PresetPage>): Preset[] {
 	return data.pages.flatMap((page) => page.data);
 }
 
-/** "1 team", "12 teams", or as matches while a search or filter is set. */
-export function presetCountLabel(total: number, filtered: boolean): string {
-	if (filtered) return total === 1 ? "1 team matches" : `${total} teams match`;
+/** "1 team", "12 teams". */
+export function presetCountLabel(total: number): string {
 	return total === 1 ? "1 team" : `${total} teams`;
 }
 

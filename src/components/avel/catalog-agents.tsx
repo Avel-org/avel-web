@@ -211,11 +211,12 @@ export function CatalogAgents({
 				</div>
 			</DataPanel>
 			<p
-				data-testid="catalog-agents-read-only"
+				data-testid="catalog-agents-identity-note"
 				className="type-caption text-text-subtle"
 			>
-				Each agent's identity is written from its roles, so it can't be edited
-				here. To change an agent, change one of its roles.
+				An agent's identity is generated from its roles, never written by hand.
+				Open an agent to change its title, roles or paths, then regenerate its
+				identity.
 			</p>
 		</div>
 	);

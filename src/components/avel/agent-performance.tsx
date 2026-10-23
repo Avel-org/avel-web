@@ -17,9 +17,13 @@ import { cn } from "@/lib/utils";
 import { missionLabel } from "@/shell/command-search";
 import { whenLabel } from "./agent-activity";
 import { CompletionReportView, FILED_BY_LABEL } from "./completion-report";
-import { DISPATCH_LANES, DISPATCH_STATUS_TONE } from "./dispatch-board";
+import { DISPATCH_LANES } from "./dispatch-board";
 import { formatTokens, formatUsd } from "./dispatch-budget";
-import { DISPATCH_STATUS_LABEL, HALT_REASON_LABEL } from "./dispatch-labels";
+import {
+	DISPATCH_STATUS_LABEL,
+	DISPATCH_STATUS_TONE,
+	HALT_REASON_LABEL,
+} from "./dispatch-labels";
 import { PanelFooter } from "./panel-footer";
 import { SectionPanel } from "./section-panel";
 import { StatusGlyph } from "./status-pill";

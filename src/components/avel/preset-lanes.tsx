@@ -666,9 +666,9 @@ export function TrayChip({
 					className={cn(
 						// A compact chip, 32px, in the band's wrapping row.
 						"group/chip relative h-8 cursor-grab gap-1.5 border-border px-1.5 shadow-none active:cursor-grabbing",
-						// Not a match: the band's surface and the subtle ink, at full
+						// Not a match: the hollow surface and the subtle ink, at full
 						// opacity (v3 UX 6), so every agent still shows.
-						dimmed && "border-dashed bg-app-band",
+						dimmed && "border-dashed bg-app-hollow",
 					)}
 				>
 					<GripVertical

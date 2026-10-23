@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { NewAgentButton } from "@/components/avel/agent-create";
 import { CatalogAgents } from "@/components/avel/catalog-agents";
 import {
 	catalogCountLabel,
@@ -34,6 +35,7 @@ function CatalogAgentsPage() {
 					? undefined
 					: catalogCountLabel(total, "agent", "agents")
 			}
+			actions={<NewAgentButton />}
 		>
 			<CatalogAgents
 				query={templates}

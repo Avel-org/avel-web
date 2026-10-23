@@ -6,16 +6,14 @@ import type {
 	PlaybookGate,
 } from "avel-server/contract";
 import { WAVES } from "avel-server/contract";
-import { ListChecks, Rows3, SearchX, SquareKanban, Users } from "lucide-react";
+import { ListChecks, SearchX, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadedPlaybooks, type usePlaybooks } from "@/lib/api/playbooks";
 import { usePreset } from "@/lib/api/presets";
 import { cn } from "@/lib/utils";
-import { type DataColumn, DataTable, STRETCHED_LINK } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { ErrorState, Surface } from "./surface";
-import type { ViewOption } from "./view-toggle";
 
 /*
  * Playbooks, the second section of Teams (/presets?section=playbooks): the
@@ -52,68 +50,6 @@ export function playbookCountLabel(total: number): string {
 	return total === 1 ? "1 playbook" : `${total} playbooks`;
 }
 
-const COLUMNS: DataColumn<Playbook>[] = [
-	{
-		id: "name",
-		header: "Playbook",
-		cell: (row) => (
-			<Link
-				to="/presets/playbooks/$missionType"
-				params={{ missionType: row.missionType }}
-				data-testid={`playbook-row-link-${row.missionType}`}
-				className={cn(
-					"font-medium text-foreground underline-offset-4 hover:underline",
-					STRETCHED_LINK,
-				)}
-			>
-				{row.name}
-			</Link>
-		),
-	},
-	{
-		id: "missionType",
-		header: "Mission type",
-		mono: true,
-		cell: (row) => row.missionType,
-	},
-	{
-		id: "deliverable",
-		header: "Deliverable",
-		width: "10rem",
-		cell: (row) => DELIVERABLE_LABEL[row.deliverable],
-	},
-	{
-		id: "waves",
-		header: "Waves",
-		width: "8rem",
-		mono: true,
-		cell: (row) =>
-			row.wavesApplicable.length > 0 ? (
-				row.wavesApplicable.join(" ")
-			) : (
-				<span className="font-sans text-text-subtle">None</span>
-			),
-	},
-	{
-		id: "gates",
-		header: "Gates",
-		width: "11rem",
-		cell: (row) => (
-			<span data-testid="playbook-gate-summary" className="text-text-muted">
-				{gateSummary(row.gates)}
-			</span>
-		),
-	},
-	{
-		id: "version",
-		header: "Version",
-		width: "5rem",
-		align: "end",
-		mono: true,
-		cell: (row) => `v${row.version}`,
-	},
-];
-
 /**
  * The loaded playbooks whose name or mission type holds the search, any case.
  * An empty search keeps them all. Pure, so it tests.
@@ -130,27 +66,16 @@ export function filterPlaybooks<
 	);
 }
 
-/** Board (cards, the default) or Table (the rows), as the URL's `view` says. */
-export type PlaybookView = "board" | "table";
-
-/** Board, then Table: the options for the shared view switch. */
-export const PLAYBOOK_VIEWS = [
-	{ id: "board", label: "Board", icon: SquareKanban },
-	{ id: "table", label: "Table", icon: Rows3 },
-] as const satisfies readonly ViewOption<PlaybookView>[];
-
 /**
  * The list, a page at a time, as the body of the page's Playbooks panel. The
  * route owns the query and the panel, whose footer carries the paging.
  */
 export function PlaybookList({
 	query,
-	view = "board",
 	search = "",
 	onClearSearch = () => {},
 }: {
 	query: ReturnType<typeof usePlaybooks>;
-	view?: PlaybookView;
 	/** The toolbar's search, applied to the loaded playbooks. */
 	search?: string;
 	onClearSearch?: () => void;
@@ -192,16 +117,6 @@ export function PlaybookList({
 								</Button>
 							}
 						/>
-					) : view === "table" ? (
-						<DataTable
-							label="Playbooks"
-							data-testid="playbook-table"
-							columns={COLUMNS}
-							rows={rows}
-							getRowId={(row) => row.id}
-							linkedRows
-							viewKey="playbooks"
-						/>
 					) : (
 						<div className="p-4">
 							<PlaybookBoard playbooks={rows} />
@@ -213,7 +128,7 @@ export function PlaybookList({
 	);
 }
 
-/** Three rows in the table's shape: few, so it does not promise many. */
+/** Three placeholder rows: few, so it does not promise many. */
 function PlaybookListSkeleton() {
 	return (
 		<div data-testid="playbook-list-skeleton" className="flex flex-col gap-3">

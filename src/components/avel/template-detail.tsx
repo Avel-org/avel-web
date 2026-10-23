@@ -55,7 +55,7 @@ const TAB_LABEL: Record<TemplateTabId, string> = {
 	missions: "Missions",
 };
 
-/** "Full stack · Greenfield · template-booking"; just the slug when unread. */
+/** "Full stack, Greenfield, template-booking"; just the slug when unread. */
 export function templateFacts(template: Template): string {
 	return [
 		template.scope ? SCOPE_LABEL[template.scope] : null,
@@ -65,7 +65,7 @@ export function templateFacts(template: Template): string {
 		template.slug,
 	]
 		.filter((part): part is string => part !== null)
-		.join(" · ");
+		.join(", ");
 }
 
 export function TemplateDetail({
@@ -410,10 +410,12 @@ function TemplatePlaybook({
 	if (links.failed || !links.ready) {
 		return (
 			<div data-testid="template-playbook-pending">
-				{links.failed ? (
-					<p className="type-small text-text-muted">
-						Playbooks could not be read. Open Playbooks to try again.
-					</p>
+				{links.failed && links.error ? (
+					<ErrorState
+						error={links.error}
+						retry={links.retry}
+						retrying={links.retrying}
+					/>
 				) : (
 					<Skeleton className="h-40 w-full rounded-card" />
 				)}
@@ -427,7 +429,7 @@ function TemplatePlaybook({
 				data-testid="template-playbook-none"
 				icon={ListChecks}
 				title="No playbook for this template"
-				description={`A playbook keyed by ${template.slug} sets the waves, gates and deliverable for missions built from it. Create one on Playbooks with ${template.slug} as its mission type.`}
+				description={`A playbook keyed by ${template.slug} sets the waves, gates and deliverable for missions built from it. Create one under Teams, in its Playbooks section, with ${template.slug} as its mission type.`}
 				action={
 					<Button asChild variant="outline" size="sm">
 						<Link

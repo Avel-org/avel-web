@@ -61,7 +61,7 @@ describe("the team switcher's list", () => {
 		);
 		expect(tagOf(html, `preset-open-${TWO.id}`)).toContain(`preset=${TWO.id}`);
 		expect(html).toContain(">Discovery<");
-		expect(html).toContain("By layer · 0 agents · v1");
+		expect(html).toContain("By layer, 0 agents, v1");
 	});
 
 	it("searches with the shared SearchField, and ends with New team", async () => {
