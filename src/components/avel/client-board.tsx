@@ -262,7 +262,7 @@ export function ClientCard({
 			<header className="flex items-start gap-3 border-b border-border px-4 py-2.5">
 				<ClientTile name={client.name} closed={closed} />
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<h3 id={titleId} className="type-title truncate">
+					<h3 id={titleId} title={client.name} className="type-title truncate">
 						{/* The link's box covers the card, so a click anywhere opens
 						    the client; the menu and buttons sit above it. */}
 						<Link
@@ -279,6 +279,7 @@ export function ClientCard({
 					{client.primaryContact === null ? null : (
 						<p
 							data-testid={`client-card-contact-${client.id}`}
+							title={client.primaryContact}
 							className="type-caption truncate text-text-muted"
 						>
 							{client.primaryContact}
@@ -500,7 +501,7 @@ function EngagementLine({ engagement }: { engagement: Engagement }) {
 		<li
 			data-testid={`client-card-engagement-${engagement.id}`}
 			data-status={engagement.status}
-			className="flex min-w-0 items-center gap-2 rounded-control bg-app-well px-2 py-1"
+			className="flex min-w-0 items-center gap-2 rounded-control border border-border bg-app-well px-2 py-1"
 		>
 			<span
 				aria-hidden="true"
@@ -510,6 +511,7 @@ function EngagementLine({ engagement }: { engagement: Engagement }) {
 				)}
 			/>
 			<span
+				title={engagement.name}
 				className={cn(
 					"type-small min-w-0 flex-1 truncate",
 					active ? "text-foreground" : "text-text-muted",
@@ -617,7 +619,7 @@ function NewClientCard({ onClick }: { onClick: () => void }) {
 			type="button"
 			data-testid="client-card-new"
 			onClick={onClick}
-			className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border-strong bg-app-band p-4 text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:border-border-strong hover:bg-app-raised hover:text-text"
+			className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border-strong bg-app-hollow p-4 text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised hover:text-text"
 		>
 			<span className="inline-flex size-tile-md items-center justify-center rounded-tile border border-border bg-app-panel">
 				<Plus aria-hidden="true" className="size-4" />

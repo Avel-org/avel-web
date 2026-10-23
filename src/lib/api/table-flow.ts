@@ -43,6 +43,7 @@ export type Table =
 export const WRITES = {
 	regenerateIdentity: ["agent_identity_version", "activity_log"],
 	updateAgentTemplate: ["agent_template", "activity_log"],
+	createAgentTemplate: ["agent_template", "activity_log"],
 	createSkill: ["skill", "activity_log"],
 	updateSkill: ["skill", "activity_log"],
 	approveSkill: ["skill", "activity_log"],
@@ -86,6 +87,7 @@ export const WRITES = {
 	proposeIntake: ["intake", "activity_log"],
 	readRepo: ["intake", "activity_log"],
 	rejectIntake: ["intake", "activity_log"],
+	reviewSources: ["intake", "activity_log"],
 	approveIntake: ["intake", "mission", "activity_log"],
 	openCanonSession: ["canon_session", "intake", "activity_log"],
 	closeCanonSession: ["canon_session", "intake", "activity_log"],

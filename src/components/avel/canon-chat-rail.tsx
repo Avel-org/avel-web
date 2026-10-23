@@ -371,7 +371,6 @@ function ChatRow({
 						) : (
 							<span className="truncate">Open chat</span>
 						)}
-						<span aria-hidden="true">·</span>
 						<span
 							data-testid="canon-chat-row-mode"
 							data-mode={chat.mode}
@@ -381,9 +380,9 @@ function ChatRow({
 							{CANON_MODE_COPY[chat.mode].label}
 						</span>
 						{chat.status === "halted" ? (
-							<span className="shrink-0 text-gate-block">· Halted</span>
+							<span className="shrink-0 text-gate-block">Halted</span>
 						) : chat.status === "closed" ? (
-							<span className="shrink-0">· Closed</span>
+							<span className="shrink-0">Closed</span>
 						) : null}
 					</span>
 				</span>

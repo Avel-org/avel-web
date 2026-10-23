@@ -393,7 +393,7 @@ function ClientBannerActions({
 			) : (
 				<Button
 					size="sm"
-					variant="outline"
+					variant="destructive"
 					data-testid="client-close"
 					onClick={() => actions.onClose(client)}
 				>

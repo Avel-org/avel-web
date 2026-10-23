@@ -7,7 +7,11 @@ import {
 	afterMemory,
 	afterQuestion,
 } from "@/lib/api/canon";
-import { afterAgentUpdate, afterRegenerate } from "@/lib/api/catalog";
+import {
+	afterAgentCreate,
+	afterAgentUpdate,
+	afterRegenerate,
+} from "@/lib/api/catalog";
 import type { ApiClient } from "@/lib/api/client";
 import {
 	afterClientUpdated,
@@ -27,6 +31,7 @@ import {
 	proposeIntakeOptions,
 	readRepoOptions,
 	rejectIntakeOptions,
+	reviewSourcesOptions,
 	reviseIntakeOptions,
 } from "@/lib/api/intakes";
 import { queryKeys } from "@/lib/api/keys";
@@ -176,6 +181,7 @@ const CANON_SESSION = { id: SESSION, intakeId: I } as never;
 const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	regenerateIdentity: (qc) => afterRegenerate(qc, { created: true }),
 	updateAgentTemplate: (qc) => afterAgentUpdate(qc),
+	createAgentTemplate: (qc) => afterAgentCreate(qc),
 	createSkill: (qc) => afterSkillWrite(qc),
 	updateSkill: (qc) => afterSkillWrite(qc),
 	approveSkill: (qc) => afterSkillWrite(qc),
@@ -232,6 +238,8 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	readRepo: (qc) => observe(qc, readRepoOptions(NO_API, qc, I), {}, INTAKE),
 	rejectIntake: (qc) =>
 		observe(qc, rejectIntakeOptions(NO_API, qc, I), "why", INTAKE),
+	reviewSources: (qc) =>
+		observe(qc, reviewSourcesOptions(NO_API, qc, I), { decisions: [] }, INTAKE),
 	approveIntake: (qc) =>
 		observe(qc, approveIntakeOptions(NO_API, qc, I), {}, INTAKE),
 	openCanonSession: (qc) => afterCanonSessionWrite(qc, CANON_SESSION),
@@ -284,6 +292,10 @@ const STATUS_NOT_COUNT =
 	"a status change does not change how many missions a template has";
 
 const EXEMPT: Partial<Record<WriteName, Partial<Record<ReadName, string>>>> = {
+	createAgentTemplate: {
+		"roster.access":
+			"a new template sits on no roster entry, so no entry's access derives from it until one is added, and adding one invalidates the access it shows",
+	},
 	createClient: MISSION_READS_OF_A_NEW_PARENT,
 	createEngagement: MISSION_READS_OF_A_NEW_PARENT,
 	previewExport: { "exports.detail": OTHER_EXPORT },
@@ -327,6 +339,7 @@ const EXEMPT: Partial<Record<WriteName, Partial<Record<ReadName, string>>>> = {
 	proposeIntake: { "missionPlans.detail": BEFORE_APPROVAL },
 	readRepo: { "missionPlans.detail": BEFORE_APPROVAL },
 	rejectIntake: { "missionPlans.detail": BEFORE_APPROVAL },
+	reviewSources: { "missionPlans.detail": BEFORE_APPROVAL },
 	openCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
 	closeCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },
 	haltCanonSession: { "missionPlans.detail": CANON_BEFORE_APPROVAL },

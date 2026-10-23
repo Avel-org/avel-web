@@ -22,8 +22,6 @@ export const DRIVE_MISSING = {
 	preview: "a file's text preview",
 } as const;
 
-export type DriveMissing = (typeof DRIVE_MISSING)[keyof typeof DRIVE_MISSING];
-
 export type FileScope = "general" | "client" | "engagement";
 
 /** One stored file, as the Drive will list it. */

@@ -13,7 +13,6 @@ import {
 	useWriteClientMemory,
 } from "@/lib/api/canon";
 import { describeError } from "@/lib/error-map";
-import { useIsPreview } from "@/shell/auth-gate";
 import { shortStamp } from "./activity-audit";
 import { ActorMark } from "./actor";
 import { EmptyState } from "./empty-state";
@@ -161,11 +160,9 @@ export function MemoryRow({
 	memory: ClientMemory;
 	clientId: string;
 }) {
-	const preview = useIsPreview();
 	const keep = useKeepClientMemory(clientId);
 	const remove = useRemoveClientMemory(clientId);
 	const [editing, setEditing] = useState(false);
-	const signIn = preview ? "Sign in to change memory" : undefined;
 	const error = keep.error ?? remove.error;
 	const byCanon = m.proposedBy?.kind === "canon";
 	return (
@@ -206,7 +203,6 @@ export function MemoryRow({
 								variant="secondary"
 								size="sm"
 								data-testid={`client-memory-${m.id}-keep`}
-								disabledReason={signIn}
 								onClick={() => keep.mutate(m.id)}
 							>
 								<Check aria-hidden="true" />
@@ -218,7 +214,6 @@ export function MemoryRow({
 							variant="ghost"
 							size="sm"
 							data-testid={`client-memory-${m.id}-edit`}
-							disabledReason={signIn}
 							onClick={() => setEditing(true)}
 						>
 							<Pencil aria-hidden="true" />
@@ -229,7 +224,6 @@ export function MemoryRow({
 							variant="ghost"
 							size="sm"
 							data-testid={`client-memory-${m.id}-remove`}
-							disabledReason={signIn}
 							onClick={() => remove.mutate(m.id)}
 						>
 							<Trash2 aria-hidden="true" />
@@ -280,7 +274,6 @@ function WriteMemory({
 	clientId: string;
 	onDone: () => void;
 }) {
-	const preview = useIsPreview();
 	const write = useWriteClientMemory(clientId);
 	const [text, setText] = useState("");
 	return (
@@ -297,11 +290,7 @@ function WriteMemory({
 					size="sm"
 					data-testid="client-memory-write-save"
 					disabledReason={
-						preview
-							? "Sign in to write memory"
-							: text.trim() === ""
-								? "Write the memory first."
-								: undefined
+						text.trim() === "" ? "Write the memory first." : undefined
 					}
 					onClick={() => write.mutate(text.trim(), { onSuccess: onDone })}
 				>

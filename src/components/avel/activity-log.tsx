@@ -206,9 +206,6 @@ export function ActivityRows({
 					</span>
 					<span className="flex items-center gap-2">
 						<ActivityActor entry={entry} />
-						<span aria-hidden="true" className="text-text-subtle">
-							·
-						</span>
 						{/* Under a day heading the day is said, so the row gives the
 						    clock; a list with no headings keeps the age. The exact
 						    time is on hover either way. */}

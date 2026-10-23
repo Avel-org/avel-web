@@ -46,15 +46,6 @@ export function startedLabel(openedAt: string, now: number): string {
 	return /^\d+[mhdw]$/.test(age) ? `Started ${age} ago` : `Started ${age}`;
 }
 
-/** The meta line's separator. */
-function Dot() {
-	return (
-		<span aria-hidden="true" className="text-text-subtle">
-			·
-		</span>
-	);
-}
-
 /** Why an ended chat takes no message, and what brings it back. */
 export function endedCopy(
 	s: Pick<CanonSession, "status" | "haltReason" | "archivedAt">,
@@ -137,23 +128,19 @@ export function CanonChatView({
 									status.label
 								)}
 							</span>
-							<Dot />
 							<CanonModeBadge
 								mode={s.mode}
 								data-testid="canon-session-mode"
 								className="h-5 px-1.5"
 							/>
-							<Dot />
 							<ChatScope session={s} />
-							<Dot />
 							<span>{startedLabel(s.openedAt, now)}</span>
-							<Dot />
 							<span
 								data-testid="canon-chat-usage"
 								className="tabular-nums"
 								title={`${formatTokens(s.tokensUsed)} of ${formatTokens(s.tokenHardCeiling)} tokens`}
 							>
-								{`${formatTokens(s.tokensUsed)} tokens · ${formatUsd(s.spendUsd)}`}
+								{`${formatTokens(s.tokensUsed)} tokens, ${formatUsd(s.spendUsd)}`}
 							</span>
 						</p>
 					</div>

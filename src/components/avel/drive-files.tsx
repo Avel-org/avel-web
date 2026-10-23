@@ -279,22 +279,39 @@ export function FileList({
 	);
 }
 
-/** An image's stand-in until previews exist: a framed, gridded placeholder. */
+/** "PDF", "XLSX": a file's extension, as the grid names its type. */
+export function extensionOf(name: string): string | null {
+	const at = name.lastIndexOf(".");
+	return at > 0 && at < name.length - 1
+		? name.slice(at + 1).toUpperCase()
+		: null;
+}
+
+/**
+ * A card's thumbnail until previews exist: one frame holding the kind's icon
+ * and the file's extension, so a grid of mixed files reads by type at a
+ * glance. An image's frame is gridded, the placeholder a preview will fill.
+ */
 function Thumbnail({ file }: { file: SampleFile }) {
+	const kind = KIND[kindOf(file.mime)];
 	const image = kindOf(file.mime) === "image";
+	const Icon = kind.icon;
+	const ext = extensionOf(file.name);
 	return (
 		<span
 			data-testid="drive-file-thumb"
 			data-placeholder={image || undefined}
 			className={cn(
 				// A short strip, not a tall frame: the card stays near a row's height.
-				"flex h-14 w-full items-center justify-center rounded-control border border-border",
-				image
-					? "bg-app-well bg-[linear-gradient(var(--color-border)_1px,transparent_1px),linear-gradient(90deg,var(--color-border)_1px,transparent_1px)] bg-[size:16px_16px]"
-					: "bg-app-well",
+				"flex h-16 w-full flex-col items-center justify-center gap-1 rounded-control border border-border bg-app-raised text-text-muted",
+				image &&
+					"bg-[linear-gradient(var(--color-border)_1px,transparent_1px),linear-gradient(90deg,var(--color-border)_1px,transparent_1px)] bg-[size:16px_16px]",
 			)}
 		>
-			<FileIconTile file={file} size="md" />
+			<Icon aria-hidden="true" className="size-5" />
+			<span className="type-caption font-medium tracking-wide text-text-subtle">
+				{ext ?? kind.label}
+			</span>
 		</span>
 	);
 }
@@ -403,7 +420,10 @@ export function RecentFiles({
 					>
 						<FileIconTile file={file} size="md" />
 						<span className="flex min-w-0 flex-col gap-0.5">
-							<span className="type-small truncate font-medium text-foreground">
+							<span
+								title={file.name}
+								className="type-small truncate font-medium text-foreground"
+							>
 								{file.name}
 							</span>
 							<span className="flex flex-wrap gap-x-3 type-mono whitespace-nowrap text-text-subtle">
@@ -433,6 +453,7 @@ export function NoteCards({ notes }: { notes: SampleNote[] }) {
 						<div className="flex items-baseline justify-between gap-3">
 							<span
 								data-testid="drive-note-title"
+								title={note.title}
 								className="type-small truncate font-medium text-foreground"
 							>
 								{note.title}

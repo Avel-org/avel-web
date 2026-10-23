@@ -548,7 +548,7 @@ export function lastActivityLabel(
 }
 
 /**
- * The banner's facts line: "Client since October 2026 · jane@acme.com ·
+ * The banner's facts line: "Client since October 2026, jane@acme.com,
  * last activity 3 days ago".
  */
 export function clientFacts(client: Client, now: number): string {
@@ -558,7 +558,7 @@ export function clientFacts(client: Client, now: number): string {
 		client.primaryContact ?? "No primary contact",
 		// Mid-line, so it starts lower case.
 		`${activity[0]?.toLowerCase() ?? ""}${activity.slice(1)}`,
-	].join(" · ");
+	].join(", ");
 }
 
 /** The most segments a card's engagement meter draws before it says "+n". */

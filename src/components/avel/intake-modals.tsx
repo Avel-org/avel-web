@@ -314,12 +314,16 @@ function ReadRepoForm({
 				testid="intake-read-repo-connection"
 			>
 				{(props) => (
-					<Select
-						value={chosen}
-						onValueChange={setConnectionId}
-						disabled={choices.length === 0}
-					>
-						<SelectTrigger {...props} className="w-full">
+					<Select value={chosen} onValueChange={setConnectionId}>
+						<SelectTrigger
+							{...props}
+							className="w-full"
+							disabledReason={
+								choices.length === 0
+									? "No active connection for this engagement"
+									: undefined
+							}
+						>
 							<SelectValue placeholder="No active connection" />
 						</SelectTrigger>
 						<SelectContent>

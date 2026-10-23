@@ -158,7 +158,10 @@ export function EngagementRows({
 						data-testid={`engagement-${e.id}`}
 						className="flex items-center gap-3 px-3 py-2"
 					>
-						<span className="type-body min-w-0 flex-1 truncate text-foreground">
+						<span
+							title={e.name}
+							className="type-body min-w-0 flex-1 truncate text-foreground"
+						>
 							{e.name}
 						</span>
 						<StatusPill

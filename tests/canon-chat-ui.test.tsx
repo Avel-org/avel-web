@@ -494,9 +494,7 @@ describe("a chat on Home", () => {
 		const meta = element(html, "canon-chat-meta");
 		expect(meta).toContain("Open");
 		expect(meta).toContain("Open chat");
-		expect(element(html, "canon-chat-usage")).toContain(
-			"12,000 tokens · $0.42",
-		);
+		expect(element(html, "canon-chat-usage")).toContain("12,000 tokens, $0.42");
 		// The header's actions are ghosts beside the title.
 		expect(tagOf(html, "canon-halt")).toContain('data-variant="ghost"');
 		expect(html).not.toContain('data-testid="canon-chat-live"');

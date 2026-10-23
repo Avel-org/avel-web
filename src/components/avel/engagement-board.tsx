@@ -208,6 +208,7 @@ export function EngagementCard({
 		>
 			<div className="flex items-start gap-2">
 				<p
+					title={engagement.name}
 					className={cn(
 						"type-body min-w-0 flex-1 truncate font-medium",
 						closed ? "text-text-muted" : "text-foreground",

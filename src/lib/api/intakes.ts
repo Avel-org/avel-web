@@ -16,6 +16,7 @@ import {
 	type Intake,
 	type IntakeStatus,
 	type readRepoBody,
+	type reviewSourcesBody,
 } from "avel-server/contract";
 import type { z } from "zod";
 import { type ApiClient, call, callPage } from "./client";
@@ -321,6 +322,33 @@ export function rejectIntakeOptions(
 			),
 		onSuccess: (intake: Intake) => afterIntakeWrite(queryClient, intake),
 	};
+}
+
+export type ReviewSourcesBody = z.input<typeof reviewSourcesBody>;
+
+/**
+ * The operator's decisions on the brief's sources: confirm that a passage
+ * supports its item, or reject it, which removes it. The server stamps who
+ * and when; the intake's status is unchanged.
+ */
+export function reviewSourcesOptions(
+	api: ApiClient,
+	queryClient: QueryClient,
+	id: string,
+) {
+	return {
+		mutationFn: (body: ReviewSourcesBody) =>
+			call(contract.intakes.reviewSources, () =>
+				api.intakes.reviewSources({ params: { id }, body }),
+			),
+		onSuccess: (intake: Intake) => afterIntakeWrite(queryClient, intake),
+	};
+}
+
+export function useReviewSources(id: string) {
+	return useMutation(
+		reviewSourcesOptions(useApiClient(), useQueryClient(), id),
+	);
 }
 
 export function useReviseIntake(id: string) {

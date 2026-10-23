@@ -24,7 +24,6 @@ import {
 	useUpdateCanonSession,
 } from "@/lib/api/canon";
 import { cn } from "@/lib/utils";
-import { useIsPreview } from "@/shell/auth-gate";
 import { retryOf } from "./retry";
 import { ErrorState } from "./surface";
 
@@ -75,7 +74,6 @@ export function CanonSessionTitle({
 	firstMessage?: string | null;
 	className?: string;
 }) {
-	const preview = useIsPreview();
 	const update = useUpdateCanonSession();
 	const [draft, setDraft] = useState<string | null>(null);
 	const fieldId = useId();
@@ -181,7 +179,6 @@ export function CanonSessionTitle({
 				variant="ghost"
 				aria-label="Rename chat"
 				data-testid="canon-rename-open"
-				disabledReason={preview ? "Sign in to rename the chat" : undefined}
 				onClick={() => setDraft(s.title ?? "")}
 			>
 				<Pencil aria-hidden="true" />
@@ -202,7 +199,6 @@ export function CanonSessionActions({
 	className?: string;
 }) {
 	const look = quiet ? "ghost" : "outline";
-	const preview = useIsPreview();
 	const halt = useHaltCanonSession();
 	const close = useCloseCanonSession();
 	const reopen = useReopenCanonSession();
@@ -216,7 +212,6 @@ export function CanonSessionActions({
 	};
 	const failed = all.find((m) => m.error);
 	const replying = canonReplying(s);
-	const signIn = (what: string) => (preview ? `Sign in to ${what}` : undefined);
 	const reopenBlocked = canonReopenBlocked(s);
 	return (
 		<div className={cn("flex flex-col gap-2", className)}>
@@ -228,7 +223,6 @@ export function CanonSessionActions({
 							variant={look}
 							size="sm"
 							data-testid="canon-halt"
-							disabledReason={signIn("halt Canon")}
 							onClick={() => run(halt)}
 						>
 							<OctagonX aria-hidden="true" />
@@ -240,10 +234,7 @@ export function CanonSessionActions({
 							size="sm"
 							data-testid="canon-close"
 							disabledReason={
-								signIn("close the session") ??
-								(replying
-									? "Canon is answering. Halt stops it now."
-									: undefined)
+								replying ? "Canon is answering. Halt stops it now." : undefined
 							}
 							onClick={() => run(close)}
 						>
@@ -257,7 +248,7 @@ export function CanonSessionActions({
 						variant={look}
 						size="sm"
 						data-testid="canon-reopen"
-						disabledReason={signIn("reopen the session") ?? reopenBlocked}
+						disabledReason={reopenBlocked}
 						onClick={() => run(reopen)}
 					>
 						<RotateCcw aria-hidden="true" />
@@ -270,7 +261,6 @@ export function CanonSessionActions({
 						variant="ghost"
 						size="sm"
 						data-testid="canon-unarchive"
-						disabledReason={signIn("unarchive the session")}
 						onClick={() => run(unarchive)}
 					>
 						<ArchiveRestore aria-hidden="true" />
@@ -283,10 +273,9 @@ export function CanonSessionActions({
 						size="sm"
 						data-testid="canon-archive"
 						disabledReason={
-							signIn("archive the session") ??
-							(replying
+							replying
 								? "Canon is answering. Halt it first, or wait for its reply."
-								: undefined)
+								: undefined
 						}
 						onClick={() => run(archive)}
 					>

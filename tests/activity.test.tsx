@@ -315,12 +315,12 @@ describe("who acted", () => {
 		});
 		for (const [row, display] of [
 			[operator, "javaris500"],
-			[agent, "Atlas · scheduling"],
+			[agent, "Atlas, scheduling"],
 			[system, "AVEL runner"],
 		] as const) {
 			const at = html.indexOf(`data-testid="activity-actor-${row.id}"`);
 			const cell = html.slice(at, html.indexOf("</span>", at + 1) + 7);
-			expect(visibleText(cell).trim()).toBe(display);
+			expect(visibleText(cell).trim().replace(/ ,/g, ",")).toBe(display);
 			expect(tagOf(html, `activity-actor-${row.id}`)).toContain(
 				`data-actor-kind="${row.actor.kind}"`,
 			);

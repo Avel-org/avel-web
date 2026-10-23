@@ -19,7 +19,6 @@ import {
 } from "@/lib/api/canon";
 import { useClients } from "@/lib/api/clients";
 import { cn } from "@/lib/utils";
-import { useIsPreview } from "@/shell/auth-gate";
 import { CHAT_COLUMN, ChatsButton, COMPOSER_COLUMN } from "./canon-chat-layout";
 import {
 	CANON_MODE_COPY,
@@ -68,7 +67,6 @@ export function CanonChatStart({
 	onStarted: (sessionId: string) => void;
 	onShowChats: () => void;
 }) {
-	const preview = useIsPreview();
 	const create = useCreateCanonSession();
 	const post = usePostCanonMessage(null);
 	const [text, setText] = useState("");
@@ -87,13 +85,8 @@ export function CanonChatStart({
 		? { scope: "client", clientId, mode }
 		: { scope: "open", mode };
 	const sending = create.isPending || post.isPending;
-	const reason = preview
-		? "Sign in to write to Canon"
-		: trimmed === ""
-			? "Write a message first"
-			: sending
-				? "Sending"
-				: undefined;
+	const reason =
+		trimmed === "" ? "Write a message first" : sending ? "Sending" : undefined;
 
 	const send = async () => {
 		const key = JSON.stringify(body);

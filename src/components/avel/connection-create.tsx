@@ -423,12 +423,18 @@ function EngagementPicker({
 				testid="connection-form-client"
 			>
 				{(props) => (
-					<Select
-						value={unset(clientId)}
-						onValueChange={onClient}
-						disabled={clients.status !== "success"}
-					>
-						<SelectTrigger {...props} className="w-full">
+					<Select value={unset(clientId)} onValueChange={onClient}>
+						<SelectTrigger
+							{...props}
+							className="w-full"
+							disabledReason={
+								clients.status === "error"
+									? "Clients could not be read"
+									: clients.status === "pending"
+										? "Reading clients"
+										: undefined
+							}
+						>
 							<SelectValue
 								placeholder={
 									clients.status === "error"
@@ -459,12 +465,20 @@ function EngagementPicker({
 				testid="connection-form-engagement"
 			>
 				{(props) => (
-					<Select
-						value={unset(engagementId)}
-						onValueChange={onEngagement}
-						disabled={clientId === "" || engagements.status !== "success"}
-					>
-						<SelectTrigger {...props} className="w-full">
+					<Select value={unset(engagementId)} onValueChange={onEngagement}>
+						<SelectTrigger
+							{...props}
+							className="w-full"
+							disabledReason={
+								clientId === ""
+									? "Choose a client first"
+									: engagements.status === "error"
+										? "Engagements could not be read"
+										: engagements.status === "pending"
+											? "Reading engagements"
+											: undefined
+							}
+						>
 							<SelectValue
 								placeholder={
 									clientId === ""

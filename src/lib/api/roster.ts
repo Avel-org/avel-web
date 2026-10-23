@@ -59,8 +59,8 @@ export const WAVE_NAME: Record<Wave, string> = {
 	E: TEAM_LABELS[WAVE_TEAM.E].label,
 };
 
-/** "A · Setup". */
-export const waveTitle = (wave: Wave) => `${wave} · ${WAVE_NAME[wave]}`;
+/** "A, Setup". */
+export const waveTitle = (wave: Wave) => `${wave}, ${WAVE_NAME[wave]}`;
 
 /** The mission's live roster, oldest first: coherence's own cache entry. */
 export function useRoster(missionId: string) {
@@ -265,10 +265,10 @@ export function chipWaves(
 	return copy ? addWave(entry.waves, to) : moveWave(entry.waves, from, to);
 }
 
-/** An entry as the board names it: "Atlas · Booking", or the name alone. */
+/** An entry as the board names it: "Atlas, Booking", or the name alone. */
 export function entryName(entry: RosterEntry): string {
 	return entry.territory
-		? `${entry.agentTemplate.name} · ${entry.territory}`
+		? `${entry.agentTemplate.name}, ${entry.territory}`
 		: entry.agentTemplate.name;
 }
 

@@ -196,10 +196,10 @@ describe("a client's last activity", () => {
 
 	it("ends the banner's facts, never from updatedAt", () => {
 		expect(clientFacts(client(1), now)).toBe(
-			"Client since October 2026 · contact1@example.com · last activity 3 days ago",
+			"Client since October 2026, contact1@example.com, last activity 3 days ago",
 		);
 		expect(clientFacts(client(1, { lastActivityAt: null }), now)).toContain(
-			"· no activity yet",
+			", no activity yet",
 		);
 	});
 });

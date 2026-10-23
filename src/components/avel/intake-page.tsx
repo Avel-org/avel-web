@@ -30,6 +30,7 @@ import {
 	RejectIntakeModal,
 	ReviseIntakeModal,
 } from "./intake-modals";
+import { IntakeSources } from "./intake-sources";
 import { INTAKE_LIFECYCLE, Lifecycle } from "./lifecycle";
 import { Brief } from "./mission-details";
 import { PanelFooter } from "./panel-footer";
@@ -139,6 +140,8 @@ function IntakeContent({
 					)}
 					<OpenQuestions questions={intake.openQuestions} />
 				</SectionPanel>
+				{/* Approval waits on these: each passage confirmed or rejected. */}
+				<IntakeSources intake={intake} />
 				{intake.recommendedRoster ? (
 					<CanonRecommends roster={intake.recommendedRoster} />
 				) : null}
@@ -252,9 +255,9 @@ function IntakeHeader({
 			<p className="type-page text-foreground">{intakeTitle(intake)}</p>
 			<p className="type-small text-text-muted">
 				{engagement.data?.name ?? "An engagement"}
-				{" · "}
+				{", "}
 				{`started ${relativeTime(intake.createdAt, now)}`}
-				{" · "}
+				{", "}
 				{`updated ${relativeTime(intake.updatedAt, now)}`}
 			</p>
 			{intake.status === "approved" && intake.missionId ? (
@@ -617,7 +620,7 @@ function RepositoryPanel({
 									{intake.derivedBoundaries.map((b) => (
 										<li key={b.path} className="type-small">
 											<span className="type-mono">{b.path}</span>
-											<span className="text-text-subtle">{` · ${b.kind}, ${b.files} files`}</span>
+											<span className="text-text-subtle">{`, ${b.kind}, ${b.files} files`}</span>
 										</li>
 									))}
 								</ul>

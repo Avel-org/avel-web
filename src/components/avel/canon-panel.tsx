@@ -26,7 +26,6 @@ import {
 } from "@/lib/api/canon";
 import { useCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
-import { useIsPreview } from "@/shell/auth-gate";
 import { ActorMark } from "./actor";
 import { CanonSessionActions, CanonSessionTitle } from "./canon-chat-actions";
 import { CanonModeBadge, CanonModeSwitch } from "./canon-chat-mode";
@@ -122,7 +121,6 @@ export function OpenCanon({
 	/** A session has ended before: this opens the next one. */
 	again?: boolean;
 }) {
-	const preview = useIsPreview();
 	const open = useOpenCanonSession(intakeId);
 	const [estimate, setEstimate] = useState("");
 	const [last, setLast] = useState<CanonAttempt<OpenCanonSessionBody> | null>(
@@ -171,13 +169,11 @@ export function OpenCanon({
 					type="button"
 					data-testid="canon-open-submit"
 					disabledReason={
-						preview
-							? "Sign in to brief with Canon"
-							: invalid
-								? "The estimate is a whole number of tokens."
-								: open.isPending
-									? "Opening"
-									: undefined
+						invalid
+							? "The estimate is a whole number of tokens."
+							: open.isPending
+								? "Opening"
+								: undefined
 					}
 					onClick={submit}
 				>
@@ -487,7 +483,6 @@ export function CanonComposer({
 	float?: boolean;
 	placeholder?: string;
 }) {
-	const preview = useIsPreview();
 	const post = usePostCanonMessage(session.id);
 	const update = useUpdateCanonSession();
 	const [text, setText] = useState("");
@@ -505,17 +500,15 @@ export function CanonComposer({
 	const switching = update.isPending ? update.variables?.body.mode : undefined;
 	const mode = switching ?? session.mode;
 	const trimmed = text.trim();
-	const reason = preview
-		? "Sign in to write to Canon"
-		: replying
-			? "Canon is answering"
-			: trimmed === ""
-				? "Write a message first"
-				: post.isPending
-					? "Sending"
-					: switching
-						? "Switching mode"
-						: undefined;
+	const reason = replying
+		? "Canon is answering"
+		: trimmed === ""
+			? "Write a message first"
+			: post.isPending
+				? "Sending"
+				: switching
+					? "Switching mode"
+					: undefined;
 	const error = post.error ?? update.error;
 	return (
 		<div data-testid="canon-composer" className="flex flex-col gap-2">
@@ -536,25 +529,17 @@ export function CanonComposer({
 					post.mutate(attempt, posted);
 				}}
 				tools={
-					<>
-						{modes ? (
-							<CanonModeSwitch
-								value={mode}
-								hasIntake={session.intakeId !== null}
-								disabledReason={
-									preview
-										? "Sign in to change the mode"
-										: replying
-											? "Canon is answering"
-											: undefined
-								}
-								onChange={(next) => {
-									post.reset();
-									update.mutate({ id: session.id, body: { mode: next } });
-								}}
-							/>
-						) : null}
-					</>
+					modes ? (
+						<CanonModeSwitch
+							value={mode}
+							hasIntake={session.intakeId !== null}
+							disabledReason={replying ? "Canon is answering" : undefined}
+							onChange={(next) => {
+								post.reset();
+								update.mutate({ id: session.id, body: { mode: next } });
+							}}
+						/>
+					) : null
 				}
 			/>
 			{error ? (

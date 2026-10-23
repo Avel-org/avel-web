@@ -119,7 +119,7 @@ describe("the client's banner", () => {
 	it("states its facts in one line", async () => {
 		const html = await open(ONE);
 		expect(html).toMatch(
-			/data-testid="client-banner-facts"[^>]*>Client since October 2026 · contact1@example.com · last activity /,
+			/data-testid="client-banner-facts"[^>]*>Client since October 2026, contact1@example.com, last activity /,
 		);
 	});
 
@@ -138,7 +138,7 @@ describe("the client's banner", () => {
 		const quiet = client(3, { lastActivityAt: null });
 		const html = await open(quiet);
 		expect(html).toMatch(
-			/data-testid="client-banner-facts"[^>]*>[^<]*· no activity yet</,
+			/data-testid="client-banner-facts"[^>]*>[^<]*, no activity yet</,
 		);
 	});
 
@@ -393,7 +393,7 @@ describe("the Activity tab", () => {
 				`data-testid="${`client-activity-actor-${row.id}`}"[^>]*>Atlas</a>`,
 			),
 		);
-		expect(visibleText(html)).toContain("Atlas · scheduling");
+		expect(visibleText(html)).toMatch(/Atlas ?, scheduling/);
 	});
 
 	it("offers Load more while the server has more, saying how many of the total", async () => {

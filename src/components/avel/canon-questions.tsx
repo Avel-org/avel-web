@@ -14,7 +14,6 @@ import {
 	useDismissCanonQuestion,
 } from "@/lib/api/canon";
 import { cn } from "@/lib/utils";
-import { useIsPreview } from "@/shell/auth-gate";
 import { issuesOf } from "./action-modal";
 import { shortStamp } from "./activity-audit";
 import { CitationChip } from "./canon-citation";
@@ -73,7 +72,6 @@ export function CanonQuestionCard({
 	question: CanonQuestion;
 	intakeId: string;
 }) {
-	const preview = useIsPreview();
 	const answer = useAnswerCanonQuestion(intakeId);
 	const acknowledge = useAcknowledgeCanonQuestion(intakeId);
 	const dismiss = useDismissCanonQuestion(intakeId);
@@ -100,8 +98,7 @@ export function CanonQuestionCard({
 	const issues = issuesOf(answer.error);
 	const issueAt = (field: string) =>
 		issues.find((i) => i.path[0] === field)?.message;
-	const signIn = preview ? "Sign in to answer Canon" : undefined;
-	const held = signIn ?? (pending ? "Saving" : undefined);
+	const held = pending ? "Saving" : undefined;
 
 	const cards = q.options.map((o) => ({
 		value: o.label,

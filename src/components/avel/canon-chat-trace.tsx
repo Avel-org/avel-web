@@ -134,7 +134,7 @@ export function stepTokens(steps: readonly RunStep[]): string | null {
 	if (reported.length === 0) return null;
 	const sum = (pick: (s: RunStep) => number | null) =>
 		reported.reduce((n, s) => n + (pick(s) ?? 0), 0);
-	return `${formatTokens(sum((s) => s.tokensIn))} in · ${formatTokens(sum((s) => s.tokensOut))} out`;
+	return `${formatTokens(sum((s) => s.tokensIn))} in, ${formatTokens(sum((s) => s.tokensOut))} out`;
 }
 
 /**
@@ -229,7 +229,7 @@ export function RunTrace({
 					{`${live ? "Working" : "Worked"}${total !== null ? ` for ${formatDuration(total)}` : ""}`}
 				</span>
 				<span className="text-text-subtle tabular-nums">
-					{`· ${steps.length} ${steps.length === 1 ? "step" : "steps"}${tokens ? ` · ${tokens}` : ""}`}
+					{`${steps.length} ${steps.length === 1 ? "step" : "steps"}${tokens ? `, ${tokens}` : ""}`}
 				</span>
 				<ChevronRight
 					aria-hidden="true"

@@ -127,7 +127,7 @@ function MissionRow({ mission }: { mission: MissionListItem }) {
 					</span>
 					<span className="type-caption truncate text-text-subtle">
 						{`Sprint ${mission.sprintN}`}
-						{mission.engagement ? ` · ${mission.engagement.name}` : ""}
+						{mission.engagement ? `, ${mission.engagement.name}` : ""}
 					</span>
 				</span>
 				<StatusPill

@@ -264,7 +264,7 @@ function IntakeRow({
 					/>
 					<span>
 						{engagement ?? "An engagement"}
-						{" · "}
+						{", "}
 						{`updated ${relativeTime(intake.updatedAt, now)}`}
 					</span>
 				</span>

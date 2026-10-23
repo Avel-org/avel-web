@@ -614,7 +614,7 @@ describe("the board's arithmetic", () => {
 	it("states the banner's facts in one line", () => {
 		const now = Date.parse("2026-10-08T09:00:00.000Z");
 		expect(clientFacts(ONE, now)).toBe(
-			"Client since October 2026 · contact1@example.com · last activity yesterday",
+			"Client since October 2026, contact1@example.com, last activity yesterday",
 		);
 		expect(clientFacts(THREE_C, now)).toContain("No primary contact");
 	});

@@ -36,7 +36,7 @@ export function CitationChip({
 			className={cn(
 				"inline-flex h-6 max-w-[min(16rem,100%)] items-center gap-1 rounded-sm border px-1.5 type-caption",
 				source.purged
-					? "border-dashed border-border-strong bg-app-band text-text-muted"
+					? "border-dashed border-border-strong bg-app-hollow text-text-muted"
 					: "border-border bg-app-raised text-text",
 			)}
 		>

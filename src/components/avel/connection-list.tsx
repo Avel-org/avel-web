@@ -462,7 +462,7 @@ function NewConnectionCard() {
 					type="button"
 					aria-haspopup="dialog"
 					data-testid="connections-card-new"
-					className="flex h-full min-h-48 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border-strong bg-app-band p-4 text-center text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-app-panel hover:text-text"
+					className="flex h-full min-h-48 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border-strong bg-app-hollow p-4 text-center text-text-muted transition-colors duration-(--duration-micro) ease-avel hover:bg-app-raised hover:text-text"
 					onClick={open}
 				>
 					<span className="inline-grid size-tile-md place-items-center rounded-tile border border-border bg-app-panel">
@@ -567,17 +567,27 @@ export function ConnectionList({
 			data-testid="connection-list"
 			query={query}
 			isEmpty={(data) => loadedConnections(data).length === 0}
-			loading={<ConnectionListSkeleton view={view} />}
-			empty={
-				<EmptyState
-					data-testid="connections-empty"
-					icon={linkFor("/settings/connections").icon}
-					title={EMPTY_COPY[filter].title}
-					description={EMPTY_COPY[filter].description}
-					action={<NewConnectionButton data-testid="connections-empty-new" />}
-				/>
+			loading={
+				<div className={view === "table" ? undefined : "p-4"}>
+					<ConnectionListSkeleton view={view} />
+				</div>
 			}
-			error={ErrorState}
+			empty={
+				<div className="p-4">
+					<EmptyState
+						data-testid="connections-empty"
+						icon={linkFor("/settings/connections").icon}
+						title={EMPTY_COPY[filter].title}
+						description={EMPTY_COPY[filter].description}
+						action={<NewConnectionButton data-testid="connections-empty-new" />}
+					/>
+				</div>
+			}
+			error={(props) => (
+				<div className="p-4">
+					<ErrorState {...props} />
+				</div>
+			)}
 		>
 			{(data) => {
 				const rows = loadedConnections(data);

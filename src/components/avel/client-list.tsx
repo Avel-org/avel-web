@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { STRETCHED_LINK } from "./data-table";
 import { EmptyState } from "./empty-state";
+import { Paging } from "./panel-footer";
 import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
@@ -58,13 +59,19 @@ export function ClientTable({
 			isEmpty={(data) => loadedClients(data).length === 0}
 			loading={<ClientListSkeleton />}
 			empty={
-				search === undefined && status !== undefined ? (
-					<NoClientsWithStatus status={status} />
-				) : (
-					<ClientsNoMatch search={search} onClearSearch={onClearSearch} />
-				)
+				<div className="p-4">
+					{search === undefined && status !== undefined ? (
+						<NoClientsWithStatus status={status} />
+					) : (
+						<ClientsNoMatch search={search} onClearSearch={onClearSearch} />
+					)}
+				</div>
 			}
-			error={ErrorState}
+			error={(props) => (
+				<div className="p-4">
+					<ErrorState {...props} />
+				</div>
+			)}
 		>
 			{(data) => {
 				const rows = loadedClients(data);
@@ -118,6 +125,7 @@ function ClientRow({ client, now }: { client: Client; now: number }) {
 							to="/clients/$id"
 							params={{ id: client.id }}
 							data-testid={`client-row-link-${client.id}`}
+							title={client.name}
 							className={cn(
 								"type-body truncate rounded-xs font-medium text-foreground underline-offset-4 hover:underline",
 								STRETCHED_LINK,
@@ -129,6 +137,7 @@ function ClientRow({ client, now }: { client: Client; now: number }) {
 						{client.primaryContact === null ? null : (
 							<span
 								data-testid={`client-row-contact-${client.id}`}
+								title={client.primaryContact}
 								className="type-caption truncate text-text-subtle"
 							>
 								{client.primaryContact}
@@ -268,27 +277,16 @@ export function ClientListFooter({
 	if (total === undefined && !hasMore) return null;
 	return (
 		<div className="flex items-center justify-between gap-2">
-			{total === undefined ? (
-				<span />
-			) : (
-				<p
-					data-testid={`${testIdPrefix}-showing`}
-					className="type-caption text-text-subtle tabular-nums"
-				>
-					{`Showing ${loaded} of ${total}`}
-				</p>
-			)}
-			{hasMore ? (
-				<Button
-					variant="ghost"
-					size="sm"
-					data-testid={`${testIdPrefix}-load-more`}
-					disabled={loadingMore}
-					onClick={onLoadMore}
-				>
-					{loadingMore ? "Loading" : "Load more"}
-				</Button>
-			) : null}
+			{/* A spacer keeps Load more at the end when there is no total. */}
+			{total === undefined ? <span /> : null}
+			<Paging
+				loaded={loaded}
+				total={total}
+				hasMore={hasMore}
+				loadingMore={loadingMore}
+				onLoadMore={onLoadMore}
+				testIdPrefix={testIdPrefix}
+			/>
 		</div>
 	);
 }
@@ -296,10 +294,7 @@ export function ClientListFooter({
 /** Three rows in the table's real shape: few, so it does not promise many. */
 export function ClientListSkeleton() {
 	return (
-		<div
-			data-testid="client-list-skeleton"
-			className="flex flex-col overflow-hidden rounded-card border border-border bg-app-panel shadow-card"
-		>
+		<div data-testid="client-list-skeleton" className="flex flex-col">
 			<div className="h-10 border-b border-border bg-app-band" />
 			{[0, 1, 2].map((i) => (
 				<div
