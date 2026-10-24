@@ -359,6 +359,50 @@ describe("a dispatch card", () => {
 	});
 });
 
+describe("where a dispatch's room started", () => {
+	const COMMIT = "c0ffee1234567890c0ffee1234567890c0ffee12";
+	const first = dispatch("complete", { wave: "A" });
+	const gone = "d15a7cff-5eed-4000-8000-0000000000ff";
+	const later = dispatch("running", {
+		wave: "B",
+		startCommitSha: COMMIT,
+		startDispatchIds: [first.id, gone],
+	});
+
+	it("names the commit and, on the board, the finished dispatches it holds", () => {
+		const html = tip(<DispatchBoard dispatches={[first, later]} now={NOW} />);
+		const start = element(html, `dispatch-card-start-${later.id}`);
+		expect(text(start)).toContain("Started from c0ffee1");
+		expect(text(start)).toContain("with 2 finished dispatches:");
+		expect(text(element(start, `dispatch-card-start-from-${first.id}`))).toBe(
+			"Atlas, wave A",
+		);
+		expect(text(element(start, `dispatch-card-start-from-${gone}`))).toBe(
+			"A dispatch no longer listed",
+		);
+		expect(visibleText(start)).not.toMatch(UUID_FRAGMENT);
+	});
+
+	it("says the base when nothing had finished", () => {
+		const fromBase = dispatch("running", {
+			startCommitSha: COMMIT,
+			startDispatchIds: [],
+		});
+		const html = tip(<DispatchCard dispatch={fromBase} now={NOW} />);
+		expect(text(element(html, `dispatch-card-start-${fromBase.id}`))).toBe(
+			"Started from c0ffee1 the mission&#x27;s base",
+		);
+	});
+
+	it("shows nothing while queued or for a dispatch started before it was recorded", () => {
+		for (const d of [dispatch("queued"), dispatch("running")]) {
+			expect(tip(<DispatchCard dispatch={d} now={NOW} />)).not.toContain(
+				`dispatch-card-start-${d.id}`,
+			);
+		}
+	});
+});
+
 describe("a dispatch's budget", () => {
 	it("counts tokens against the estimate and names both ceilings as multiples", () => {
 		const d = dispatch("running");

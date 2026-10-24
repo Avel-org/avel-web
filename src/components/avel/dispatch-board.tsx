@@ -4,7 +4,14 @@ import {
 	type DispatchStatus,
 } from "avel-server/contract";
 import { ChevronDown } from "lucide-react";
-import { type ReactNode, useEffect, useId, useState } from "react";
+import {
+	createContext,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useId,
+	useState,
+} from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -86,6 +93,12 @@ export type RenderControls = (dispatch: Dispatch) => ReactNode;
  */
 export type RenderEvidence = (dispatch: Dispatch) => ReactNode;
 
+/**
+ * The board's dispatches, for a card that names others: the ones its room
+ * started from. A card outside a board names them by id alone.
+ */
+const BoardDispatches = createContext<readonly Dispatch[]>([]);
+
 export function DispatchBoard({
 	dispatches,
 	now = Date.now(),
@@ -126,21 +139,26 @@ export function DispatchBoard({
 	// list of rows in the dashboard's Running now look, so a mission's board
 	// and the Missions dashboard read the same.
 	return (
-		<div data-testid="dispatch-board" className="flex flex-col gap-4">
-			{open.length > 0 ? (
-				<div data-testid="dispatch-board-open" className="flex flex-col gap-4">
-					{open.map(lane)}
-				</div>
-			) : null}
-			{closed.length > 0 ? (
-				<div
-					data-testid="dispatch-board-closed"
-					className="flex flex-col gap-4"
-				>
-					{closed.map(lane)}
-				</div>
-			) : null}
-		</div>
+		<BoardDispatches.Provider value={dispatches}>
+			<div data-testid="dispatch-board" className="flex flex-col gap-4">
+				{open.length > 0 ? (
+					<div
+						data-testid="dispatch-board-open"
+						className="flex flex-col gap-4"
+					>
+						{open.map(lane)}
+					</div>
+				) : null}
+				{closed.length > 0 ? (
+					<div
+						data-testid="dispatch-board-closed"
+						className="flex flex-col gap-4"
+					>
+						{closed.map(lane)}
+					</div>
+				) : null}
+			</div>
+		</BoardDispatches.Provider>
 	);
 }
 
@@ -416,6 +434,7 @@ function DispatchDetails({
 			<Brief dispatch={dispatch} />
 			<Pinned dispatch={dispatch} />
 			<Times dispatch={dispatch} />
+			<StartedFrom dispatch={dispatch} />
 			<DispatchBudget dispatch={dispatch} now={now} />
 			<p className="type-small text-text-muted">
 				{"Territory "}
@@ -561,6 +580,64 @@ function Pinned({ dispatch }: { dispatch: Dispatch }) {
 			>
 				{dispatch.model ?? "Model set when it starts"}
 			</span>
+		</div>
+	);
+}
+
+/**
+ * The commit its room opened on (rooms start from finished work,
+ * 2026-10-22): the mission's base with the complete dispatches closed
+ * before its start laid on, in close order. Nothing while queued, or for a
+ * dispatch started before the server recorded it.
+ */
+function StartedFrom({ dispatch }: { dispatch: Dispatch }) {
+	const board = useContext(BoardDispatches);
+	if (dispatch.startCommitSha === null) return null;
+	const built = dispatch.startDispatchIds ?? [];
+	return (
+		<div
+			data-testid={`dispatch-card-start-${dispatch.id}`}
+			className="flex flex-col gap-1 type-small text-text-muted"
+		>
+			<p className="flex flex-wrap items-center gap-1.5">
+				Started from
+				<ShortHash
+					value={dispatch.startCommitSha}
+					label="the commit its room opened on"
+					data-testid={`dispatch-card-start-sha-${dispatch.id}`}
+				/>
+				{built.length === 0 ? (
+					<span className="text-text-subtle">the mission's base</span>
+				) : (
+					<span>
+						{`with ${built.length} finished ${built.length === 1 ? "dispatch" : "dispatches"}:`}
+					</span>
+				)}
+			</p>
+			{built.length === 0 ? null : (
+				<ol className="flex flex-col gap-0.5 pl-1">
+					{built.map((id) => {
+						const other = board.find((d) => d.id === id);
+						return (
+							<li key={id}>
+								<a
+									href={`#dispatch-${id}`}
+									onClick={(e) => {
+										e.preventDefault();
+										showDispatch(id);
+									}}
+									data-testid={`dispatch-card-start-from-${id}`}
+									className="text-text underline decoration-border underline-offset-2 hover:decoration-current"
+								>
+									{other
+										? `${other.agent.name}, wave ${other.wave}`
+										: "A dispatch no longer listed"}
+								</a>
+							</li>
+						);
+					})}
+				</ol>
+			)}
 		</div>
 	);
 }
