@@ -22,6 +22,8 @@ export const ACTIVITY_PAGE_SIZE = 50;
 export type ActivityFilters = {
 	entityType?: ActivityEntityType;
 	actorKind?: ActivityActorKind;
+	/** One mission's rows: its page's Full log. */
+	missionId?: string;
 };
 
 /**
@@ -38,6 +40,9 @@ function setFilters(filters: ActivityFilters): ActivityFilters {
 		...(filters.actorKind === undefined
 			? {}
 			: { actorKind: filters.actorKind }),
+		...(filters.missionId === undefined
+			? {}
+			: { missionId: filters.missionId }),
 	};
 }
 

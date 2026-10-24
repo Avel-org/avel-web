@@ -458,6 +458,29 @@ describe("filtering", () => {
 		).toEqual({ entityType: undefined, actorKind: undefined });
 	});
 
+	it("narrows to one mission from its Full log, sent to the server and clearable", async () => {
+		const mission = "3fcd1ce4-5eed-4000-8000-000000000036";
+		const { client: api, calls } = fakeApi(() => ({
+			status: 200,
+			body: { success: true, data: [], meta: { nextCursor: null, total: 0 } },
+		}));
+		const scoped = activityQuery(api, { missionId: mission });
+		await runPage(scoped, undefined);
+		expect(calls[0]?.path).toContain(`missionId=${mission}`);
+		expect(scoped.queryKey).not.toEqual(activityQuery(api, {}).queryKey);
+		const html = await renderActivity(`/activity?missionId=${mission}`, {
+			filters: { missionId: mission },
+			rows: [entry(1, { entityType: "mission" })],
+		});
+		expect(html).toContain('data-testid="activity-mission-scope"');
+		expect(tagOf(html, "activity-mission-scope-clear")).toContain(
+			'aria-label="Show every mission&#x27;s activity"',
+		);
+		expect(
+			activitySearch.parse({ missionId: "not-a-uuid" }).missionId,
+		).toBeUndefined();
+	});
+
 	it("shows the filters chosen in the URL, as pressed segments", async () => {
 		const html = await renderActivity("/activity?entityType=mission", {
 			filters: { entityType: "mission" },

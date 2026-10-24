@@ -261,7 +261,10 @@ describe("the page from the contract", () => {
 			"Ship the booking flow",
 		);
 		expect(element(html, "mission-section-activity-page")).toContain("ada");
-		expect(tagOf(html, "mission-activity-full-log")).toMatch(/disabled/);
+		// Full log is the Activity page, narrowed to this mission.
+		const full = tagOf(html, "mission-activity-full-log");
+		expect(full).toMatch(/^<a /);
+		expect(full).toContain(`href="/activity?missionId=${ID}"`);
 	});
 
 	it("names an agent in the recent activity, linked to its catalog page", async () => {

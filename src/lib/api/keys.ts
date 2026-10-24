@@ -50,6 +50,7 @@ export const queryKeys = {
 			filters: {
 				entityType?: string;
 				actorKind?: string;
+				missionId?: string;
 			},
 		) =>
 			[
@@ -63,6 +64,9 @@ export const queryKeys = {
 					...(filters.actorKind === undefined
 						? {}
 						: { actorKind: filters.actorKind }),
+					...(filters.missionId === undefined
+						? {}
+						: { missionId: filters.missionId }),
 				},
 			] as const,
 	},

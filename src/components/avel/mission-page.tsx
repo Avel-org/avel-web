@@ -260,12 +260,14 @@ function MissionContent({
 					footer={readAge("mission-activity-read-age")}
 					actions={
 						<Button
+							asChild
 							variant="ghost"
 							size="sm"
 							data-testid="mission-activity-full-log"
-							disabledReason="Needs per-mission activity paging"
 						>
-							Full log
+							<Link to="/activity" search={{ missionId: mission.id }}>
+								Full log
+							</Link>
 						</Button>
 					}
 				>

@@ -1,10 +1,13 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { activityActorKind, activityEntityType } from "avel-server/contract";
+import { X } from "lucide-react";
 import { z } from "zod";
 import { ActivityFilterBar } from "@/components/avel/activity-filters";
 import { ActivityLog } from "@/components/avel/activity-log";
 import { DataPanel } from "@/components/avel/data-panel";
+import { useMission } from "@/components/avel/mission-data";
 import { Paging, PanelFooter } from "@/components/avel/panel-footer";
+import { Button } from "@/components/ui/button";
 import {
 	type ActivityFilters,
 	activityCountLabel,
@@ -12,6 +15,7 @@ import {
 	useActivity,
 } from "@/lib/api/activity";
 import { useNow } from "@/lib/use-now";
+import { missionLabel } from "../shell/command-search";
 import { Page, pageHead } from "../shell/page";
 
 /**
@@ -21,6 +25,8 @@ import { Page, pageHead } from "../shell/page";
 export const activitySearch = z.object({
 	entityType: activityEntityType.optional().catch(undefined),
 	actorKind: activityActorKind.optional().catch(undefined),
+	/** One mission's log, from its page's Full log. */
+	missionId: z.string().uuid().optional().catch(undefined),
 	/** The entry whose decision record is open, so a record is a link. */
 	entry: z.string().uuid().optional().catch(undefined),
 });
@@ -43,17 +49,24 @@ function ActivityPage() {
 	const filters: ActivityFilters = {
 		entityType: search.entityType,
 		actorKind: search.actorKind,
+		missionId: search.missionId,
 	};
 	const activity = useActivity(filters);
 	const now = useNow();
 	const filtered =
-		filters.entityType !== undefined || filters.actorKind !== undefined;
+		filters.entityType !== undefined ||
+		filters.actorKind !== undefined ||
+		filters.missionId !== undefined;
 	const total = activity.data?.pages[0]?.meta.total;
 
 	const setFilters = (next: ActivityFilters) =>
 		navigate({
 			// A new filter closes the record: its entry may no longer be listed.
-			search: { entityType: next.entityType, actorKind: next.actorKind },
+			search: {
+				entityType: next.entityType,
+				actorKind: next.actorKind,
+				missionId: next.missionId,
+			},
 			replace: true,
 		});
 
@@ -70,7 +83,17 @@ function ActivityPage() {
 				data-testid="activity-panel"
 				title="Activity"
 				count={total}
-				toolbar={<ActivityFilterBar filters={filters} onChange={setFilters} />}
+				toolbar={
+					<>
+						{filters.missionId ? (
+							<MissionScope
+								missionId={filters.missionId}
+								onClear={() => setFilters({ ...filters, missionId: undefined })}
+							/>
+						) : null}
+						<ActivityFilterBar filters={filters} onChange={setFilters} />
+					</>
+				}
 				footer={
 					<PanelFooter data-testid="activity-read-age" queries={[activity]}>
 						{activity.data ? (
@@ -98,5 +121,39 @@ function ActivityPage() {
 				/>
 			</DataPanel>
 		</Page>
+	);
+}
+
+/** The one mission the log is narrowed to: its name, a link, and clear. */
+function MissionScope({
+	missionId,
+	onClear,
+}: {
+	missionId: string;
+	onClear: () => void;
+}) {
+	const mission = useMission(missionId);
+	return (
+		<span
+			data-testid="activity-mission-scope"
+			className="flex items-center gap-1 rounded-sm border border-border bg-app-raised py-0.5 pr-0.5 pl-2 type-small text-text"
+		>
+			<Link
+				to="/missions/$id"
+				params={{ id: missionId }}
+				className="underline decoration-border underline-offset-2 hover:decoration-current"
+			>
+				{mission.data ? missionLabel(mission.data) : "One mission"}
+			</Link>
+			<Button
+				variant="ghost"
+				size="icon-xs"
+				aria-label="Show every mission's activity"
+				data-testid="activity-mission-scope-clear"
+				onClick={onClear}
+			>
+				<X aria-hidden="true" />
+			</Button>
+		</span>
 	);
 }
