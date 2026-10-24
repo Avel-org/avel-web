@@ -1,10 +1,13 @@
 import { QueryClient } from "@tanstack/react-query";
+import { gateJob } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
+import { createApiClient } from "@/lib/api/client";
 import {
 	afterGateRun,
 	afterTriage,
 	type GateOverride,
 	gateAttemptFor,
+	runGateRequest,
 } from "@/lib/api/gate";
 import { queryKeys } from "@/lib/api/keys";
 
@@ -68,6 +71,24 @@ describe("after a gate run", () => {
 		const qc = seeded(receipt);
 		await afterTriage(qc, MISSION);
 		expect(stale(qc, receipt)).toBe(false);
+		await afterGateRun(qc, MISSION);
+		expect(stale(qc, receipt)).toBe(false);
+	});
+
+	it("reads the mission's row and the lists again, not what sits under the row", async () => {
+		const row = queryKeys.missions.detail(MISSION);
+		const list = queryKeys.missions.list({});
+		const dispatches = queryKeys.dispatches.list(MISSION);
+		const exports = queryKeys.exports.list(MISSION);
+		const otherRow = queryKeys.missions.detail(OTHER);
+		const qc = seeded(row, list, dispatches, exports, otherRow);
+		await afterGateRun(qc, MISSION);
+		expect(stale(qc, row)).toBe(true);
+		expect(stale(qc, list)).toBe(true);
+		// A job changes neither the dispatches nor the exports under it.
+		expect(stale(qc, dispatches)).toBe(false);
+		expect(stale(qc, exports)).toBe(false);
+		expect(stale(qc, otherRow)).toBe(false);
 	});
 });
 
@@ -81,5 +102,50 @@ describe("after a triage", () => {
 		expect(stale(qc, open)).toBe(true);
 		expect(stale(qc, confirmed)).toBe(true);
 		expect(stale(qc, runs)).toBe(false);
+	});
+});
+
+describe("queuing a gate run", () => {
+	const JOB = gateJob.parse({
+		id: "00000000-0000-4000-8000-000000000611",
+		missionId: MISSION,
+		status: "queued",
+		gateRunId: null,
+		failure: null,
+		progress: null,
+		ahead: 1,
+		queuedAt: "2026-10-23T10:00:00.000Z",
+		startedAt: null,
+		finishedAt: null,
+	});
+	const answering = (status: number, headers: Record<string, string>) =>
+		createApiClient({
+			baseUrl: "http://avel.test",
+			api: async () => ({
+				status,
+				body: { success: true, data: JOB },
+				headers: new Headers(headers),
+			}),
+		});
+	const attempt = { key: "k1", overrides: [override("f1")] };
+
+	it("says when the answer is the mission's existing job, whose overrides stand", async () => {
+		const api = answering(200, { "Gate-Job-Existing": "true" });
+		const queued = await runGateRequest(api, MISSION, attempt);
+		expect(queued).toEqual({ job: JOB, existing: true });
+	});
+
+	it("is its own job on a new queue or a replay", async () => {
+		for (const [status, headers] of [
+			[202, {}],
+			[200, { "Idempotency-Replayed": "true" }],
+		] as const) {
+			const queued = await runGateRequest(
+				answering(status, headers),
+				MISSION,
+				attempt,
+			);
+			expect(queued.existing).toBe(false);
+		}
 	});
 });

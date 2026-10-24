@@ -28,6 +28,7 @@ export type Table =
 	| "engagement"
 	| "export"
 	| "finding"
+	| "gate_job"
 	| "intake"
 	| "intake_files"
 	| "mission"
@@ -76,7 +77,9 @@ export const WRITES = {
 	updatePlaybook: ["playbook", "activity_log"],
 	createPreset: ["roster_preset", "activity_log"],
 	updatePreset: ["roster_preset", "activity_log"],
-	runGate: ["verification", "finding", "activity_log"],
+	// Queuing writes the job and a log row. The run and its findings come
+	// when the job ends; afterGateRun reads them then (useJobEnd).
+	runGate: ["gate_job", "activity_log"],
 	confirmFinding: ["finding", "activity_log"],
 	dismissFinding: ["finding", "activity_log"],
 	previewExport: ["export", "activity_log"],
@@ -165,12 +168,14 @@ export const READS = {
 	// A playbook's own version rows: its saves refresh them.
 	"playbooks.versions": ["playbook"],
 	"clientMissions.list": ["mission", "engagement", "client"],
-	"missions.list": ["mission", "engagement", "client"],
-	"missions.newest": ["mission", "engagement", "client"],
-	"templateMissions.list": ["mission"],
-	"templateMissions.latest": ["mission"],
+	// A list item says gateRunning; the detail carries activeGateJob.
+	"missions.list": ["mission", "engagement", "client", "gate_job"],
+	"missions.newest": ["mission", "engagement", "client", "gate_job"],
+	"templateMissions.list": ["mission", "gate_job"],
+	"templateMissions.latest": ["mission", "gate_job"],
 	"missions.detail": [
 		"mission",
+		"gate_job",
 		"export",
 		"roster_entry",
 		"playbook",
@@ -200,6 +205,7 @@ export const READS = {
 	"missionSkills.list": ["mission_skills"],
 	"gate.runs": ["verification"],
 	"gate.run": ["verification"],
+	"gate.job": ["gate_job"],
 	"findings.list": ["finding"],
 	"exports.list": ["export"],
 	"exports.detail": ["export"],

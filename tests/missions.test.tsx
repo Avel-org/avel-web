@@ -67,6 +67,7 @@ function mission(
 	extra: Partial<MissionListItem> = {},
 ): MissionListItem {
 	return missionListItem.parse({
+		gateRunning: false,
 		id: id(n),
 		origin: "client",
 		type: "template-booking",
@@ -114,6 +115,7 @@ const COUNTS = {
 };
 
 const DETAIL: MissionDetail = missionDetail.parse({
+	activeGateJob: null,
 	...ACTIVE,
 	brief: { goal: "Ship the booking flow", pages: 4 },
 	spendCeilingUsd: null,

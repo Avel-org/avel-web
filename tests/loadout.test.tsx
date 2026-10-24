@@ -81,6 +81,8 @@ const PAGE = `/missions/${ID}/roster`;
 
 function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
+		gateRunning: false,
+		activeGateJob: null,
 		id: ID,
 		origin: "internal",
 		type: "template-booking",

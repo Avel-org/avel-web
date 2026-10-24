@@ -10,7 +10,7 @@ import {
 import {
 	contract,
 	type FindingStatus,
-	type GateRun,
+	type GateJob,
 } from "avel-server/contract";
 import type { z } from "zod";
 import { type ApiClient, call, callPage } from "./client";
@@ -23,6 +23,10 @@ import { useApiClient } from "./provider";
  * activity log and serves them through typed routes, newest first, so the
  * first row is the latest verdict. Findings are triaged by the operator once:
  * confirmed or dismissed.
+ *
+ * Since 2026-10-23 a run happens in the background: Run gate queues a job
+ * (202), the server's tick runs it, and the job, polled, names the run it
+ * made when done. One job runs at a time, server-wide.
  *
  * Overrides are bound to a commit and sent with each run: a re-run re-sends
  * them, and they drop when the judged commit changes.
@@ -108,6 +112,39 @@ export function useFindings(missionId: string, status?: FindingStatus) {
 	return useInfiniteQuery(findingsQuery(useApiClient(), missionId, status));
 }
 
+/** How often a queued or running job is read: the server's tick is 2 s. */
+export const GATE_JOB_POLL_MS = 2_000;
+
+/** True while a job can still change on its own. */
+export const jobInMotion = (job: Pick<GateJob, "status"> | undefined) =>
+	job?.status === "queued" || job?.status === "running";
+
+/**
+ * contract.gate.job: one background run, read every GATE_JOB_POLL_MS while
+ * it is in motion, and never again once it is done or failed.
+ */
+export function gateJobQuery(api: ApiClient, jobId: string) {
+	return queryOptions({
+		queryKey: queryKeys.gate.job(jobId),
+		queryFn: () =>
+			call(contract.gate.job, () => api.gate.job({ params: { id: jobId } })),
+		refetchInterval: (query) =>
+			jobInMotion(query.state.data) ? GATE_JOB_POLL_MS : false,
+	});
+}
+
+/**
+ * The job, seeded from what the page already holds (the POST's answer, or
+ * the mission's activeGateJob after a reload) so it shows at once.
+ */
+export function useGateJob(jobId: string | null, seed?: GateJob | null) {
+	return useQuery({
+		...gateJobQuery(useApiClient(), jobId ?? ""),
+		enabled: jobId !== null,
+		initialData: seed && seed.id === jobId ? seed : undefined,
+	});
+}
+
 // ---------------------------------------------------------------------------
 // Writes.
 
@@ -132,12 +169,62 @@ export function gateAttemptFor(
 }
 
 /**
- * A run adds a row to the runs list and the log; a triage moves a finding
- * between lists. Each refreshes only what it changed.
+ * A list of missions (list, newest, by template), whose rows say
+ * gateRunning. A mission's detail and what sits under it are not lists.
+ */
+export function missionLists(queryKey: readonly unknown[]): boolean {
+	return (
+		queryKey[0] === "missions" &&
+		(queryKey[1] === "list" ||
+			queryKey[1] === "newest" ||
+			queryKey[1] === "byTemplate")
+	);
+}
+
+/**
+ * The mission's own row (its activeGateJob and gateRunning) and every list
+ * of missions: what a gate job's start or end changes on a mission. Only
+ * the row, exactly: its dispatches, reports and exports sit under its key
+ * and a job changes none of them.
+ */
+function missionRowAndLists(queryClient: QueryClient, missionId: string) {
+	return [
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.missions.detail(missionId),
+			exact: true,
+		}),
+		queryClient.invalidateQueries({
+			predicate: ({ queryKey }) => missionLists(queryKey),
+		}),
+	];
+}
+
+/**
+ * Queuing writes a job and a log row: the job's own read takes the answer,
+ * and the mission reads again for its activeGateJob and gateRunning.
+ */
+export function afterGateQueued(queryClient: QueryClient, job: GateJob) {
+	queryClient.setQueryData(queryKeys.gate.job(job.id), job);
+	return Promise.all([
+		...missionRowAndLists(queryClient, job.missionId),
+		queryClient.invalidateQueries({ queryKey: queryKeys.activity.all() }),
+	]);
+}
+
+/**
+ * A job that ended added a run (done) or nothing (failed), and a log row
+ * either way: the mission's row, its runs, findings, the lists and the log
+ * read again. A run's own receipt never changes, so it is left alone. A
+ * triage moves a finding between lists. Each refreshes only what it changed.
  */
 export function afterGateRun(queryClient: QueryClient, missionId: string) {
 	return Promise.all([
-		queryClient.invalidateQueries({ queryKey: queryKeys.gate.runs(missionId) }),
+		...missionRowAndLists(queryClient, missionId),
+		// The runs list itself, not the receipts keyed under it.
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.gate.runs(missionId),
+			exact: true,
+		}),
 		queryClient.invalidateQueries({
 			queryKey: queryKeys.findings.all(missionId),
 		}),
@@ -154,18 +241,32 @@ export function afterTriage(queryClient: QueryClient, missionId: string) {
 	]);
 }
 
-export function runGateRequest(
+/**
+ * The queued job, and whether it was already the mission's: a 200 with
+ * Gate-Job-Existing answers with the job another tab or operator queued,
+ * whose overrides stand, so the ones this attempt carried were not sent.
+ * An idempotent replay is also a 200 but names this attempt's own job.
+ */
+export type GateQueued = { job: GateJob; existing: boolean };
+
+export const GATE_JOB_EXISTING_HEADER = "gate-job-existing";
+
+export async function runGateRequest(
 	api: ApiClient,
 	missionId: string,
 	{ key, overrides }: GateAttempt,
-): Promise<GateRun> {
-	return call(contract.gate.run, () =>
-		api.gate.run({
+): Promise<GateQueued> {
+	let existing = false;
+	const job = await call(contract.gate.run, async () => {
+		const response = await api.gate.run({
 			params: { id: missionId },
 			headers: { "idempotency-key": key },
 			body: { overrides },
-		}),
-	);
+		});
+		existing = response.headers.get(GATE_JOB_EXISTING_HEADER) === "true";
+		return response;
+	});
+	return { job, existing };
 }
 
 export function useRunGate(missionId: string) {
@@ -174,10 +275,7 @@ export function useRunGate(missionId: string) {
 	return useMutation({
 		mutationFn: (attempt: GateAttempt) =>
 			runGateRequest(api, missionId, attempt),
-		onSuccess: (run) => {
-			queryClient.setQueryData(queryKeys.gate.run(missionId, run.id), run);
-			return afterGateRun(queryClient, missionId);
-		},
+		onSuccess: ({ job }) => afterGateQueued(queryClient, job),
 	});
 }
 

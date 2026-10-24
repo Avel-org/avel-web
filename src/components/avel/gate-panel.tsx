@@ -1,23 +1,29 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type {
+	GateJob,
 	GateReasonWire,
 	GateRun,
 	GateRunSummary,
 } from "avel-server/contract";
 import { ChevronRight, Play, ShieldCheck } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { ApiError } from "@/lib/api/errors";
 import {
+	afterGateRun,
 	type GateAttempt,
 	type GateOverride,
 	gateAttemptFor,
+	jobInMotion,
+	useGateJob,
 	useGateRun,
 	useGateRuns,
 	useRunGate,
 } from "@/lib/api/gate";
+import { GATE_JOB_FAILURE_COPY, PRECONDITION_COPY } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
 import { issuesOf } from "./action-modal";
 import { shortStamp } from "./activity-audit";
@@ -30,6 +36,7 @@ import {
 	SEVERITY,
 } from "./gate-copy";
 import { GatePolicyGlyph } from "./gate-policy-glyph";
+import { useMission } from "./mission-data";
 import { PanelFooter } from "./panel-footer";
 import { Reason } from "./reason";
 import { retryOf } from "./retry";
@@ -114,6 +121,17 @@ function GateBody({
 }) {
 	const run = useGateRun(missionId, latest?.id ?? null);
 	const runGate = useRunGate(missionId);
+	// The newest job seen: the one this page started, or, after a reload or
+	// from another tab, the one the mission has queued or running. It is kept
+	// once the mission's activeGateJob clears, so a failure stays on screen.
+	const mission = useMission(missionId);
+	const seed = useNewestJob(
+		runGate.data?.job ?? null,
+		mission.data?.activeGateJob ?? null,
+	);
+	const job = useGateJob(seed?.id ?? null, seed);
+	const moving = jobInMotion(job.data);
+	useJobEnd(missionId, job.data);
 	const [last, setLast] = useState<GateAttempt | null>(null);
 	const sent = { onSuccess: () => setLast(null) };
 	const [drafts, setDrafts] = useState<Drafts>({ commitSha: "", byId: {} });
@@ -165,7 +183,15 @@ function GateBody({
 					size="sm"
 					className="ml-auto"
 					data-testid="gate-run"
-					disabledReason={runGate.isPending ? "The gate is judging" : undefined}
+					disabledReason={
+						runGate.isPending
+							? "Queuing the gate run"
+							: job.data?.status === "queued"
+								? "A gate run is already queued"
+								: job.data?.status === "running"
+									? "The gate is running"
+									: undefined
+					}
 					onClick={judge}
 				>
 					<Play aria-hidden="true" />
@@ -174,6 +200,18 @@ function GateBody({
 						: "Run gate"}
 				</Button>
 			</div>
+			{job.data && (moving || job.data.status === "failed") ? (
+				<GateJobLine job={job.data} />
+			) : null}
+			{runGate.data?.existing && runGate.variables?.overrides.length ? (
+				<p
+					data-testid="gate-overrides-unsent"
+					className="type-small text-text-muted"
+				>
+					A gate run was already queued for this mission, so your overrides were
+					not sent. Run the gate again with them once it ends.
+				</p>
+			) : null}
 			{runGate.error ? (
 				<GateRefusal
 					error={runGate.error}
@@ -197,6 +235,130 @@ function GateBody({
 				/>
 			) : (
 				<GateSkeleton />
+			)}
+		</div>
+	);
+}
+
+/** The later-queued of two jobs, either of which may be absent. */
+export function newerJob(a: GateJob | null, b: GateJob | null): GateJob | null {
+	if (a === null) return b;
+	if (b === null) return a;
+	return Date.parse(b.queuedAt) > Date.parse(a.queuedAt) ? b : a;
+}
+
+/**
+ * The newest job either source has named, held while both go quiet: the
+ * mission's activeGateJob clears when a job ends, and the POST's answer
+ * stays on an old job when another tab queues a newer one.
+ */
+function useNewestJob(
+	started: GateJob | null,
+	active: GateJob | null,
+): GateJob | null {
+	const [held, setHeld] = useState<GateJob | null>(null);
+	const newest = newerJob(held, newerJob(started, active));
+	if (newest !== null && newest.id !== held?.id) setHeld(newest);
+	return newest;
+}
+
+/**
+ * When a job this page followed ends, the runs, findings, mission and log
+ * read again, once per job: a done job's run becomes the latest receipt.
+ */
+function useJobEnd(missionId: string, job: GateJob | undefined) {
+	const queryClient = useQueryClient();
+	const ended = useRef<string | null>(null);
+	useEffect(() => {
+		if (!job || jobInMotion(job) || ended.current === job.id) return;
+		ended.current = job.id;
+		void afterGateRun(queryClient, missionId);
+	}, [job, missionId, queryClient]);
+}
+
+/** "Queued, 1 run ahead", "Queued, next to run". */
+export function queuedLabel(ahead: number | null): string {
+	if (ahead === null || ahead === 0) return "Queued, next to run";
+	return `Queued, ${ahead} ${ahead === 1 ? "run" : "runs"} ahead`;
+}
+
+/** "Running checks, 3 of 7", or plain "Running" before any count. */
+export function runningLabel(progress: GateJob["progress"]): string {
+	if (!progress || progress.checksTotal === 0) return "Running";
+	return `Running checks, ${progress.checksDone} of ${progress.checksTotal}`;
+}
+
+/**
+ * A background run in motion, or why it ended without one. In motion is
+ * the pending tone, never the accent (audit D3): queued with how many runs
+ * are ahead, or running with the checks done, the one it is on, and a bar.
+ */
+function GateJobLine({ job }: { job: GateJob }) {
+	if (job.status === "failed" && job.failure) {
+		const { code, reason } = job.failure;
+		const copy =
+			code === "precondition_failed" && reason
+				? PRECONDITION_COPY[reason]
+				: GATE_JOB_FAILURE_COPY[code];
+		return (
+			<div
+				data-testid="gate-job"
+				data-status="failed"
+				data-failure={code}
+				className="flex items-start gap-2.5 rounded-control border border-gate-block-line bg-gate-block-soft p-3"
+			>
+				<StatusGlyph tone="block" className="mt-0.5 text-gate-block" />
+				<div className="flex min-w-0 flex-col gap-0.5">
+					<p className="type-small font-medium text-text">{copy.what}</p>
+					<p className="type-small text-text-muted">{copy.next}</p>
+				</div>
+			</div>
+		);
+	}
+	const progress = job.progress;
+	const share =
+		progress && progress.checksTotal > 0
+			? Math.min(1, progress.checksDone / progress.checksTotal)
+			: null;
+	return (
+		<div
+			data-testid="gate-job"
+			data-status={job.status}
+			className="flex flex-col gap-2 rounded-control border border-border bg-app-hollow px-3 py-2.5"
+		>
+			<p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-small text-text">
+				<StatusGlyph tone="pending" className="text-gate-pending" />
+				<span data-testid="gate-job-label">
+					{job.status === "queued"
+						? queuedLabel(job.ahead)
+						: runningLabel(progress)}
+				</span>
+				{progress?.currentCheckId ? (
+					<code
+						data-testid="gate-job-check"
+						className="rounded-xs border border-border px-1 type-mono text-text-muted"
+					>
+						{progress.currentCheckId}
+					</code>
+				) : null}
+				<span className="ml-auto type-caption text-text-subtle">
+					Updating every 2 s
+				</span>
+			</p>
+			{share === null ? null : (
+				<span
+					role="progressbar"
+					aria-label="Checks done"
+					aria-valuemin={0}
+					aria-valuemax={progress?.checksTotal}
+					aria-valuenow={progress?.checksDone}
+					className="h-1.5 overflow-hidden rounded-full bg-app-raised"
+				>
+					<span
+						className="block h-full rounded-full bg-gate-pending-solid transition-[width] duration-(--duration-state) ease-avel"
+						style={{ width: `${Math.round(share * 100)}%` }}
+					/>
+				</span>
 			)}
 		</div>
 	);

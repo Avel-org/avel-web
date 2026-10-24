@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { MutationObserver, QueryClient } from "@tanstack/react-query";
+import { gateJob } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
 import {
 	afterCanonPost,
@@ -23,7 +24,7 @@ import {
 import { afterConnectionCreated } from "@/lib/api/connections";
 import { afterDispatchCreated, afterDispatchMoved } from "@/lib/api/dispatches";
 import { afterExport } from "@/lib/api/exports";
-import { afterGateRun, afterTriage } from "@/lib/api/gate";
+import { afterGateQueued, afterTriage } from "@/lib/api/gate";
 import { afterIntakeFileWrite } from "@/lib/api/intake-files";
 import {
 	approveIntakeOptions,
@@ -79,6 +80,19 @@ const ENTRY = id(7);
 const REPORT = id(8);
 const DISPATCH = id(9);
 const RUN = id(10);
+/** A queued gate job on mission M, as the POST answers it. */
+const JOB = gateJob.parse({
+	id: id(11),
+	missionId: M,
+	status: "queued",
+	gateRunId: null,
+	failure: null,
+	progress: null,
+	ahead: 0,
+	queuedAt: "2026-10-23T10:00:00.000Z",
+	startedAt: null,
+	finishedAt: null,
+});
 const SESSION = id(11); // Canon session
 const CONNECTION = id(12);
 const SLUG = "template-booking";
@@ -142,6 +156,7 @@ const KEY: Record<ReadName, readonly unknown[]> = {
 	"missionSkills.list": queryKeys.missionSkills.list(M),
 	"gate.runs": queryKeys.gate.runs(M),
 	"gate.run": queryKeys.gate.run(M, RUN),
+	"gate.job": queryKeys.gate.job(JOB.id),
 	"findings.list": queryKeys.findings.list(M),
 	"exports.list": queryKeys.exports.list(M),
 	"exports.detail": queryKeys.exports.detail(id(13)),
@@ -218,7 +233,7 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 		observe(qc, updatePlaybookOptions(NO_API, qc, MT), {}, { missionType: MT }),
 	createPreset: (qc) => afterPresetWrite(qc),
 	updatePreset: (qc) => afterPresetWrite(qc),
-	runGate: (qc) => afterGateRun(qc, M),
+	runGate: (qc) => afterGateQueued(qc, JOB),
 	confirmFinding: (qc) => afterTriage(qc, M),
 	dismissFinding: (qc) => afterTriage(qc, M),
 	previewExport: (qc) => afterExport(qc),

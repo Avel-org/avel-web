@@ -11,6 +11,7 @@ import {
 	finding,
 	type GateReasonWire,
 	type GateRun,
+	gateJob,
 	gateReason,
 	gateRun,
 	gateRunSummary,
@@ -27,6 +28,9 @@ import {
 	GatePanel,
 	GateReceipt,
 	GateRefusal,
+	newerJob,
+	queuedLabel,
+	runningLabel,
 } from "@/components/avel/gate-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiOverrideProvider, ApiProvider } from "@/lib/api";
@@ -527,5 +531,116 @@ describe("a finding that blocks the gate", () => {
 			withRuns([SUMMARY]),
 		);
 		expect(html).toContain('<div id="gate">');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// A gate run in the background (2026-10-23): POST queues a job, polled until
+// it is done or failed.
+
+const job = (extra: Record<string, unknown> = {}) =>
+	gateJob.parse({
+		id: "00000000-0000-4000-8000-000000000611",
+		missionId: MISSION,
+		status: "running",
+		gateRunId: null,
+		failure: null,
+		progress: { checksTotal: 7, checksDone: 3, currentCheckId: "CK4" },
+		ahead: null,
+		queuedAt: "2026-10-23T10:00:00.000Z",
+		startedAt: "2026-10-23T10:00:02.000Z",
+		finishedAt: null,
+		...extra,
+	});
+
+/** The mission's activeGateJob, as a reload or another tab finds it. */
+const withActiveJob = (active: ReturnType<typeof job>) => (qc: QueryClient) => {
+	withRuns([SUMMARY])(qc);
+	qc.setQueryData([...queryKeys.missions.detail(MISSION)], {
+		activeGateJob: active,
+	});
+};
+
+describe("a gate run in the background", () => {
+	it("follows the later-queued job, whichever source named it", () => {
+		const older = job({ status: "failed" });
+		const newer = job({
+			id: "00000000-0000-4000-8000-000000000612",
+			queuedAt: "2026-10-23T10:05:00.000Z",
+		});
+		// This page's job ended; another tab queued a newer one.
+		expect(newerJob(older, newer)).toBe(newer);
+		expect(newerJob(newer, older)).toBe(newer);
+		// The mission's activeGateJob cleared: the ended job is still shown.
+		expect(newerJob(older, null)).toBe(older);
+		expect(newerJob(null, null)).toBeNull();
+	});
+
+	it("words where a job stands: queued with runs ahead, running with its checks", () => {
+		expect(queuedLabel(2)).toBe("Queued, 2 runs ahead");
+		expect(queuedLabel(1)).toBe("Queued, 1 run ahead");
+		expect(queuedLabel(0)).toBe("Queued, next to run");
+		expect(
+			runningLabel({ checksTotal: 7, checksDone: 3, currentCheckId: null }),
+		).toBe("Running checks, 3 of 7");
+		// No runner installed: no checks to count.
+		expect(
+			runningLabel({ checksTotal: 0, checksDone: 0, currentCheckId: null }),
+		).toBe("Running");
+	});
+
+	it("shows a running job after a reload, holding Run gate while it runs", async () => {
+		const html = await render(
+			<GatePanel missionId={MISSION} />,
+			withActiveJob(job()),
+		);
+		expect(tagOf(html, "gate-job")).toContain('data-status="running"');
+		expect(html).toContain(">Running checks, 3 of 7<");
+		expect(html).toContain('data-testid="gate-job-check"');
+		expect(html).toContain('aria-valuenow="3"');
+		// In motion is the pending tone, never the accent (audit D3).
+		expect(element(html, "gate-job")).not.toContain("accent");
+		expect(tagOf(html, "gate-run")).toMatch(/\sdisabled=""/);
+		expect(html).toContain("The gate is running");
+	});
+
+	it("says how many runs are ahead of a queued job", async () => {
+		const html = await render(
+			<GatePanel missionId={MISSION} />,
+			withActiveJob(
+				job({ status: "queued", progress: null, ahead: 1, startedAt: null }),
+			),
+		);
+		expect(tagOf(html, "gate-job")).toContain('data-status="queued"');
+		expect(html).toContain(">Queued, 1 run ahead<");
+		expect(html).toContain("A gate run is already queued");
+	});
+
+	it("names why a job failed in the error map's words, never its message", async () => {
+		const failed = job({
+			status: "failed",
+			progress: null,
+			finishedAt: "2026-10-23T10:05:00.000Z",
+			failure: {
+				code: "integration_moved",
+				reason: null,
+				message: "SERVER LOG TEXT",
+			},
+		});
+		const html = await render(<GatePanel missionId={MISSION} />, (qc) => {
+			withRuns([SUMMARY])(qc);
+			qc.setQueryData([...queryKeys.missions.detail(MISSION)], {
+				activeGateJob: failed,
+			});
+		});
+		expect(tagOf(html, "gate-job")).toContain(
+			'data-failure="integration_moved"',
+		);
+		expect(html).toContain(
+			"Run the gate again to judge the mission as it stands.",
+		);
+		expect(html).not.toContain("SERVER LOG TEXT");
+		// A failed job holds nothing: the gate can run again.
+		expect(tagOf(html, "gate-run")).not.toMatch(/\sdisabled=""/);
 	});
 });

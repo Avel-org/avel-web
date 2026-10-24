@@ -128,6 +128,7 @@ const agent = (t: AgentTemplate, waves: Preset["agents"][number]["waves"]) => ({
 });
 
 const ITEM: MissionListItem = missionListItem.parse({
+	gateRunning: false,
 	id: uuid(501),
 	origin: "internal",
 	type: "template-booking",
@@ -145,6 +146,7 @@ const ITEM: MissionListItem = missionListItem.parse({
 });
 
 const DETAIL: MissionDetail = missionDetail.parse({
+	activeGateJob: null,
 	...ITEM,
 	brief: {},
 	spendCeilingUsd: null,

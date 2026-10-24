@@ -41,6 +41,7 @@ function needing(n: number, origin: "client" | "internal"): MissionListItem {
 		lastExport: null,
 		lastActivityAt: null,
 		needsYou: { reason: n % 2 ? "export_previewed" : "pr_open" },
+		gateRunning: false,
 		createdAt: "2026-10-01T00:00:00.000Z",
 		updatedAt: "2026-10-01T00:00:00.000Z",
 	};

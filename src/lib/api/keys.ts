@@ -427,6 +427,12 @@ export const queryKeys = {
 		/** contract.gate.getRun: one run's receipt. It never changes. */
 		run: (missionId: string, runId: string) =>
 			["missions", "detail", missionId, "gate-runs", runId] as const,
+		/**
+		 * contract.gate.job: one background run (2026-10-23), polled while it
+		 * is queued or running. Not under the mission: a mission write never
+		 * needs to read a job again, and the job's own poll ends it.
+		 */
+		job: (jobId: string) => ["gate-jobs", jobId] as const,
 	},
 	exports: {
 		/**

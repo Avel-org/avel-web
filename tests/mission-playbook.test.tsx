@@ -42,6 +42,8 @@ const SHA = "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d";
 
 function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
+		gateRunning: false,
+		activeGateJob: null,
 		id: ID,
 		origin: "internal",
 		type: "template-booking",

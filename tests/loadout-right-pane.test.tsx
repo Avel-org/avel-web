@@ -63,6 +63,8 @@ const AT = "2026-10-01T00:00:00.000Z";
 
 function mission(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
+		gateRunning: false,
+		activeGateJob: null,
 		id: ID,
 		origin: "internal",
 		type: "template-booking",

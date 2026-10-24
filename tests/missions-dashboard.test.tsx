@@ -46,6 +46,7 @@ function mission(
 	extra: Partial<MissionListItem> = {},
 ): MissionListItem {
 	return missionListItem.parse({
+		gateRunning: false,
 		id: id(n),
 		origin: "client",
 		type: "template-booking",

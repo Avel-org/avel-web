@@ -1,4 +1,4 @@
-import type { PreconditionReason } from "avel-server/contract";
+import type { GateJobFailure, PreconditionReason } from "avel-server/contract";
 import type { ApiError, ApiFailure, ContractErrorCode } from "@/lib/api/errors";
 
 /**
@@ -239,6 +239,49 @@ export const CONTRACT_ERROR_COPY: ErrorCopyTable<ContractErrorCode> = {
 		retry: false,
 	},
 };
+
+/**
+ * Why a background gate run ended without a run (avel-server
+ * src/contract/gate-job.ts, GATE_JOB_FAILURES, 2026-10-23). Keyed on its
+ * union, so a failure the server adds stops this compiling until it has
+ * copy. precondition_failed carries a PreconditionReason, whose own copy
+ * says which; this entry speaks when there is none. The job's message is
+ * for logs and never shown.
+ */
+export const GATE_JOB_FAILURE_COPY = {
+	precondition_failed: {
+		what: "Something the gate needs stopped holding before it ran.",
+		written: "No gate run was recorded.",
+		next: "Fix what it names, then run the gate again.",
+		retry: false,
+	},
+	integration_moved: {
+		// While queued or while running: the commit the POST saw, which its
+		// overrides are bound to, is no longer the mission's (2026-10-23).
+		what: "The mission's code changed after the gate was asked to run, so this run would no longer judge it as it stands.",
+		written: "No gate run was recorded.",
+		next: "Run the gate again to judge the mission as it stands.",
+		retry: true,
+	},
+	interrupted: {
+		what: "avel-server stopped while the gate was running.",
+		written: "No gate run was recorded.",
+		next: "Run the gate again.",
+		retry: true,
+	},
+	timed_out: {
+		what: "The gate ran past its two-hour limit and was stopped.",
+		written: "No gate run was recorded.",
+		next: "Run it again. If it times out again, a check is likely stuck.",
+		retry: true,
+	},
+	internal: {
+		what: "The gate run failed inside AVEL. This is not a verdict on the work.",
+		written: "No gate run was recorded.",
+		next: "Run the gate again. If it fails again, report it.",
+		retry: true,
+	},
+} as const satisfies Record<GateJobFailure, CodeCopy>;
 
 /**
  * PRECONDITION_FAILED's copy per reason (contract PRECONDITION_REASONS), each

@@ -31,6 +31,8 @@ const ISO = "2026-10-06T09:00:00.000Z";
 
 function detail(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
+		gateRunning: false,
+		activeGateJob: null,
 		id: ID,
 		origin: "internal",
 		type: "template-booking",

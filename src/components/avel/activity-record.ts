@@ -130,7 +130,10 @@ export const INVERSE = {
 	"file.uploaded": null,
 	"file.purged": null,
 	// A gate run is a receipt of what was judged at one commit: rerun, never undo.
+	// Queuing one and a job that failed are the same: run the gate again.
+	"mission.gate_queued": null,
 	"mission.gate_run": null,
+	"mission.gate_failed": null,
 	// A triage stands until a new one; the log offers no inverse.
 	"finding.confirmed": null,
 	"finding.dismissed": null,

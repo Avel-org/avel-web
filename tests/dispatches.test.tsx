@@ -251,6 +251,8 @@ const BRIEF: Brief = {
 
 function mission(over: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
+		gateRunning: false,
+		activeGateJob: null,
 		id: MISSION_ID,
 		origin: "internal",
 		type: "template-booking",

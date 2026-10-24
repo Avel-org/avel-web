@@ -111,6 +111,7 @@ const PLAYBOOK: Playbook = playbookSchema.parse({
 });
 
 const CLIENT_MISSION: MissionListItem = missionListItem.parse({
+	gateRunning: false,
 	id: "00000000-0000-4000-8000-000000000501",
 	origin: "client",
 	type: "template-booking",

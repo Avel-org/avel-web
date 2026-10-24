@@ -97,6 +97,7 @@ export function mission(
 		lastExport: null,
 		lastActivityAt: "2026-10-06T12:00:00.000Z",
 		needsYou: null,
+		gateRunning: false,
 		createdAt: "2026-09-20T09:00:00.000Z",
 		updatedAt: "2026-09-20T09:00:00.000Z",
 		...overrides,

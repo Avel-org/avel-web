@@ -39,6 +39,8 @@ const ID = "0a1b2c3d-0000-4000-8000-000000000001";
 
 function detail(extra: Partial<MissionDetail> = {}): MissionDetail {
 	return missionDetail.parse({
+		gateRunning: false,
+		activeGateJob: null,
 		id: ID,
 		origin: "client",
 		type: "template-booking",

@@ -62,7 +62,9 @@ export const ACTION_COPY = {
 	"file.uploaded": "File uploaded",
 	"file.purged": "File purged",
 	// The gate and finding triage (2026-10-19).
+	"mission.gate_queued": "Gate run queued",
 	"mission.gate_run": "Gate run",
+	"mission.gate_failed": "Gate run failed",
 	"finding.confirmed": "Finding confirmed",
 	"finding.dismissed": "Finding dismissed",
 	// Canon, the project briefer (2026-10-19).
