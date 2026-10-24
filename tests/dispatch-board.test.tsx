@@ -110,6 +110,8 @@ function dispatch(
 		reportId: closed
 			? `4e904e90-5eed-4000-8000-0000000000${String(n).padStart(2, "0")}`
 			: null,
+		startCommitSha: null,
+		startDispatchIds: null,
 		startedAt: queued ? null : "2026-10-12T13:48:00.000Z",
 		closedAt: closed ? "2026-10-12T13:58:00.000Z" : null,
 		createdAt: "2026-10-12T13:40:00.000Z",

@@ -66,6 +66,8 @@ function dispatch(status: DispatchStatus, over: Partial<Dispatch> = {}) {
 		model: queued ? null : "claude-opus-5-5",
 		harnessVersion: null,
 		reportId: null,
+		startCommitSha: null,
+		startDispatchIds: null,
 		startedAt: queued ? null : "2026-10-12T13:48:00.000Z",
 		closedAt: closed ? "2026-10-12T13:58:00.000Z" : null,
 		createdAt: "2026-10-12T13:40:00.000Z",

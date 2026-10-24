@@ -102,6 +102,8 @@ function dispatch(
 		model: null,
 		harnessVersion: null,
 		reportId: null,
+		startCommitSha: null,
+		startDispatchIds: null,
 		startedAt: status === "queued" ? null : "2026-10-06T10:00:00.000Z",
 		closedAt:
 			status === "complete" || status === "halted"

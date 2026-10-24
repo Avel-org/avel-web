@@ -118,6 +118,8 @@ function dispatchOf(over: Partial<Dispatch> & { id: string }): Dispatch {
 		briefSha256: null,
 		harnessVersion: null,
 		reportId: null,
+		startCommitSha: null,
+		startDispatchIds: null,
 		startedAt: null,
 		closedAt: null,
 		createdAt: ISO,

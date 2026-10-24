@@ -60,6 +60,8 @@ function dispatch(status: DispatchStatus): Dispatch {
 		model: queued ? null : "claude-opus-5-5",
 		harnessVersion: null,
 		reportId: null,
+		startCommitSha: null,
+		startDispatchIds: null,
 		startedAt: queued ? null : "2026-10-12T13:48:00.000Z",
 		closedAt:
 			queued || status === "running" ? null : "2026-10-12T13:58:00.000Z",
