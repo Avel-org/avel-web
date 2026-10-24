@@ -28,7 +28,6 @@ import {
 	STARTING_STATE_SENTENCE,
 	templateName,
 } from "@/lib/api/templates";
-import { NOT_YET } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
 import { TemplateCover } from "./template-cover";
 import {
@@ -407,13 +406,15 @@ export function RecentTemplateCard({
 						{/* Above the card's stretched link, so it is its own control. */}
 						<span className="relative z-10">
 							<Button
+								asChild
 								size="sm"
 								variant="outline"
 								data-testid={`template-recent-new-mission-${slug}`}
-								disabledReason={NOT_YET["mission.create"]}
 							>
-								<Plus aria-hidden="true" />
-								New mission
+								<Link to="/missions" search={{ new: true }}>
+									<Plus aria-hidden="true" />
+									New mission
+								</Link>
 							</Button>
 						</span>
 					</div>

@@ -147,6 +147,8 @@ export const missionSearch = z.object({
 		.default(MISSION_SEARCH_DEFAULTS.archived)
 		.catch(MISSION_SEARCH_DEFAULTS.archived),
 	mission: z.string().uuid().optional().catch(undefined),
+	/** Opens New mission, from the command menu or a template card. */
+	new: z.boolean().optional().catch(undefined),
 	/** Absent means the sort's own direction (SORT_DIRECTION). */
 	direction: z.enum(DIRECTIONS).optional().catch(undefined),
 });

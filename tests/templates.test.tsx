@@ -35,7 +35,6 @@ import {
 	templateMissionsQuery,
 } from "@/lib/api/templates";
 import { SessionSourceProvider } from "@/lib/auth";
-import { NOT_YET } from "@/lib/capabilities";
 import { templatesSubtitle } from "@/routes/templates";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
@@ -438,10 +437,10 @@ describe("/templates, Recently used", () => {
 		expect(flow).toContain(">Template booking<");
 		expect(flow).toContain(">Playbook v4<");
 		expect(flow).toContain("Booking squad");
-		// New mission is there, and disabled with the one reason.
+		// New mission links to Missions, where it opens.
 		const create = tagOf(html, "template-recent-new-mission-template-booking");
-		expect(create).toMatch(/\sdisabled=""/);
-		expect(html).toContain(NOT_YET["mission.create"]);
+		expect(create).toMatch(/^<a /);
+		expect(create).toContain('href="/missions?new=true"');
 	});
 
 	it("is absent until a template has been used", async () => {

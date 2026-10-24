@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { Client, Engagement } from "avel-server/contract";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -105,9 +105,13 @@ export function NewIntakeForm({
 	pending,
 	error,
 	onSubmit,
+	title = "New intake",
+	description = `For ${clientName}. An intake holds what the client asked for; its brief is what a mission starts from.`,
+	clientPicker,
 }: {
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
+	/** "" while New mission has no client chosen; then only the picker shows. */
 	clientName: string;
 	engagements:
 		| Pick<Engagement, "id" | "name" | "scopeMd" | "startedAt">[]
@@ -116,6 +120,10 @@ export function NewIntakeForm({
 	pending: boolean;
 	error: ApiError | null;
 	onSubmit: (body: CreateIntakeBody) => void;
+	title?: string;
+	description?: string;
+	/** New mission's choice of client, above the engagement. */
+	clientPicker?: ReactNode;
 }) {
 	// One engagement is the only choice: chosen already.
 	const only = engagements?.length === 1 ? engagements[0]?.id : undefined;
@@ -123,8 +131,14 @@ export function NewIntakeForm({
 	const [source, setSource] = useState("");
 	const [questions, setQuestions] = useState("");
 	const [sourceMissing, setSourceMissing] = useState(false);
-	const engagement = chosen === "" ? (only ?? "") : chosen;
-	const none = engagements !== undefined && engagements.length === 0;
+	// A choice made under another client (New mission's picker changed) no
+	// longer names one of these engagements.
+	const listed =
+		engagements === undefined || engagements.some((e) => e.id === chosen);
+	const engagement = chosen !== "" && listed ? chosen : (only ?? "");
+	const noClient = clientPicker !== undefined && clientName === "";
+	const none =
+		!noClient && engagements !== undefined && engagements.length === 0;
 
 	const submit = () => {
 		if (source.trim() === "") {
@@ -139,17 +153,19 @@ export function NewIntakeForm({
 			open={open}
 			onOpenChange={onOpenChange}
 			size="form"
-			title="New intake"
-			description={`For ${clientName}. An intake holds what the client asked for; its brief is what a mission starts from.`}
+			title={title}
+			description={description}
 			dirty={source.trim() !== "" || questions.trim() !== ""}
 			submitLabel="Create intake"
 			pendingLabel="Creating"
 			submitDisabledReason={
-				none
-					? "Start an engagement first."
-					: engagement === ""
-						? "Choose an engagement."
-						: undefined
+				noClient
+					? "Choose a client."
+					: none
+						? "Start an engagement first."
+						: engagement === ""
+							? "Choose an engagement."
+							: undefined
 			}
 			onSubmit={submit}
 			pending={pending}
@@ -157,7 +173,8 @@ export function NewIntakeForm({
 			fieldOf={intakeFieldOf}
 			data-testid="intake-new"
 		>
-			{engagements === undefined ? (
+			{clientPicker}
+			{noClient ? null : engagements === undefined ? (
 				<div
 					data-testid="intake-new-engagements-loading"
 					className="flex flex-col gap-2"

@@ -1,7 +1,7 @@
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import type { MissionListItem } from "avel-server/contract";
 import { Plus, Target } from "lucide-react";
-import { type KeyboardEvent, useCallback, useEffect } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { DataPanel } from "@/components/avel/data-panel";
 import { EmptyState } from "@/components/avel/empty-state";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/avel/mission-data";
 import { MissionDetails } from "@/components/avel/mission-details";
 import { MissionFilterBar } from "@/components/avel/mission-filters";
+import { NewMissionModal } from "@/components/avel/mission-new";
 import { MissionPanels } from "@/components/avel/mission-panels";
 import {
 	includesArchived,
@@ -24,7 +25,6 @@ import { MissionsDashboard } from "@/components/avel/missions-dashboard";
 import { ReadAge } from "@/components/avel/read-age";
 import { Button } from "@/components/ui/button";
 import { QUERY_STALE_MS } from "@/lib/api/provider";
-import { NOT_YET } from "@/lib/capabilities";
 import { useStoredState } from "@/lib/stored";
 import { useNow } from "@/lib/use-now";
 import { Page, pageHead } from "../shell/page";
@@ -90,6 +90,16 @@ function MissionsPage() {
 			});
 		}
 	}, [search.view, storedView, navigate]);
+	const [creating, setCreating] = useState(false);
+	useEffect(() => {
+		if (!search.new) return;
+		setCreating(true);
+		navigate({
+			search: (prev) => ({ ...prev, new: undefined }),
+			replace: true,
+		});
+	}, [search.new, navigate]);
+
 	const changeView = (view: View) => {
 		setStoredView(view);
 		navigate({ search: (prev) => ({ ...prev, view }) });
@@ -147,7 +157,7 @@ function MissionsPage() {
 				<Button
 					size="sm"
 					data-testid="missions-new"
-					disabledReason={NOT_YET["mission.create"]}
+					onClick={() => setCreating(true)}
 				>
 					<Plus aria-hidden="true" />
 					New mission
@@ -237,6 +247,7 @@ function MissionsPage() {
 					/>
 				) : null}
 			</div>
+			<NewMissionModal open={creating} onOpenChange={setCreating} />
 		</Page>
 	);
 }

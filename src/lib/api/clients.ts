@@ -129,13 +129,16 @@ export function useClients(
 	});
 }
 
+/** `enabled` is false until there is a client to read, as in New mission. */
 export function useClientEngagements(
 	clientId: string,
 	status?: EngagementStatus,
+	{ enabled = true }: { enabled?: boolean } = {},
 ) {
-	return useInfiniteQuery(
-		clientEngagementsQuery(useApiClient(), clientId, status),
-	);
+	return useInfiniteQuery({
+		...clientEngagementsQuery(useApiClient(), clientId, status),
+		enabled,
+	});
 }
 
 /**

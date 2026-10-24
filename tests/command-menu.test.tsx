@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import { ApiError, ApiProvider } from "@/lib/api";
 import { CLIENTS_PAGE_SIZE } from "@/lib/api/clients";
 import { queryKeys } from "@/lib/api/keys";
-import { NOT_YET } from "@/lib/capabilities";
 import { clientsSearch } from "../src/routes/clients";
 import {
 	type CommandHandlers,
@@ -35,6 +34,7 @@ const NOOP: CommandHandlers = {
 	openRecent: () => {},
 	openClient: () => {},
 	newClient: () => {},
+	newMission: () => {},
 	switchTheme: () => {},
 	toggleSidebar: () => {},
 	copyLink: () => {},
@@ -347,13 +347,13 @@ describe("go to, create and actions", () => {
 		expect(repositories?.words).toContain("Control");
 	});
 
-	it("create a client, and say why a mission cannot be created", () => {
+	it("create a client and a mission", () => {
 		expect(tagOf(html, "command-new-client")).not.toMatch(
 			/data-disabled="true"/,
 		);
-		const mission = tagOf(html, "command-new-mission");
-		expect(mission).toMatch(/data-disabled="true"|aria-disabled="true"/);
-		expect(html).toContain(NOT_YET["mission.create"]);
+		expect(tagOf(html, "command-new-mission")).not.toMatch(
+			/data-disabled="true"|aria-disabled="true"/,
+		);
 	});
 
 	it("offer Open full page, with G F, only while a mission's panel is open (audit F6)", () => {

@@ -25,7 +25,6 @@ import {
 	CommandShortcut,
 } from "@/components/ui/command";
 import { useSignOut } from "@/lib/auth";
-import { NOT_YET } from "@/lib/capabilities";
 import { useTheme } from "@/lib/theme";
 import { type RecentEntry, useRecent } from "./command-recent";
 import {
@@ -93,6 +92,10 @@ export function CommandPalette({
 		newClient: () => {
 			close();
 			navigate({ to: "/clients", search: { new: true } });
+		},
+		newMission: () => {
+			close();
+			navigate({ to: "/missions", search: { new: true } });
 		},
 		switchTheme: () => {
 			close();
@@ -181,6 +184,8 @@ export type CommandHandlers = {
 	openClient: (client: Client, search: string) => void;
 	openRecent: (entry: RecentEntry) => void;
 	newClient: () => void;
+	/** Opens New mission on Missions: the intake a mission starts from. */
+	newMission: () => void;
 	switchTheme: () => void;
 	/** Absent when the shell gives no sidebar control. */
 	toggleSidebar?: () => void;
@@ -255,11 +260,10 @@ export function CommandMenu({
 						<Plus aria-hidden="true" />
 						New client
 					</CommandItem>
-					{/* A disabled item states its reason in its own text (ruling 20). */}
 					<CommandItem
 						value="New mission"
-						reason={NOT_YET["mission.create"]}
 						data-testid="command-new-mission"
+						onSelect={handlers.newMission}
 					>
 						<Plus aria-hidden="true" />
 						New mission

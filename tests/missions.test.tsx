@@ -42,7 +42,6 @@ import {
 import { ApiError, ApiOverrideProvider, createApiClient } from "@/lib/api";
 import { queryKeys } from "@/lib/api/keys";
 import { SessionSourceProvider } from "@/lib/auth";
-import { NOT_YET } from "@/lib/capabilities";
 import { Route } from "@/routes/missions";
 import { routeTree } from "@/routeTree.gen";
 import { signedIn } from "./auth-session";
@@ -1213,10 +1212,9 @@ describe("the page", () => {
 		expect(Route.options.staticData?.device).toBe("capture");
 	});
 
-	it("keeps New mission disabled, with its reason", async () => {
+	it("offers New mission, enabled: it starts the intake a mission comes from", async () => {
 		const html = await render("/missions");
-		expect(tagOf(html, "missions-new")).toMatch(/\sdisabled=""/);
-		expect(html).toContain(NOT_YET["mission.create"]);
+		expect(tagOf(html, "missions-new")).not.toMatch(/\sdisabled=""/);
 	});
 });
 
