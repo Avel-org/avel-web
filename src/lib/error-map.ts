@@ -870,10 +870,19 @@ export const PRECONDITION_COPY = {
 		next: "Export it as a zip instead.",
 		retry: false,
 	},
+	// Only github_push since 2026-10-24: a GitHub pull request delivers.
 	export_target_not_built: {
-		what: "Delivery to GitHub isn't built yet.",
+		what: "Pushing straight to GitHub isn't built yet.",
 		written: NOTHING_WRITTEN,
-		next: "Export it as a zip for now.",
+		next: "Deliver it as a zip or as a GitHub pull request.",
+		retry: false,
+	},
+	// POST /api/exports/:id/refresh reads only a github_pr export that is
+	// delivering or has its pull request open.
+	export_not_pr_open: {
+		what: "This export has no open pull request to check.",
+		written: NOTHING_WRITTEN,
+		next: "Reload to see where it stands. Only a GitHub pull request still open or being opened can be checked.",
 		retry: false,
 	},
 } as const satisfies Record<PreconditionReason, CodeCopy>;

@@ -1,9 +1,9 @@
+import { Link } from "@tanstack/react-router";
 import type { ExportWire, GateRunSummary } from "avel-server/contract";
 import { Eye, PackageCheck } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { tabsListVariants } from "@/components/ui/tabs";
 import {
 	type CreateExportBody,
 	type ExportAttempt,
@@ -12,11 +12,22 @@ import {
 	useCreateExport,
 	useExport,
 	usePreviewExport,
+	writtenExportId,
 } from "@/lib/api/exports";
 import { useGateRuns } from "@/lib/api/gate";
 import { DeliveryChecks, PackageFacts, PackageMap } from "./export-package";
+import {
+	choiceChanged,
+	choiceOf,
+	choiceProblem,
+	deliverBodyOf,
+	previewBodyOf,
+	type TargetChoice,
+	TargetPicker,
+} from "./export-target";
 import { RESULT } from "./gate-copy";
 import { GateRefusal } from "./gate-panel";
+import { useMission } from "./mission-data";
 import { PanelFooter } from "./panel-footer";
 import { retryOf } from "./retry";
 import { SectionPanel } from "./section-panel";
@@ -30,14 +41,10 @@ import { ErrorState, Surface } from "./surface";
  * it does, then Deliver. The preview is a dry-run export the server keeps,
  * named in the URL, so a reload or another tab lands on the same one.
  * Deliver is disabled by the preview's own `blocked`, never by styling,
- * and holds to confirm. Only a zip delivers until GitHub delivery is built.
+ * and holds to confirm. A zip or a GitHub pull request delivers; a push
+ * straight to GitHub is not built. Delivery sends what the preview recorded,
+ * so a target changed since it is previewed again first.
  */
-
-const TARGETS = [
-	{ id: "zip", label: "Zip", built: true },
-	{ id: "github_pr", label: "GitHub PR", built: false },
-	{ id: "github_push", label: "GitHub push", built: false },
-] as const;
 
 export function ExportPreflight({
 	missionId,
@@ -58,6 +65,17 @@ export function ExportPreflight({
 	// The gate ran after this preview: delivering it would be refused.
 	const outdated =
 		shown !== null && latest !== null && shown.gateRun.id !== latest.id;
+	// Undefined while the mission reads; null for an internal mission.
+	const mission = useMission(missionId).data;
+	const engagementId = mission ? (mission.engagement?.id ?? null) : undefined;
+	// The target starts from the preview's, and again whenever another loads.
+	const [choice, setChoice] = useState<TargetChoice>(() => choiceOf(shown));
+	const [seen, setSeen] = useState(shown?.id ?? null);
+	if ((shown?.id ?? null) !== seen) {
+		setSeen(shown?.id ?? null);
+		setChoice(choiceOf(shown));
+	}
+	const changed = choiceChanged(choice, shown);
 
 	return (
 		<div
@@ -78,6 +96,10 @@ export function ExportPreflight({
 						loading={runs.status === "pending"}
 						shown={shown}
 						outdated={outdated}
+						changed={changed}
+						choice={choice}
+						onChoice={setChoice}
+						engagementId={engagementId}
 						onPreviewed={onPreviewed}
 					/>
 				</SectionPanel>
@@ -119,6 +141,7 @@ export function ExportPreflight({
 										missionId={missionId}
 										preview={exp}
 										outdated={outdated}
+										changed={changed}
 										onDelivered={onDelivered}
 									/>
 								</div>
@@ -148,6 +171,10 @@ function Ships({
 	loading,
 	shown,
 	outdated,
+	changed,
+	choice,
+	onChoice,
+	engagementId,
 	onPreviewed,
 }: {
 	missionId: string;
@@ -155,6 +182,12 @@ function Ships({
 	loading: boolean;
 	shown: ExportWire | null;
 	outdated: boolean;
+	/** The target chosen differs from the preview's. */
+	changed: boolean;
+	choice: TargetChoice;
+	onChoice: (choice: TargetChoice) => void;
+	/** The mission's engagement, whose connections a GitHub target uses. */
+	engagementId: string | null | undefined;
 	onPreviewed: (id: string) => void;
 }) {
 	const previewExport = usePreviewExport();
@@ -167,7 +200,8 @@ function Ships({
 			onPreviewed(written.id);
 		},
 	};
-	const body: PreviewExportBody = { missionId, target: "zip" };
+	const body: PreviewExportBody = previewBodyOf(missionId, choice);
+	const problem = choiceProblem(choice);
 	const run = () => {
 		const attempt = exportAttemptFor(last, body);
 		setLast(attempt);
@@ -203,39 +237,25 @@ function Ships({
 					export.
 				</p>
 			)}
-			<div className="flex flex-wrap items-center gap-2">
-				<fieldset
-					data-testid="export-target"
-					className={tabsListVariants({ variant: "default" })}
-				>
-					<legend className="sr-only">Target</legend>
-					{TARGETS.map((t) => (
-						<Button
-							key={t.id}
-							type="button"
-							variant="segment"
-							aria-pressed={t.id === "zip"}
-							data-testid={`export-target-${t.id}`}
-							disabledReason={
-								t.built ? undefined : "Delivery to GitHub isn't built yet"
-							}
-						>
-							{t.label}
-						</Button>
-					))}
-				</fieldset>
+			<div className="flex flex-wrap items-start gap-2">
+				<div className="min-w-0 flex-1">
+					<TargetPicker
+						choice={choice}
+						onChange={onChoice}
+						engagementId={engagementId}
+					/>
+				</div>
 				<Button
 					type="button"
 					size="sm"
-					variant={shown && !outdated ? "outline" : "default"}
+					variant={shown && !outdated && !changed ? "outline" : "default"}
 					className="ml-auto"
 					data-testid="export-preview"
 					disabledReason={
 						latest === null
 							? "Run the gate first"
-							: previewExport.isPending
-								? "Rendering the package"
-								: undefined
+							: (problem ??
+								(previewExport.isPending ? "Rendering the package" : undefined))
 					}
 					onClick={run}
 				>
@@ -243,6 +263,14 @@ function Ships({
 					{shown ? "Preview again" : "Preview"}
 				</Button>
 			</div>
+			{changed && !outdated ? (
+				<p
+					data-testid="export-preview-changed"
+					className="rounded-control border border-gate-warn-line bg-gate-warn-banner px-3 py-2 type-small text-text"
+				>
+					The target changed since this preview. Preview again to deliver there.
+				</p>
+			) : null}
 			{outdated ? (
 				<p
 					data-testid="export-preview-outdated"
@@ -263,16 +291,23 @@ function Ships({
 	);
 }
 
-/** Deliver the preview as a zip: held to confirm, refused by state. */
+/**
+ * Deliver the preview, to its own target: held to confirm, refused by state.
+ * A pull request is written on GitHub inside the request, for a few seconds.
+ * A GitHub 502 leaves an export, failed or still delivering, linked here.
+ */
 function Deliver({
 	missionId,
 	preview,
 	outdated,
+	changed,
 	onDelivered,
 }: {
 	missionId: string;
 	preview: ExportWire;
 	outdated: boolean;
+	/** The target chosen differs from the preview's. */
+	changed: boolean;
 	onDelivered: (id: string) => void;
 }) {
 	const create = useCreateExport();
@@ -285,12 +320,9 @@ function Deliver({
 			onDelivered(written.id);
 		},
 	};
-	const body: CreateExportBody = {
-		missionId,
-		target: "zip",
-		gateRunId: preview.gateRun.id,
-		previewExportId: preview.id,
-	};
+	const body: CreateExportBody = deliverBodyOf(preview);
+	const pr = preview.targetKind === "github_pr";
+	const writtenId = writtenExportId(create.error);
 	const deliver = () => {
 		const attempt = exportAttemptFor(last, body);
 		setLast(attempt);
@@ -298,11 +330,13 @@ function Deliver({
 	};
 	const reason = outdated
 		? "The gate ran again after this preview"
-		: preview.blocked
-			? "A delivery check blocks it"
-			: create.isPending
-				? "Delivering"
-				: undefined;
+		: changed
+			? "The target changed since this preview"
+			: preview.blocked
+				? "A delivery check blocks it"
+				: create.isPending
+					? "Delivering"
+					: undefined;
 	return (
 		<div className="flex flex-col gap-2">
 			<Button
@@ -313,18 +347,37 @@ function Deliver({
 				data-testid="export-deliver"
 			>
 				<PackageCheck aria-hidden="true" />
-				{create.isPending ? "Delivering" : "Hold to deliver zip"}
+				{create.isPending
+					? pr
+						? "Opening the pull request"
+						: "Delivering"
+					: pr
+						? "Hold to open pull request"
+						: "Hold to deliver zip"}
 			</Button>
 			<Note>
-				Renders the package again and checks it against this preview before it
-				hands you the zip.
+				{pr
+					? "Renders the package again, checks it against this preview and the branch's tip, then writes a new branch and opens a pull request on GitHub. It takes a few seconds."
+					: "Renders the package again and checks it against this preview before it hands you the zip."}
 			</Note>
 			{create.error ? (
 				<GateRefusal
 					error={create.error}
 					missionId={missionId}
-					{...retryOf(create, sent)}
+					// A GitHub 502 left an export: resending the same attempt only
+					// replays it, so the way on is that export's page.
+					{...(writtenId ? {} : retryOf(create, sent))}
 				/>
+			) : null}
+			{writtenId ? (
+				<Link
+					to="/missions/$id/exports/$exportId"
+					params={{ id: missionId, exportId: writtenId }}
+					data-testid="export-deliver-failed"
+					className="type-small text-text underline decoration-border underline-offset-2 hover:decoration-current"
+				>
+					Open the export to see where it stands
+				</Link>
 			) : null}
 		</div>
 	);

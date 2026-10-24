@@ -6,7 +6,11 @@ import {
 	createRouter,
 	RouterProvider,
 } from "@tanstack/react-router";
-import { type ExportWire, exportSchema } from "avel-server/contract";
+import {
+	type ExportWire,
+	exportSchema,
+	type MissionDetail,
+} from "avel-server/contract";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -19,10 +23,24 @@ import {
 	packageEntries,
 } from "@/components/avel/export-package";
 import { ExportPreflight } from "@/components/avel/export-preflight";
+import { ExportStatus } from "@/components/avel/export-status";
+import {
+	choiceChanged,
+	choiceOf,
+	choiceProblem,
+	deliverBodyOf,
+	previewBodyOf,
+	targetOffReason,
+	ZIP_CHOICE,
+} from "@/components/avel/export-target";
 import { MissionExportList } from "@/components/avel/mission-exports";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ApiOverrideProvider, ApiProvider } from "@/lib/api";
-import { exportAttemptFor } from "@/lib/api/exports";
+import { ApiError, ApiOverrideProvider, ApiProvider } from "@/lib/api";
+import {
+	exportAttemptFor,
+	refreshable,
+	writtenExportId,
+} from "@/lib/api/exports";
 import { queryKeys } from "@/lib/api/keys";
 import { tagOf } from "./render-page";
 
@@ -32,6 +50,9 @@ import { tagOf } from "./render-page";
 const MISSION = "00000000-0000-4000-8000-000000000001";
 const PREVIEW = "00000000-0000-4000-8000-000000000501";
 const RUN = "00000000-0000-4000-8000-000000000101";
+const DELIVERED = "00000000-0000-4000-8000-000000000502";
+const CONNECTION = "00000000-0000-4000-8000-000000000701";
+const ENGAGEMENT = "00000000-0000-4000-8000-000000000801";
 const sha = (c: string, n: number) => c.repeat(n);
 
 const exp = (extra: Partial<ExportWire> = {}): ExportWire =>
@@ -45,6 +66,8 @@ const exp = (extra: Partial<ExportWire> = {}): ExportWire =>
 		statusChangedAt: "2026-10-22T10:00:00.000Z",
 		dryRun: true,
 		previewExportId: null,
+		pullRequest: null,
+		failure: null,
 		gateRun: {
 			id: RUN,
 			result: "verified",
@@ -312,11 +335,192 @@ describe("pre-flight", () => {
 		expect(tagOf(html, "export-deliver")).not.toMatch(/\sdisabled=""/);
 	});
 
-	it("offers only a zip until GitHub delivery is built", async () => {
+	it("offers a pull request only on a client mission, and never a push", async () => {
 		const html = await flight(exp());
 		expect(tagOf(html, "export-target-zip")).toContain('aria-pressed="true"');
+		// No engagement read: an internal mission has no repository.
 		expect(tagOf(html, "export-target-github_pr")).toMatch(/\sdisabled=""/);
 		expect(tagOf(html, "export-target-github_push")).toMatch(/\sdisabled=""/);
+	});
+
+	it("starts from a pull request preview's target, and delivers it as one", async () => {
+		const preview = exp({
+			targetKind: "github_pr",
+			connectionId: CONNECTION,
+			baseRef: "main",
+		});
+		const html = await render(
+			<ExportPreflight
+				missionId={MISSION}
+				previewId={preview.id}
+				onPreviewed={() => {}}
+				onDelivered={() => {}}
+			/>,
+			(qc) => {
+				withPreview(preview)(qc);
+				// Only the engagement is read off the mission.
+				qc.setQueryData([...queryKeys.missions.detail(MISSION)], {
+					engagement: { id: ENGAGEMENT, name: "Acme" },
+				} as unknown as MissionDetail);
+			},
+		);
+		expect(tagOf(html, "export-target-github_pr")).toContain(
+			'aria-pressed="true"',
+		);
+		expect(tagOf(html, "export-target-github_pr")).not.toMatch(/\sdisabled=""/);
+		expect(tagOf(html, "export-ref")).toContain('value="main"');
+		expect(element(html, "export-deliver")).toContain(
+			"Hold to open pull request",
+		);
+	});
+});
+
+describe("a GitHub pull request export", () => {
+	const OPEN_PR = {
+		number: 42,
+		url: "https://github.com/acme/booking/pull/42",
+		branch: "avel/00000000-s2-eeeeeeeeeeee",
+		commitSha: sha("a", 40),
+		state: "open",
+	} as const;
+	const pr = (extra: Partial<ExportWire> = {}) =>
+		exp({
+			id: DELIVERED,
+			dryRun: false,
+			targetKind: "github_pr",
+			connectionId: CONNECTION,
+			baseRef: "main",
+			previewExportId: PREVIEW,
+			status: "pr-open",
+			pullRequest: OPEN_PR,
+			...extra,
+		});
+	const page = (shown: ExportWire) =>
+		render(<ExportStatus missionId={MISSION} exportId={shown.id} />, (qc) =>
+			qc.setQueryData([...queryKeys.exports.detail(shown.id)], shown),
+		);
+
+	it("previews and delivers the target it chose, through its connection", () => {
+		const choice = {
+			target: "github_pr" as const,
+			connectionId: CONNECTION,
+			ref: " release ",
+		};
+		expect(previewBodyOf(MISSION, choice)).toEqual({
+			missionId: MISSION,
+			target: "github_pr",
+			connectionId: CONNECTION,
+			ref: "release",
+		});
+		expect(previewBodyOf(MISSION, { ...choice, ref: "" })).not.toHaveProperty(
+			"ref",
+		);
+		expect(previewBodyOf(MISSION, { ...ZIP_CHOICE })).toEqual({
+			missionId: MISSION,
+			target: "zip",
+		});
+		const preview = exp({
+			targetKind: "github_pr",
+			connectionId: CONNECTION,
+			baseRef: "main",
+		});
+		expect(deliverBodyOf(preview)).toEqual({
+			missionId: MISSION,
+			target: "github_pr",
+			connectionId: CONNECTION,
+			ref: "main",
+			gateRunId: RUN,
+			previewExportId: PREVIEW,
+		});
+		expect(deliverBodyOf(exp())).toEqual({
+			missionId: MISSION,
+			target: "zip",
+			gateRunId: RUN,
+			previewExportId: PREVIEW,
+		});
+	});
+
+	it("asks for a new preview when the target moved off the previewed one", () => {
+		const preview = exp({
+			targetKind: "github_pr",
+			connectionId: CONNECTION,
+			baseRef: "main",
+		});
+		const same = choiceOf(preview);
+		expect(choiceChanged(same, preview)).toBe(false);
+		// A blank branch is whichever the preview resolved to.
+		expect(choiceChanged({ ...same, ref: "" }, preview)).toBe(false);
+		expect(choiceChanged({ ...same, ref: "release" }, preview)).toBe(true);
+		expect(choiceChanged(ZIP_CHOICE, preview)).toBe(true);
+		expect(choiceChanged(ZIP_CHOICE, null)).toBe(false);
+		expect(choiceProblem({ ...same, connectionId: "" })).toBe(
+			"Choose a connection",
+		);
+		expect(targetOffReason("github_pr", null)).toBe(
+			"Only a client mission has a repository to deliver to",
+		);
+		expect(targetOffReason("github_pr", ENGAGEMENT)).toBeNull();
+		// Not yet "an internal mission" while the mission still reads.
+		expect(targetOffReason("github_pr", undefined)).toBe("Reading the mission");
+	});
+
+	it("links the pull request on GitHub and offers to check it there", async () => {
+		const html = await page(pr());
+		expect(tagOf(html, "export-status-pr-link")).toContain(
+			'href="https://github.com/acme/booking/pull/42"',
+		);
+		expect(element(html, "export-status-pr-link")).toContain(
+			"Pull request #42",
+		);
+		expect(element(html, "export-status-pr-state")).toContain("Open on GitHub");
+		expect(tagOf(html, "export-status-pr-refresh")).not.toMatch(
+			/\sdisabled=""/,
+		);
+		expect(refreshable(pr())).toBe(true);
+		expect(refreshable(pr({ status: "delivering", pullRequest: null }))).toBe(
+			true,
+		);
+	});
+
+	it("stops checking once GitHub merged it", async () => {
+		const merged = pr({
+			status: "done",
+			pullRequest: { ...OPEN_PR, state: "merged" },
+		});
+		const html = await page(merged);
+		expect(element(html, "export-status-pr-state")).toContain(
+			"Merged on GitHub",
+		);
+		expect(html).not.toContain('data-testid="export-status-pr-refresh"');
+		expect(refreshable(merged)).toBe(false);
+	});
+
+	it("says what GitHub answered on a failed export, and links it from a refusal", async () => {
+		const html = await page(
+			pr({
+				status: "failed",
+				pullRequest: null,
+				failure: {
+					code: "GITHUB_REJECTED",
+					message: "GitHub refused the branch: it already exists.",
+				},
+			}),
+		);
+		expect(element(html, "export-status-failure")).toContain(
+			"GitHub refused the branch: it already exists.",
+		);
+		const refused = new ApiError({
+			method: "POST",
+			path: "/api/exports",
+			kind: "contract",
+			status: 502,
+			code: "GITHUB_REJECTED",
+			message: "m",
+			requestId: "req_x",
+			details: { exportId: DELIVERED },
+		} as ConstructorParameters<typeof ApiError>[0]);
+		expect(writtenExportId(refused)).toBe(DELIVERED);
+		expect(writtenExportId(null)).toBeNull();
 	});
 });
 

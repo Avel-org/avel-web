@@ -80,6 +80,7 @@ export const WRITES = {
 	dismissFinding: ["finding", "activity_log"],
 	previewExport: ["export", "activity_log"],
 	createExport: ["export", "activity_log"],
+	refreshExport: ["export", "activity_log"],
 	uploadIntakeFile: ["intake_files", "activity_log"],
 	purgeIntakeFile: ["intake_files", "activity_log"],
 	createIntake: ["intake", "activity_log"],

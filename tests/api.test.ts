@@ -40,6 +40,7 @@ const { createApp } = (await import(/* @vite-ignore */ `${server}app.ts`)) as {
 		webOrigins: readonly string[];
 		drive: unknown;
 		checkRunner: unknown;
+		repoWriter: unknown;
 	}) => ServerApp;
 };
 const { fixedClock } = (await import(
@@ -62,6 +63,12 @@ const { memoryBlobs } = (await import(
 const { DEFAULT_UPLOAD_MAX_BYTES } = (await import(
 	/* @vite-ignore */ `${server}routes/files.ts`
 )) as { DEFAULT_UPLOAD_MAX_BYTES: number };
+
+// GitHub pull request delivery's writer, which these tests never reach: the
+// server's stand-in refuses every call EXTERNAL_GITHUB.
+const { noRepoWriter } = (await import(
+	/* @vite-ignore */ `${server}gateways/repo-writer.ts`
+)) as { noRepoWriter: () => unknown };
 
 // The one stand-in: auth's session lookup, which always answers "no session".
 // Health is public (src/middleware/auth.ts, isPublicPath), so it never asks;
@@ -88,6 +95,7 @@ const realApp = () =>
 		// The gate's check runner (avel-server, gate-check-runner): null runs
 		// no test, typecheck or command check, as the server's own stubs do.
 		checkRunner: null,
+		repoWriter: noRepoWriter(),
 	});
 
 async function read(res: Response) {

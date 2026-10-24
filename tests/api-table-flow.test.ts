@@ -222,6 +222,7 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	dismissFinding: (qc) => afterTriage(qc, M),
 	previewExport: (qc) => afterExport(qc),
 	createExport: (qc) => afterExport(qc),
+	refreshExport: (qc) => afterExport(qc),
 	uploadIntakeFile: (qc) => afterIntakeFileWrite(qc, I),
 	purgeIntakeFile: (qc) => afterIntakeFileWrite(qc, I),
 	createIntake: (qc) =>
@@ -300,6 +301,7 @@ const EXEMPT: Partial<Record<WriteName, Partial<Record<ReadName, string>>>> = {
 	createEngagement: MISSION_READS_OF_A_NEW_PARENT,
 	previewExport: { "exports.detail": OTHER_EXPORT },
 	createExport: { "exports.detail": OTHER_EXPORT },
+	refreshExport: { "exports.detail": OTHER_EXPORT },
 	addRosterEntry: { "presets.presetApplications": NOT_AN_APPLICATION },
 	updateRosterEntry: { "presets.presetApplications": NOT_AN_APPLICATION },
 	removeRosterEntry: { "presets.presetApplications": NOT_AN_APPLICATION },

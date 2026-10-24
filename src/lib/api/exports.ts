@@ -10,16 +10,25 @@ import {
 import { contract, type ExportWire } from "avel-server/contract";
 import type { z } from "zod";
 import { type ApiClient, call, callPage, defaultBaseUrl } from "./client";
+import type { ApiError } from "./errors";
 import { queryKeys } from "./keys";
 import { useApiClient } from "./provider";
 
 /*
- * Exports (modules 10 and 11, slice 1). A preview is an export with dryRun
- * true: it renders the mission's latest gate run and records what delivering
- * it would do, `blocked` included, instead of refusing. A real export renders
- * the run again and delivers it. Both finish inside their request, so a
- * preview answers `previewed` and a zip answers `done`: nothing here polls.
- * A refusal writes no export.
+ * Exports (modules 10 and 11). A preview is an export with dryRun true: it
+ * renders the mission's latest gate run and records what delivering it would
+ * do, `blocked` included, instead of refusing. A real export renders the run
+ * again and delivers it. Both finish inside their request: a preview answers
+ * `previewed`, a zip `done`, a GitHub pull request `pr-open`. Only a resend
+ * that lands while its first request still writes answers `delivering`, and
+ * that export is read again until it settles. A refusal writes no export. A
+ * GitHub 502 names the one it wrote (details.exportId): `failed` when GitHub
+ * refused partway, still `delivering` when GitHub went quiet, which its page
+ * reads until it settles and asks GitHub about once.
+ *
+ * A pull request moves on GitHub, not here: refresh reads it, once when its
+ * page opens and when asked, never on a timer (it spends the connection's
+ * GitHub calls).
  */
 
 export type PreviewExportBody = z.input<typeof contract.exports.preview.body>;
@@ -64,12 +73,49 @@ export function exportQuery(api: ApiClient, id: string) {
 	});
 }
 
-/** Reads nothing until there is an id to read. */
+/** How often an export still delivering is read again. */
+export const EXPORT_POLL_MS = 3_000;
+
+/**
+ * Reads nothing until there is an id to read. While it is delivering (a
+ * resend answered before the first request finished) it reads again.
+ */
 export function useExport(id: string | null) {
 	return useQuery({
 		...exportQuery(useApiClient(), id ?? ""),
 		enabled: id !== null,
+		refetchInterval: (query) =>
+			query.state.data?.status === "delivering" ? EXPORT_POLL_MS : false,
 	});
+}
+
+/** A pull request's export the page can ask GitHub about. */
+export function refreshable(exp: ExportWire): boolean {
+	return (
+		exp.targetKind === "github_pr" &&
+		!exp.dryRun &&
+		(exp.status === "pr-open" || exp.status === "delivering")
+	);
+}
+
+/**
+ * The export a GitHub 502 left behind (details.exportId), if named: failed
+ * when GitHub refused partway, or still delivering when GitHub went quiet
+ * and the server couldn't tell whether the pull request was opened.
+ */
+export function writtenExportId(error: ApiError | null): string | null {
+	const failure = error?.failure;
+	if (
+		failure?.kind !== "contract" ||
+		(failure.code !== "GITHUB_REJECTED" && failure.code !== "EXTERNAL_GITHUB")
+	)
+		return null;
+	const { details } = failure as { details?: unknown };
+	const id =
+		details && typeof details === "object" && "exportId" in details
+			? details.exportId
+			: undefined;
+	return typeof id === "string" ? id : null;
 }
 
 /**
@@ -136,6 +182,30 @@ export function useCreateExport() {
 			call(contract.exports.create, () =>
 				api.exports.create({ headers: { "idempotency-key": key }, body }),
 			),
+		onSuccess: (written) => afterExport(queryClient, written),
+		// A GitHub 502 still wrote an export, failed or delivering: the lists
+		// read again so it shows.
+		onError: (error) => {
+			if (writtenExportId(error) !== null) return afterExport(queryClient);
+		},
+	});
+}
+
+/**
+ * POST refresh: reads the pull request on GitHub. Merged moves the export to
+ * done, closed to closed; a delivering one whose PR exists to pr-open.
+ */
+export function refreshExportRequest(api: ApiClient, id: string) {
+	return call(contract.exports.refresh, () =>
+		api.exports.refresh({ params: { id } }),
+	);
+}
+
+export function useRefreshExport() {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => refreshExportRequest(api, id),
 		onSuccess: (written) => afterExport(queryClient, written),
 	});
 }
