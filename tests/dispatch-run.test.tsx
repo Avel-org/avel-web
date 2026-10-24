@@ -60,6 +60,7 @@ function dispatch(status: DispatchStatus): Dispatch {
 		model: queued ? null : "claude-opus-5-5",
 		harnessVersion: null,
 		reportId: null,
+		wave: "A",
 		startCommitSha: null,
 		startDispatchIds: null,
 		startedAt: queued ? null : "2026-10-12T13:48:00.000Z",

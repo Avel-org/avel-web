@@ -228,6 +228,22 @@ export function DispatchCardSkeleton() {
 	);
 }
 
+/**
+ * Open a dispatch's card on the mission page and bring it into view. Cards
+ * open on a hashchange, so when the hash already names this one (it was
+ * shown before, then closed) the event is sent by hand: setting the same
+ * hash fires none.
+ */
+export function showDispatch(id: string) {
+	const hash = `#dispatch-${id}`;
+	if (window.location.hash === hash) {
+		window.dispatchEvent(new HashChangeEvent("hashchange"));
+		document.getElementById(`dispatch-${id}`)?.scrollIntoView();
+	} else {
+		window.location.hash = hash;
+	}
+}
+
 /** One dispatch: who, on what, as which version, when, and its budget. */
 export function DispatchCard({
 	dispatch,
@@ -283,6 +299,13 @@ export function DispatchCard({
 						className="shrink-0 type-small font-medium text-text"
 					>
 						{agent.name}
+					</span>
+					{/* The wave it runs in: a later wave starts once earlier ones close. */}
+					<span
+						data-testid={`dispatch-card-wave-${dispatch.id}`}
+						className="shrink-0 type-caption text-text-muted"
+					>
+						{`Wave ${dispatch.wave}`}
 					</span>
 					{agent.title ? (
 						<span

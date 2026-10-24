@@ -1,10 +1,12 @@
 import type { Dispatch } from "avel-server/contract";
 import { Play, Square } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useHaltDispatch, useStartDispatch } from "@/lib/api/dispatches";
 import type { ApiError } from "@/lib/api/errors";
 import { useMissionPlan } from "@/lib/api/mission-plans";
 import { describeError } from "@/lib/error-map";
+import { showDispatch } from "./dispatch-board";
 
 /*
  * Start on a queued dispatch card and Halt on a running one (module 6).
@@ -83,18 +85,90 @@ export function dispatchRefusalLines(
 	}
 }
 
+/** Another dispatch a card names: by its agent and wave, by id when unlisted. */
+export type NamedDispatch = { id: string; name: string | null };
+
+const namedFrom = (
+	ids: readonly string[],
+	others: readonly Dispatch[],
+): NamedDispatch[] =>
+	ids.map((id) => {
+		const other = others.find((d) => d.id === id);
+		return {
+			id,
+			name: other ? `${other.agent.name}, wave ${other.wave}` : null,
+		};
+	});
+
+/**
+ * A Start refused while an earlier wave is open: that wave, and its queued
+ * and running dispatches (oldest first), each to link to its card. Null for
+ * any other refusal.
+ */
+export function openWaveOf(
+	error: ApiError,
+	others: readonly Dispatch[],
+): { wave: string | null; dispatches: NamedDispatch[] } | null {
+	const { failure } = error;
+	if (
+		failure.kind !== "contract" ||
+		failure.code !== "PRECONDITION_FAILED" ||
+		failure.details.reason !== "earlier_wave_open"
+	)
+		return null;
+	const { wave = null, dispatchIds = [] } = failure.details;
+	return { wave, dispatches: namedFrom(dispatchIds, others) };
+}
+
+/**
+ * A start's warning when earlier waves hold blocked dispatches: they never
+ * finished, so this one's room starts without their work. Null when none is.
+ */
+export function blockedWaveWarning(
+	ids: readonly string[],
+	others: readonly Dispatch[],
+): string | null {
+	if (ids.length === 0) return null;
+	const names = namedFrom(ids, others).map(
+		({ name }) => name ?? "a dispatch no longer listed",
+	);
+	const some = ids.length === 1 ? "a blocked dispatch" : "blocked dispatches";
+	return `Started. An earlier wave has ${some} (${names.join("; ")}), so this one starts without that work.`;
+}
+
+/** A link to another dispatch's card on the mission page, which opens it. */
+function DispatchLink({ id, name }: NamedDispatch) {
+	return (
+		<a
+			href={`#dispatch-${id}`}
+			onClick={(e) => {
+				e.preventDefault();
+				showDispatch(id);
+			}}
+			data-testid={`dispatch-link-${id}`}
+			className="text-text underline decoration-border underline-offset-2 hover:decoration-current"
+		>
+			{name ?? "A dispatch no longer listed"}
+		</a>
+	);
+}
+
 /** A refused Start or Halt, on its card: what, its own lines, what next. */
 export function DispatchRefusal({
 	error,
 	dispatch,
 	templateRef,
+	others = [],
 }: {
 	error: ApiError;
 	dispatch: Dispatch;
 	templateRef?: string | null;
+	/** The mission's dispatches, to name the ones a refusal points at. */
+	others?: readonly Dispatch[];
 }) {
 	const copy = describeError(error);
 	const lines = dispatchRefusalLines(error, dispatch, templateRef);
+	const openWave = openWaveOf(error, others);
 	return (
 		<div
 			role="alert"
@@ -114,6 +188,25 @@ export function DispatchRefusal({
 					))}
 				</ul>
 			)}
+			{openWave ? (
+				<div
+					data-testid={`dispatch-card-open-wave-${dispatch.id}`}
+					className="flex flex-col gap-1 type-small text-foreground"
+				>
+					<p>
+						{openWave.wave
+							? `Wave ${openWave.wave} still has these open:`
+							: "An earlier wave still has these open:"}
+					</p>
+					<ul className="flex flex-col gap-1">
+						{openWave.dispatches.map((d) => (
+							<li key={d.id}>
+								<DispatchLink {...d} />
+							</li>
+						))}
+					</ul>
+				</div>
+			) : null}
 			<p className="type-caption text-text-muted">{copy.next}</p>
 		</div>
 	);
@@ -132,6 +225,7 @@ export function DispatchControls({
 	onStart,
 	onHalt,
 	templateRef,
+	others,
 }: {
 	dispatch: Dispatch;
 	/** The write in flight, if any. */
@@ -142,6 +236,8 @@ export function DispatchControls({
 	onHalt: () => void;
 	/** The plan's template, which a missing source's line names. */
 	templateRef?: string | null;
+	/** The mission's dispatches, to name the ones a refusal points at. */
+	others?: readonly Dispatch[];
 }) {
 	const { status, id } = dispatch;
 	if (status !== "queued" && status !== "running") return null;
@@ -180,6 +276,7 @@ export function DispatchControls({
 					error={error}
 					dispatch={dispatch}
 					templateRef={templateRef}
+					others={others}
 				/>
 			) : null}
 		</div>
@@ -189,16 +286,32 @@ export function DispatchControls({
 /**
  * DispatchControls wired to avel-server. A success refreshes the mission,
  * so the card moves lanes (and a halted one carries its report); a
- * refusal stays on this card.
+ * refusal stays on this card. A start past an earlier wave's blocked
+ * dispatches says so in a toast, which shows the first of them.
  */
 export function DispatchControlsLive({
 	missionId,
 	dispatch,
+	others = [],
 }: {
 	missionId: string;
 	dispatch: Dispatch;
+	/** The mission's dispatches, to name the ones a start or refusal points at. */
+	others?: readonly Dispatch[];
 }) {
-	const start = useStartDispatch(missionId);
+	const start = useStartDispatch(missionId, ({ meta }) => {
+		const blocked = meta.earlierWaveBlocked;
+		const warning = blockedWaveWarning(blocked, others);
+		if (warning === null) return;
+		toast.warning(warning, {
+			action: {
+				label: "Show",
+				onClick: () => {
+					if (blocked[0]) showDispatch(blocked[0]);
+				},
+			},
+		});
+	});
 	const halt = useHaltDispatch(missionId);
 	// The page reads the plan already; this shares its cache entry.
 	const plan = useMissionPlan(missionId);
@@ -213,6 +326,7 @@ export function DispatchControlsLive({
 			pending={pending}
 			error={start.error ?? halt.error}
 			templateRef={plan.data?.templateRef}
+			others={others}
 			onStart={() => {
 				halt.reset();
 				start.mutate(dispatch.id);

@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
 	type Brief,
 	type CreateDispatchBody,
@@ -5,6 +6,8 @@ import {
 	MAX_WALL_CLOCK_MINUTES,
 	type MissionDetail,
 	type RosterEntry,
+	WAVES,
+	type Wave,
 } from "avel-server/contract";
 import { Plus } from "lucide-react";
 import { useState } from "react";
@@ -18,6 +21,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { tabsListVariants } from "@/components/ui/tabs";
 import {
 	attemptFor,
 	type DispatchAttempt,
@@ -25,7 +29,10 @@ import {
 } from "@/lib/api/dispatches";
 import type { ApiError } from "@/lib/api/errors";
 import { useMissionPlan } from "@/lib/api/mission-plans";
+import { playbookQuery } from "@/lib/api/playbooks";
+import { useApiClient } from "@/lib/api/provider";
 import { entryName, useRoster } from "@/lib/api/roster";
+import { cn } from "@/lib/utils";
 import {
 	ActionModal,
 	type FieldIssue,
@@ -34,12 +41,17 @@ import {
 	ModalField,
 } from "./action-modal";
 import { ActorMark } from "./actor";
+import { useMission } from "./mission-data";
 import { useOpenGeneration } from "./use-open-generation";
 
 /*
- * Queueing a dispatch (module 6): one active roster entry, on one module of
- * the plan and the requirements chosen from it, with its token estimate and
- * ceilings (prefilled from the roster entry) and a wall-clock limit.
+ * Queueing a dispatch (module 6): one active roster entry and the wave it
+ * runs in, on one module of the plan and the requirements chosen from it,
+ * with its token estimate and ceilings (prefilled from the roster entry) and
+ * a wall-clock limit.
+ *
+ * The wave is one of the entry's that the mission's playbook runs, its
+ * earliest preselected; the rest of A to E show disabled, saying why.
  *
  * Three steps, as v3's step pills: the agent, picked from option cards
  * (v3 .option); the brief, a module and its requirements; then the
@@ -51,7 +63,7 @@ import { useOpenGeneration } from "./use-open-generation";
 export const DISPATCH_STEPS = ["Agent", "Brief", "Ceilings"] as const;
 
 const STEP_FIELDS: readonly (readonly DispatchField[])[] = [
-	["rosterEntryId"],
+	["rosterEntryId", "wave"],
 	["moduleId", "requirementIds"],
 	[
 		"estimatedTokens",
@@ -73,6 +85,7 @@ export function refusedStep(
 ): number | null {
 	if (error === null) return null;
 	if (refusedAgentsLine(error, roster) !== null) return 0;
+	if (refusedWave(error)) return 0;
 	const steps = issuesOf(error)
 		.map((issue) => dispatchFieldOf(issue.path))
 		.filter((field): field is DispatchField => field !== null)
@@ -83,6 +96,8 @@ export function refusedStep(
 /** The form as typed: numbers stay text until they are sent. */
 export type DispatchDraft = {
 	rosterEntryId: string;
+	/** Blank while the agent has no wave the playbook runs. */
+	wave: Wave | "";
 	moduleId: string;
 	requirementIds: string[];
 	estimatedTokens: string;
@@ -112,15 +127,49 @@ export function tokensFrom(
 	};
 }
 
-/** A fresh form: the first active agent and the first module, all its requirements. */
+/** Why a wave can't be chosen for an entry, or null when it can. */
+export type WaveChoice = { wave: Wave; offReason: string | null };
+
+/**
+ * A to E for an entry: on when it is one of the entry's waves and the
+ * mission's playbook runs it. applicable is the playbook's waves, null
+ * while unread (the server still checks).
+ */
+export function waveChoices(
+	entry: RosterEntry | undefined,
+	applicable: readonly Wave[] | null,
+): WaveChoice[] {
+	return WAVES.map((wave) => ({
+		wave,
+		offReason: !entry?.waves.includes(wave)
+			? `${entry?.agentTemplate.name ?? "This agent"} isn't in wave ${wave} on the roster`
+			: applicable !== null && !applicable.includes(wave)
+				? `The mission's playbook doesn't run wave ${wave}`
+				: null,
+	}));
+}
+
+/** The earliest wave that can be chosen for an entry, or blank. */
+export function defaultWave(
+	entry: RosterEntry | undefined,
+	applicable: readonly Wave[] | null,
+): Wave | "" {
+	return (
+		waveChoices(entry, applicable).find((c) => c.offReason === null)?.wave ?? ""
+	);
+}
+
+/** A fresh form: the first active agent in its earliest wave, and the first module, all its requirements. */
 export function initialDraft(
 	entries: readonly RosterEntry[],
 	modules: readonly Module[],
+	applicable: readonly Wave[] | null = null,
 ): DispatchDraft {
 	const entry = entries[0];
 	const module = modules[0];
 	return {
 		rosterEntryId: entry?.id ?? "",
+		wave: defaultWave(entry, applicable),
 		moduleId: module?.id ?? "",
 		requirementIds: module ? [...module.requirementIds] : [],
 		...tokensFrom(entry),
@@ -153,6 +202,8 @@ export function draftProblems(
 	const problems: Partial<Record<DispatchField, string>> = {};
 	if (draft.rosterEntryId === "")
 		problems.rosterEntryId = "Choose an agent on the roster.";
+	else if (draft.wave === "")
+		problems.wave = "This agent has no wave the playbook runs.";
 	if (draft.moduleId === "") problems.moduleId = "Choose a module of the plan.";
 	else if (draft.requirementIds.length === 0)
 		problems.requirementIds = "Choose at least one requirement.";
@@ -179,6 +230,7 @@ export function bodyOf(draft: DispatchDraft): CreateDispatchBody {
 			requirementIds: [...draft.requirementIds],
 		},
 	};
+	if (draft.wave !== "") body.wave = draft.wave;
 	for (const field of NUMBER_FIELDS) {
 		const n = count(draft[field]);
 		if (typeof n === "number") body[field] = n;
@@ -190,6 +242,7 @@ export function bodyOf(draft: DispatchDraft): CreateDispatchBody {
 export function dispatchFieldOf(path: IssuePath): DispatchField | null {
 	const [head, sub] = path;
 	if (head === "rosterEntryId") return "rosterEntryId";
+	if (head === "wave") return "wave";
 	if (head === "briefRef")
 		return sub === "requirementIds" ? "requirementIds" : "moduleId";
 	if (
@@ -207,6 +260,8 @@ export function describeDispatchIssue(issue: FieldIssue): string {
 	switch (dispatchFieldOf(issue.path)) {
 		case "rosterEntryId":
 			return "Choose an agent on the roster.";
+		case "wave":
+			return "Choose one of the agent's waves.";
 		case "moduleId":
 			return "Choose a module of the plan.";
 		case "requirementIds":
@@ -254,6 +309,29 @@ export function refusedAgentsLine(
 	}
 }
 
+/**
+ * A 422 about the wave asked for, as the line under the wave field (its
+ * copy says what to do). Null for any other refusal.
+ */
+export function refusedWave(error: ApiError | null): string | null {
+	const failure = error?.failure;
+	if (failure?.kind !== "contract" || failure.code !== "PRECONDITION_FAILED")
+		return null;
+	const { reason, wave } = failure.details;
+	switch (reason) {
+		case "wave_required":
+			return "Choose the wave this dispatch runs in.";
+		case "wave_not_on_roster_entry":
+			return wave
+				? `This agent isn't in wave ${wave} on the roster.`
+				: "This agent is in no wave on the roster.";
+		case "wave_not_applicable":
+			return `The playbook doesn't run wave ${wave ?? "that"}.`;
+		default:
+			return null;
+	}
+}
+
 // ---------------------------------------------------------------------------
 
 const intProps = { inputMode: "numeric" as const, autoComplete: "off" };
@@ -265,6 +343,7 @@ export function NewDispatchForm({
 	entries,
 	roster,
 	brief,
+	applicable = null,
 	initial,
 	initialStep = 0,
 	pending,
@@ -278,6 +357,8 @@ export function NewDispatchForm({
 	/** The whole roster, to name agents a refusal points at. */
 	roster?: readonly RosterEntry[];
 	brief: Brief | null;
+	/** The waves the mission's playbook runs; null while unknown. */
+	applicable?: readonly Wave[] | null;
 	initial?: DispatchDraft;
 	/** For a test: the step to open on. */
 	initialStep?: number;
@@ -287,7 +368,7 @@ export function NewDispatchForm({
 }) {
 	const modules = brief?.modules ?? [];
 	const [draft, setDraft] = useState<DispatchDraft>(
-		() => initial ?? initialDraft(entries, modules),
+		() => initial ?? initialDraft(entries, modules, applicable),
 	);
 	const [tried, setTried] = useState(false);
 	const [step, setStep] = useState(initialStep);
@@ -307,11 +388,16 @@ export function NewDispatchForm({
 
 	const set = (patch: Partial<DispatchDraft>) =>
 		setDraft((d) => ({ ...d, ...patch }));
-	const chooseEntry = (id: string) =>
+	const chooseEntry = (id: string) => {
+		const entry = entries.find((e) => e.id === id);
 		set({
 			rosterEntryId: id,
-			...tokensFrom(entries.find((e) => e.id === id)),
+			wave: defaultWave(entry, applicable),
+			...tokensFrom(entry),
 		});
+	};
+	const entry = entries.find((e) => e.id === draft.rosterEntryId);
+	const waves = waveChoices(entry, applicable);
 	const chooseModule = (id: string) =>
 		set({
 			moduleId: id,
@@ -346,6 +432,7 @@ export function NewDispatchForm({
 				? "The plan has no modules to dispatch on"
 				: undefined;
 	const agentsLine = refusedAgentsLine(error, roster ?? entries);
+	const waveLine = refusedWave(error);
 
 	return (
 		<ActionModal
@@ -375,39 +462,79 @@ export function NewDispatchForm({
 			data-testid="dispatch-new-modal"
 		>
 			{step === 0 ? (
-				<ModalField
-					name="rosterEntryId"
-					label="Agent"
-					error={shown.rosterEntryId ?? agentsLine ?? undefined}
-					testid="dispatch-new-agent"
-				>
-					{(props) =>
-						entries.length === 0 ? (
-							<p
-								data-testid={props["data-testid"]}
-								className="type-small text-text-subtle"
-							>
-								No active agent on the roster.
-							</p>
-						) : (
-							<fieldset
-								data-testid={props["data-testid"]}
-								aria-invalid={props["aria-invalid"]}
-								aria-describedby={props["aria-describedby"]}
-								className="grid gap-2 sm:grid-cols-2"
-							>
-								{entries.map((e) => (
-									<AgentOption
-										key={e.id}
-										entry={e}
-										selected={draft.rosterEntryId === e.id}
-										onChoose={() => chooseEntry(e.id)}
-									/>
-								))}
-							</fieldset>
-						)
-					}
-				</ModalField>
+				<>
+					<ModalField
+						name="rosterEntryId"
+						label="Agent"
+						error={shown.rosterEntryId ?? agentsLine ?? undefined}
+						testid="dispatch-new-agent"
+					>
+						{(props) =>
+							entries.length === 0 ? (
+								<p
+									data-testid={props["data-testid"]}
+									className="type-small text-text-subtle"
+								>
+									No active agent on the roster.
+								</p>
+							) : (
+								<fieldset
+									data-testid={props["data-testid"]}
+									aria-invalid={props["aria-invalid"]}
+									aria-describedby={props["aria-describedby"]}
+									className="grid gap-2 sm:grid-cols-2"
+								>
+									{entries.map((e) => (
+										<AgentOption
+											key={e.id}
+											entry={e}
+											selected={draft.rosterEntryId === e.id}
+											onChoose={() => chooseEntry(e.id)}
+										/>
+									))}
+								</fieldset>
+							)
+						}
+					</ModalField>
+					{entry ? (
+						<ModalField
+							name="wave"
+							label="Wave"
+							hint="It starts once earlier waves have no dispatch waiting or running"
+							error={shown.wave ?? waveLine ?? undefined}
+							testid="dispatch-new-wave"
+						>
+							{(props) => (
+								<fieldset
+									data-testid={props["data-testid"]}
+									id={props.id}
+									aria-label="Wave"
+									aria-invalid={props["aria-invalid"]}
+									aria-describedby={props["aria-describedby"]}
+									className={cn(
+										tabsListVariants({ variant: "default" }),
+										"self-start",
+									)}
+								>
+									{waves.map(({ wave, offReason }) => (
+										<Button
+											key={wave}
+											type="button"
+											variant="segment"
+											aria-pressed={draft.wave === wave}
+											disabledReason={offReason ?? undefined}
+											data-testid={`dispatch-new-wave-${wave}`}
+											className="w-9 tabular-nums"
+											onClick={() => set({ wave })}
+										>
+											{wave}
+										</Button>
+									))}
+								</fieldset>
+							)}
+						</ModalField>
+					) : null}
+				</>
 			) : null}
 
 			{step === 1 ? (
@@ -613,9 +740,25 @@ function NewDispatchActive({ missionId }: { missionId: string }) {
 	const create = useCreateDispatch(missionId);
 	const roster = useRoster(missionId);
 	const plan = useMissionPlan(missionId);
+	// The waves the form offers are the live playbook's for the mission's
+	// type; a mission with none runs no wave.
+	const mission = useMission(missionId);
+	const missionType = mission.data?.playbook?.missionType ?? null;
+	const playbook = useQuery({
+		...playbookQuery(useApiClient(), missionType ?? ""),
+		enabled: missionType !== null,
+	});
+	const applicable =
+		mission.data?.playbook === null
+			? []
+			: (playbook.data?.wavesApplicable ?? null);
 
 	const entries = (roster.data ?? []).filter((e) => e.active);
-	const loading = roster.status === "pending" || plan.status === "pending";
+	const loading =
+		roster.status === "pending" ||
+		plan.status === "pending" ||
+		mission.status === "pending" ||
+		(missionType !== null && playbook.status === "pending");
 
 	const onOpenChange = (next: boolean) => {
 		setOpen(next);
@@ -641,7 +784,9 @@ function NewDispatchActive({ missionId }: { missionId: string }) {
 			<Button
 				size="sm"
 				onClick={() => setOpen(true)}
-				disabledReason={loading ? "Reading the roster and plan" : undefined}
+				disabledReason={
+					loading ? "Reading the roster, plan and playbook" : undefined
+				}
 				data-testid="dispatch-new-button"
 			>
 				<Plus aria-hidden="true" />
@@ -655,6 +800,7 @@ function NewDispatchActive({ missionId }: { missionId: string }) {
 					entries={entries}
 					roster={roster.data}
 					brief={plan.data?.brief ?? null}
+					applicable={applicable}
 					pending={create.isPending}
 					error={create.error}
 					onSubmit={submit}

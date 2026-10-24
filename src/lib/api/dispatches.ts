@@ -452,9 +452,13 @@ export function useCreateDispatch(missionId: string) {
 // ---------------------------------------------------------------------------
 // Starting and halting a dispatch.
 
-/** POST start: queued to running, or refused with the first check that failed. */
+/**
+ * POST start: queued to running, or refused with the first check that failed.
+ * Its meta carries earlierWaveBlocked: the blocked dispatches in earlier
+ * waves, oldest first, a warning that does not stop the start.
+ */
 export function startDispatchRequest(api: ApiClient, id: string) {
-	return call(contract.dispatches.start, () =>
+	return callPage(contract.dispatches.start, () =>
 		api.dispatches.start({ params: { id } }),
 	);
 }
@@ -487,12 +491,25 @@ export function afterDispatchMoved(
 	]);
 }
 
-export function useStartDispatch(missionId: string) {
+export type StartedDispatch = Awaited<ReturnType<typeof startDispatchRequest>>;
+
+/**
+ * Start a dispatch. onStarted runs on the mutation, not its caller: the card
+ * that pressed Start moves lanes as the mission reads again, and a callback
+ * given to mutate() would not outlive it.
+ */
+export function useStartDispatch(
+	missionId: string,
+	onStarted?: (started: StartedDispatch) => void,
+) {
 	const api = useApiClient();
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (id: string) => startDispatchRequest(api, id),
-		onSuccess: () => afterDispatchMoved(queryClient, missionId),
+		onSuccess: (started) => {
+			onStarted?.(started);
+			return afterDispatchMoved(queryClient, missionId);
+		},
 	});
 }
 

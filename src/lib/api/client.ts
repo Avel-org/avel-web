@@ -154,8 +154,9 @@ export async function call<
 }
 
 /**
- * call() for a list route: returns the envelope's `data` and its `meta`,
- * where a list keeps its next cursor (and, for missions, its counts).
+ * call() for a route whose envelope has a `meta`: returns its `data` and its
+ * `meta`, where a list keeps its next cursor (and, for missions, its counts)
+ * and a dispatch's start its warnings.
  */
 export async function callPage<
 	TResponse extends { status: number; body: unknown; headers: Headers },

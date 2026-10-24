@@ -96,7 +96,11 @@ export function MissionDispatches({
 	const renderControls: RenderControls | undefined =
 		mission.status === "active"
 			? (dispatch) => (
-					<DispatchControlsLive missionId={mission.id} dispatch={dispatch} />
+					<DispatchControlsLive
+						missionId={mission.id}
+						dispatch={dispatch}
+						others={dispatches.data}
+					/>
 				)
 			: undefined;
 

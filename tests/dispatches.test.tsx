@@ -118,6 +118,7 @@ function dispatchOf(over: Partial<Dispatch> & { id: string }): Dispatch {
 		briefSha256: null,
 		harnessVersion: null,
 		reportId: null,
+		wave: "A",
 		startCommitSha: null,
 		startDispatchIds: null,
 		startedAt: null,
@@ -403,6 +404,7 @@ describe("the New dispatch form", () => {
 	it("prefills from the first active agent and the first module", () => {
 		expect(initialDraft([LEON, ATLAS], BRIEF.modules)).toEqual({
 			rosterEntryId: LEON_ENTRY,
+			wave: "B",
 			moduleId: "M1",
 			requirementIds: ["R1", "R2"],
 			estimatedTokens: "40000",
@@ -436,6 +438,7 @@ describe("the New dispatch form", () => {
 		expect(bodyOf(draft)).toEqual({
 			rosterEntryId: ATLAS_ENTRY,
 			briefRef: { moduleId: "M1", requirementIds: ["R1", "R2"] },
+			wave: "B",
 			wallClockMinutes: 60,
 		});
 	});
@@ -762,12 +765,25 @@ describe("starting and halting a dispatch", () => {
 	it("start and halt post to the dispatch's own routes", async () => {
 		const { client, calls } = recording(({ path }) =>
 			path.endsWith("/start")
-				? ok(dispatchOf({ id: QUEUED_ID, status: "running", startedAt: ISO }))
+				? {
+						status: 200,
+						body: {
+							success: true,
+							data: dispatchOf({
+								id: QUEUED_ID,
+								status: "running",
+								startedAt: ISO,
+							}),
+							meta: { earlierWaveBlocked: [RUNNING_ID] },
+						},
+					}
 				: ok(RUNNING),
 		);
 		const started = await startDispatchRequest(client, QUEUED_ID);
 		await haltDispatchRequest(client, RUNNING_ID);
-		expect(started.status).toBe("running");
+		expect(started.data.status).toBe("running");
+		// A start's warning comes back with it: earlier waves' blocked dispatches.
+		expect(started.meta.earlierWaveBlocked).toEqual([RUNNING_ID]);
 		expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
 			`POST http://avel.test/api/dispatches/${QUEUED_ID}/start`,
 			`POST http://avel.test/api/dispatches/${RUNNING_ID}/halt`,

@@ -686,6 +686,35 @@ export const PRECONDITION_COPY = {
 		next: "Wait for a running dispatch to finish, or try again in a moment. If it repeats, report it with the request reference.",
 		retry: true,
 	},
+	// Waves (avel-server, decided 2026-10-22). At create: the dispatch's wave.
+	wave_required: {
+		what: "This agent is in more than one wave, so the dispatch needs one.",
+		written: NOTHING_WRITTEN,
+		next: "Choose the wave this dispatch runs in.",
+		retry: false,
+	},
+	// details.wave is the wave asked for; the entry may have none at all.
+	wave_not_on_roster_entry: {
+		what: "This agent isn't in that wave on the roster.",
+		written: NOTHING_WRITTEN,
+		next: "Choose one of the agent's waves, or add the wave to its roster entry.",
+		retry: false,
+	},
+	// details.wave is switched off in the live playbook for the mission's type.
+	wave_not_applicable: {
+		what: "The mission's playbook doesn't run that wave.",
+		written: NOTHING_WRITTEN,
+		next: "Choose a wave the playbook runs, or switch the wave on in the playbook.",
+		retry: false,
+	},
+	// At start: details.wave is the earliest wave still open, and
+	// details.dispatchIds its queued and running dispatches, oldest first.
+	earlier_wave_open: {
+		what: "An earlier wave is still open, so this dispatch can't start yet.",
+		written: NOTHING_WRITTEN,
+		next: "Start this one once the listed dispatches have finished.",
+		retry: false,
+	},
 	// avel-server step 7: the room's source can't be found, so retrying
 	// won't help. details.issues names the case by path: ["intake"] (not
 	// exactly one approved intake), ["source","template"] or ["source","repo"]
