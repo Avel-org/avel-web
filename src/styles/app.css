@@ -173,8 +173,11 @@
 
 	--z-raised: 10;
 	--z-dock: 200;
-	--z-popover: 300;
 	--z-modal: 400;
+	/* Above the modal: a select, menu, popover or tooltip opened inside a
+	   dialog must draw over it. Nothing outside an open modal can be
+	   reached, so no popup ever needs to sit under one. */
+	--z-popover: 450;
 	--z-toast: 500;
 
 	--row-comfortable: 12px;
