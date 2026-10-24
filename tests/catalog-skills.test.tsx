@@ -4,9 +4,7 @@ import {
 	agentsOfSkill,
 	CATALOG_MISSING,
 	carryingRoles,
-	SAMPLE_ROLE_ATTACHMENTS,
 	sampleRegistry,
-	sampleRoleAttachments,
 	skillsNeedingReview,
 } from "@/components/avel/catalog-placeholders";
 import {
@@ -407,29 +405,12 @@ describe("/catalog/skills, a skill", () => {
 		);
 	});
 
-	it("samples only a role skill's attachments and the carriers they imply", async () => {
+	it("samples nothing on a role skill: its roles and carriers are live", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
-		expect(new Set(regions(html).map((r) => r.missing))).toEqual(
-			new Set([CATALOG_MISSING.roleAttachments]),
-		);
-		const [first] = attachedTeams(carryingRoles(skill(ROLE_SKILL)));
+		expect(regions(html)).toEqual([]);
+		const [first] = attachedTeams(skill(ROLE_SKILL).attachedRoles);
 		expect(first).toBeDefined();
-		expectLabelled(
-			html,
-			[
-				"skill-approve",
-				"skill-retire",
-				"skill-status",
-				"skill-hash",
-				"skill-code",
-				"skill-attach-change",
-			],
-			[
-				"skill-attach-total",
-				`skill-team-${first?.team}`,
-				"skill-carried-by-list",
-			],
-		);
+		expect(html).toContain(`data-testid="skill-team-${first?.team}"`);
 	});
 
 	it("offers Approve on a draft, and holds what the server would refuse with its reason", async () => {
@@ -719,16 +700,13 @@ describe("the live list's four states", () => {
 });
 
 describe("attaching", () => {
-	it("shows a role skill's attached roles by team, from its sample attachments, behind the attachment pill", async () => {
+	it("shows a role skill's attached roles by team, live", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
 		const s = skill(ROLE_SKILL);
-		const attached = carryingRoles(s);
+		const attached = s.attachedRoles;
 		const teams = attachedTeams(attached);
 		expect(teams.length).toBeGreaterThan(0);
-		const sample = element(html, "skill-attach-sample");
-		expect(tagOf(html, "skill-attach-sample")).toContain(
-			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
-		);
+		const sample = element(html, "skill-attach-roles");
 		expect(element(sample, "skill-attach-total")).toContain(
 			`>${attachedTotal(attached.length, teams.length)}<`,
 		);
@@ -1040,15 +1018,9 @@ describe("New skill", () => {
 
 describe("review fixes", () => {
 	it("names a missing route only where avel-server has none", () => {
-		expect(Object.keys(SKILL_WRITE_REASON).sort()).toEqual([
-			"attach",
-			"import",
-		]);
+		// Attaching a role skill has its route (PUT /api/skills/:id/roles).
+		expect(Object.keys(SKILL_WRITE_REASON)).toEqual(["import"]);
 		expect(SKILL_WRITE_REASON.import).toMatch(/^avel-server has no route/);
-		// Attaching a role skill names its module-5 route.
-		expect(SKILL_WRITE_REASON.attach).toBe(
-			"Attaching a skill to a role uses PUT /api/skills/:id/roles/:role, arriving with module 5",
-		);
 		for (const reason of Object.values(SKILL_WRITE_REASON)) {
 			expect(reason).not.toMatch(/module 4/);
 		}
@@ -1068,7 +1040,7 @@ describe("review fixes", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Attached to: a role skill's attachments are role_skills (module 5), not
+// Attached to: a role skill's attachments are attachedRoles, not
 // recommendedFor, which only filters stack and domain skills at dispatch.
 
 describe("role attachment", () => {
@@ -1076,18 +1048,18 @@ describe("role attachment", () => {
 
 	it("gives every role skill attachments of its own, and no other skill any", () => {
 		for (const s of roleSkills) {
-			expect(carryingRoles(s)).toBe(sampleRoleAttachments(s.slug));
+			expect(carryingRoles(s)).toBe(s.attachedRoles);
 		}
 		for (const s of SKILLS.filter((s) => s.layer !== "role")) {
 			expect(carryingRoles(s)).toBe(s.recommendedFor);
 		}
-		// The named samples differ from recommendedFor on purpose, so a mix-up shows.
+		// The fixtures' attachments differ from recommendedFor on purpose, so
+		// a mix-up shows.
 		expect(
 			roleSkills.some(
 				(s) =>
-					s.slug in SAMPLE_ROLE_ATTACHMENTS &&
-					[...carryingRoles(s)].sort().join() !==
-						[...s.recommendedFor].sort().join(),
+					[...s.attachedRoles].sort().join() !==
+					[...s.recommendedFor].sort().join(),
 			),
 		).toBe(true);
 	});
@@ -1103,7 +1075,7 @@ describe("role attachment", () => {
 		] as const;
 		for (const c of cases) {
 			const s = skill(c.slug);
-			const shown = tagRoles(element(inspector(s), "skill-attach-sample"));
+			const shown = tagRoles(element(inspector(s), "skill-attach-roles"));
 			// Exactly the attachment, in catalog order.
 			expect(shown, c.slug).toEqual(
 				ROLES.filter((role) => carryingRoles(s).includes(role)),
@@ -1120,7 +1092,7 @@ describe("role attachment", () => {
 		}
 	});
 
-	it("lists as carriers the live agents covering an attached role, behind the attachment pill", async () => {
+	it("lists as carriers the live agents covering an attached role", async () => {
 		const s = skill("agreeing-wrong-tests");
 		const carriers = agentsOfSkill(s, AGENTS)
 			.map((a) => a.slug)
@@ -1132,9 +1104,7 @@ describe("role attachment", () => {
 		for (const slug of carriers) {
 			expect(carried).toContain(`href="/catalog/agents/${slug}"`);
 		}
-		expect(tagOf(html, "skill-carried-by-sample")).toContain(
-			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
-		);
+		expect(carried).not.toContain("data-sample-region=");
 	});
 
 	it("reads the carriers' templates live: loading, a failure, none", () => {
@@ -1160,16 +1130,6 @@ describe("role attachment", () => {
 		);
 		expect(element(none, "skill-carried-by-none")).toContain(
 			"No agent covers a role this skill is recommended for.",
-		);
-	});
-
-	it("labels the attachments as waiting on module 5's attachment read", async () => {
-		const html = await page(`?skill=${ROLE_SKILL}`);
-		expect(tagOf(html, "skill-attach-sample")).toContain(
-			`data-sample-region="${CATALOG_MISSING.roleAttachments}"`,
-		);
-		expect(CATALOG_MISSING.roleAttachments).toBe(
-			"GET /api/skills/:id/roles (module 5)",
 		);
 	});
 
@@ -1223,17 +1183,18 @@ describe("Attached to, polished", () => {
 		expect(attachedTeams([one])[0]?.roles).toEqual([one]);
 	});
 
-	it("offers one Change roles, disabled with its reason, outside the samples", async () => {
+	it("offers one Change roles on a role skill, held on a retired one", async () => {
 		const html = await page(`?skill=${ROLE_SKILL}`);
 		expect(html.match(/data-testid="skill-attach-change"/g)).toHaveLength(1);
 		expect(element(html, "skill-attach-change")).toContain("Change roles");
-		expectDisabledWithReason(
-			html,
-			"skill-attach-change",
-			SKILL_WRITE_REASON.attach,
-		);
+		expect(tagOf(html, "skill-attach-change")).not.toMatch(/\sdisabled=""/);
 		expect(inside(regions(html), indexOf(html, "skill-attach-change"))).toBe(
 			false,
+		);
+		expectDisabledWithReason(
+			inspector({ ...skill(ROLE_SKILL), status: "retired" }),
+			"skill-attach-change",
+			"A retired skill can't be attached to roles.",
 		);
 		expect(element(html, "skill-attach-panel")).toContain(
 			'data-testid="skill-attach-change"',
@@ -1250,7 +1211,7 @@ describe("visual-pass fixes", () => {
 	it("shows each attached role as a compact tag: its name, the slug on hover", async () => {
 		const sample = element(
 			await page(`?skill=${ROLE_SKILL}`),
-			"skill-attach-sample",
+			"skill-attach-roles",
 		);
 		const tags = [
 			...sample.matchAll(/<[a-z]+[^>]*data-testid="catalog-role"[^>]*>/g),

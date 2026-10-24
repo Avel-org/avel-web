@@ -64,6 +64,11 @@ export const INVERSE = {
 		note: "Retires the skill. It cannot return to draft.",
 	},
 	"skill.retired": null,
+	"skill.roles_set": {
+		request: "skills.setRoles",
+		route: "PUT /api/skills/:id/roles",
+		note: "Sets the roles back to the payload's from.",
+	},
 	"roster.entry_added": {
 		request: "roster.remove",
 		route: "DELETE /api/missions/:missionId/roster/:entryId",

@@ -9,7 +9,7 @@ import {
 	type Team,
 } from "avel-server/contract";
 import { Check, Copy, Pencil } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { loadedRows, useAgentTemplates } from "@/lib/api/catalog";
@@ -18,7 +18,6 @@ import { AgentAvatar } from "./agent-avatar";
 import {
 	agentsOfSkill,
 	attachability,
-	CATALOG_MISSING,
 	carryingRoles,
 	enforcementBadge,
 	SAMPLE_ROOMS_ENFORCING,
@@ -28,11 +27,11 @@ import {
 	CatalogField,
 	CatalogListSkeleton,
 	RoleTag,
-	SampleRegion,
 	SkillStatusPill,
 } from "./catalog-sample";
 import { SkillActions } from "./catalog-skill-actions";
 import { SkillMark } from "./catalog-skill-index";
+import { rolesBlocker, SkillRolesModal } from "./catalog-skill-roles";
 import { type CodeTone, CodeView } from "./code-view";
 import { shortHash } from "./short-hash";
 import { StatusPill } from "./status-pill";
@@ -41,21 +40,17 @@ import { ErrorState, Surface } from "./surface";
 /*
  * One skill, read as a document (ruling 52): its head, its pin (where the
  * reference shows an install command: what an agent receives, by hash),
- * its facts, where it attaches, who carries it, and its SKILL.md. The skill is live (GET
- * /api/skills/by-slug/:slug), and so are the agents that carry a stack or
- * domain skill (GET /api/agent-templates, through recommendedFor). A role
- * skill's attachments, and the carriers derived from them, are labelled
- * samples until module 5's read exists (AVEL-DESIGN.md ruling 32). Only an
- * operator writes a skill: Edit, Approve and Retire sit in the header
- * (catalog-skill-actions.tsx); attaching to a role waits for its route.
+ * its facts, where it attaches, who carries it, and its SKILL.md. The skill
+ * is live (GET /api/skills/by-slug/:slug), with a role skill's roles
+ * (attachedRoles), and so are the agents that carry it (GET
+ * /api/agent-templates). Only an operator writes a skill: Edit, Approve and
+ * Retire sit in the header (catalog-skill-actions.tsx), and Change roles
+ * under its roles (catalog-skill-roles.tsx).
  */
 
 /** Why the operator writes with no route are held. Real, not a sample. */
 export const SKILL_WRITE_REASON = {
-	// These have no route in avel-server at all.
-	// role_skills is written by module 5; its route does not exist yet.
-	attach:
-		"Attaching a skill to a role uses PUT /api/skills/:id/roles/:role, arriving with module 5",
+	// No route in avel-server at all.
 	import: "avel-server has no route for importing from a source yet",
 } as const;
 
@@ -383,22 +378,24 @@ function Attach({ skill }: { skill: Skill }) {
 			</DocSection>
 		);
 	}
-	// A role skill's attachments are role_skills (module 5), never its
-	// recommendedFor, which is the dispatch filter for stack and domain skills.
-	const attached = carryingRoles(skill);
-	const teams = attachedTeams(attached);
+	return <AttachedRoles skill={skill} />;
+}
+
+/**
+ * A role skill's roles, grouped by team, and Change roles. Its attachments
+ * are attachedRoles, never its recommendedFor, which is the dispatch filter
+ * for stack and domain skills.
+ */
+function AttachedRoles({ skill }: { skill: Skill }) {
+	const [changing, setChanging] = useState(false);
+	const teams = attachedTeams(skill.attachedRoles);
 	return (
 		<DocSection
 			title="Attached to"
 			description="Every agent covering one of these roles carries the skill in its identity, so the skill is part of that agent's version hash."
 			data-testid="skill-attach-panel"
 		>
-			<SampleRegion
-				missing={CATALOG_MISSING.roleAttachments}
-				title="Attached to"
-				what="The roles this skill is attached to, grouped by team."
-				data-testid="skill-attach-sample"
-			>
+			<div data-testid="skill-attach-roles">
 				{teams.length === 0 ? (
 					<p
 						data-testid="skill-attach-none"
@@ -412,7 +409,7 @@ function Attach({ skill }: { skill: Skill }) {
 							data-testid="skill-attach-total"
 							className="type-caption text-text-subtle"
 						>
-							{attachedTotal(attached.length, teams.length)}
+							{attachedTotal(skill.attachedRoles.length, teams.length)}
 						</p>
 						<dl className="flex flex-col gap-2">
 							{teams.map(({ team, roles }) => (
@@ -437,20 +434,23 @@ function Attach({ skill }: { skill: Skill }) {
 						</dl>
 					</div>
 				)}
-			</SampleRegion>
-			{/* Changing attachments is a change, so it is a modal (ruling 35),
-			    where the per-team role picker lives once its route exists. */}
+			</div>
+			{/* Changing attachments is a change, so it is a modal (ruling 35). */}
 			<div>
 				<Button
 					size="sm"
 					variant="outline"
 					data-testid="skill-attach-change"
-					disabledReason={SKILL_WRITE_REASON.attach}
+					disabledReason={rolesBlocker(skill)}
+					onClick={() => setChanging(true)}
 				>
 					<Pencil aria-hidden="true" />
 					Change roles
 				</Button>
 			</div>
+			{changing ? (
+				<SkillRolesModal skill={skill} open onOpenChange={setChanging} />
+			) : null}
 		</DocSection>
 	);
 }
@@ -502,20 +502,7 @@ function CarriedBy({ skill }: { skill: Skill }) {
 				empty={null}
 				error={ErrorState}
 			>
-				{(data) =>
-					skill.layer === "role" ? (
-						<SampleRegion
-							missing={CATALOG_MISSING.roleAttachments}
-							title="Carried by"
-							what="The agents that carry this skill through the roles it is attached to."
-							data-testid="skill-carried-by-sample"
-						>
-							<Carriers skill={skill} agents={loadedRows(data)} />
-						</SampleRegion>
-					) : (
-						<Carriers skill={skill} agents={loadedRows(data)} />
-					)
-				}
+				{(data) => <Carriers skill={skill} agents={loadedRows(data)} />}
 			</Surface>
 		</DocSection>
 	);

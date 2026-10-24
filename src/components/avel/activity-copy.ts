@@ -34,6 +34,7 @@ export const ACTION_COPY = {
 	"skill.updated": "Skill updated",
 	"skill.approved": "Skill approved",
 	"skill.retired": "Skill retired",
+	"skill.roles_set": "Skill roles changed",
 	"roster.entry_added": "Agent added to roster",
 	"roster.entry_updated": "Roster entry updated",
 	"roster.entry_removed": "Agent removed from roster",

@@ -877,6 +877,13 @@ export const PRECONDITION_COPY = {
 		next: "Deliver it as a zip or as a GitHub pull request.",
 		retry: false,
 	},
+	// PUT /api/skills/:id/roles: stack and domain skills go on missions.
+	skill_not_role_layer: {
+		what: "Only a role skill attaches to roles.",
+		written: NOTHING_WRITTEN,
+		next: "Attach a stack or domain skill to a mission instead.",
+		retry: false,
+	},
 	// POST /api/exports/:id/refresh reads only a github_pr export that is
 	// delivering or has its pull request open.
 	export_not_pr_open: {

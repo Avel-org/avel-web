@@ -48,6 +48,7 @@ export const WRITES = {
 	updateSkill: ["skill", "activity_log"],
 	approveSkill: ["skill", "activity_log"],
 	retireSkill: ["skill", "activity_log"],
+	setSkillRoles: ["skill", "activity_log"],
 	createSkillSource: ["skill_source", "activity_log"],
 	updateSkillSource: ["skill_source", "activity_log"],
 	removeSkillSource: ["skill_source", "activity_log"],

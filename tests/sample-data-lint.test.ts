@@ -16,6 +16,8 @@ const ALLOWED: Record<string, string> = {
 		"drawn only inside catalog-agents' Handoff graph SampleRegion",
 	"src/components/avel/catalog-agent-table.tsx":
 		"uses only sideOf, isFirmAgent and firstWave, which read a live template's roles and waves",
+	"src/components/avel/catalog-skill-inspector.tsx":
+		"carryingRoles, agentsOfSkill and attachability read a live skill's attachedRoles, recommendedFor and status; enforcementBadge states that no room enforces capabilities yet, and says so on the badge",
 	"src/components/avel/drive-files.tsx":
 		"drawn only inside drive-browser's Files SampleRegion",
 	"src/components/avel/drive-rail.tsx":

@@ -208,6 +208,8 @@ type SkillSeed = Pick<
 		source: keyof typeof SOURCE_ID;
 		contentMd: string;
 		avelEnhancementMd?: string;
+		/** A role skill's roles, in ROLES order; none when left out. */
+		attachedRoles?: Skill["attachedRoles"];
 	};
 
 const SKILL_SEEDS: readonly SkillSeed[] = [
@@ -221,6 +223,7 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		grants: null,
 		ioShape: null,
 		recommendedFor: ["property-tests"],
+		attachedRoles: ["backend-tests", "property-tests"],
 		source: "avel",
 		status: "approved",
 		contentMd:
@@ -236,6 +239,7 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		grants: null,
 		ioShape: null,
 		recommendedFor: ["spec-judgment"],
+		attachedRoles: ["spec-judgment", "security-review"],
 		source: "avel",
 		status: "approved",
 		contentMd:
@@ -251,6 +255,7 @@ const SKILL_SEEDS: readonly SkillSeed[] = [
 		grants: null,
 		ioShape: null,
 		recommendedFor: ["backend-tests", "frontend-tests", "property-tests"],
+		attachedRoles: ["backend-tests", "frontend-tests"],
 		source: "avel",
 		status: "approved",
 		contentMd:
@@ -327,7 +332,7 @@ const SOURCE_SEED: Record<
 
 /** Each skill as get returns it: the list item plus its text. */
 export const SKILLS: readonly Skill[] = SKILL_SEEDS.map(
-	({ source, avelEnhancementMd, ...seed }, i): Skill => {
+	({ source, avelEnhancementMd, attachedRoles, ...seed }, i): Skill => {
 		const reviewed = seed.status !== "draft";
 		return {
 			...seed,
@@ -344,6 +349,7 @@ export const SKILLS: readonly Skill[] = SKILL_SEEDS.map(
 			createdAt: AT,
 			updatedAt: AT,
 			avelEnhancementMd: avelEnhancementMd ?? null,
+			attachedRoles: attachedRoles ?? [],
 		};
 	},
 );

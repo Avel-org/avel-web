@@ -3,7 +3,8 @@
  * (AVEL-DESIGN.md rulings 29 and 32). The templates, skills
  * and sources themselves are live: the pages read GET /api/agent-templates,
  * GET /api/skills and GET /api/skill-sources (module 4). What remains here is
- * what no route serves yet: per-agent measures, the per-team table, a source's skill index and a role skill's attachments.
+ * what no route serves yet: per-agent measures, the per-team table and a
+ * source's skill index.
  * Each is keyed off a live record (its slug or id), so a page shows the same
  * samples on every visit; a page that reshuffled on reload would look like
  * live data. Nothing here is sent anywhere, and nothing here is ever written
@@ -14,14 +15,13 @@
  * ROLES.md, but it is server-enforced policy: shown from a client copy it
  * would be a second copy that drifts, so it is a sample like the rest.
  */
-import {
-	type AgentTemplate,
-	ROLE_TEAM,
-	ROLES,
-	type Role,
-	type SkillListItem,
-	type SkillSource,
-	type Team,
+import type {
+	AgentTemplate,
+	Role,
+	Skill,
+	SkillListItem,
+	SkillSource,
+	Team,
 } from "avel-server/contract";
 
 /**
@@ -34,8 +34,6 @@ export const CATALOG_MISSING = {
 	teams: "the per-team table route",
 	/** What a source offers to import. No doc names a route for it yet. */
 	registry: "a source's skill index",
-	/** Which roles a role skill is attached to (role_skills, module 5). */
-	roleAttachments: "GET /api/skills/:id/roles (module 5)",
 } as const;
 
 export type CatalogMissing =
@@ -176,6 +174,15 @@ export function attachability(
 	if (skill.status === "approved") return { attachable: true };
 	if (skill.status === "retired") {
 		return { attachable: false, reason: "Retired skills can't be attached." };
+	}
+	// A draft role skill may be attached to roles (PUT /api/skills/:id/roles),
+	// but identities are built from approved skills only.
+	if (skill.layer === "role") {
+		return {
+			attachable: false,
+			reason:
+				"A draft can be attached to roles, but no agent's identity carries it until it is approved.",
+		};
 	}
 	return {
 		attachable: false,
@@ -426,80 +433,21 @@ const shares = (a: readonly Role[], b: readonly Role[]) =>
 	a.some((role) => b.includes(role));
 
 /**
- * The roles each role-layer skill is attached to: the role_skills join
- * table, which module 5 writes and no route reads yet (SKILLS.md, Three
- * layers). This is not recommendedFor. recommendedFor is the dispatch filter
- * for stack and domain skills; for a role skill the two can differ, and here
- * they do, on purpose, so nothing can quietly read one as the other. A role
- * skill not named here gets attachments fixed by its slug (sampleRoleAttachments).
- */
-export const SAMPLE_ROLE_ATTACHMENTS: Readonly<
-	Record<string, readonly Role[]>
-> = {
-	"property-testing-fast-check": ["property-tests", "backend-tests"],
-	"agreeing-wrong-tests": ["spec-judgment", "security-review"],
-	"criterion-tags": ["backend-tests", "frontend-tests"],
-	"middleware-not-enough": ["security-review"],
-};
-
-/** The roles an agent can hold: everything but Platform, whose roles are code. */
-const ATTACHABLE_ROLES: readonly Role[] = ROLES.filter(
-	(role) => ROLE_TEAM[role] !== "platform",
-);
-
-/**
- * A role skill's sample attachments: the fixed set when its slug is named,
- * otherwise one or two roles fixed by the slug, so a live skill shows the
- * same switches on every visit.
- */
-export function sampleRoleAttachments(slug: string): readonly Role[] {
-	const named = SAMPLE_ROLE_ATTACHMENTS[slug];
-	if (named) return named;
-	const next = sequence(`attachments:${slug}`);
-	const first = between(next, 0, ATTACHABLE_ROLES.length - 1);
-	const count = between(next, 1, 2);
-	return Array.from(
-		{ length: count },
-		(_, i) => ATTACHABLE_ROLES[(first + i) % ATTACHABLE_ROLES.length],
-	).filter((role): role is Role => role !== undefined);
-}
-
-/**
  * The roles that carry a skill. A role skill is carried by the roles it is
- * attached to (role_skills, a sample until module 5's read exists); a stack
- * or domain skill reaches the agents whose roles it is recommended for, at
- * dispatch, which is live.
+ * attached to (attachedRoles, PUT /api/skills/:id/roles); a stack or domain
+ * skill reaches the agents whose roles it is recommended for, at dispatch.
+ * The two are different fields on purpose: recommendedFor is never a role
+ * skill's attachments.
  */
 export function carryingRoles(
-	skill: Pick<SkillListItem, "slug" | "layer" | "recommendedFor">,
+	skill: Pick<Skill, "layer" | "recommendedFor" | "attachedRoles">,
 ): readonly Role[] {
-	return skill.layer === "role"
-		? sampleRoleAttachments(skill.slug)
-		: skill.recommendedFor;
-}
-
-/**
- * The skills an agent carries, through its roles, out of the live list. Role
- * skills are part of its identity, through the roles they are attached to;
- * stack and domain skills arrive at dispatch, to agents whose roles they are
- * recommended for.
- */
-export function skillsOfAgent<T extends SkillListItem>(
-	agent: Pick<AgentTemplate, "roles">,
-	skills: readonly T[],
-): { role: T[]; dispatch: T[] } {
-	const carried = skills.filter((skill) =>
-		shares(carryingRoles(skill), agent.roles),
-	);
-	return {
-		role: carried.filter((skill) => skill.layer === "role"),
-		dispatch: carried.filter((skill) => skill.layer !== "role"),
-	};
+	return skill.layer === "role" ? skill.attachedRoles : skill.recommendedFor;
 }
 
 /** The agents, out of the live list, that carry a skill: those covering a role that carries it. */
 export function agentsOfSkill<T extends Pick<AgentTemplate, "roles">>(
-	skill: Pick<SkillListItem, "slug" | "layer" | "recommendedFor">,
+	skill: Pick<Skill, "layer" | "recommendedFor" | "attachedRoles">,
 	agents: readonly T[],
 ): T[] {
 	return agents.filter((agent) => shares(agent.roles, carryingRoles(skill)));

@@ -9,6 +9,7 @@ import {
 	type CreateSkillBody,
 	contract,
 	type createSkillSourceBody,
+	type Role,
 	type UpdateSkillBody,
 	type updateSkillSourceBody,
 } from "avel-server/contract";
@@ -102,6 +103,27 @@ export function retireSkillOptions(api: ApiClient, queryClient: QueryClient) {
 
 export function useRetireSkill() {
 	return useMutation(retireSkillOptions(useApiClient(), useQueryClient()));
+}
+
+/**
+ * PUT /api/skills/:id/roles: the whole set of roles a role-layer skill
+ * attaches to; [] detaches it from all. Another layer is 422
+ * skill_not_role_layer, a retired skill 409. Each agent covering a role
+ * that came or went shows its identity stale until regenerated.
+ */
+export function setSkillRolesOptions(api: ApiClient, queryClient: QueryClient) {
+	return {
+		mutationFn: ({ id, roles }: { id: string; roles: Role[] }) =>
+			call(contract.skills.setRoles, () =>
+				api.skills.setRoles({ params: { id }, body: { roles } }),
+			),
+		onSuccess: () => afterSkillWrite(queryClient),
+		onError: (error: ApiError) => rereadOnConflict(queryClient, error),
+	};
+}
+
+export function useSetSkillRoles() {
+	return useMutation(setSkillRolesOptions(useApiClient(), useQueryClient()));
 }
 
 /**

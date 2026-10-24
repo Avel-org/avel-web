@@ -186,6 +186,7 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	updateSkill: (qc) => afterSkillWrite(qc),
 	approveSkill: (qc) => afterSkillWrite(qc),
 	retireSkill: (qc) => afterSkillWrite(qc),
+	setSkillRoles: (qc) => afterSkillWrite(qc),
 	createSkillSource: (qc) => afterSkillSourceWrite(qc),
 	updateSkillSource: (qc) => afterSkillSourceWrite(qc),
 	removeSkillSource: (qc) => afterSkillSourceWrite(qc),

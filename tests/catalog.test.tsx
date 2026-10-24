@@ -1,4 +1,3 @@
-import { ROLE_TEAM, ROLES } from "avel-server/contract";
 import { describe, expect, it } from "vitest";
 import {
 	agentsOfSkill,
@@ -6,13 +5,10 @@ import {
 	CATALOG_MISSING,
 	carryingRoles,
 	enforcementBadge,
-	SAMPLE_ROLE_ATTACHMENTS,
 	sampleHistory,
 	sampleRegistry,
-	sampleRoleAttachments,
 	sampleSha256,
 	sampleUuid,
-	skillsOfAgent,
 } from "@/components/avel/catalog-placeholders";
 import { AGENTS, SKILLS, SOURCES, source } from "./catalog-fixtures";
 
@@ -28,17 +24,10 @@ import { AGENTS, SKILLS, SOURCES, source } from "./catalog-fixtures";
 describe("catalog samples", () => {
 	it("name no route avel-server serves: the lists are live", () => {
 		const values = Object.values(CATALOG_MISSING);
-		expect(values).toHaveLength(4);
-		for (const missing of values) {
-			expect(missing).not.toMatch(
-				/^GET \/api\/(agent-templates|skills|skill-sources)(\/by-slug)?$/,
-			);
-			expect(missing).not.toMatch(/^GET \/api\/skills\/by-slug/);
-		}
-		// Only module 5's attachment read is named as a route at all.
-		expect(values.filter((m) => m.startsWith("GET "))).toEqual([
-			CATALOG_MISSING.roleAttachments,
-		]);
+		expect(values).toHaveLength(3);
+		// None names a route: a role skill's roles are live since
+		// PUT /api/skills/:id/roles landed (2026-10-24).
+		expect(values.filter((m) => /^(GET|PUT|POST) /.test(m))).toEqual([]);
 	});
 
 	it("are deterministic: the same key always gives the same value", () => {
@@ -89,44 +78,25 @@ describe("catalog samples", () => {
 		expect(enforcementBadge("knowledge", true).enforced).toBe(false);
 	});
 
-	it("cross-link both ways over the live lists: an agent carries a skill when the skill names it", () => {
+	it("carry a role skill through its attached roles, and a stack skill through recommendedFor", () => {
 		for (const s of SKILLS) {
+			expect(carryingRoles(s)).toBe(
+				s.layer === "role" ? s.attachedRoles : s.recommendedFor,
+			);
 			for (const a of AGENTS) {
-				const { role, dispatch } = skillsOfAgent(a, SKILLS);
-				const carries = [...role, ...dispatch].includes(s);
-				expect(agentsOfSkill(s, AGENTS).includes(a)).toBe(carries);
+				expect(agentsOfSkill(s, AGENTS).includes(a)).toBe(
+					a.roles.some((role) => carryingRoles(s).includes(role)),
+				);
 			}
+			// Nothing carries anything when there is nothing to carry.
+			expect(agentsOfSkill(s, [])).toEqual([]);
 		}
-		const atlas = AGENTS.find((a) => a.slug === "atlas");
-		expect(atlas).toBeDefined();
-		if (!atlas) return;
-		const { role, dispatch } = skillsOfAgent(atlas, SKILLS);
-		expect(role.every((s) => s.layer === "role")).toBe(true);
-		expect(dispatch.every((s) => s.layer !== "role")).toBe(true);
-		// Nothing carries anything when there is nothing to carry.
-		for (const s of SKILLS) expect(agentsOfSkill(s, [])).toEqual([]);
-		expect(skillsOfAgent(atlas, [])).toEqual({ role: [], dispatch: [] });
-	});
-
-	it("attach a role skill by its slug: the named set, or a fixed pick for a new slug", () => {
-		for (const [slug, roles] of Object.entries(SAMPLE_ROLE_ATTACHMENTS)) {
-			expect(sampleRoleAttachments(slug)).toBe(roles);
-		}
-		const picked = sampleRoleAttachments("a-skill-the-seed-never-named");
-		expect(picked.length).toBeGreaterThanOrEqual(1);
-		expect(picked.length).toBeLessThanOrEqual(2);
-		expect(picked).toEqual(
-			sampleRoleAttachments("a-skill-the-seed-never-named"),
-		);
-		for (const role of picked) {
-			expect(ROLES).toContain(role);
-			// Platform roles are code: nothing attaches to them.
-			expect(ROLE_TEAM[role]).not.toBe("platform");
-		}
-		expect(sampleRoleAttachments("another-slug")).not.toEqual(picked);
-		// A stack or domain skill's carriers are live: its recommendedFor.
-		const stack = SKILLS.find((s) => s.layer === "stack");
-		expect(stack && carryingRoles(stack)).toBe(stack?.recommendedFor);
+		// A role skill attached to nothing is carried by nobody, whatever it
+		// is recommended for.
+		const role = SKILLS.find((s) => s.layer === "role");
+		expect(role).toBeDefined();
+		if (!role) return;
+		expect(agentsOfSkill({ ...role, attachedRoles: [] }, AGENTS)).toEqual([]);
 	});
 
 	it("index only vendor and community sources, two or three hashed entries each, keyed by id", () => {
