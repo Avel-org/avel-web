@@ -91,9 +91,11 @@ export function parseBlocks(source: string): (Block & { key: string })[] {
 	return found.map((block, n) => ({ ...block, key: `${block.kind}-${n}` }));
 }
 
-// `code`, **bold**, *italic* or _italic_, [text](url): the first wins.
+// `code`, **bold**, *italic* or _italic_, [text](url): the first wins. An
+// underscore marks italic only at a word's edge, as CommonMark has it, so
+// AVEL_HARNESS and ANTHROPIC_API_KEY in one line stay as written.
 const INLINE =
-	/(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*|_[^_\s][^_]*_)|(\[[^\]]+\]\([^)\s]+\))/;
+	/(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*|(?<![\p{L}\p{N}])_[^_\s][^_]*_(?![\p{L}\p{N}]))|(\[[^\]]+\]\([^)\s]+\))/u;
 
 /** One line's inline marks, as elements. */
 export function inline(text: string): ReactNode[] {

@@ -449,7 +449,7 @@ export const PRECONDITION_COPY = {
 	intake_cut_not_derived: {
 		what: "This intake can't be approved yet: the repository hasn't been read.",
 		written: NOTHING_WRITTEN,
-		next: "Wait for the repository read to derive the cut, then approve again.",
+		next: "Use Read repository on this intake to derive the cut, then approve again.",
 		retry: false,
 	},
 	// src/routes/skills.ts (module 4): creating a skill, or moving it, names a

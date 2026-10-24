@@ -256,4 +256,14 @@ describe("Markdown from Canon", () => {
 		expect(html).toContain("<code");
 		expect(inline("plain")).toEqual(["plain"]);
 	});
+
+	it("reads an underscore inside a word as itself, and _this_ as italic", () => {
+		const env = renderToString(
+			<Markdown text="Set AVEL_HARNESS=agent-sdk and ANTHROPIC_API_KEY, then restart." />,
+		);
+		expect(env).not.toContain("<em");
+		expect(env).toContain("AVEL_HARNESS=agent-sdk and ANTHROPIC_API_KEY");
+		const italic = renderToString(<Markdown text="a _word_ here" />);
+		expect(italic).toContain("<em>word</em>");
+	});
 });
