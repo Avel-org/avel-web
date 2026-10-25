@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { PlaybookBuilder } from "@/components/avel/playbook-builder";
+import { usePlaybook } from "@/lib/api/playbooks";
 import { Page } from "../shell/page";
 
 // Not nested under /presets (the trailing underscore): Teams renders a whole
@@ -29,9 +30,12 @@ export const Route = createFileRoute("/presets_/playbooks/$missionType")({
 function PlaybookRoute() {
 	const { missionType } = Route.useParams();
 	const { landed } = Route.useSearch();
+	// The playbook by its name once read ("Booking template"); the mission
+	// type it is keyed by shows in the builder beside the name.
+	const playbook = usePlaybook(missionType);
 	return (
 		<Page
-			title={missionType}
+			title={playbook.data?.name ?? missionType}
 			definition="The process this kind of mission follows. Edit it on the canvas or in Details."
 		>
 			<div
