@@ -18,6 +18,7 @@ import {
 	briefDispatchId,
 	checkStates,
 	DeliveryChecks,
+	PackageFacts,
 	PackageMap,
 	packageBriefs,
 	packageEntries,
@@ -229,8 +230,10 @@ describe("the package", () => {
 			blobSha: sha("4", 40),
 			change: "create" as const,
 		};
+		const pkg = exp().package;
+		if (pkg === null) throw new Error("the fixture renders a package");
 		const withBrief = exp({
-			package: { ...exp().package, files: [brief, ...exp().package.files] },
+			package: { ...pkg, files: [brief, ...pkg.files] },
 		});
 		expect(packageBriefs(withBrief)).toEqual([
 			{ dispatchId: RUN_ID, bytes: 1500 },
@@ -438,6 +441,23 @@ describe("a GitHub pull request export", () => {
 			gateRunId: RUN,
 			previewExportId: PREVIEW,
 		});
+	});
+
+	it("has nothing to deliver, describe or list for an export that stopped before it rendered", () => {
+		// gateRun and package are null together, with no violations and no block.
+		const unrendered = exp({
+			status: "failed",
+			gateRun: null,
+			package: null,
+			violations: [],
+			blocked: null,
+		});
+		expect(deliverBodyOf(unrendered)).toBeNull();
+		expect(packageEntries(unrendered)).toEqual([]);
+		expect(packageBriefs(unrendered)).toEqual([]);
+		const facts = renderToString(<PackageFacts exp={unrendered} />);
+		expect(facts).toContain('data-testid="export-facts-unrendered"');
+		expect(facts).not.toContain("export-package-sha");
 	});
 
 	it("asks for a new preview when the target moved off the previewed one", () => {

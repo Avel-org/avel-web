@@ -64,7 +64,7 @@ export function ExportPreflight({
 	const shown = preview.status === "success" ? preview.data : null;
 	// The gate ran after this preview: delivering it would be refused.
 	const outdated =
-		shown !== null && latest !== null && shown.gateRun.id !== latest.id;
+		shown !== null && latest !== null && shown.gateRun?.id !== latest.id;
 	// Undefined while the mission reads; null for an internal mission.
 	const mission = useMission(missionId).data;
 	const engagementId = mission ? (mission.engagement?.id ?? null) : undefined;
@@ -320,23 +320,27 @@ function Deliver({
 			onDelivered(written.id);
 		},
 	};
-	const body: CreateExportBody = deliverBodyOf(preview);
+	const body = deliverBodyOf(preview);
 	const pr = preview.targetKind === "github_pr";
 	const writtenId = writtenExportId(create.error);
 	const deliver = () => {
+		if (body === null) return;
 		const attempt = exportAttemptFor(last, body);
 		setLast(attempt);
 		create.mutate(attempt, sent);
 	};
-	const reason = outdated
-		? "The gate ran again after this preview"
-		: changed
-			? "The target changed since this preview"
-			: preview.blocked
-				? "A delivery check blocks it"
-				: create.isPending
-					? "Delivering"
-					: undefined;
+	const reason =
+		body === null
+			? "This preview stopped before it rendered, so there is nothing to deliver"
+			: outdated
+				? "The gate ran again after this preview"
+				: changed
+					? "The target changed since this preview"
+					: preview.blocked
+						? "A delivery check blocks it"
+						: create.isPending
+							? "Delivering"
+							: undefined;
 	return (
 		<div className="flex flex-col gap-2">
 			<Button

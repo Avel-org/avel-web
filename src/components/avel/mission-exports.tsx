@@ -43,7 +43,8 @@ export function MissionExportList({ missionId }: { missionId: string }) {
 			{() => (
 				<ul className="flex flex-col">
 					{rows.map((exp) => {
-						const result = RESULT[exp.gateRun.result];
+						// No gate run on an export that stopped before it rendered.
+						const result = exp.gateRun ? RESULT[exp.gateRun.result] : null;
 						return (
 							<li key={exp.id}>
 								<Link
@@ -62,16 +63,18 @@ export function MissionExportList({ missionId }: { missionId: string }) {
 											? `${EXPORT_TARGET_LABEL[exp.targetKind]} preview`
 											: EXPORT_TARGET_LABEL[exp.targetKind]}
 									</span>
-									<span
-										title={`Gate run: ${result.label}`}
-										className="inline-flex"
-									>
-										<StatusGlyph
-											tone={result.tone}
-											className={TONE_TEXT[result.tone]}
-										/>
-										<span className="sr-only">{`Gate run ${result.label}`}</span>
-									</span>
+									{result ? (
+										<span
+											title={`Gate run: ${result.label}`}
+											className="inline-flex"
+										>
+											<StatusGlyph
+												tone={result.tone}
+												className={TONE_TEXT[result.tone]}
+											/>
+											<span className="sr-only">{`Gate run ${result.label}`}</span>
+										</span>
+									) : null}
 									<time
 										dateTime={exp.createdAt}
 										title={exp.createdAt}

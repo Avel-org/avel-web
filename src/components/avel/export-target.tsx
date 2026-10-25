@@ -95,9 +95,11 @@ export function previewBodyOf(
 
 /**
  * The delivery of a preview: its own target, connection and branch, so what
- * ships is what was checked.
+ * ships is what was checked. Null for a preview that stopped before it
+ * rendered: it names no gate run, so there is nothing to deliver.
  */
-export function deliverBodyOf(preview: ExportWire): CreateExportBody {
+export function deliverBodyOf(preview: ExportWire): CreateExportBody | null {
+	if (preview.gateRun === null) return null;
 	const linked = {
 		missionId: preview.missionId,
 		gateRunId: preview.gateRun.id,

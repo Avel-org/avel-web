@@ -57,7 +57,8 @@ export function briefDispatchId(path: string): string | null {
 export function packageBriefs(
 	exp: ExportWire,
 ): { dispatchId: string; bytes: number }[] {
-	return exp.package.files.flatMap((f) => {
+	// An export that failed before it rendered has no package.
+	return (exp.package?.files ?? []).flatMap((f) => {
 		const dispatchId = briefDispatchId(f.path);
 		return dispatchId ? [{ dispatchId, bytes: f.bytes }] : [];
 	});
@@ -72,7 +73,7 @@ export function packageEntries(exp: ExportWire): PackageEntry[] {
 	for (const v of exp.violations)
 		byPath.set(v.path, [...(byPath.get(v.path) ?? []), v]);
 	const entries: PackageEntry[] = [
-		...exp.package.files
+		...(exp.package?.files ?? [])
 			.filter((f) => briefDispatchId(f.path) === null)
 			.map((f) => ({
 				path: f.path,
@@ -81,7 +82,7 @@ export function packageEntries(exp: ExportWire): PackageEntry[] {
 				mode: f.mode,
 				violations: byPath.get(f.path) ?? [],
 			})),
-		...exp.package.deletes.map((path) => ({
+		...(exp.package?.deletes ?? []).map((path) => ({
 			path,
 			change: "delete" as const,
 			bytes: null,
@@ -575,6 +576,18 @@ export function DeliveryChecks({ exp }: { exp: ExportWire }) {
 
 /** The package's identity: its hash, what it was rendered from, and its size. */
 export function PackageFacts({ exp }: { exp: ExportWire }) {
+	// Null together, only on an export that failed before it rendered: no
+	// gate run was read into it and no package exists to describe.
+	if (exp.gateRun === null || exp.package === null)
+		return (
+			<p
+				data-testid="export-facts-unrendered"
+				className="type-small text-text-muted"
+			>
+				This export stopped before it rendered, so it has no package and names
+				no gate run.
+			</p>
+		);
 	const result = RESULT[exp.gateRun.result];
 	const bytes = exp.package.files.reduce((sum, f) => sum + f.bytes, 0);
 	return (
