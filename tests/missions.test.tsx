@@ -500,8 +500,21 @@ describe("the data in the grouped view", () => {
 				queryKeys.missions.list(base({ q: "zzzz" })).slice(),
 				page([], { counts: zero }),
 			);
+			// The page around the list reads every mission, search or not.
+			client.setQueryData(
+				queryKeys.missions.list(base()).slice(),
+				page([], { counts: COUNTS }),
+			);
 		});
 		expect(html).toContain('data-testid="missions-no-match"');
+		// The search narrows the list, never the status cards.
+		const card = (id: string) =>
+			html.match(
+				new RegExp(`data-testid="missions-card-${id}-count"[^>]*>(\\d+)<`),
+			)?.[1];
+		expect(card("needs-you")).toBe("1");
+		expect(card("halted")).toBe("1");
+		expect(html).toContain("3 missions");
 		expect(html).toContain('data-testid="missions-clear-search"');
 		expect(html).not.toContain('data-testid="missions-first-run"');
 		// One answer, not an empty note under every status group.

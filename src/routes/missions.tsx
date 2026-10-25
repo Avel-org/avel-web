@@ -121,7 +121,15 @@ function MissionsPage() {
 	const total = counts
 		? Object.values(counts.byStatus).reduce((sum, n) => sum + n, 0)
 		: undefined;
-	const firstRun = total === 0 && search.q === "";
+	// The page around the list never narrows to the search: the status
+	// cards, Running now, Needs you and the rest read every mission in scope.
+	// Without a search this is the same params, key and request as `base`.
+	const pageBase: MissionListParams = { ...base, q: "" };
+	const pageCounts = countsOf(useMissionList(pageBase));
+	const pageTotal = pageCounts
+		? Object.values(pageCounts.byStatus).reduce((sum, n) => sum + n, 0)
+		: undefined;
+	const firstRun = pageTotal === 0;
 	// A search that kept nothing: one way out, not an empty note per group.
 	const noMatch = total === 0 && search.q !== "";
 
@@ -149,11 +157,11 @@ function MissionsPage() {
 		<Page
 			to="/missions"
 			subtitle={
-				total === undefined
+				pageTotal === undefined
 					? undefined
-					: total === 1
+					: pageTotal === 1
 						? "1 mission"
-						: `${total} missions`
+						: `${pageTotal} missions`
 			}
 			actions={
 				<Button
@@ -168,8 +176,8 @@ function MissionsPage() {
 		>
 			<div data-testid="missions-page" className="pt-2">
 				<MissionsDashboard
-					base={base}
-					counts={counts}
+					base={pageBase}
+					counts={pageCounts}
 					status={search.status}
 					includeArchived={includesArchived(search)}
 					now={now}
