@@ -60,14 +60,18 @@ export function PlanReadiness({
 			query={query}
 			isEmpty={(plan) => readinessOf(plan) === null}
 			loading={compact ? <CompactSkeleton /> : <FullSkeleton />}
-			// A brief that predates the shape has no requirements to place.
+			// A brief that predates the shape has no requirements to place. On
+			// the mission page that is one muted line; on the plan page the
+			// editor below says it, with the way on, so the bar says nothing.
 			empty={
-				<p
-					data-testid="plan-readiness-none"
-					className="type-small text-text-muted"
-				>
-					No plan yet
-				</p>
+				compact ? (
+					<p
+						data-testid="plan-readiness-none"
+						className="type-small text-text-muted"
+					>
+						No plan yet
+					</p>
+				) : null
 			}
 			// The compact version sits inside the mission page's Brief panel:
 			// it must never put an error card there.

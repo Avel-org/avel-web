@@ -289,4 +289,10 @@ describe("the compact readiness (mission page's Brief panel)", () => {
 		expect(html).toMatch(/data-testid="plan-readiness-none"[^>]*>No plan yet</);
 		expect(html).not.toContain('data-testid="plan-readiness-bar"');
 	});
+
+	it("leaves the plan page's bar silent there: the editor below says it", () => {
+		const html = render(false, { plan: plan({ brief: null }) });
+		expect(html).not.toContain('data-testid="plan-readiness-none"');
+		expect(html).not.toContain('data-testid="plan-readiness-bar"');
+	});
 });

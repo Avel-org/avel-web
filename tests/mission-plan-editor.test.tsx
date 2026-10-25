@@ -206,6 +206,17 @@ describe("a plan that cannot change", () => {
 			/data-testid="plan-check-issue"[^>]*>.*R2 is in no module</,
 		);
 	});
+
+	it("says why no plan can be started on a mission past draft", () => {
+		const html = render(plan({ brief: null }), {
+			readOnlyReason: "This mission can no longer be changed.",
+		});
+		expect(html).toContain("No plan yet");
+		expect(html).not.toContain('data-testid="plan-start"');
+		expect(html).toMatch(
+			/data-testid="plan-no-brief-reason"[^>]*>This mission can no longer be changed.</,
+		);
+	});
 });
 
 describe("the plan's Fields, JSON and Request", () => {

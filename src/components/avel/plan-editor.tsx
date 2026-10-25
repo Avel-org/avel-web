@@ -1,5 +1,5 @@
 import type { Brief, MissionPlan } from "avel-server/contract";
-import { Lock, Plus, Trash2 } from "lucide-react";
+import { ListChecks, Lock, Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Field, FormError } from "./client-form";
 import { CodeView } from "./code-view";
+import { EmptyState } from "./empty-state";
 import { groupBrief, type RequirementGroup } from "./mission-details";
 import { SectionPanel } from "./section-panel";
 import { StatusGlyph, StatusPill } from "./status-pill";
@@ -125,17 +126,32 @@ export function PlanEditor({
 	if (draft === null || initial === null) {
 		return (
 			<div className="flex flex-col gap-6">
-				<div className="flex flex-col items-start gap-3">
-					<p data-testid="plan-no-brief" className="type-small text-text-muted">
-						This mission's stored brief predates the brief's current shape, so
-						it cannot be edited here.
-					</p>
-					{onStartPlan ? (
-						<Button data-testid="plan-start" onClick={onStartPlan}>
-							Start a plan
-						</Button>
-					) : null}
-				</div>
+				<EmptyState
+					data-testid="plan-no-brief"
+					icon={ListChecks}
+					title="No plan yet"
+					description={
+						onStartPlan
+							? "This mission's brief was stored before plans had their current shape. Start a plan to turn it into one you can edit."
+							: "This mission's brief was stored before plans had their current shape, so it can't be edited here."
+					}
+					action={
+						onStartPlan ? (
+							<Button data-testid="plan-start" onClick={onStartPlan}>
+								<Plus aria-hidden="true" />
+								Start a plan
+							</Button>
+						) : readOnlyReason ? (
+							// Why no plan can be started: the mission is past draft.
+							<p
+								data-testid="plan-no-brief-reason"
+								className="max-w-md type-caption text-text-subtle"
+							>
+								{readOnlyReason}
+							</p>
+						) : null
+					}
+				/>
 				{/* The check still says what the stored brief lacks. */}
 				<PlanCheck plan={plan} />
 			</div>
