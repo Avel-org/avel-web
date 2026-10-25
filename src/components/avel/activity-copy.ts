@@ -65,6 +65,8 @@ export const ACTION_COPY = {
 	"mission.gate_queued": "Gate run queued",
 	"mission.gate_run": "Gate run",
 	"mission.gate_failed": "Gate run failed",
+	// A repository's policy (2026-10-24): set, never deleted.
+	"repo_policy.set": "Repository policy set",
 	"finding.confirmed": "Finding confirmed",
 	"finding.dismissed": "Finding dismissed",
 	// Canon, the project briefer (2026-10-19).
@@ -110,6 +112,7 @@ export const ENTITY_LABEL = {
 	canon_question: "Canon question",
 	client_memory: "Client memory",
 	file: "File",
+	repo_policy: "Repository policy",
 } as const satisfies Record<ActivityEntityType, string>;
 
 /**

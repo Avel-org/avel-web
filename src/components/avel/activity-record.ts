@@ -134,6 +134,12 @@ export const INVERSE = {
 	"mission.gate_queued": null,
 	"mission.gate_run": null,
 	"mission.gate_failed": null,
+	// Set again with the values it had before.
+	"repo_policy.set": {
+		request: "repoPolicies.set",
+		route: "PUT /api/repo-policies",
+		note: "Set the policy back to its earlier values. Allowing a direct push again needs its confirmation.",
+	},
 	// A triage stands until a new one; the log offers no inverse.
 	"finding.confirmed": null,
 	"finding.dismissed": null,

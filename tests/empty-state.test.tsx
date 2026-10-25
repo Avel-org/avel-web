@@ -95,7 +95,6 @@ describe("EmptyState", () => {
 
 /** Every stub route, with exactly the procedures a doc names for it. */
 const STUBS: [string, string, string[]][] = [
-	["/settings/repositories", "repo-policies", []],
 	["/settings/account", "account-settings", []],
 ];
 

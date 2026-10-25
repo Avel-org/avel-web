@@ -172,6 +172,12 @@ export const queryKeys = {
 		 */
 		detail: (id: string) => ["connections", "detail", id] as const,
 	},
+	repoPolicies: {
+		/** Everything under contract.repoPolicies. */
+		all: () => ["repoPolicies"] as const,
+		/** contract.repoPolicies.list, paged by cursor. */
+		list: (limit: number) => ["repoPolicies", "list", { limit }] as const,
+	},
 	clients: {
 		/** Everything under contract.clients. */
 		all: () => ["clients"] as const,
