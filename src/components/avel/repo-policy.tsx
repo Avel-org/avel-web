@@ -20,6 +20,7 @@ import {
 	type SetRepoPolicyBody,
 	useSetRepoPolicy,
 } from "@/lib/api/repo-policies";
+import { landRecord } from "@/shell/motion";
 import { linkFor } from "../../shell/nav";
 import { ActionModal, type IssuePath, ModalField } from "./action-modal";
 import { EmptyState } from "./empty-state";
@@ -90,7 +91,10 @@ export function RepoPolicyBoard({
 			)}
 		>
 			{(data) => (
-				<ul className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+				<ul
+					data-enter="rise"
+					className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3"
+				>
 					{loadedRepoPolicies(data).map((policy) => (
 						<li key={policy.id}>
 							<RepoPolicyCard policy={policy} onEdit={onEdit} />
@@ -119,6 +123,7 @@ export function RepoPolicyCard({
 		<article
 			aria-label={policy.label ?? name}
 			data-testid={`repo-policy-card-${policy.id}`}
+			data-record-id={policy.id}
 			className="flex h-full min-w-0 flex-col gap-3 rounded-card border border-border bg-app-panel p-4 shadow-card"
 		>
 			<header className="flex items-start gap-3">
@@ -210,23 +215,27 @@ const draftOf = (policy: RepoPolicy | null): Draft => ({
 
 /**
  * What Save sends. The label and default target are sent every time, null
- * when cleared, because an omitted one keeps its earlier value. The
- * confirmation goes only with a push that was off and is being turned on.
+ * when cleared, because an omitted one keeps its earlier value.
+ *
+ * The server asks for confirmDirectPush on every set that leaves a direct
+ * push allowed, not only the one that turns it on (repo-policies.ts; its
+ * contract comment says "turning on"). Turning it on needs the operator's
+ * tick. Keeping it on grants nothing new: it was confirmed when it was
+ * turned on, so the confirmation goes with it, and renaming a policy that
+ * allows a push no longer fails on a box the form never showed.
  */
 export function repoPolicyBody(
 	draft: Draft,
 	before: RepoPolicy | null,
 ): SetRepoPolicyBody {
-	const turningOn =
-		draft.allowPush && !(before?.allowDirectPushToDefault ?? false);
+	const wasOn = before?.allowDirectPushToDefault ?? false;
+	const confirmed = draft.allowPush && (wasOn || draft.confirmed);
 	return {
 		repoUrl: normalizeRepoUrl(draft.repoUrl) ?? draft.repoUrl.trim(),
 		label: draft.label.trim() === "" ? null : draft.label.trim(),
 		allowDirectPushToDefault: draft.allowPush,
 		defaultTarget: draft.target === "none" ? null : draft.target,
-		...(turningOn && draft.confirmed
-			? { confirmDirectPush: true as const }
-			: {}),
+		...(confirmed ? { confirmDirectPush: true as const } : {}),
 	};
 }
 
@@ -265,6 +274,7 @@ export function RepoPolicyModal({
 					onSuccess: (saved) => {
 						toast.success(`Saved the policy for ${repoName(saved.repoUrl)}.`);
 						onOpenChange(false);
+						landRecord(saved.id);
 					},
 				})
 			}

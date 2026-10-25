@@ -82,15 +82,25 @@ describe("what Save sends", () => {
 		});
 	});
 
-	it("confirms a direct push only when turning it on, and only once confirmed", () => {
+	it("confirms turning a direct push on only once ticked", () => {
 		const on = draft({ allowPush: true, confirmed: true });
 		expect(repoPolicyBody(on, null).confirmDirectPush).toBe(true);
 		expect(
 			repoPolicyBody(draft({ allowPush: true }), null).confirmDirectPush,
 		).toBeUndefined();
-		// Already on: nothing to confirm again.
+	});
+
+	it("carries the confirmation when a push stays on, so a rename saves", () => {
+		// The server asks for it on every set that leaves a push allowed; a
+		// rename of such a policy was refused direct_push_unconfirmed, with no
+		// box on the form to tick (live check, 2026-10-25).
 		const already = policy({ allowDirectPushToDefault: true });
-		expect(repoPolicyBody(on, already).confirmDirectPush).toBeUndefined();
+		const renamed = draft({ allowPush: true, label: "Renamed" });
+		expect(repoPolicyBody(renamed, already).confirmDirectPush).toBe(true);
+		// Turning it off sends none.
+		expect(
+			repoPolicyBody(draft({ allowPush: false }), already).confirmDirectPush,
+		).toBeUndefined();
 	});
 });
 
