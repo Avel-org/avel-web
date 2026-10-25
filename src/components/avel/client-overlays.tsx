@@ -1,5 +1,5 @@
 import type { Client, Engagement } from "avel-server/contract";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { ClientFormModal } from "./client-form";
 import { ClientStatusDialog } from "./client-status-dialog";
 import { EngagementCloseDialog } from "./engagement-close";
@@ -51,25 +51,32 @@ export function useClientOverlays({
 		if (!open) setOverlay({ kind: "none" });
 	};
 
-	const actions: ClientActions = {
-		onNewClient: () => setOverlay({ kind: "new-client" }),
-		onEdit: (client) => setOverlay({ kind: "edit-client", client }),
-		onNewEngagement: (client) => setOverlay({ kind: "new-engagement", client }),
-		onClose: (client) =>
-			setOverlay({ kind: "client-status", client, to: "closed" }),
-		onReopen: (client) =>
-			setOverlay({ kind: "client-status", client, to: "active" }),
-		onCloseEngagement: (engagement) =>
-			setOverlay({ kind: "close-engagement", engagement }),
-		onEditEngagement: (engagement) =>
-			setOverlay({ kind: "edit-engagement", engagement }),
-		onNewIntake: (client, engagement) =>
-			setOverlay({
-				kind: "new-intake",
-				client,
-				...(engagement ? { engagementId: engagement.id } : {}),
-			}),
-	};
+	// Stable across renders: a page that opens one from an effect (Clients'
+	// ?new) lists it as a dependency, and a fresh object each render looped
+	// that effect until React gave up. setOverlay never changes.
+	const actions: ClientActions = useMemo(
+		() => ({
+			onNewClient: () => setOverlay({ kind: "new-client" }),
+			onEdit: (client) => setOverlay({ kind: "edit-client", client }),
+			onNewEngagement: (client) =>
+				setOverlay({ kind: "new-engagement", client }),
+			onClose: (client) =>
+				setOverlay({ kind: "client-status", client, to: "closed" }),
+			onReopen: (client) =>
+				setOverlay({ kind: "client-status", client, to: "active" }),
+			onCloseEngagement: (engagement) =>
+				setOverlay({ kind: "close-engagement", engagement }),
+			onEditEngagement: (engagement) =>
+				setOverlay({ kind: "edit-engagement", engagement }),
+			onNewIntake: (client, engagement) =>
+				setOverlay({
+					kind: "new-intake",
+					client,
+					...(engagement ? { engagementId: engagement.id } : {}),
+				}),
+		}),
+		[],
+	);
 
 	const modals = (
 		<>
