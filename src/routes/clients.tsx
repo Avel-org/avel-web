@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { type ClientStatus, clientStatus } from "avel-server/contract";
 import { LayoutGrid, Plus, Rows3 } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import {
 	type BoardSectionQuery,
@@ -13,9 +13,9 @@ import { ClientSearch } from "@/components/avel/client-search";
 import { DataPanel } from "@/components/avel/data-panel";
 import { EmptyState } from "@/components/avel/empty-state";
 import { Paging, PanelFooter } from "@/components/avel/panel-footer";
+import { Segmented, type SegmentOption } from "@/components/avel/segmented";
 import { type ViewOption, ViewToggle } from "@/components/avel/view-toggle";
 import { Button } from "@/components/ui/button";
-import { tabsListVariants } from "@/components/ui/tabs";
 import {
 	clientCountLabel,
 	clientSearchText,
@@ -244,10 +244,10 @@ function ClientsPage() {
 	);
 }
 
-const STATUS_OPTIONS: { id: ClientStatus | undefined; label: string }[] = [
-	{ id: undefined, label: "All" },
-	{ id: "active", label: "Active" },
-	{ id: "closed", label: "Closed" },
+const STATUS_OPTIONS: SegmentOption<ClientStatus>[] = [
+	{ value: undefined, label: "All" },
+	{ value: "active", label: "Active" },
+	{ value: "closed", label: "Closed" },
 ];
 
 /** The sum of the lists' totals, or undefined until every one is known. */
@@ -271,28 +271,14 @@ function StatusFilter({
 	value: ClientStatus | undefined;
 	onChange: (value: ClientStatus | undefined) => void;
 }) {
-	const legendId = useId();
+	// No counts: a status the view does not show is not read (see above).
 	return (
-		<fieldset
-			aria-labelledby={legendId}
+		<Segmented
 			data-testid="clients-status"
-			className={tabsListVariants({ variant: "default" })}
-		>
-			<legend id={legendId} className="sr-only">
-				Status
-			</legend>
-			{STATUS_OPTIONS.map(({ id, label }) => (
-				<Button
-					key={label}
-					type="button"
-					variant="segment"
-					aria-pressed={value === id}
-					data-testid={`clients-status-${id ?? "all"}`}
-					onClick={() => onChange(id)}
-				>
-					{label}
-				</Button>
-			))}
-		</fieldset>
+			legend="Status"
+			options={STATUS_OPTIONS}
+			value={value}
+			onChange={onChange}
+		/>
 	);
 }

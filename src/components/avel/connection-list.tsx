@@ -10,7 +10,6 @@ import { LayoutGrid, Plug, Plus, Rows3, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { tabsListVariants } from "@/components/ui/tabs";
 import { callPage, useApiClient } from "@/lib/api";
 import { isoDate, relativeTime, useEngagement } from "@/lib/api/clients";
 import {
@@ -28,6 +27,7 @@ import { linkFor } from "../../shell/nav";
 import { NewConnection } from "./connection-create";
 import { type DataColumn, DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
+import { Segmented } from "./segmented";
 import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 import type { ViewOption } from "./view-toggle";
@@ -49,8 +49,10 @@ export const CONNECTION_VIEWS = [
 ] as const satisfies readonly ViewOption<string>[];
 export type ConnectionView = (typeof CONNECTION_VIEWS)[number]["id"];
 
-/** The status filter: connected (active), revoked, or every status. */
-export const CONNECTION_FILTERS = ["connected", "revoked", "all"] as const;
+/** The status filter: every status first, as every filter row starts, then
+ * connected (active) and revoked.
+ */
+export const CONNECTION_FILTERS = ["all", "connected", "revoked"] as const;
 export type ConnectionFilter = (typeof CONNECTION_FILTERS)[number];
 
 /** Each filter's contract status: undefined for every status. */
@@ -151,7 +153,7 @@ export function NewConnectionButton({
 	);
 }
 
-/** Connected, Revoked, All: a v3 segmented control, each with its exact count. */
+/** All, Connected, Revoked: a segmented control, each with its exact count. */
 export function ConnectionFilterControl({
 	value,
 	onChange,
@@ -167,40 +169,17 @@ export function ConnectionFilterControl({
 		all,
 	} as const satisfies Record<ConnectionFilter, number | undefined>;
 	return (
-		<fieldset
+		<Segmented
 			data-testid="connections-filter"
-			className={tabsListVariants({ variant: "default" })}
-		>
-			<legend className="sr-only">Filter by status</legend>
-			{CONNECTION_FILTERS.map((filter) => {
-				const count = counts[filter];
-				return (
-					<Button
-						key={filter}
-						type="button"
-						variant="segment"
-						aria-pressed={value === filter}
-						data-testid={`connections-filter-${filter}`}
-						onClick={() => onChange(filter)}
-					>
-						{FILTER_LABEL[filter]}
-						<span
-							data-testid={`connections-filter-${filter}-count`}
-							className="type-mono text-text-subtle"
-						>
-							{count === undefined ? (
-								<>
-									<span aria-hidden="true">—</span>
-									<span className="sr-only">, count not available</span>
-								</>
-							) : (
-								count
-							)}
-						</span>
-					</Button>
-				);
-			})}
-		</fieldset>
+			legend="Filter by status"
+			options={CONNECTION_FILTERS.map((filter) => ({
+				value: filter,
+				label: FILTER_LABEL[filter],
+				count: counts[filter] ?? null,
+			}))}
+			value={value}
+			onChange={(filter) => onChange(filter ?? "all")}
+		/>
 	);
 }
 

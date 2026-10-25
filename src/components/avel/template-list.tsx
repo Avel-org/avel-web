@@ -17,7 +17,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { tabsListVariants } from "@/components/ui/tabs";
 import { type ApiClient, callPage, queryKeys, useApiClient } from "@/lib/api";
 import {
 	type MissionOrigin,
@@ -32,6 +31,7 @@ import { linkFor } from "@/shell/nav";
 import { type DataColumn, DataTable, STRETCHED_LINK } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { SearchField } from "./search-field";
+import { Segmented } from "./segmented";
 import { ShortHash } from "./short-hash";
 import { ErrorState, Surface } from "./surface";
 import {
@@ -317,34 +317,14 @@ function Segments<V extends string>({
 	onChange: (value: V | undefined) => void;
 }) {
 	return (
-		<fieldset
+		<Segmented
 			data-testid={testId}
-			// The legend is visible, inside the track, so two controls that
-			// both start "All" never read as the same one.
-			className={cn(
-				tabsListVariants({ variant: "default" }),
-				"max-w-full overflow-x-auto no-scrollbar",
-			)}
-		>
-			<legend className="float-left flex h-6 items-center pr-1.5 pl-2 type-eyebrow">
-				{legend}
-			</legend>
-			{[{ value: undefined, label: "All", count: total }, ...options].map(
-				(option) => (
-					<Button
-						key={option.value ?? "all"}
-						type="button"
-						variant="segment"
-						aria-pressed={value === option.value}
-						data-testid={`${testId}-${option.value ?? "all"}`}
-						onClick={() => onChange(option.value)}
-					>
-						{option.label}
-						<span className="type-mono text-text-subtle">{option.count}</span>
-					</Button>
-				),
-			)}
-		</fieldset>
+			legend={legend}
+			showLegend
+			options={[{ value: undefined, label: "All", count: total }, ...options]}
+			value={value}
+			onChange={onChange}
+		/>
 	);
 }
 

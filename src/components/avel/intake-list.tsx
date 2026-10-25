@@ -1,10 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import type { Client, Engagement } from "avel-server/contract";
 import { FileInput, Plus } from "lucide-react";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { tabsListVariants } from "@/components/ui/tabs";
 import { relativeTime, useClientEngagements } from "@/lib/api/clients";
 import {
 	INTAKE_STATUSES,
@@ -21,6 +20,7 @@ import { EmptyState } from "./empty-state";
 import { INTAKE_LIFECYCLE, INTAKE_STATUS_LABEL, Lifecycle } from "./lifecycle";
 import { PanelFooter } from "./panel-footer";
 import { ROW_LINK_GROUP, RowChevron } from "./row-link";
+import { Segmented, type SegmentOption } from "./segmented";
 import { ErrorState, Surface } from "./surface";
 
 /*
@@ -188,44 +188,26 @@ function IntakeStatusFilter({
 	onChange: (value: IntakeStatus | undefined) => void;
 	counts: IntakeCounts | undefined;
 }) {
-	const legendId = useId();
-	const options: {
-		id: IntakeStatus | undefined;
-		label: string;
-		count?: number;
-	}[] = [
-		{ id: undefined, label: "All", count: counts ? sumOf(counts) : undefined },
+	const options: SegmentOption<IntakeStatus>[] = [
+		{
+			value: undefined,
+			label: "All",
+			...(counts ? { count: sumOf(counts) } : {}),
+		},
 		...INTAKE_STATUSES.map((s) => ({
-			id: s,
+			value: s,
 			label: INTAKE_STATUS_LABEL[s],
-			count: counts?.[s],
+			...(counts ? { count: counts[s] } : {}),
 		})),
 	];
 	return (
-		<fieldset
-			aria-labelledby={legendId}
+		<Segmented
 			data-testid="client-intakes-status"
-			className={tabsListVariants({ variant: "default" })}
-		>
-			<legend id={legendId} className="sr-only">
-				Status
-			</legend>
-			{options.map(({ id, label, count }) => (
-				<Button
-					key={label}
-					type="button"
-					variant="segment"
-					aria-pressed={value === id}
-					data-testid={`client-intakes-status-${id ?? "all"}`}
-					onClick={() => onChange(id)}
-				>
-					{label}
-					{count === undefined ? null : (
-						<span className="type-mono text-text-subtle">{count}</span>
-					)}
-				</Button>
-			))}
-		</fieldset>
+			legend="Status"
+			options={options}
+			value={value}
+			onChange={onChange}
+		/>
 	);
 }
 

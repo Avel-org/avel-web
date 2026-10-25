@@ -1,6 +1,5 @@
 import { LayoutGrid, List } from "lucide-react";
 import { useId } from "react";
-import { Button } from "@/components/ui/button";
 import {
 	Select,
 	SelectContent,
@@ -8,11 +7,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { tabsListVariants } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { KIND } from "./drive-files";
 import { FILE_KINDS, type FileKind } from "./drive-placeholders";
 import { SearchField } from "./search-field";
+import { Segmented } from "./segmented";
+import { type ViewOption, ViewToggle } from "./view-toggle";
 
 /*
  * The toolbar: search, kind chips, sort and the List | Grid toggle. Real
@@ -21,6 +20,11 @@ import { SearchField } from "./search-field";
  */
 
 export type DriveView = "list" | "grid";
+
+const DRIVE_VIEWS = [
+	{ id: "list", label: "List", icon: List },
+	{ id: "grid", label: "Grid", icon: LayoutGrid },
+] as const satisfies readonly ViewOption<DriveView>[];
 export type DriveSort = "newest" | "name" | "size";
 
 export const SORT_LABEL: Record<DriveSort, string> = {
@@ -87,58 +91,25 @@ export function DriveToolbar({
 						</SelectContent>
 					</Select>
 				</div>
-				<fieldset
-					data-testid={`${testId}-view`}
-					className={tabsListVariants({ variant: "default" })}
-				>
-					<legend className="sr-only">View</legend>
-					{(
-						[
-							["list", "List", List],
-							["grid", "Grid", LayoutGrid],
-						] as const
-					).map(([id, label, Icon]) => (
-						<Button
-							key={id}
-							type="button"
-							variant="segment"
-							aria-pressed={controls.view === id}
-							data-testid={`${testId}-view-${id}`}
-							onClick={() => onChange({ view: id })}
-						>
-							<Icon aria-hidden="true" />
-							{label}
-						</Button>
-					))}
-				</fieldset>
+				<ViewToggle
+					options={DRIVE_VIEWS}
+					view={controls.view}
+					onChange={(view) => onChange({ view })}
+					testIdPrefix={`${testId}-view`}
+				/>
 			</div>
-			<fieldset
-				data-testid={`${testId}-kinds`}
-				className={cn(tabsListVariants({ variant: "default" }), "flex-wrap")}
-			>
-				<legend className="sr-only">Kind</legend>
-				{([undefined, ...FILE_KINDS] as const).map((kind) => {
-					const pressed = controls.kind === kind;
-					return (
-						<Button
-							key={kind ?? "all"}
-							type="button"
-							variant="segment"
-							aria-pressed={pressed}
-							data-testid={`${testId}-kind-${kind ?? "all"}`}
-							onClick={() => onChange({ kind })}
-						>
-							{kind ? KIND[kind].plural : "All"}
-							<span
-								data-testid={`${testId}-kind-${kind ?? "all"}-count`}
-								className="type-mono text-text-subtle tabular-nums"
-							>
-								{kind ? counts[kind] : counts.all}
-							</span>
-						</Button>
-					);
-				})}
-			</fieldset>
+			<Segmented
+				data-testid={`${testId}-kind`}
+				legend="Kind"
+				options={([undefined, ...FILE_KINDS] as const).map((kind) => ({
+					value: kind,
+					label: kind ? KIND[kind].plural : "All",
+					count: kind ? counts[kind] : counts.all,
+				}))}
+				value={controls.kind}
+				onChange={(kind) => onChange({ kind })}
+				className="self-start"
+			/>
 		</div>
 	);
 }

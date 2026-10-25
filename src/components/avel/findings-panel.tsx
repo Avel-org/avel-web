@@ -3,7 +3,6 @@ import { Check, SearchCheck, X } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { tabsListVariants } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
 	useConfirmFinding,
@@ -13,7 +12,6 @@ import {
 	useGateRuns,
 } from "@/lib/api/gate";
 import { describeError } from "@/lib/error-map";
-import { cn } from "@/lib/utils";
 import { ActionModal } from "./action-modal";
 import { EmptyState } from "./empty-state";
 import { FindingCheckLine } from "./finding-check";
@@ -21,6 +19,7 @@ import { SEVERITY } from "./gate-copy";
 import { Paging, PanelFooter } from "./panel-footer";
 import { Reason } from "./reason";
 import { SectionPanel } from "./section-panel";
+import { Segmented } from "./segmented";
 import { StatusGlyph, StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
@@ -77,33 +76,19 @@ export function FindingsPanel({
 			}
 		>
 			{/* In the body, not the header: the row wraps on a phone. */}
-			<fieldset
+			<Segmented
 				data-testid="findings-status"
-				// Three segments with counts wrap rather than overflow a phone.
-				className={cn(
-					tabsListVariants({ variant: "default" }),
-					"max-w-full flex-wrap",
-				)}
-			>
-				<legend className="sr-only">Status</legend>
-				{STATUSES.map((s) => (
-					<Button
-						key={s.id}
-						type="button"
-						variant="segment"
-						aria-pressed={status === s.id}
-						data-testid={`findings-status-${s.id}`}
-						onClick={() => setStatus(s.id)}
-					>
-						{s.label}
-						{first ? (
-							<span className="type-mono text-text-subtle tabular-nums">
-								{first.counts[s.id]}
-							</span>
-						) : null}
-					</Button>
-				))}
-			</fieldset>
+				legend="Status"
+				options={STATUSES.map((s) => ({
+					value: s.id,
+					label: s.label,
+					...(first ? { count: first.counts[s.id] } : {}),
+				}))}
+				value={status}
+				onChange={(next) => {
+					if (next !== undefined) setStatus(next);
+				}}
+			/>
 			<Surface
 				data-testid="findings-list"
 				query={findings}

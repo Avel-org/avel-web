@@ -26,12 +26,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { tabsListVariants } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import { firstWave, isFirmAgent, sideOf } from "./catalog-agent-placeholders";
 import { teamOf } from "./catalog-sample";
 import type { SortState } from "./data-table";
 import { SearchField } from "./search-field";
+import { Segmented } from "./segmented";
 
 /*
  * The All agents list's pure pieces: filtering, sorting, the side tile and
@@ -142,36 +141,19 @@ export function AgentFilterRow({
 			data-testid="catalog-agents-filters"
 			className="flex flex-wrap items-center justify-between gap-2"
 		>
-			<fieldset
-				data-testid="catalog-agents-side-tabs"
-				className={cn(tabsListVariants({ variant: "default" }), "flex-wrap")}
-			>
-				<legend className="sr-only">Side</legend>
-				{SIDE_TABS.map((tab) => {
-					const count = pool.filter(
+			<Segmented
+				data-testid="catalog-agents-side"
+				legend="Side"
+				options={SIDE_TABS.map((tab) => ({
+					value: tab.id,
+					label: tab.label,
+					count: pool.filter(
 						(agent) => tab.id === undefined || sideTabOf(agent) === tab.id,
-					).length;
-					const pressed = filters.side === tab.id;
-					return (
-						<Button
-							key={tab.label}
-							type="button"
-							variant="segment"
-							aria-pressed={pressed}
-							data-testid={`catalog-agents-side-${tab.id ?? "all"}`}
-							onClick={() => onChange({ ...filters, side: tab.id })}
-						>
-							{tab.label}
-							<span
-								data-testid={`catalog-agents-side-${tab.id ?? "all"}-count`}
-								className="type-mono text-text-subtle tabular-nums"
-							>
-								{count}
-							</span>
-						</Button>
-					);
-				})}
-			</fieldset>
+					).length,
+				}))}
+				value={filters.side}
+				onChange={(side) => onChange({ ...filters, side })}
+			/>
 			<div className="flex items-center gap-2">
 				<SearchField
 					data-testid="catalog-agents-search"
@@ -179,6 +161,7 @@ export function AgentFilterRow({
 					// Short enough to show whole in the field; the label says
 					// what it searches.
 					placeholder="Search agents"
+					shortcut="/"
 					value={filters.q ?? ""}
 					onChange={(q) => onChange({ ...filters, q })}
 					className="w-52"

@@ -5,14 +5,11 @@ import {
 	ArrowUpNarrowWide,
 	LayoutList,
 	ListTree,
-	type LucideIcon,
 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useState } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { tabsListVariants } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import {
 	type Direction,
 	ORIGIN_LABEL,
@@ -24,6 +21,7 @@ import {
 	type View,
 } from "./mission-search";
 import { SearchField } from "./search-field";
+import { type SegmentOption, Segmented as SharedSegmented } from "./segmented";
 
 const route = getRouteApi("/missions");
 
@@ -51,7 +49,7 @@ export function flipDirection(
 }
 
 /**
- * A segmented control of pressed buttons: a pill track with pill segments.
+ * The shared segmented control, always set (these rows have no All).
  * `trailing` sits inside the same track after a hairline divider, for a
  * control that belongs to the choice (Sort's direction).
  */
@@ -64,34 +62,23 @@ function Segmented<T extends string>({
 	trailing,
 }: {
 	legend: string;
-	options: readonly { value: T; label: string; icon?: LucideIcon }[];
+	options: readonly SegmentOption<T>[];
 	value: T;
 	onChange: (next: T) => void;
 	testId: string;
 	trailing?: ReactNode;
 }) {
 	return (
-		<fieldset
+		<SharedSegmented
 			data-testid={testId}
-			className={cn(
-				tabsListVariants({ variant: "default" }),
-				"min-w-0 shrink-0",
-			)}
+			legend={legend}
+			options={options}
+			value={value}
+			onChange={(next) => {
+				if (next !== undefined) onChange(next);
+			}}
+			className="min-w-0 shrink-0"
 		>
-			<legend className="sr-only">{legend}</legend>
-			{options.map((option) => (
-				<Button
-					key={option.value}
-					type="button"
-					variant="segment"
-					aria-pressed={value === option.value}
-					data-testid={`${testId}-${option.value}`}
-					onClick={() => onChange(option.value)}
-				>
-					{option.icon ? <option.icon aria-hidden="true" /> : null}
-					{option.label}
-				</Button>
-			))}
 			{trailing ? (
 				<>
 					<span
@@ -101,7 +88,7 @@ function Segmented<T extends string>({
 					{trailing}
 				</>
 			) : null}
-		</fieldset>
+		</SharedSegmented>
 	);
 }
 
@@ -128,11 +115,7 @@ export function MissionOriginSwitch() {
 const VIEW_OPTIONS = [
 	{ value: "grouped", label: "Grouped", icon: LayoutList },
 	{ value: "tree", label: "Tree", icon: ListTree },
-] as const satisfies readonly {
-	value: View;
-	label: string;
-	icon: LucideIcon;
-}[];
+] as const satisfies readonly SegmentOption<View>[];
 
 /**
  * Search, origin, archived, view and sort. The search writes `q` to the URL
@@ -183,6 +166,7 @@ export function MissionFilterBar({
 				label="Search missions by client, engagement or type"
 				placeholder="Search missions"
 				title="Search by client, engagement or type"
+				shortcut="/"
 				value={draft}
 				onChange={setDraft}
 				className="w-full min-w-0 sm:w-56"

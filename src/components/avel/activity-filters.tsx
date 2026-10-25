@@ -4,7 +4,6 @@ import {
 	activityEntityType,
 } from "avel-server/contract";
 import { useId } from "react";
-import { Button } from "@/components/ui/button";
 import {
 	Select,
 	SelectContent,
@@ -12,10 +11,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { tabsListVariants } from "@/components/ui/tabs";
 import type { ActivityFilters } from "@/lib/api/activity";
 import { cn } from "@/lib/utils";
 import { ENTITY_LABEL } from "./activity-copy";
+import { Segmented } from "./segmented";
 
 // Radix Select takes no empty value, so "all" stands for an unset filter.
 const ALL = "all";
@@ -51,9 +50,11 @@ const isCommon = (value: ActivityEntityType | undefined) =>
 
 /**
  * The two filters the contract takes on this page, each single-valued:
- * entity type and actor kind, as v3 segmented controls (.segmented). The
- * options are the contract's own enums, so a new value appears here with its
- * label (which the copy tables require).
+ * entity type and actor kind, as segmented controls. Each shows its legend,
+ * named after the table column it narrows (Object, Actor), so the two rows
+ * that both start "All" never read as one. The options are the contract's
+ * own enums, so a new value appears here with its label (which the copy
+ * tables require).
  */
 export function ActivityFilterBar({
 	filters,
@@ -68,20 +69,20 @@ export function ActivityFilterBar({
 			className="flex flex-wrap items-center gap-2"
 		>
 			<Segmented
-				legend="Entity"
-				testId="activity-filter-entity"
-				value={isCommon(filters.entityType) ? filters.entityType : undefined}
-				allPressed={filters.entityType === undefined}
-				options={COMMON_ENTITIES.map((value) => ({
-					value,
-					label: ENTITY_LABEL[value],
-				}))}
-				onChange={(entityType) =>
-					onChange({
-						...filters,
-						entityType: entityType as ActivityEntityType | undefined,
-					})
-				}
+				data-testid="activity-filter-entity"
+				legend="Object"
+				showLegend
+				// An entity chosen under More matches no segment, so All is not
+				// pressed either: More is.
+				value={filters.entityType}
+				options={[
+					{ value: undefined, label: "All" },
+					...COMMON_ENTITIES.map((value) => ({
+						value,
+						label: ENTITY_LABEL[value],
+					})),
+				]}
+				onChange={(entityType) => onChange({ ...filters, entityType })}
 			>
 				<MoreEntities
 					value={isCommon(filters.entityType) ? undefined : filters.entityType}
@@ -89,71 +90,21 @@ export function ActivityFilterBar({
 				/>
 			</Segmented>
 			<Segmented
+				data-testid="activity-filter-actor"
 				legend="Actor"
-				testId="activity-filter-actor"
+				showLegend
 				value={filters.actorKind}
 				// In the segment map's order, people first: You, Agents, Runner,
 				// Canon. The map covers every kind the contract has.
-				options={(Object.keys(ACTOR_SEGMENT) as ActivityActorKind[]).map(
-					(value) => ({ value, label: ACTOR_SEGMENT[value] }),
-				)}
-				onChange={(actorKind) =>
-					onChange({
-						...filters,
-						actorKind: actorKind as ActivityActorKind | undefined,
-					})
-				}
+				options={[
+					{ value: undefined, label: "All" },
+					...(Object.keys(ACTOR_SEGMENT) as ActivityActorKind[]).map(
+						(value) => ({ value, label: ACTOR_SEGMENT[value] }),
+					),
+				]}
+				onChange={(actorKind) => onChange({ ...filters, actorKind })}
 			/>
 		</div>
-	);
-}
-
-/** One segmented row: All, then each option, the chosen one pressed. */
-function Segmented({
-	legend,
-	testId,
-	value,
-	allPressed = value === undefined,
-	options,
-	onChange,
-	children,
-}: {
-	legend: string;
-	testId: string;
-	/** All is pressed: nothing chosen, here or under More. */
-	allPressed?: boolean;
-	/** Unset when All is chosen, or when the choice lives under More. */
-	value: string | undefined;
-	options: { value: string; label: string }[];
-	onChange: (value: string | undefined) => void;
-	children?: React.ReactNode;
-}) {
-	return (
-		<fieldset
-			data-testid={testId}
-			className={cn(tabsListVariants({ variant: "default" }), "flex-wrap")}
-		>
-			<legend className="sr-only">{legend}</legend>
-			{[{ value: ALL, label: "All" }, ...options].map((option) => {
-				const pressed =
-					option.value === ALL ? allPressed : option.value === value;
-				return (
-					<Button
-						key={option.value}
-						type="button"
-						variant="segment"
-						aria-pressed={pressed}
-						data-testid={`${testId}-${option.value}`}
-						onClick={() =>
-							onChange(option.value === ALL ? undefined : option.value)
-						}
-					>
-						{option.label}
-					</Button>
-				);
-			})}
-			{children}
-		</fieldset>
 	);
 }
 
@@ -187,9 +138,11 @@ function MoreEntities({
 					size="sm"
 					data-testid="activity-filter-entity-more"
 					aria-pressed={value !== undefined}
+					// A segment's height and look: quiet at rest, the pressed chip
+					// once it holds the choice.
 					className={cn(
-						"h-7 border-transparent bg-transparent shadow-none",
-						value !== undefined && "bg-chip text-text",
+						"rounded-sm border-transparent bg-transparent px-2.5 type-small text-text-muted shadow-none hover:text-text data-[size=sm]:h-6",
+						value !== undefined && "border-border bg-chip text-text shadow-btn",
 					)}
 				>
 					<SelectValue>{value ? ENTITY_LABEL[value] : "More"}</SelectValue>
