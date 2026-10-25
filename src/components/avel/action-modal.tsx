@@ -203,6 +203,20 @@ export function useInlineModals(): boolean {
 	return useContext(InlineModalContext);
 }
 
+/**
+ * What a modal opens on: its first field that takes input. The close
+ * button and the footer's buttons are not fields, so a modal with none
+ * keeps Radix's own first focus.
+ */
+const FIRST_FIELD = [
+	// Not a library's hidden helper input (aria-hidden, out of the tab order).
+	'input:not([type=hidden]):not([aria-hidden=true]):not([tabindex="-1"]):not(:disabled)',
+	"textarea:not(:disabled)",
+	"select:not(:disabled)",
+	"[role=radio]:not([aria-disabled=true]):not(:disabled)",
+	"[role=combobox]:not(:disabled)",
+].join(", ");
+
 /** The dialog's root, then either the portal and content, or in place. */
 function ModalRoot({
 	open,
@@ -340,6 +354,19 @@ export function ActionModal(props: ActionModalProps) {
 				onKeyDown: (event: KeyboardEvent) => {
 					if (isShortcut(event, "Enter")) event.preventDefault();
 					if (submitsOn(event, blocked)) onSubmit();
+				},
+				onOpenAutoFocus: (event: Event) => {
+					// Start on the first field, not the close button, which is
+					// the first thing that takes focus and drew a ring on open.
+					// Not on touch: focusing a text field would raise the keyboard
+					// over the sheet before anything is read.
+					if (window.matchMedia?.("(pointer: coarse)").matches) return;
+					const field = (
+						event.currentTarget as HTMLElement | null
+					)?.querySelector<HTMLElement>(FIRST_FIELD);
+					if (!field) return;
+					event.preventDefault();
+					field.focus();
 				},
 				onEscapeKeyDown: (event) => {
 					// Esc on the discard question keeps editing.
