@@ -11,7 +11,6 @@ import {
 	Rows3,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -22,6 +21,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { CUT_LABEL } from "@/lib/api/presets";
 import { entryName, rosterReadOnlyReason, useRoster } from "@/lib/api/roster";
 import { LoadoutBoard } from "./loadout-board";
 import { focusParam, LoadoutCoherence, parseFocus } from "./loadout-coherence";
@@ -30,12 +30,15 @@ import {
 	RemoveEntryModal,
 	SaveRosterPresetModal,
 } from "./loadout-entry";
+import { MISSION_STATUS_TONE } from "./mission-columns";
 import { useMission } from "./mission-data";
 import { MissionRowsSkeleton } from "./mission-panels";
+import { STATUS_PANEL } from "./mission-search";
 import { MissionSkillsPane } from "./mission-skills-pane";
 import { blockCopy, useCoherence } from "./playbook-coherence";
 import { ApplyToMissionModal } from "./preset-apply";
 import { type Names, useAllTemplates } from "./preset-detail";
+import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 import { type ViewOption, ViewToggle } from "./view-toggle";
 
@@ -212,10 +215,20 @@ function LoadoutWorkspace({
 	return (
 		<div data-testid="loadout" className="flex flex-col gap-4">
 			<div className="flex flex-wrap items-center gap-2">
-				<Badge variant="tag" data-testid="loadout-status">
-					{mission.status}
-				</Badge>
-				<Badge variant="tag">{`${mission.cut} cut`}</Badge>
+				{/* The status as every mission page shows it, and the cut in
+				    words, not the raw values. */}
+				<StatusPill
+					size="sm"
+					tone={MISSION_STATUS_TONE[mission.status]}
+					label={STATUS_PANEL[mission.status].label}
+					data-testid="loadout-status"
+				/>
+				<span
+					data-testid="loadout-cut"
+					className="type-caption text-text-muted"
+				>
+					{`Cut ${CUT_LABEL[mission.cut].toLowerCase()}`}
+				</span>
 				<ViewToggle
 					options={LOADOUT_VIEWS}
 					view={view}

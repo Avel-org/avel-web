@@ -10,6 +10,7 @@ import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ApiError } from "@/lib/api/errors";
+import { CUT_LABEL } from "@/lib/api/presets";
 import { entryName, useRoster, waveTitle } from "@/lib/api/roster";
 import { cn } from "@/lib/utils";
 import { MissionSpendBar } from "./dispatch-budget";
@@ -517,8 +518,10 @@ function Repository({ mission }: { mission: MissionDetail }) {
 					</a>
 				</Field>
 				<Field label="Cut">
-					<span className="type-mono">{mission.cut}</span>
-					<span className="text-text-subtle">{` (${mission.cutSource})`}</span>
+					{CUT_LABEL[mission.cut]}
+					<span className="text-text-subtle">
+						{mission.cutSource === "derived" ? " (derived)" : " (overridden)"}
+					</span>
 				</Field>
 				{mission.cutRationale ? (
 					<Field label="Why the cut was overridden">

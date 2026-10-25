@@ -416,6 +416,17 @@ describe("a mission that is not a draft", () => {
 		expect(tagOf(html, "loadout-palette-atlas")).toContain('disabled=""');
 	});
 
+	it("names the status and the cut in words, not their raw values", async () => {
+		const html = await renderRoute(
+			PAGE,
+			...everything(mission({ status: "active" })),
+		);
+		expect(element(html, "loadout-status")).toMatch(/>Active<\/span>$/);
+		expect(element(html, "loadout-cut")).toMatch(
+			/>Cut by (feature|layer)<\/span>$/,
+		);
+	});
+
 	it("is editable as a draft", async () => {
 		const html = await renderRoute(PAGE, ...everything());
 		expect(html).not.toContain('data-testid="loadout-read-only"');
