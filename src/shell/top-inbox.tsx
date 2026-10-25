@@ -276,12 +276,14 @@ function InboxSection({
 								to="/missions/$id"
 								params={{ id: mission.id }}
 								data-testid={`global-inbox-mission-${mission.id}`}
-								className="flex items-center gap-2 rounded-control px-1 py-1.5 hover:bg-app-raised"
+								// The reason under the name, as the Needs you panel shows it:
+								// side by side, the reason took the room the name needs.
+								className="flex flex-col gap-0.5 rounded-control px-1 py-1.5 hover:bg-app-raised"
 							>
-								<span className="type-small min-w-0 flex-1 truncate text-foreground">
+								<span className="type-small min-w-0 truncate text-foreground">
 									{missionLabel(mission)}
 								</span>
-								<span className="type-caption shrink-0 text-gate-warn">
+								<span className="type-caption text-gate-warn">
 									{mission.needsYou
 										? NEEDS_YOU_COPY[mission.needsYou.reason]
 										: ""}
