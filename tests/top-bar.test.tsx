@@ -71,6 +71,15 @@ describe("the inbox", () => {
 		);
 	});
 
+	it("counts pending proposals as their own part", () => {
+		expect(inboxLabel({ client: 1, internal: 0 }, 2)).toBe(
+			"Inbox, 3 items need you (1 client, 0 internal, 2 proposals)",
+		);
+		expect(inboxLabel({ client: 0, internal: 0 }, 0)).toBe(
+			"Inbox, nothing needs you",
+		);
+	});
+
 	it("takes the count from meta and at most five rows from the first page", () => {
 		const rows = Array.from({ length: 7 }, (_, i) => needing(i + 1, "client"));
 		const list = {
@@ -192,6 +201,37 @@ describe("the inbox", () => {
 		expect(html).toMatch(
 			/data-testid="global-inbox-empty"[^>]*>Nothing needs you\.</,
 		);
+	});
+
+	it("leads with pending proposals while any wait, and none when none do", () => {
+		const clear = [
+			{
+				origin: "client" as const,
+				inbox: { count: 0, missions: [] },
+				failed: false,
+			},
+			{
+				origin: "internal" as const,
+				inbox: { count: 0, missions: [] },
+				failed: false,
+			},
+		];
+		const waiting = inRouter(
+			<InboxPanel
+				sections={clear}
+				proposals={{ count: 1, node: <p data-testid="proposals-node" /> }}
+			/>,
+		);
+		expect(waiting).toContain('data-testid="proposals-node"');
+		expect(waiting).not.toContain("global-inbox-empty");
+		const none = inRouter(
+			<InboxPanel
+				sections={clear}
+				proposals={{ count: 0, node: <p data-testid="proposals-node" /> }}
+			/>,
+		);
+		expect(none).not.toContain("proposals-node");
+		expect(none).toContain("global-inbox-empty");
 	});
 
 	it("is quiet about a failed origin, and keeps the other", () => {

@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { MissionListItem } from "avel-server/contract";
 import { Inbox as InboxIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import {
 	type MissionList,
 	missionListQuery,
@@ -13,6 +14,10 @@ import {
 	ORIGINS,
 	type Origin,
 } from "@/components/avel/mission-search";
+import {
+	ProposalsSection,
+	proposalCountLabel,
+} from "@/components/avel/proposal-inbox";
 import { Button } from "@/components/ui/button";
 import {
 	Popover,
@@ -25,6 +30,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useApiClient } from "@/lib/api";
+import { usePendingProposals } from "@/lib/api/proposals";
 import { missionLabel } from "./command-search";
 
 /** At most this many missions per origin in the popover. */
@@ -65,16 +71,22 @@ export function inboxOf(list: MissionList): InboxOrigin | undefined {
  * The inbox's name, with the split always in it. Client and internal
  * missions are never counted as one figure without saying which is which
  * (DATA-CONTRACTS-V2.md, Mission), so the total only ever appears with its
- * parts. Undefined parts are still loading or failed, and are left out.
+ * parts; pending proposals are a part of their own. Undefined parts are
+ * still loading or failed, and are left out.
  */
-export function inboxLabel(counts: Partial<Record<Origin, number>>): string {
+export function inboxLabel(
+	counts: Partial<Record<Origin, number>>,
+	proposals?: number,
+): string {
 	const known = ORIGINS.filter((o) => counts[o] !== undefined);
-	if (known.length === 0) return "Inbox";
-	const total = known.reduce((sum, o) => sum + (counts[o] ?? 0), 0);
+	if (known.length === 0 && proposals === undefined) return "Inbox";
+	const total =
+		known.reduce((sum, o) => sum + (counts[o] ?? 0), 0) + (proposals ?? 0);
 	if (total === 0) return "Inbox, nothing needs you";
-	const parts = known
-		.map((o) => `${counts[o]} ${ORIGIN_LABEL[o].toLowerCase()}`)
-		.join(", ");
+	const parts = [
+		...known.map((o) => `${counts[o]} ${ORIGIN_LABEL[o].toLowerCase()}`),
+		...(proposals === undefined ? [] : [proposalCountLabel(proposals)]),
+	].join(", ");
 	return `Inbox, ${total} ${total === 1 ? "item needs" : "items need"} you (${parts})`;
 }
 
@@ -93,8 +105,11 @@ export function Inbox() {
 		client: inbox.client?.count,
 		internal: inbox.internal?.count,
 	};
-	const label = inboxLabel(counts);
-	const total = (counts.client ?? 0) + (counts.internal ?? 0);
+	const proposals = usePendingProposals();
+	const proposalCount = proposals.data?.meta.total;
+	const label = inboxLabel(counts, proposalCount);
+	const total =
+		(counts.client ?? 0) + (counts.internal ?? 0) + (proposalCount ?? 0);
 
 	return (
 		<Popover>
@@ -126,6 +141,16 @@ export function Inbox() {
 						inbox: inbox[origin],
 						failed: byOrigin[origin].status === "error",
 					}))}
+					proposals={{
+						count: proposalCount,
+						node: (
+							<ProposalsSection
+								proposals={proposals.data?.data}
+								count={proposalCount}
+								failed={proposals.status === "error"}
+							/>
+						),
+					}}
 				/>
 			</PopoverContent>
 		</Popover>
@@ -148,13 +173,19 @@ export function InboxBadge({ total }: { total: number }) {
 	);
 }
 
-/** The popover: one labelled section per origin, never mixed. */
+/**
+ * The popover: pending proposals, then one labelled section per origin,
+ * never mixed. Proposals show only while some are waiting.
+ */
 export function InboxPanel({
 	sections,
+	proposals,
 }: {
 	sections: { origin: Origin; inbox?: InboxOrigin; failed: boolean }[];
+	proposals?: { count: number | undefined; node: ReactNode };
 }) {
-	const nothing = sections.every((s) => s.inbox?.count === 0);
+	const waiting = (proposals?.count ?? 0) > 0;
+	const nothing = sections.every((s) => s.inbox?.count === 0) && !waiting;
 	return (
 		<div className="flex flex-col">
 			<p className="type-title border-b border-border px-3 py-2 text-foreground">
@@ -168,9 +199,12 @@ export function InboxPanel({
 					Nothing needs you.
 				</p>
 			) : (
-				sections.map((section) => (
-					<InboxSection key={section.origin} {...section} />
-				))
+				<>
+					{waiting ? proposals?.node : null}
+					{sections.map((section) => (
+						<InboxSection key={section.origin} {...section} />
+					))}
+				</>
 			)}
 			<div className="border-t border-border px-3 py-2">
 				<Button variant="link" size="sm" className="h-auto px-0" asChild>

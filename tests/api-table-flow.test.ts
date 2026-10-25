@@ -50,6 +50,7 @@ import {
 	updatePlaybookOptions,
 } from "@/lib/api/playbooks";
 import { afterPresetApplied, afterPresetWrite } from "@/lib/api/presets";
+import { afterProposalDecided } from "@/lib/api/proposals";
 import { afterRepoPolicySet } from "@/lib/api/repo-policies";
 import { settleRosterWrite } from "@/lib/api/roster";
 import { afterSkillSourceWrite, afterSkillWrite } from "@/lib/api/skills";
@@ -126,6 +127,7 @@ const KEY: Record<ReadName, readonly unknown[]> = {
 	"connections.activeFor": queryKeys.connections.activeFor(E, 50),
 	"connections.detail": queryKeys.connections.detail(CONNECTION),
 	"repoPolicies.list": queryKeys.repoPolicies.list(50),
+	"proposals.pending": queryKeys.proposals.pending(5),
 	"clients.list": queryKeys.clients.list(50),
 	"clients.detail": queryKeys.clients.detail(C),
 	"engagements.byClient": queryKeys.engagements.byClient(C, 50),
@@ -215,6 +217,8 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	closeEngagement: (qc) => afterEngagementClosed(qc),
 	createConnection: (qc) => afterConnectionCreated(qc),
 	setRepoPolicy: (qc) => afterRepoPolicySet(qc),
+	approveProposal: (qc) => afterProposalDecided(qc),
+	dismissProposal: (qc) => afterProposalDecided(qc),
 	addRosterEntry: (qc) => settleRosterWrite(qc, M, (r) => r),
 	updateRosterEntry: (qc) => settleRosterWrite(qc, M, (r) => r),
 	removeRosterEntry: (qc) => settleRosterWrite(qc, M, (r) => r),

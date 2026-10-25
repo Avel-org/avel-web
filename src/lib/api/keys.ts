@@ -172,6 +172,13 @@ export const queryKeys = {
 		 */
 		detail: (id: string) => ["connections", "detail", id] as const,
 	},
+	proposals: {
+		/** Everything under contract.proposals. */
+		all: () => ["proposals"] as const,
+		/** contract.proposals.list, pending only: the inbox's first page. */
+		pending: (limit: number) =>
+			["proposals", "list", { status: "pending", limit }] as const,
+	},
 	repoPolicies: {
 		/** Everything under contract.repoPolicies. */
 		all: () => ["repoPolicies"] as const,

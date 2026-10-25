@@ -34,6 +34,7 @@ export type Table =
 	| "mission"
 	| "mission_skills"
 	| "playbook"
+	| "proposal"
 	| "repo_policy"
 	| "roster_entry"
 	| "roster_preset"
@@ -61,6 +62,8 @@ export const WRITES = {
 	closeEngagement: ["engagement", "connection", "activity_log"],
 	createConnection: ["connection", "activity_log"],
 	setRepoPolicy: ["repo_policy", "activity_log"],
+	approveProposal: ["proposal", "activity_log"],
+	dismissProposal: ["proposal", "activity_log"],
 	addRosterEntry: ["roster_entry", "activity_log"],
 	updateRosterEntry: ["roster_entry", "activity_log"],
 	removeRosterEntry: ["roster_entry", "activity_log"],
@@ -159,6 +162,7 @@ export const READS = {
 	"connections.activeFor": ["connection"],
 	"connections.detail": ["connection"],
 	"repoPolicies.list": ["repo_policy"],
+	"proposals.pending": ["proposal"],
 	"clients.list": ["client", "engagement"],
 	"clients.detail": ["client", "engagement"],
 	"engagements.byClient": ["engagement"],
