@@ -132,9 +132,13 @@ export function NewIntakeForm({
 	const [questions, setQuestions] = useState("");
 	const [sourceMissing, setSourceMissing] = useState(false);
 	// A choice made under another client (New mission's picker changed) no
-	// longer names one of these engagements.
+	// longer names one of these engagements. With a picker, nothing counts
+	// as chosen while the new client's engagements load: the old choice
+	// would create the intake under the client just left.
 	const listed =
-		engagements === undefined || engagements.some((e) => e.id === chosen);
+		engagements === undefined
+			? clientPicker === undefined
+			: engagements.some((e) => e.id === chosen);
 	const engagement = chosen !== "" && listed ? chosen : (only ?? "");
 	const noClient = clientPicker !== undefined && clientName === "";
 	const none =

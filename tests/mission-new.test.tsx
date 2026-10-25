@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { InlineModals } from "@/components/avel/action-modal";
+import { NewIntakeForm } from "@/components/avel/intake-new";
 import { NewMissionModal } from "@/components/avel/mission-new";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiProvider } from "@/lib/api";
@@ -79,6 +80,31 @@ describe("New mission", () => {
 	it("says to add a client when there is no active one", () => {
 		const html = render([]);
 		expect(html).toContain('data-testid="mission-new-no-client"');
+		expect(tagOf(html, "intake-new-submit")).toContain('disabled=""');
+	});
+
+	it("drops an engagement chosen under another client while the new one's load", () => {
+		const { client: api } = fakeApi();
+		const html = renderToString(
+			<ApiProvider client={api}>
+				<QueryClientProvider client={new QueryClient()}>
+					<TooltipProvider>
+						<InlineModals>
+							<NewIntakeForm
+								clientName={C2.name}
+								clientPicker={<span />}
+								// Chosen under C1, before the picker moved to C2.
+								engagementId={E1.id}
+								engagements={undefined}
+								pending={false}
+								error={null}
+								onSubmit={() => {}}
+							/>
+						</InlineModals>
+					</TooltipProvider>
+				</QueryClientProvider>
+			</ApiProvider>,
+		);
 		expect(tagOf(html, "intake-new-submit")).toContain('disabled=""');
 	});
 
