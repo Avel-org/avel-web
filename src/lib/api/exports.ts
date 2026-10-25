@@ -77,6 +77,20 @@ export function exportQuery(api: ApiClient, id: string) {
 export const EXPORT_POLL_MS = 3_000;
 
 /**
+ * How often an open pull request's export is read: GitHub's webhook moves
+ * it to done or closed on the server (2026-10-24), and this picks that up
+ * without a refresh. Slower than delivering, which settles in seconds.
+ */
+export const PR_OPEN_POLL_MS = 15_000;
+
+/** How often an export is read again for its status, or false when settled. */
+export function exportPollMs(exp: Pick<ExportWire, "status"> | undefined) {
+	if (exp?.status === "delivering") return EXPORT_POLL_MS;
+	if (exp?.status === "pr-open") return PR_OPEN_POLL_MS;
+	return false;
+}
+
+/**
  * Reads nothing until there is an id to read. While it is delivering (a
  * resend answered before the first request finished) it reads again.
  */
@@ -84,8 +98,7 @@ export function useExport(id: string | null) {
 	return useQuery({
 		...exportQuery(useApiClient(), id ?? ""),
 		enabled: id !== null,
-		refetchInterval: (query) =>
-			query.state.data?.status === "delivering" ? EXPORT_POLL_MS : false,
+		refetchInterval: (query) => exportPollMs(query.state.data),
 	});
 }
 

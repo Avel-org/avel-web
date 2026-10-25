@@ -16,13 +16,20 @@ import type {
 	PreviewExportBody,
 } from "@/lib/api/exports";
 import { useActiveConnectionsFor } from "@/lib/api/intakes";
+import {
+	loadedRepoPolicies,
+	policyFor,
+	useRepoPolicies,
+} from "@/lib/api/repo-policies";
 
 /*
- * Where an export goes, on the pre-flight screen: a zip, or a GitHub pull
- * request through one of the engagement's connections onto a base branch
- * (the repository's default when left blank). A push straight to GitHub is
- * not built. Delivery sends what the preview recorded, so a choice changed
- * since the preview has to be previewed again first.
+ * Where an export goes, on the pre-flight screen: a zip, a GitHub pull
+ * request onto a base branch, or a push to a branch, each GitHub target
+ * through one of the engagement's connections (the repository's default
+ * branch when left blank). A push to the default branch needs the
+ * repository's policy to allow it (2026-10-24); the preview records the
+ * block when it does not. Delivery sends what the preview recorded, so a
+ * choice changed since the preview has to be previewed again first.
  */
 
 export const TARGETS = [
@@ -46,7 +53,7 @@ export const ZIP_CHOICE: TargetChoice = {
 
 /** The choice a preview was made with, to start from. */
 export function choiceOf(exp: ExportWire | null): TargetChoice {
-	if (exp === null || exp.targetKind === "github_push") return ZIP_CHOICE;
+	if (exp === null) return ZIP_CHOICE;
 	return {
 		target: exp.targetKind,
 		connectionId: exp.connectionId ?? "",
@@ -62,11 +69,9 @@ export function targetOffReason(
 	target: ExportTarget,
 	engagementId: string | null | undefined,
 ): string | null {
-	if (target === "github_push")
-		return "Pushing straight to GitHub isn't built yet";
-	if (target === "github_pr" && engagementId === undefined)
-		return "Reading the mission";
-	if (target === "github_pr" && engagementId === null)
+	if (target === "zip") return null;
+	if (engagementId === undefined) return "Reading the mission";
+	if (engagementId === null)
 		return "Only a client mission has a repository to deliver to";
 	return null;
 }
@@ -137,11 +142,14 @@ export function TargetPicker({
 	choice,
 	onChange,
 	engagementId,
+	repoUrl = null,
 }: {
 	choice: TargetChoice;
 	onChange: (choice: TargetChoice) => void;
 	/** The mission's engagement, whose connections a GitHub target uses; undefined while it reads. */
 	engagementId: string | null | undefined;
+	/** The mission's repository, whose policy a push reads. */
+	repoUrl?: string | null;
 }) {
 	return (
 		<div className="flex flex-col gap-3">
@@ -164,12 +172,15 @@ export function TargetPicker({
 					</Button>
 				))}
 			</fieldset>
-			{choice.target === "github_pr" && engagementId ? (
+			{choice.target !== "zip" && engagementId ? (
 				<GitHubFields
 					choice={choice}
 					onChange={onChange}
 					engagementId={engagementId}
 				/>
+			) : null}
+			{choice.target === "github_push" ? (
+				<PushPolicyLine repoUrl={repoUrl} />
 			) : null}
 		</div>
 	);
@@ -240,7 +251,7 @@ function GitHubFields({
 					htmlFor={`${id}-ref`}
 					className="type-small font-medium text-text"
 				>
-					Base branch
+					{choice.target === "github_push" ? "Branch" : "Base branch"}
 				</label>
 				<Input
 					id={`${id}-ref`}
@@ -253,5 +264,31 @@ function GitHubFields({
 				/>
 			</div>
 		</div>
+	);
+}
+
+/**
+ * Whether this repository takes a direct push to its default branch: its
+ * policy's word, or the safe default when it has none. The preview records
+ * the block either way; this says so before it runs.
+ */
+export function PushPolicyLine({ repoUrl }: { repoUrl: string | null }) {
+	const policies = useRepoPolicies();
+	const policy = policyFor(loadedRepoPolicies(policies.data), repoUrl);
+	const allowed = policy?.allowDirectPushToDefault ?? false;
+	return (
+		<p
+			data-testid="export-push-policy"
+			data-allowed={allowed}
+			className="type-small text-text-muted"
+		>
+			{policies.status === "pending"
+				? "Reading this repository's policy."
+				: allowed
+					? "This repository's policy allows a push straight to its default branch."
+					: policy
+						? "This repository's policy doesn't allow a push to its default branch: name another branch."
+						: "This repository has no policy, so a push can't go to its default branch: name another branch, or allow it in Settings, Repositories."}
+		</p>
 	);
 }

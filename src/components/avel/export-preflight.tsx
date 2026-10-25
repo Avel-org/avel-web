@@ -100,6 +100,7 @@ export function ExportPreflight({
 						choice={choice}
 						onChoice={setChoice}
 						engagementId={engagementId}
+						repoUrl={mission?.repoUrl ?? null}
 						onPreviewed={onPreviewed}
 					/>
 				</SectionPanel>
@@ -175,6 +176,7 @@ function Ships({
 	choice,
 	onChoice,
 	engagementId,
+	repoUrl,
 	onPreviewed,
 }: {
 	missionId: string;
@@ -188,6 +190,8 @@ function Ships({
 	onChoice: (choice: TargetChoice) => void;
 	/** The mission's engagement, whose connections a GitHub target uses. */
 	engagementId: string | null | undefined;
+	/** The mission's repository, whose policy a push reads. */
+	repoUrl: string | null;
 	onPreviewed: (id: string) => void;
 }) {
 	const previewExport = usePreviewExport();
@@ -243,6 +247,7 @@ function Ships({
 						choice={choice}
 						onChange={onChoice}
 						engagementId={engagementId}
+						repoUrl={repoUrl}
 					/>
 				</div>
 				<Button

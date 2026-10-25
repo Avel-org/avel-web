@@ -39,6 +39,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError, ApiOverrideProvider, ApiProvider } from "@/lib/api";
 import {
 	exportAttemptFor,
+	exportPollMs,
 	refreshable,
 	writtenExportId,
 } from "@/lib/api/exports";
@@ -68,6 +69,7 @@ const exp = (extra: Partial<ExportWire> = {}): ExportWire =>
 		dryRun: true,
 		previewExportId: null,
 		pullRequest: null,
+		push: null,
 		failure: null,
 		gateRun: {
 			id: RUN,
@@ -484,6 +486,46 @@ describe("a GitHub pull request export", () => {
 		expect(targetOffReason("github_pr", undefined)).toBe("Reading the mission");
 	});
 
+	it("offers a push like a pull request: a client mission's, through a connection, to a branch", () => {
+		expect(targetOffReason("github_push", ENGAGEMENT)).toBeNull();
+		expect(targetOffReason("github_push", null)).toBe(
+			"Only a client mission has a repository to deliver to",
+		);
+		const pushed = exp({
+			targetKind: "github_push",
+			connectionId: CONNECTION,
+			baseRef: "avel/sprint-2",
+		});
+		expect(choiceOf(pushed)).toEqual({
+			target: "github_push",
+			connectionId: CONNECTION,
+			ref: "avel/sprint-2",
+		});
+	});
+
+	it("reads a delivering export every 3 s, an open pull request every 15 s, and a settled one never", () => {
+		expect(exportPollMs({ status: "delivering" })).toBe(3_000);
+		expect(exportPollMs({ status: "pr-open" })).toBe(15_000);
+		expect(exportPollMs({ status: "done" })).toBe(false);
+		expect(exportPollMs(undefined)).toBe(false);
+	});
+
+	it("names the branch and commit a done push wrote", async () => {
+		const done = exp({
+			targetKind: "github_push",
+			dryRun: false,
+			connectionId: CONNECTION,
+			status: "done",
+			push: { branch: "avel/sprint-2", commitSha: "c".repeat(40) },
+		});
+		const html = await page(done);
+		expect(element(html, "export-status-push-branch")).toContain(
+			"avel/sprint-2",
+		);
+		expect(html).toContain('data-testid="export-status-push-commit"');
+		expect(html).not.toContain('data-testid="export-status-pr"');
+	});
+
 	it("links the pull request on GitHub and offers to check it there", async () => {
 		const html = await page(pr());
 		expect(tagOf(html, "export-status-pr-link")).toContain(
@@ -520,6 +562,7 @@ describe("a GitHub pull request export", () => {
 			pr({
 				status: "failed",
 				pullRequest: null,
+				push: null,
 				failure: {
 					code: "GITHUB_REJECTED",
 					message: "GitHub refused the branch: it already exists.",

@@ -134,6 +134,9 @@ function Head({ exp, missionId }: { exp: ExportWire; missionId: string }) {
 				</div>
 			) : null}
 			{exp.pullRequest || refreshable(exp) ? <PullRequest exp={exp} /> : null}
+			{exp.targetKind === "github_push" && !exp.dryRun ? (
+				<Push exp={exp} />
+			) : null}
 			{exp.failure ? (
 				<div
 					role="alert"
@@ -164,6 +167,39 @@ function Head({ exp, missionId }: { exp: ExportWire; missionId: string }) {
 					</Button>
 				</div>
 			) : null}
+		</div>
+	);
+}
+
+/** A push's branch and the commit AVEL wrote there, once it is done. */
+function Push({ exp }: { exp: ExportWire }) {
+	const push = exp.push;
+	return (
+		<div
+			data-testid="export-status-push"
+			className="flex flex-wrap items-center gap-x-2 gap-y-1 type-small text-text-muted"
+		>
+			{push ? (
+				<>
+					<span>Pushed to</span>
+					<span
+						data-testid="export-status-push-branch"
+						className="type-mono text-text"
+						title={push.branch}
+					>
+						{push.branch}
+					</span>
+					<ShortHash
+						value={push.commitSha}
+						label="the commit AVEL pushed"
+						data-testid="export-status-push-commit"
+					/>
+				</>
+			) : exp.status === "delivering" ? (
+				<span>AVEL is pushing the package to the branch.</span>
+			) : exp.status === "failed" ? null : (
+				<span>No push is recorded for this export.</span>
+			)}
 		</div>
 	);
 }
@@ -224,7 +260,8 @@ function PullRequest({ exp }: { exp: ExportWire }) {
 			{can ? (
 				<div className="flex flex-wrap items-center gap-2">
 					<p className="type-caption text-text-muted">
-						AVEL learns a merge or close only when it asks GitHub.
+						GitHub tells AVEL when the pull request is merged or closed, and
+						this page reads it every 15 s. Check on GitHub asks now.
 					</p>
 					<Button
 						size="sm"
