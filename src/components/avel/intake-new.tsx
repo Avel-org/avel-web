@@ -130,7 +130,6 @@ export function NewIntakeForm({
 	const [chosen, setChosen] = useState<string>(engagementId ?? only ?? "");
 	const [source, setSource] = useState("");
 	const [questions, setQuestions] = useState("");
-	const [sourceMissing, setSourceMissing] = useState(false);
 	// A choice made under another client (New mission's picker changed) no
 	// longer names one of these engagements. With a picker, nothing counts
 	// as chosen while the new client's engagements load: the old choice
@@ -144,13 +143,7 @@ export function NewIntakeForm({
 	const none =
 		!noClient && engagements !== undefined && engagements.length === 0;
 
-	const submit = () => {
-		if (source.trim() === "") {
-			setSourceMissing(true);
-			return;
-		}
-		onSubmit(newIntakeBody(engagement, source, questions));
-	};
+	const submit = () => onSubmit(newIntakeBody(engagement, source, questions));
 
 	return (
 		<ActionModal
@@ -169,7 +162,9 @@ export function NewIntakeForm({
 						? "Start an engagement first."
 						: engagement === ""
 							? "Choose an engagement."
-							: undefined
+							: source.trim() === ""
+								? "Write what the client asked for."
+								: undefined
 			}
 			onSubmit={submit}
 			pending={pending}
@@ -219,11 +214,6 @@ export function NewIntakeForm({
 				name="sourceMd"
 				label="What the client asked for"
 				hint="Markdown"
-				error={
-					sourceMissing
-						? "Paste or write what the client asked for."
-						: undefined
-				}
 				testid="intake-new-source"
 			>
 				{(props) => (
@@ -233,10 +223,7 @@ export function NewIntakeForm({
 						maxLength={SOURCE_MAX}
 						placeholder="Their request, an email, call notes or an existing brief. Canon reads this when it briefs the intake."
 						value={source}
-						onChange={(e) => {
-							setSource(e.target.value);
-							setSourceMissing(false);
-						}}
+						onChange={(e) => setSource(e.target.value)}
 					/>
 				)}
 			</ModalField>

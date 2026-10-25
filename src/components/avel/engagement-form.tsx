@@ -87,7 +87,6 @@ export function EngagementForm({
 	const [name, setName] = useState("");
 	const [scope, setScope] = useState("");
 	const [started, setStarted] = useState(today);
-	const [nameMissing, setNameMissing] = useState(false);
 	const changes = fieldChanges(
 		undefined,
 		{ name: name.trim(), scope: scope.trim(), started },
@@ -99,10 +98,6 @@ export function EngagementForm({
 	);
 
 	const submit = () => {
-		if (name.trim() === "") {
-			setNameMissing(true);
-			return;
-		}
 		onSubmit({
 			clientId,
 			name: name.trim(),
@@ -126,6 +121,10 @@ export function EngagementForm({
 			dirty={name.trim() !== "" || scope.trim() !== "" || started !== today}
 			submitLabel="Start engagement"
 			pendingLabel="Starting"
+			// What is missing shows on the button before it is pressed.
+			submitDisabledReason={
+				name.trim() === "" ? "Give the engagement a name." : undefined
+			}
 			onSubmit={submit}
 			pending={pending}
 			error={error}
@@ -136,24 +135,14 @@ export function EngagementForm({
 			}
 			data-testid="engagement-form"
 		>
-			<ModalField
-				name="name"
-				label="Name"
-				error={
-					nameMissing ? "Give it a name of 1 to 200 characters." : undefined
-				}
-				testid="engagement-form-name"
-			>
+			<ModalField name="name" label="Name" testid="engagement-form-name">
 				{(props) => (
 					<Input
 						{...props}
 						required
 						maxLength={200}
 						value={name}
-						onChange={(e) => {
-							setName(e.target.value);
-							setNameMissing(false);
-						}}
+						onChange={(e) => setName(e.target.value)}
 					/>
 				)}
 			</ModalField>
@@ -264,7 +253,6 @@ export function EngagementEditForm({
 }) {
 	const [name, setName] = useState(engagement.name);
 	const [scope, setScope] = useState(engagement.scopeMd ?? "");
-	const [nameMissing, setNameMissing] = useState(false);
 	const before = { name: engagement.name, scope: engagement.scopeMd ?? "" };
 	const after = { name: name.trim(), scope: scope.trim() };
 	const changes = fieldChanges(before, after, [
@@ -272,13 +260,7 @@ export function EngagementEditForm({
 		{ key: "scope", label: "Scope" },
 	]);
 
-	const submit = () => {
-		if (after.name === "") {
-			setNameMissing(true);
-			return;
-		}
-		onSubmit(engagementEditBody(engagement, name, scope));
-	};
+	const submit = () => onSubmit(engagementEditBody(engagement, name, scope));
 
 	return (
 		<ActionModal
@@ -291,7 +273,11 @@ export function EngagementEditForm({
 			submitLabel="Save engagement"
 			pendingLabel="Saving"
 			submitDisabledReason={
-				changes.length === 0 ? "Nothing has changed yet." : undefined
+				changes.length === 0
+					? "Nothing has changed yet."
+					: after.name === ""
+						? "Give the engagement a name."
+						: undefined
 			}
 			onSubmit={submit}
 			pending={pending}
@@ -303,24 +289,14 @@ export function EngagementEditForm({
 			}
 			data-testid="engagement-edit"
 		>
-			<ModalField
-				name="name"
-				label="Name"
-				error={
-					nameMissing ? "Give it a name of 1 to 200 characters." : undefined
-				}
-				testid="engagement-edit-name"
-			>
+			<ModalField name="name" label="Name" testid="engagement-edit-name">
 				{(props) => (
 					<Input
 						{...props}
 						required
 						maxLength={200}
 						value={name}
-						onChange={(e) => {
-							setName(e.target.value);
-							setNameMissing(false);
-						}}
+						onChange={(e) => setName(e.target.value)}
 					/>
 				)}
 			</ModalField>

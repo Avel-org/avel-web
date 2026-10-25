@@ -188,6 +188,14 @@ describe("the client form", () => {
 		expect(html).toMatch(/data-testid="client-form-submit"[^>]*>Add client</);
 	});
 
+	it("holds Add client until it has a name, saying why before it is pressed", () => {
+		const html = form({});
+		const add = tagOf(html, "client-form-submit");
+		expect(add).toMatch(/\sdisabled=""/);
+		const id = add.match(/aria-describedby="([^"]+)"/)?.[1] ?? "";
+		expect(textOfId(html, id)).toBe("Give the client a name.");
+	});
+
 	it("in edit mode, holds Save until something changes, saying why", () => {
 		const html = form({ client: client(1) });
 		expect(tagOf(html, "client-form-name")).toContain('value="Client 1"');

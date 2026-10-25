@@ -74,7 +74,9 @@ describe("New mission", () => {
 		expect(tagOf(html, `intake-new-engagement-${E1.id}`)).toContain(
 			'data-state="checked"',
 		);
-		expect(tagOf(html, "intake-new-submit")).not.toContain('disabled=""');
+		// Client and engagement are settled; Create waits only for the request.
+		expect(html).toContain("Write what the client asked for.");
+		expect(html).not.toContain("Choose an engagement.");
 	});
 
 	it("says to add a client when there is no active one", () => {

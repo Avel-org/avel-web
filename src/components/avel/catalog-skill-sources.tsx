@@ -559,7 +559,6 @@ export function SourceForm({
 	onSubmit: (draft: SourceDraft) => void;
 }) {
 	const [draft, setDraft] = useState<SourceDraft>(() => sourceDraftOf(source));
-	const [nameMissing, setNameMissing] = useState(false);
 	const changes = fieldChanges(
 		source ? sourceDraftOf(source) : undefined,
 		draft,
@@ -574,7 +573,6 @@ export function SourceForm({
 		source !== undefined && sourcePatchOf(source, draft) === null;
 	const set = <K extends keyof SourceDraft>(key: K, value: SourceDraft[K]) => {
 		setDraft((current) => ({ ...current, [key]: value }));
-		if (key === "name") setNameMissing(false);
 	};
 	return (
 		<ActionModal
@@ -590,14 +588,15 @@ export function SourceForm({
 			dirty={changes.length > 0}
 			submitLabel={source ? "Save source" : "Add source"}
 			pendingLabel={source ? "Saving" : "Adding"}
-			submitDisabledReason={unchanged ? "Nothing has changed yet." : undefined}
-			onSubmit={() => {
-				if (draft.name.trim() === "") {
-					setNameMissing(true);
-					return;
-				}
-				onSubmit(draft);
-			}}
+			// What is missing shows on the button before it is pressed.
+			submitDisabledReason={
+				unchanged
+					? "Nothing has changed yet."
+					: draft.name.trim() === ""
+						? "Give the source a name."
+						: undefined
+			}
+			onSubmit={() => onSubmit(draft)}
 			pending={pending}
 			error={error}
 			describeIssue={sourceIssueCopy}
@@ -608,12 +607,7 @@ export function SourceForm({
 			}
 			data-testid="source-form"
 		>
-			<ModalField
-				name="name"
-				label="Name"
-				error={nameMissing ? SOURCE_FIELD_COPY.name : undefined}
-				testid="source-form-name"
-			>
+			<ModalField name="name" label="Name" testid="source-form-name">
 				{(props) => (
 					<Input
 						{...props}

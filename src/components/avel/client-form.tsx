@@ -129,7 +129,6 @@ export function ClientForm({
 	onSubmit: (draft: ClientDraft) => void;
 }) {
 	const [draft, setDraft] = useState<ClientDraft>(() => draftOf(client));
-	const [nameMissing, setNameMissing] = useState(false);
 	const before = client ? draftOf(client) : undefined;
 	const changes = fieldChanges(before, draft, [
 		{ key: "name", label: "Name" },
@@ -141,16 +140,15 @@ export function ClientForm({
 
 	const set = (field: keyof ClientDraft) => (value: string) => {
 		setDraft((current) => ({ ...current, [field]: value }));
-		if (field === "name") setNameMissing(false);
 	};
 
-	const submit = () => {
-		if (draft.name.trim() === "") {
-			setNameMissing(true);
-			return;
-		}
-		onSubmit(draft);
-	};
+	// The button says what is missing, before it is pressed, as every
+	// form does; nothing is checked only after a press.
+	const blocker = unchanged
+		? "Nothing has changed yet."
+		: draft.name.trim() === ""
+			? "Give the client a name."
+			: undefined;
 
 	return (
 		<ActionModal
@@ -166,8 +164,8 @@ export function ClientForm({
 			dirty={changes.length > 0}
 			submitLabel={client ? "Save client" : "Add client"}
 			pendingLabel={client ? "Saving" : "Adding"}
-			submitDisabledReason={unchanged ? "Nothing has changed yet." : undefined}
-			onSubmit={submit}
+			submitDisabledReason={blocker}
+			onSubmit={() => onSubmit(draft)}
 			pending={pending}
 			error={error}
 			fieldOf={clientFieldOf}
@@ -177,14 +175,7 @@ export function ClientForm({
 			}
 			data-testid="client-form"
 		>
-			<ModalField
-				name="name"
-				label="Name"
-				error={
-					nameMissing ? "Give it a name of 1 to 200 characters." : undefined
-				}
-				testid="client-form-name"
-			>
+			<ModalField name="name" label="Name" testid="client-form-name">
 				{(props) => (
 					<Input
 						{...props}

@@ -745,13 +745,15 @@ describe("the source form", () => {
 			seededClient(),
 		);
 
-	it("adds with every field blank, Yours chosen", () => {
+	it("adds with every field blank, Yours chosen, holding Add until it has a name", () => {
 		const html = form({});
 		expect(html).toContain("Add source");
 		expect(tagOf(html, "source-form-kind-internal")).toContain(
 			'aria-pressed="true"',
 		);
-		expect(tagOf(html, "source-form-submit")).not.toMatch(/\sdisabled=""/);
+		// What is missing shows on the button before it is pressed.
+		expect(tagOf(html, "source-form-submit")).toMatch(/\sdisabled=""/);
+		expect(html).toContain("Give the source a name.");
 	});
 
 	it("edits from the source's values, holding Save until something changes", () => {

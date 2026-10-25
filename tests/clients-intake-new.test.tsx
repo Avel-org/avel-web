@@ -109,7 +109,10 @@ describe("the new intake form", () => {
 	it("chooses the only engagement, or the one it was opened from", () => {
 		const one = form({ engagements: [E1] });
 		expect(checked(one, E1.id)).toBe(true);
-		expect(tagOf(one, "intake-new-submit")).not.toContain('disabled=""');
+		// The engagement is settled; what holds Create now is the request.
+		expect(tagOf(one, "intake-new-submit")).toContain('disabled=""');
+		expect(one).toContain("Write what the client asked for.");
+		expect(one).not.toContain("Choose an engagement.");
 		expect(checked(form({ engagementId: E2.id }), E2.id)).toBe(true);
 	});
 
