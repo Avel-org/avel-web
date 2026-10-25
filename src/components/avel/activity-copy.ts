@@ -69,6 +69,11 @@ export const ACTION_COPY = {
 	"repo_policy.set": "Repository policy set",
 	"finding.confirmed": "Finding confirmed",
 	"finding.dismissed": "Finding dismissed",
+	// A confirmed finding's permanent check (module 12, 2026-10-24).
+	"finding.check_set": "Defect check set",
+	// The operator's proposal queue (module 14, 2026-10-24).
+	"proposal.approved": "Proposal approved",
+	"proposal.dismissed": "Proposal dismissed",
 	// Canon, the project briefer (2026-10-19).
 	"canon_session.opened": "Canon session opened",
 	"canon_session.closed": "Canon session closed",
@@ -113,6 +118,7 @@ export const ENTITY_LABEL = {
 	client_memory: "Client memory",
 	file: "File",
 	repo_policy: "Repository policy",
+	proposal: "Proposal",
 } as const satisfies Record<ActivityEntityType, string>;
 
 /**

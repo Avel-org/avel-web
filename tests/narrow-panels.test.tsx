@@ -81,6 +81,7 @@ describe("panels at a phone's width", () => {
 			class: "c",
 			status: "open",
 			dismissedReason: null,
+			check: null,
 			caughtBy: "judge",
 			reportedByDispatchId: null,
 			createdAt: "2026-10-19T09:00:00.000Z",

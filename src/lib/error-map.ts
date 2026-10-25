@@ -922,6 +922,34 @@ export const PRECONDITION_COPY = {
 		next: "Push to another branch, deliver it as a pull request, or allow direct pushes in Settings, Repositories.",
 		retry: false,
 	},
+	// PUT /api/findings/:id/check (module 12): a permanent check goes only
+	// on a confirmed finding, and a client-scoped one needs a client.
+	finding_not_confirmed: {
+		what: "Only a confirmed finding can carry a permanent check.",
+		written: NOTHING_WRITTEN,
+		next: "Confirm the finding first, then add its check.",
+		retry: false,
+	},
+	check_scope_needs_client: {
+		what: "This finding is on an internal mission, so it has no client to scope a check to.",
+		written: NOTHING_WRITTEN,
+		next: "Make the check general, so it runs on every mission.",
+		retry: false,
+	},
+	// The proposal queue (module 14): a proposal is decided once, and no
+	// kind's action is built yet.
+	proposal_not_pending: {
+		what: "This proposal was already decided.",
+		written: NOTHING_WRITTEN,
+		next: "Read the queue again for what is still pending.",
+		retry: false,
+	},
+	proposal_action_not_built: {
+		what: "What approving this proposal would start isn't built yet.",
+		written: NOTHING_WRITTEN,
+		next: "Leave it pending, or dismiss it with a reason.",
+		retry: false,
+	},
 	// PUT /api/repo-policies: allowing a direct push to the default branch
 	// needs its own confirmation.
 	direct_push_unconfirmed: {

@@ -143,6 +143,15 @@ export const INVERSE = {
 	// A triage stands until a new one; the log offers no inverse.
 	"finding.confirmed": null,
 	"finding.dismissed": null,
+	// Set the earlier check again, or null to remove the one added.
+	"finding.check_set": {
+		request: "findings.setCheck",
+		route: "PUT /api/findings/:id/check",
+		note: "Put the earlier check back, or remove the one this added.",
+	},
+	// A decision stands; a proposal is decided once.
+	"proposal.approved": null,
+	"proposal.dismissed": null,
 	// Canon's sessions, questions, memory and drafts: each is undone by a new
 	// decision in its own place (reopen, a new answer, keep or remove, a
 	// revise), never by replaying the log.

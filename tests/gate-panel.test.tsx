@@ -149,6 +149,7 @@ const finding_ = (n: number, extra: Partial<Finding>): Finding =>
 		class: "correctness",
 		status: "open",
 		dismissedReason: null,
+		check: null,
 		caughtBy: "spec-judge",
 		reportedByDispatchId: null,
 		createdAt: "2026-10-19T09:00:00.000Z",
