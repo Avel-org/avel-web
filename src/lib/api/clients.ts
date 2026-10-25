@@ -558,7 +558,8 @@ export function clientFacts(client: Client, now: number): string {
 	const activity = lastActivityLabel(client, now);
 	return [
 		`Client since ${monthLabel(client.createdAt)}`,
-		client.primaryContact ?? "No primary contact",
+		// Mid-line too: "no primary contact", lower case like the rest.
+		client.primaryContact ?? "no primary contact",
 		// Mid-line, so it starts lower case.
 		`${activity[0]?.toLowerCase() ?? ""}${activity.slice(1)}`,
 	].join(", ");

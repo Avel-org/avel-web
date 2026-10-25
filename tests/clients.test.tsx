@@ -319,7 +319,7 @@ describe("the client board", () => {
 			'data-tone="stale"',
 		);
 		// No contact, no line: the same filler on every card said nothing.
-		expect(cardOf(html, THREE_C)).not.toContain("No primary contact");
+		expect(cardOf(html, THREE_C)).not.toContain("no primary contact");
 		expect(cardOf(html, THREE_C)).not.toContain(
 			`client-card-contact-${THREE_C.id}`,
 		);
@@ -545,7 +545,7 @@ describe("the Board | Table toggle (ruling 36)", () => {
 		// A row with a contact names it under the name; one without shows nothing.
 		expect(tagOf(html, `client-row-contact-${ONE.id}`)).toBeTruthy();
 		expect(html).not.toContain(`client-row-contact-${THREE_C.id}`);
-		expect(html).not.toContain("No primary contact");
+		expect(html).not.toContain("no primary contact");
 	});
 
 	it("reads the table's status from the server's filtered list", async () => {
@@ -618,6 +618,6 @@ describe("the board's arithmetic", () => {
 		expect(clientFacts(ONE, now)).toBe(
 			"Client since October 2026, contact1@example.com, last activity yesterday",
 		);
-		expect(clientFacts(THREE_C, now)).toContain("No primary contact");
+		expect(clientFacts(THREE_C, now)).toContain(", no primary contact,");
 	});
 });
