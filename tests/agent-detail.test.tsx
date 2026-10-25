@@ -236,10 +236,10 @@ describe("/catalog/agents/:slug", () => {
 		expect(element(onMission, "agent-banner-tab-tools-count")).toContain(">2<");
 	});
 
-	it("puts the live runs on Performance, above the measures that wait for the gate", () => {
+	it("puts the live runs on Performance, then the live measures (module 12)", () => {
 		const html = render({ tab: "performance" });
 		const live = html.indexOf('data-testid="agent-performance"');
-		const measures = html.indexOf('data-testid="agent-performance-panel"');
+		const measures = html.indexOf('data-testid="agent-measures"');
 		expect(live).toBeGreaterThan(-1);
 		expect(measures).toBeGreaterThan(live);
 	});

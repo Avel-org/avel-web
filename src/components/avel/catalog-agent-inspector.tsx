@@ -6,36 +6,22 @@ import {
 	KIND_LABELS,
 	TEAM_LABELS,
 } from "avel-server/contract";
-import { ArrowRight, CircleAlert, CircleCheck } from "lucide-react";
+import { ArrowRight, CircleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIdentityVersion } from "@/lib/api/catalog";
 import { cn } from "@/lib/utils";
 import {
 	AGENT_MISSING,
-	agentStatus,
 	artifactLabel,
 	edgesOf,
-	kTokens,
 	type SampleEdge,
-	type SampleOverview,
-	sampleOverview,
 } from "./catalog-agent-placeholders";
-import {
-	CATALOG_MISSING,
-	SAMPLE_TEAM_TABLE,
-	type SampleAgentHistory,
-	type SampleDiscipline,
-	type SampleOrigin,
-	type SampleOutcome,
-} from "./catalog-placeholders";
-import { inWaveOrder, SampleRegion, teamsOf, Wrap } from "./catalog-sample";
+import { CATALOG_MISSING, SAMPLE_TEAM_TABLE } from "./catalog-placeholders";
+import { inWaveOrder, SampleRegion, teamsOf } from "./catalog-sample";
 import { CodeView } from "./code-view";
-import { type DataColumn, DataTable } from "./data-table";
-import { InlineExpand } from "./inline-expand";
 import { ROW_LINK_GROUP, RowChevron } from "./row-link";
 import { ShortHash } from "./short-hash";
-import { StatusPill } from "./status-pill";
 import { ErrorState, Surface } from "./surface";
 
 /*
@@ -49,175 +35,6 @@ import { ErrorState, Surface } from "./surface";
 
 // ---------------------------------------------------------------------------
 // Overview.
-
-type Tone = "better" | "worse" | "same";
-
-const TONE_CLASS: Record<Tone, string> = {
-	better: "text-gate-pass",
-	worse: "text-gate-block",
-	same: "text-text-subtle",
-};
-
-/**
- * AVEL's names for its measures are kept; these plain readings go beside
- * them on hover, for anyone the names mean nothing to.
- */
-export const MEASURE_MEANING = {
-	boundaryViolations: "Times it changed a file it wasn't allowed to",
-	blockersAbsorbed: "Problems it worked around instead of reporting",
-	edgeHashMismatches:
-		"Times it read an out-of-date version of another agent's file",
-} as const;
-
-/** One metric card: its value and its change since the previous version. */
-function Metric({
-	label,
-	meaning,
-	value,
-	change,
-	"data-testid": testId,
-}: {
-	label: string;
-	/** The plain reading of the label, on hover. */
-	meaning?: string;
-	value: string;
-	change: { text: string; tone: Tone } | null;
-	"data-testid": string;
-}) {
-	return (
-		<div
-			data-testid={testId}
-			className="flex flex-col gap-1 rounded-control border border-border bg-app-raised p-3"
-		>
-			<span title={meaning} className="type-caption text-text-subtle">
-				{label}
-			</span>
-			<span className="type-page text-foreground tabular-nums">{value}</span>
-			<span
-				data-testid={`${testId}-change`}
-				className={cn(
-					"type-mono tabular-nums",
-					change ? TONE_CLASS[change.tone] : "text-text-subtle",
-				)}
-			>
-				{change?.text ?? "no earlier version"}
-			</span>
-		</div>
-	);
-}
-
-/** A signed change: "+4", "-2", "no change". `lowerIsBetter` sets its tone. */
-export function changeOf(
-	now: number,
-	before: number,
-	{ lowerIsBetter, unit = "" }: { lowerIsBetter: boolean; unit?: string },
-): { text: string; tone: Tone } {
-	const d = now - before;
-	if (d === 0) return { text: "no change", tone: "same" };
-	const better = lowerIsBetter ? d < 0 : d > 0;
-	return {
-		text: `${d > 0 ? "+" : "-"}${Math.abs(d)}${unit} since last version`,
-		tone: better ? "better" : "worse",
-	};
-}
-
-const pct = (n: number) => Math.round(n * 100);
-
-function Metrics({
-	current,
-	previous,
-	version,
-}: {
-	current: SampleOverview;
-	previous: SampleOverview | null;
-	version: number;
-}) {
-	const was = (
-		pick: (o: SampleOverview) => number,
-		lowerIsBetter: boolean,
-		unit?: string,
-	) =>
-		previous
-			? changeOf(pick(current), pick(previous), { lowerIsBetter, unit })
-			: null;
-	return (
-		<SampleRegion
-			missing={CATALOG_MISSING.measures}
-			title="Overview measures"
-			what="Four numbers from client work on this version, each compared with the version before it."
-			data-testid="catalog-agent-metrics"
-		>
-			<p className="type-caption text-text-subtle">{`Client runs on v${version}`}</p>
-			<div className="grid grid-cols-2 gap-2">
-				<Metric
-					label="Passed the gate first time"
-					value={`${pct(current.firstPassGateRate)}%`}
-					change={was((o) => pct(o.firstPassGateRate), false, " pts")}
-					data-testid="catalog-agent-metric-gate"
-				/>
-				<Metric
-					label="Tokens used of estimate"
-					value={`${kTokens(current.tokensActual)} of ${kTokens(current.tokensEstimate)}`}
-					change={was((o) => Math.round(o.tokensActual / 1000), true, "k")}
-					data-testid="catalog-agent-metric-tokens"
-				/>
-				<Metric
-					label="Boundary violations"
-					meaning={MEASURE_MEANING.boundaryViolations}
-					value={String(current.boundaryViolations)}
-					change={was((o) => o.boundaryViolations, true)}
-					data-testid="catalog-agent-metric-violations"
-				/>
-				<Metric
-					label="Blockers filed"
-					value={String(current.blockersFiled)}
-					change={was((o) => o.blockersFiled, true)}
-					data-testid="catalog-agent-metric-blockers"
-				/>
-			</div>
-			<StatusBox overview={current} />
-		</SampleRegion>
-	);
-}
-
-/** Good, or what is wrong, by rule: violations and halts, nothing inferred. */
-function StatusBox({ overview }: { overview: SampleOverview }) {
-	const status = agentStatus(overview);
-	return (
-		<div
-			data-testid="catalog-agent-status"
-			data-ok={status.ok}
-			className={cn(
-				"flex items-start gap-2 rounded-control border p-3",
-				status.ok
-					? "border-gate-pass-line bg-gate-pass-soft"
-					: "border-gate-warn-line bg-gate-warn-banner",
-			)}
-		>
-			{status.ok ? (
-				<CircleCheck
-					aria-hidden="true"
-					className="mt-0.5 size-4 text-gate-pass"
-				/>
-			) : (
-				<CircleAlert
-					aria-hidden="true"
-					className="mt-0.5 size-4 text-gate-warn"
-				/>
-			)}
-			<div className="flex flex-col gap-0.5">
-				<p className="type-small font-medium text-foreground">
-					{status.ok ? "Everything looks good" : "Needs a look"}
-				</p>
-				<p className="type-caption text-text-muted">
-					{status.ok
-						? "It wrote only where it may, and no run stopped at its token limit."
-						: `${status.problems.join(" and ")}.`}
-				</p>
-			</div>
-		</div>
-	);
-}
 
 /** One edge as a row that opens the agent at its other end. */
 function EdgeRow({
@@ -341,25 +158,21 @@ function Handoffs({
 	);
 }
 
-export function OverviewTab({
+/**
+ * Who hands this agent files and who it hands them to: still sample data,
+ * since no route reads handoff edges yet. Its measures are live (module 12,
+ * agent-metrics.tsx).
+ */
+export function AgentHandoffs({
 	agent,
 	agents,
-	history,
 	onOpen,
 }: {
 	agent: AgentTemplate;
 	agents: readonly AgentTemplate[];
-	history: SampleAgentHistory;
 	onOpen: (slug: string) => void;
 }) {
-	const { current, previous } = sampleOverview(agent);
-	return (
-		<div data-testid="catalog-agent-overview" className="flex flex-col gap-4">
-			<Metrics current={current} previous={previous} version={agent.version} />
-			<Handoffs agent={agent} agents={agents} onOpen={onOpen} />
-			<MeasuresRegion history={history} />
-		</div>
-	);
+	return <Handoffs agent={agent} agents={agents} onOpen={onOpen} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -634,237 +447,6 @@ function ActionsRegion({ agent }: { agent: AgentTemplate }) {
 					))}
 				</dl>
 			)}
-		</SampleRegion>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// Measures. Discipline and outcome are kept apart, and so are client and
-// internal runs: nothing here adds one to the other.
-
-const ORIGIN_LABEL: Record<SampleOrigin, string> = {
-	client: "Client",
-	internal: "Internal",
-};
-
-type DisciplineRow = {
-	id: keyof Omit<SampleDiscipline, "origin">;
-	label: string;
-};
-
-const meaningOf = (id: DisciplineRow["id"]): string | undefined =>
-	id in MEASURE_MEANING
-		? MEASURE_MEANING[id as keyof typeof MEASURE_MEANING]
-		: undefined;
-
-const DISCIPLINE_ROWS: DisciplineRow[] = [
-	{ id: "runs", label: "Runs" },
-	{ id: "boundaryViolations", label: "Boundary violations" },
-	{ id: "blockersFiled", label: "Blockers filed" },
-	{ id: "blockersAbsorbed", label: "Blockers absorbed" },
-	{ id: "edgeHashMismatches", label: "Handoff hash mismatches" },
-	{ id: "testWritesCaught", label: "Test-file writes caught" },
-];
-
-function Discipline({ history }: { history: SampleAgentHistory }) {
-	const byOrigin = (origin: SampleOrigin) =>
-		history.discipline.find((row) => row.origin === origin);
-	const columns: DataColumn<DisciplineRow>[] = [
-		{
-			id: "measure",
-			header: "Measure",
-			cell: (row) => <span title={meaningOf(row.id)}>{row.label}</span>,
-		},
-		...(["client", "internal"] as const).map(
-			(origin): DataColumn<DisciplineRow> => ({
-				id: origin,
-				header: ORIGIN_LABEL[origin],
-				align: "end",
-				mono: true,
-				width: "5rem",
-				cell: (row) => byOrigin(origin)?.[row.id] ?? "—",
-			}),
-		),
-	];
-	return (
-		<div data-testid="catalog-agent-discipline" className="flex flex-col gap-2">
-			<h3 className="type-title text-foreground">Discipline</h3>
-			<p className="type-caption text-text-subtle">
-				How well the agent keeps to its rules, across all of its work. Client
-				and internal runs are counted separately.
-			</p>
-			<DataTable
-				label="Discipline measures, client and internal"
-				data-testid="catalog-discipline-table"
-				columns={columns}
-				rows={DISCIPLINE_ROWS}
-				getRowId={(row) => row.id}
-				density="compact"
-				stickyHeader={false}
-			/>
-		</div>
-	);
-}
-
-const usd = (value: number) => `$${value.toFixed(2)}`;
-const percent = (value: number) => `${Math.round(value * 100)}%`;
-
-const OUTCOME_COLUMNS: DataColumn<SampleOutcome>[] = [
-	{
-		id: "territory",
-		header: <Wrap>Territory and engagement</Wrap>,
-		cell: (row) => (
-			<span className="flex flex-col">
-				{row.territory ?? (
-					<span className="text-text-subtle">Whole project</span>
-				)}
-				<span
-					data-testid="catalog-outcome-engagement"
-					className="type-caption text-text-subtle"
-				>
-					{row.engagement}
-				</span>
-			</span>
-		),
-	},
-	{
-		id: "template",
-		header: "Template",
-		mono: true,
-		cell: (r) => r.missionTemplate,
-	},
-	{ id: "runs", header: "Runs", align: "end", mono: true, cell: (r) => r.runs },
-	{
-		id: "tokens",
-		header: <Wrap>Tokens per run</Wrap>,
-		align: "end",
-		mono: true,
-		cell: (r) => r.tokensPerRun.toLocaleString("en-US"),
-	},
-	{
-		id: "cost",
-		header: <Wrap>Cost per run</Wrap>,
-		align: "end",
-		mono: true,
-		cell: (r) => usd(r.costPerRunUsd),
-	},
-	{
-		id: "gate",
-		header: <Wrap>First-pass gate rate</Wrap>,
-		align: "end",
-		mono: true,
-		cell: (r) => percent(r.firstPassGateRate),
-	},
-];
-
-function Outcome({ history }: { history: SampleAgentHistory }) {
-	return (
-		<div data-testid="catalog-agent-outcome" className="flex flex-col gap-2">
-			<h3 className="type-title text-foreground">Outcome</h3>
-			<p className="type-caption text-text-subtle">
-				What the work cost and how it went, for one territory on one mission
-				template per row. Each row stands alone; rows are never added up.
-			</p>
-			{(["client", "internal"] as const).map((origin) => {
-				const rows = history.outcomes.filter((row) => row.origin === origin);
-				return (
-					<div
-						key={origin}
-						data-testid={`catalog-agent-outcome-${origin}`}
-						className="flex flex-col gap-1"
-					>
-						<h4 className="type-caption text-text-muted">
-							{`${ORIGIN_LABEL[origin]} runs`}
-						</h4>
-						{rows.length === 0 ? (
-							<p className="type-small text-text-subtle">
-								{`No recorded ${origin} runs.`}
-							</p>
-						) : (
-							<DataTable
-								label={`Outcome measures, ${origin} runs`}
-								data-testid={`catalog-outcome-table-${origin}`}
-								columns={OUTCOME_COLUMNS}
-								rows={rows}
-								getRowId={(row) => row.id}
-								density="compact"
-								stickyHeader={false}
-							/>
-						)}
-					</div>
-				);
-			})}
-		</div>
-	);
-}
-
-function Reconstructed({ history }: { history: SampleAgentHistory }) {
-	if (history.reconstructed.length === 0) return null;
-	return (
-		<div
-			data-testid="catalog-agent-reconstructed"
-			className="flex flex-col gap-2"
-		>
-			<h3 className="type-title text-foreground">Reconstructed runs</h3>
-			<p className="type-caption text-text-subtle">
-				Their version was worked out later from git history, not recorded when
-				they ran. Their findings still count, but they are left out of every
-				measure above.
-			</p>
-			<ul className="flex flex-col divide-y divide-border">
-				{history.reconstructed.map((run) => (
-					<li
-						key={run.id}
-						data-testid="catalog-agent-reconstructed-run"
-						className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2"
-					>
-						<StatusPill
-							size="sm"
-							tone="stale"
-							label="Reconstructed"
-							attested
-							data-testid="catalog-reconstructed-pill"
-						/>
-						<span className="type-mono text-foreground">{run.mission}</span>
-						<span className="type-mono text-text-subtle">{run.commit}</span>
-						<span className="type-small text-text-muted">{run.findings}</span>
-					</li>
-				))}
-			</ul>
-		</div>
-	);
-}
-
-const MEASURE_SECTIONS = ["discipline", "outcome"] as const;
-
-export function MeasuresRegion({ history }: { history: SampleAgentHistory }) {
-	return (
-		<SampleRegion
-			missing={CATALOG_MISSING.measures}
-			title="Measures"
-			what="How well it keeps to its rules across all its work, and how each territory and mission template went. Client and internal runs are kept apart, and reconstructed runs are set aside."
-			data-testid="catalog-agent-measures"
-		>
-			{/* Folded, so the tab stays short: the four measures and the edges
-			    above say how it is doing; these say why, for whoever opens them. */}
-			<div className="flex flex-col gap-6">
-				<InlineExpand
-					data-testid="catalog-agent-measures-more"
-					items={MEASURE_SECTIONS}
-					visible={0}
-					noun="sections"
-					getKey={(id) => id}
-					className="gap-6"
-					render={(id) =>
-						id === "discipline" ? (
-							<Discipline history={history} />
-						) : (
-							<Outcome history={history} />
-						)
-					}
-				/>
-				<Reconstructed history={history} />
-			</div>
 		</SampleRegion>
 	);
 }

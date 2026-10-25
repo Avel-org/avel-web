@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
  */
 const ALLOWED: Record<string, string> = {
 	"src/components/avel/agent-detail.tsx":
-		"hands sampleHistory to OverviewTab, whose MeasuresRegion labels it; sideOf and isFirmAgent read live roles",
+		"sideOf and isFirmAgent read live roles; its handoffs are drawn by AgentHandoffs, whose SampleRegion labels them",
 	"src/components/avel/catalog-agent-graph.tsx":
 		"drawn only inside catalog-agents' Handoff graph SampleRegion",
 	"src/components/avel/catalog-agent-table.tsx":

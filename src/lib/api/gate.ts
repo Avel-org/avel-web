@@ -221,6 +221,10 @@ export function afterGateQueued(queryClient: QueryClient, job: GateJob) {
 export function afterGateRun(queryClient: QueryClient, missionId: string) {
 	return Promise.all([
 		...missionRowAndLists(queryClient, missionId),
+		// An agent's measures count missions gated and first-pass verified.
+		queryClient.invalidateQueries({
+			queryKey: queryKeys.dispatches.byTemplateAll(),
+		}),
 		// The runs list itself, not the receipts keyed under it.
 		queryClient.invalidateQueries({
 			queryKey: queryKeys.gate.runs(missionId),

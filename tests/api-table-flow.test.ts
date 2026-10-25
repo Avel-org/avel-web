@@ -152,6 +152,7 @@ const KEY: Record<ReadName, readonly unknown[]> = {
 	"dispatches.report": queryKeys.dispatches.report(REPORT),
 	"dispatches.brief": queryKeys.dispatches.brief(DISPATCH),
 	"dispatches.byTemplate": queryKeys.dispatches.byTemplate(T, null),
+	"dispatches.metrics": queryKeys.dispatches.metrics(T, "client"),
 	"roster.list": queryKeys.roster.list(M),
 	"roster.access": queryKeys.roster.access(M, ENTRY),
 	"roster.byTemplate": queryKeys.roster.byTemplate(T),

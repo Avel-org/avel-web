@@ -203,6 +203,7 @@ export const READS = {
 	"dispatches.report": ["completion_report"],
 	"dispatches.brief": ["dispatch"],
 	"dispatches.byTemplate": ["dispatch", "completion_report"],
+	"dispatches.metrics": ["dispatch", "completion_report", "verification"],
 	"roster.list": ["roster_entry"],
 	"roster.access": ["roster_entry", "mission_skills", "agent_template"],
 	"roster.byTemplate": ["roster_entry", "mission"],

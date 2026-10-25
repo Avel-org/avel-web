@@ -47,14 +47,14 @@ import {
 	AgentTitleEdit,
 } from "./agent-edit";
 import { IdentityVersions, RegenerateIdentity } from "./agent-identity";
+import { AgentMeasures } from "./agent-metrics";
 import { AgentPerformance } from "./agent-performance";
 import {
+	AgentHandoffs,
 	IdentityTab,
 	ManifestTab,
-	OverviewTab,
 } from "./catalog-agent-inspector";
 import { isFirmAgent, sideOf } from "./catalog-agent-placeholders";
-import { sampleHistory } from "./catalog-placeholders";
 import { teamsOf } from "./catalog-sample";
 import { EmptyState } from "./empty-state";
 import {
@@ -407,16 +407,11 @@ function AgentPage({
 			<TabsContent value="performance">
 				<div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
 					<div className="flex min-w-0 flex-col gap-4">
-						{/* Live: every run from the dispatches route. The measures
-						    below wait for the gate, so they stay labelled samples. */}
+						{/* Live: every run from the dispatches route, and the
+						    measures from the metrics route (module 12). */}
 						<AgentPerformance agent={agent} />
-						<SectionPanel
-							title="Quality measures"
-							description="How this version has done on client work, compared with the version before it."
-							data-testid="agent-performance-panel"
-						>
-							<PerformanceBody agent={agent} />
-						</SectionPanel>
+						<AgentMeasures agentId={agent.id} />
+						<HandoffsBody agent={agent} />
 					</div>
 					<SectionPanel
 						title="Versions"
@@ -442,15 +437,15 @@ function AgentPage({
 }
 
 /** The edges name agents at the other end, so this tab reads every template. */
-function PerformanceBody({ agent }: { agent: AgentTemplate }) {
+/** The handoff edges, still sample data, over the catalog's agents. */
+function HandoffsBody({ agent }: { agent: AgentTemplate }) {
 	const all = useAgentTemplates();
 	const navigate = useNavigate();
 	const agents = all.data ? loadedRows(all.data) : [];
 	return (
-		<OverviewTab
+		<AgentHandoffs
 			agent={agent}
 			agents={agents}
-			history={sampleHistory(agent)}
 			onOpen={(slug) =>
 				navigate({ to: "/catalog/agents/$slug", params: { slug } })
 			}

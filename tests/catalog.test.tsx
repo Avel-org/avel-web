@@ -5,7 +5,6 @@ import {
 	CATALOG_MISSING,
 	carryingRoles,
 	enforcementBadge,
-	sampleHistory,
 	sampleRegistry,
 	sampleSha256,
 	sampleUuid,
@@ -24,7 +23,8 @@ import { AGENTS, SKILLS, SOURCES, source } from "./catalog-fixtures";
 describe("catalog samples", () => {
 	it("name no route avel-server serves: the lists are live", () => {
 		const values = Object.values(CATALOG_MISSING);
-		expect(values).toHaveLength(3);
+		// Per-agent measures left this list when the metrics route landed.
+		expect(values).toHaveLength(2);
 		// None names a route: a role skill's roles are live since
 		// PUT /api/skills/:id/roles landed (2026-10-24).
 		expect(values.filter((m) => /^(GET|PUT|POST) /.test(m))).toEqual([]);
@@ -37,23 +37,6 @@ describe("catalog samples", () => {
 		expect(sampleUuid("a")).toMatch(
 			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/,
 		);
-	});
-
-	it("keep each agent's history fixed by its live slug", () => {
-		for (const a of AGENTS) {
-			expect(sampleHistory(a)).toEqual(sampleHistory({ ...a }));
-		}
-	});
-
-	it("give a horizontal agent the whole project, and a feature agent a territory", () => {
-		for (const a of AGENTS) {
-			const history = sampleHistory(a);
-			// A horizontal agent works the whole project; a feature agent has a territory.
-			for (const row of history.outcomes) {
-				if (a.kind === "horizontal") expect(row.territory).toBeNull();
-				else expect(row.territory).not.toBeNull();
-			}
-		}
 	});
 
 	it("never let a draft or retired skill be attached", () => {

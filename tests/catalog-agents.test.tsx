@@ -35,15 +35,14 @@ import {
 	AgentGraphCanvas,
 } from "@/components/avel/catalog-agent-graph";
 import {
+	AgentHandoffs,
 	IdentityTab,
 	IdentityText,
 	ManifestTab,
-	OverviewTab,
 	staleLine,
 } from "@/components/avel/catalog-agent-inspector";
 import {
 	AGENT_MISSING,
-	agentStatus,
 	artifactLabel,
 	artifactsOf,
 	edgesOf,
@@ -51,7 +50,6 @@ import {
 	ROLE_ARTIFACTS,
 	sampleDispatch,
 	sampleEdges,
-	sampleOverview,
 	sideOf,
 } from "@/components/avel/catalog-agent-placeholders";
 import {
@@ -60,10 +58,7 @@ import {
 	sortAgents,
 } from "@/components/avel/catalog-agent-table";
 import { CatalogAgents } from "@/components/avel/catalog-agents";
-import {
-	CATALOG_MISSING,
-	sampleHistory,
-} from "@/components/avel/catalog-placeholders";
+import { CATALOG_MISSING } from "@/components/avel/catalog-placeholders";
 import {
 	inCatalogOrder,
 	RoleTag,
@@ -305,26 +300,6 @@ describe("the agent samples", () => {
 			expect(d.estimate).toBeLessThan(d.softCeiling);
 			expect(d.softCeiling).toBeLessThan(d.hardCeiling);
 		}
-	});
-
-	it("judge the status box by rule: good only with no violations and no halts", () => {
-		const base = {
-			firstPassGateRate: 0.5,
-			tokensActual: 1,
-			tokensEstimate: 1,
-			boundaryViolations: 0,
-			blockersFiled: 9,
-			halts: 0,
-		};
-		expect(agentStatus(base)).toEqual({ ok: true, problems: [] });
-		expect(agentStatus({ ...base, boundaryViolations: 2 })).toEqual({
-			ok: false,
-			problems: ["2 boundary violations"],
-		});
-		expect(agentStatus({ ...base, halts: 1, boundaryViolations: 1 })).toEqual({
-			ok: false,
-			problems: ["1 boundary violation", "1 run stopped at the token limit"],
-		});
 	});
 });
 
@@ -881,16 +856,8 @@ describe("/catalog/agents: the cards", () => {
 
 describe("an agent page's tabs", () => {
 	const atlas = agent("atlas");
-	const history = sampleHistory(atlas);
 	const body = (a = atlas) =>
-		tip(
-			<OverviewTab
-				agent={a}
-				agents={AGENTS}
-				history={sampleHistory(a)}
-				onOpen={noop}
-			/>,
-		);
+		tip(<AgentHandoffs agent={a} agents={AGENTS} onOpen={noop} />);
 
 	it("never offers an edit: no field, form or Edit anywhere in it", () => {
 		for (const html of [
@@ -909,58 +876,12 @@ describe("an agent page's tabs", () => {
 		}
 	});
 
-	it("overview: four measures, each against the previous version", () => {
-		const later = AGENTS.find((a) => a.version > 1);
-		const first = AGENTS.find((a) => a.version === 1);
-		expect(later && first).toBeTruthy();
-		if (!later || !first) return;
-		const html = body(later);
-		const { current, previous } = sampleOverview(later);
-		expect(previous).not.toBeNull();
-		for (const id of ["gate", "tokens", "violations", "blockers"]) {
-			const change = element(html, `catalog-agent-metric-${id}-change`).replace(
-				/<[^>]+>/g,
-				"",
-			);
-			expect(change).toMatch(
-				/^(no change|[+-]\d+( pts|k)? since last version)$/,
-			);
-		}
-		expect(html).toMatch(
-			new RegExp(
-				`data-testid="catalog-agent-metric-violations"[\\s\\S]*?>${current.boundaryViolations}<`,
-			),
-		);
-		expect(tagOf(html, "catalog-agent-metrics")).toContain(
-			`data-sample-region="${CATALOG_MISSING.measures}"`,
-		);
-		// A first version has nothing to compare with.
-		expect(
-			element(body(first), "catalog-agent-metric-gate-change").replace(
-				/<[^>]+>/g,
-				"",
-			),
-		).toBe("no earlier version");
-	});
-
-	it("overview: the status box says what the rule says", () => {
-		for (const a of AGENTS) {
-			const html = body(a);
-			const { ok } = agentStatus(sampleOverview(a).current);
-			expect(tagOf(html, "catalog-agent-status"), a.slug).toContain(
-				`data-ok="${ok}"`,
-			);
-			expect(html).toContain(ok ? "Everything looks good" : "Needs a look");
-		}
-	});
-
 	it("overview: edges as rows that open the agent at the other end", () => {
 		const opened: string[] = [];
 		const html = tip(
-			<OverviewTab
+			<AgentHandoffs
 				agent={atlas}
 				agents={AGENTS}
-				history={history}
 				onOpen={(slug) => opened.push(slug)}
 			/>,
 		);
@@ -980,30 +901,6 @@ describe("an agent page's tabs", () => {
 		expect(tagOf(html, "catalog-agent-edges")).toContain(
 			`data-sample-region="${AGENT_MISSING.edges}"`,
 		);
-	});
-
-	it("overview: measures kept apart, reconstructed runs set aside", () => {
-		const withRuns = AGENTS.find(
-			(a) => sampleHistory(a).reconstructed.length > 0,
-		);
-		expect(withRuns).toBeDefined();
-		if (!withRuns) return;
-		const html = body(withRuns);
-		expect(element(html, "catalog-agent-discipline")).not.toContain(
-			"catalog-outcome-table",
-		);
-		const client = element(html, "catalog-outcome-table-client");
-		const internal = element(html, "catalog-outcome-table-internal");
-		expect(client).toMatch(new RegExp(`-row-${withRuns.slug}:client:`));
-		expect(client).not.toMatch(new RegExp(`-row-${withRuns.slug}:internal:`));
-		expect(internal).not.toMatch(new RegExp(`-row-${withRuns.slug}:client:`));
-		expect(element(html, "catalog-agent-reconstructed")).toContain(
-			">Reconstructed<",
-		);
-		expect(element(html, "catalog-agent-discipline")).not.toContain(
-			"mission-002",
-		);
-		expect(element(html, "catalog-agent-outcome")).not.toContain("mission-002");
 	});
 
 	it("identity: the version's live text, numbered, with the server's counts, hash and ref", () => {
@@ -1128,7 +1025,7 @@ describe("an agent page's tabs", () => {
 	it("labels every sample region in the tabs, and only those", () => {
 		const html = body();
 		expect(new Set(regions(html).map((r) => r.missing))).toEqual(
-			new Set([CATALOG_MISSING.measures, AGENT_MISSING.edges]),
+			new Set([AGENT_MISSING.edges]),
 		);
 		const tabs = [
 			tip(<IdentityTab agent={atlas} />),

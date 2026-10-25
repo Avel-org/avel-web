@@ -333,6 +333,14 @@ export const queryKeys = {
 			["dispatchesByTemplate", templateId, { status }] as const,
 		/** Every template's list: a dispatch write reaches whichever is open. */
 		byTemplateAll: () => ["dispatchesByTemplate"] as const,
+		/**
+		 * contract.agentTemplates.metrics for one origin (module 12). Under
+		 * "dispatchesByTemplate": the measures are read from the dispatches,
+		 * their reports and gate runs, so whatever refreshes a template's
+		 * runs refreshes them too.
+		 */
+		metrics: (templateId: string, origin: "client" | "internal") =>
+			["dispatchesByTemplate", templateId, "metrics", origin] as const,
 	},
 	roster: {
 		/**

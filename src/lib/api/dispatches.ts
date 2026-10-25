@@ -364,6 +364,34 @@ export function useTemplateDispatches(
 	);
 }
 
+/**
+ * contract.agentTemplates.metrics (module 12): one agent's discipline and
+ * outcome measures for client or internal work, never both together.
+ */
+export function agentMetricsQuery(
+	api: ApiClient,
+	templateId: string,
+	origin: "client" | "internal",
+) {
+	return queryOptions({
+		queryKey: queryKeys.dispatches.metrics(templateId, origin),
+		queryFn: () =>
+			call(contract.agentTemplates.metrics, () =>
+				api.agentTemplates.metrics({
+					params: { id: templateId },
+					query: { origin },
+				}),
+			),
+	});
+}
+
+export function useAgentMetrics(
+	templateId: string,
+	origin: "client" | "internal",
+) {
+	return useQuery(agentMetricsQuery(useApiClient(), templateId, origin));
+}
+
 // ---------------------------------------------------------------------------
 // Queueing a dispatch.
 

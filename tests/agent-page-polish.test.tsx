@@ -23,9 +23,7 @@ import {
 	IdentityText,
 	isIdentityStub,
 	ManifestTab,
-	MeasuresRegion,
 } from "@/components/avel/catalog-agent-inspector";
-import { sampleHistory } from "@/components/avel/catalog-placeholders";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AGENT_ACTIVITY_LIMIT } from "@/lib/api/activity";
 import { queryKeys } from "@/lib/api/keys";
@@ -483,20 +481,5 @@ describe("Recent activity", () => {
 				"template-booking, sprint 2",
 			);
 		}
-	});
-});
-
-describe("Performance", () => {
-	it("13. folds Discipline and Outcome behind Show more, with the count", () => {
-		const html = tip(<MeasuresRegion history={sampleHistory(atlas)} />);
-		expect(element(html, "catalog-agent-measures-more-toggle")).toContain(
-			"Show 2 more sections",
-		);
-		const rest = element(html, "catalog-agent-measures-more-rest");
-		expect(rest).toContain("catalog-agent-discipline");
-		expect(rest).toContain("catalog-agent-outcome");
-		expect(html).toMatch(
-			/inert=""[^>]*>\s*<ul[^>]*data-testid="catalog-agent-measures-more-rest"/,
-		);
 	});
 });
