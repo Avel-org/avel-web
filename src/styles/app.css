@@ -505,6 +505,14 @@
 	::backdrop {
 		border-color: var(--color-border);
 	}
+	/* Every scrolling box gets the canvas's quiet scrollbar (app-scroll's
+	   look), not the platform's: on Windows a menu, select or the command
+	   menu otherwise drew a thick bar with arrow buttons. no-scrollbar
+	   still hides it where asked. */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--color-border-strong) transparent;
+	}
 }
 
 /* Loading only. Stops when content lands. */
