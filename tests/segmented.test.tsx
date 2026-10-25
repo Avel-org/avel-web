@@ -63,6 +63,23 @@ describe("Segmented", () => {
 	});
 });
 
+describe("the sliding chip", () => {
+	it("is drawn behind the segments, hidden until measured, so the pressed segment marks itself", () => {
+		const out = html("open");
+		// A server render has no measure: no ready track, the chip invisible
+		// and out of the accessibility tree, the pressed segment its own chip.
+		expect(tagOf(out, "f")).not.toMatch(/\sdata-indicator="/);
+		expect(out).toMatch(
+			/<span aria-hidden="true" data-slot="segment-chip" class="[^"]*opacity-0/,
+		);
+		expect(pressed(out, "open")).toBe(true);
+		// It slides only by the state duration, and never under reduced motion.
+		expect(out).toMatch(
+			/data-slot="segment-chip" class="[^"]*duration-\(--duration-state\)[^"]*motion-reduce:transition-none/,
+		);
+	});
+});
+
 describe("filter rows", () => {
 	it("start with All, Connections too", () => {
 		expect(CONNECTION_FILTERS[0]).toBe("all");

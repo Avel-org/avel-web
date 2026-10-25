@@ -1,5 +1,11 @@
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import {
+	type ReactNode,
+	type RefObject,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { tabsListVariants } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -12,6 +18,13 @@ import { cn } from "@/lib/utils";
  * screen readers; shown, it sits inside the track, so two rows that both
  * start "All" never read as the same control. The track wraps rather than
  * overflow a narrow panel.
+ *
+ * The pressed chip slides from one option to the next (section 4's state
+ * duration, the tab indicator's motion), so a change of filter is seen to
+ * move rather than blink. It is one chip drawn behind the segments,
+ * measured in the browser; until it is measured (and in a server render)
+ * the pressed segment draws its own chip, so nothing is ever unmarked.
+ * Reduced motion places it without the slide.
  */
 
 export type SegmentOption<V extends string> = {
@@ -48,14 +61,23 @@ export function Segmented<V extends string>({
 	/** The fieldset; each segment is `${testId}-${value ?? "all"}`. */
 	"data-testid": string;
 }) {
+	const track = useRef<HTMLFieldSetElement>(null);
+	const chip = usePressedChip(track);
 	return (
 		<fieldset
+			ref={track}
 			data-testid={testId}
+			data-indicator={chip ? "ready" : undefined}
 			className={cn(
 				tabsListVariants({ variant: "default" }),
 				// A wrapped row starts at the left edge, under the first segment,
 				// not centred under the row above.
-				"max-w-full flex-wrap justify-start",
+				"relative max-w-full flex-wrap justify-start",
+				// Once the sliding chip is measured it is the pressed look, so
+				// the pressed segment (or a pressed trailing control) stops
+				// drawing its own; every segment sits above the chip.
+				"[&>button]:relative [&>[data-slot=button-with-reason]]:relative",
+				"[&[data-indicator=ready]>[aria-pressed=true]]:border-transparent [&[data-indicator=ready]>[aria-pressed=true]]:bg-transparent [&[data-indicator=ready]>[aria-pressed=true]]:shadow-none",
 				className,
 			)}
 		>
@@ -68,6 +90,25 @@ export function Segmented<V extends string>({
 			>
 				{legend}
 			</legend>
+			<span
+				aria-hidden="true"
+				data-slot="segment-chip"
+				data-animate={chip?.animate || undefined}
+				style={
+					chip
+						? {
+								transform: `translate(${chip.x}px, ${chip.y}px)`,
+								width: chip.width,
+								height: chip.height,
+							}
+						: undefined
+				}
+				className={cn(
+					"pointer-events-none absolute top-0 left-0 rounded-sm border border-border bg-chip shadow-btn",
+					"data-animate:transition-[transform,width,height] data-animate:duration-(--duration-state) data-animate:ease-avel motion-reduce:transition-none",
+					chip ? "opacity-100" : "opacity-0",
+				)}
+			/>
 			{options.map((option) => {
 				const id = option.value ?? "all";
 				return (
@@ -103,4 +144,60 @@ export function Segmented<V extends string>({
 			{children}
 		</fieldset>
 	);
+}
+
+type ChipBox = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	animate: boolean;
+};
+
+/**
+ * Where the pressed chip goes: over the pressed control among the track's
+ * own children, re-measured when the choice changes or the track resizes
+ * (it wraps). The first measure places it without moving; later ones slide.
+ * Nothing pressed (a choice held by a trailing control that is not pressed)
+ * hides it.
+ */
+function usePressedChip(
+	ref: RefObject<HTMLFieldSetElement | null>,
+): ChipBox | null {
+	const [box, setBox] = useState<ChipBox | null>(null);
+	useEffect(() => {
+		const track = ref.current;
+		if (!track) return;
+		const measure = () => {
+			const pressed = track.querySelector<HTMLElement>(
+				':scope > [aria-pressed="true"]',
+			);
+			if (!pressed) return setBox(null);
+			// From the boxes, inside the track's border: offsetLeft counted
+			// the border and set the chip a pixel off its segment.
+			const at = pressed.getBoundingClientRect();
+			const from = track.getBoundingClientRect();
+			setBox((previous) => ({
+				x: at.left - from.left - track.clientLeft,
+				y: at.top - from.top - track.clientTop,
+				width: at.width,
+				height: at.height,
+				animate: previous !== null,
+			}));
+		};
+		measure();
+		const resize = new ResizeObserver(measure);
+		resize.observe(track);
+		const presses = new MutationObserver(measure);
+		presses.observe(track, {
+			subtree: true,
+			attributes: true,
+			attributeFilter: ["aria-pressed"],
+		});
+		return () => {
+			resize.disconnect();
+			presses.disconnect();
+		};
+	}, [ref]);
+	return box;
 }
