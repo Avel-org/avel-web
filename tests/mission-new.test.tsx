@@ -5,7 +5,7 @@ import { InlineModals } from "@/components/avel/action-modal";
 import { NewIntakeForm } from "@/components/avel/intake-new";
 import { NewMissionModal } from "@/components/avel/mission-new";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ApiProvider } from "@/lib/api";
+import { ApiError, ApiProvider } from "@/lib/api";
 import { clientEngagementsQuery, clientsQuery } from "@/lib/api/clients";
 import { client, engagement, fakeApi } from "./clients-fixtures";
 import { tagOf } from "./render-page";
@@ -106,6 +106,39 @@ describe("New mission", () => {
 			</ApiProvider>,
 		);
 		expect(tagOf(html, "intake-new-submit")).toContain('disabled=""');
+	});
+
+	it("says why the clients could not be read, with a retry, instead of loading forever", () => {
+		const { client: api } = fakeApi();
+		// As after the retries ran out: mounting does not start another.
+		const qc = new QueryClient({
+			defaultOptions: { queries: { retryOnMount: false } },
+		});
+		const key = clientsQuery(api, undefined, "active").queryKey;
+		qc.getQueryCache()
+			.build(qc, { queryKey: key })
+			.setState({
+				status: "error",
+				error: new ApiError({
+					method: "GET",
+					path: "/api/clients",
+					kind: "unreachable",
+				}),
+				fetchStatus: "idle",
+			} as never);
+		const html = renderToString(
+			<ApiProvider client={api}>
+				<QueryClientProvider client={qc}>
+					<TooltipProvider>
+						<InlineModals>
+							<NewMissionModal open onOpenChange={() => {}} />
+						</InlineModals>
+					</TooltipProvider>
+				</QueryClientProvider>
+			</ApiProvider>,
+		);
+		expect(html).toContain('data-testid="surface-error"');
+		expect(html).not.toContain("mission-new-clients-loading");
 	});
 
 	it("draws the clients loading", () => {

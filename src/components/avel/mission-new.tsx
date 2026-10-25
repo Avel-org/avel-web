@@ -6,6 +6,7 @@ import { useClientEngagements, useClients } from "@/lib/api/clients";
 import { useCreateIntake } from "@/lib/api/intakes";
 import { NewIntakeForm } from "./intake-new";
 import { OptionCards } from "./option-cards";
+import { ErrorState } from "./surface";
 import { useOpenGeneration } from "./use-open-generation";
 
 /*
@@ -37,7 +38,14 @@ export function NewMissionModal({
 	const generation = useOpenGeneration(open);
 
 	const picker =
-		list === undefined ? (
+		// A failed read says so, with a retry, rather than loading forever.
+		clients.status === "error" ? (
+			<ErrorState
+				error={clients.error}
+				retry={() => clients.refetch()}
+				retrying={clients.isFetching}
+			/>
+		) : list === undefined ? (
 			<div
 				data-testid="mission-new-clients-loading"
 				className="flex flex-col gap-2"
