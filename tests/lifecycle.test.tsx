@@ -24,6 +24,24 @@ const standings = <S extends string>(spec: LifecycleSpec<S>, current: S) =>
 	Object.fromEntries(mainLine(spec, current).map((s) => [s.state, s.standing]));
 
 describe("Lifecycle (audit D5)", () => {
+	it("never starts a wrapped line with a connector: each step leads with one, clipped at the edge", () => {
+		const out = html(EXPORT_LIFECYCLE, "previewed");
+		// The list sits one connector left, inside a clipping box.
+		expect(out).toMatch(
+			/<div class="min-w-0 overflow-hidden"><ol[^>]*class="-ml-7 /,
+		);
+		// Every step, the first too, carries its connector, so a step that
+		// starts a line has its connector outside the box.
+		const steps = mainLine(EXPORT_LIFECYCLE, "previewed").map((s) => s.state);
+		for (const state of steps) {
+			expect(tagOf(out, `lc-step-${state}`)).toBeTruthy();
+			const li = out.split(`data-testid="lc-step-${state}"`)[1] ?? "";
+			expect(li.slice(0, li.indexOf("</li>"))).toMatch(
+				/aria-hidden="true" class="mx-1.5 h-px w-4/,
+			);
+		}
+	});
+
 	it("places every contract state, the main line in the contract's order", () => {
 		for (const spec of [MISSION_LIFECYCLE, EXPORT_LIFECYCLE] as const) {
 			const placed = Object.keys(spec.place).sort();

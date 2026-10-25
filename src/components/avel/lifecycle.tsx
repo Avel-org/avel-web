@@ -250,43 +250,54 @@ export function Lifecycle<S extends string>({
 			data-current={current}
 			className="flex flex-wrap items-center gap-x-3 gap-y-2"
 		>
-			<ol aria-label={label} className="flex flex-wrap items-start gap-y-2">
-				{main.map(({ state, standing }, i) => (
-					<li
-						key={state}
-						data-testid={`${testId}-step-${state}`}
-						data-standing={standing}
-						aria-current={standing === "current" ? "step" : undefined}
-						className="flex items-center"
-					>
-						{i > 0 ? (
+			{/* Every step but the first is led by its connector. On a narrow
+			    card the line wraps, and a wrapped line would start with a
+			    dangling connector: the list sits one connector to the left
+			    inside a clipping box, so a connector that starts a line falls
+			    outside it. The first step has one too, always clipped, so every
+			    step measures the same. */}
+			<div className="min-w-0 overflow-hidden">
+				<ol
+					aria-label={label}
+					className="-ml-7 flex flex-wrap items-start gap-y-2 sm:-ml-9"
+				>
+					{main.map(({ state, standing }, i) => (
+						<li
+							key={state}
+							data-testid={`${testId}-step-${state}`}
+							data-standing={standing}
+							aria-current={standing === "current" ? "step" : undefined}
+							className="flex items-center"
+						>
 							<span
 								aria-hidden="true"
 								className={cn(
 									"mx-1.5 h-px w-4 sm:w-6",
-									standing === "ahead" ? "bg-border-strong" : "bg-text-muted",
+									i === 0 || standing === "ahead"
+										? "bg-border-strong"
+										: "bg-text-muted",
 								)}
 							/>
-						) : null}
-						<span className="inline-flex items-center gap-1.5">
-							<Dot standing={standing} tone={spec.tone[state]} />
-							<span
-								className={cn(
-									"type-caption whitespace-nowrap",
-									standing === "current"
-										? "font-medium text-text"
-										: standing === "passed"
-											? "text-text-muted"
-											: "text-text-subtle",
-								)}
-							>
-								{spec.label[state]}
+							<span className="inline-flex items-center gap-1.5">
+								<Dot standing={standing} tone={spec.tone[state]} />
+								<span
+									className={cn(
+										"type-caption whitespace-nowrap",
+										standing === "current"
+											? "font-medium text-text"
+											: standing === "passed"
+												? "text-text-muted"
+												: "text-text-subtle",
+									)}
+								>
+									{spec.label[state]}
+								</span>
+								<span className="sr-only">{`, ${STANDING_WORDS[standing]}`}</span>
 							</span>
-							<span className="sr-only">{`, ${STANDING_WORDS[standing]}`}</span>
-						</span>
-					</li>
-				))}
-			</ol>
+						</li>
+					))}
+				</ol>
+			</div>
 			{branches.length > 0 ? (
 				<ul
 					aria-label={`${label}: ends off the main line`}
