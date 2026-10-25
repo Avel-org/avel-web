@@ -41,6 +41,7 @@ const { createApp } = (await import(/* @vite-ignore */ `${server}app.ts`)) as {
 		drive: unknown;
 		checkRunner: unknown;
 		repoWriter: unknown;
+		githubWebhookSecret: string | null;
 	}) => ServerApp;
 };
 const { fixedClock } = (await import(
@@ -96,6 +97,9 @@ const realApp = () =>
 		// no test, typecheck or command check, as the server's own stubs do.
 		checkRunner: null,
 		repoWriter: noRepoWriter(),
+		// The PR webhook's secret (avel-server, 2026-10-24): null refuses
+		// every webhook, which these tests never send.
+		githubWebhookSecret: null,
 	});
 
 async function read(res: Response) {

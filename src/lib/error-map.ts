@@ -913,11 +913,21 @@ export const PRECONDITION_COPY = {
 		next: "Export it as a zip instead.",
 		retry: false,
 	},
-	// Only github_push since 2026-10-24: a GitHub pull request delivers.
-	export_target_not_built: {
-		what: "Pushing straight to GitHub isn't built yet.",
+	// Push delivery (2026-10-24): the target branch is the repository's
+	// default, and its policy does not allow a direct push there. A repo
+	// with no policy never allows it.
+	direct_push_not_allowed: {
+		what: "This repository's policy doesn't allow a direct push to its default branch.",
 		written: NOTHING_WRITTEN,
-		next: "Deliver it as a zip or as a GitHub pull request.",
+		next: "Push to another branch, deliver it as a pull request, or allow direct pushes in Settings, Repositories.",
+		retry: false,
+	},
+	// PUT /api/repo-policies: allowing a direct push to the default branch
+	// needs its own confirmation.
+	direct_push_unconfirmed: {
+		what: "Allowing a direct push to the default branch needs to be confirmed.",
+		written: "The policy was not changed.",
+		next: "Confirm that pushes may go straight to the default branch, then save again.",
 		retry: false,
 	},
 	// PUT /api/skills/:id/roles: stack and domain skills go on missions.
