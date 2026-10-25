@@ -217,12 +217,12 @@ const draftOf = (policy: RepoPolicy | null): Draft => ({
  * What Save sends. The label and default target are sent every time, null
  * when cleared, because an omitted one keeps its earlier value.
  *
- * The server asks for confirmDirectPush on every set that leaves a direct
- * push allowed, not only the one that turns it on (repo-policies.ts; its
- * contract comment says "turning on"). Turning it on needs the operator's
- * tick. Keeping it on grants nothing new: it was confirmed when it was
- * turned on, so the confirmation goes with it, and renaming a policy that
- * allows a push no longer fails on a box the form never showed.
+ * Turning a direct push on needs the operator's tick (confirmDirectPush).
+ * Keeping it on grants nothing new, so the confirmation goes with it
+ * unasked: the server once demanded it on every set that left a push on,
+ * and a rename failed on a box the form never showed. The server now asks
+ * only when it turns on (avel-server 738beb4); sending it on a push that
+ * stays on is accepted either way.
  */
 export function repoPolicyBody(
 	draft: Draft,
