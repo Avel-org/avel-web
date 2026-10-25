@@ -44,12 +44,15 @@ export function ClientTable({
 	search,
 	status,
 	onClearSearch,
+	onClearStatus,
 	now,
 }: {
 	query: ReturnType<typeof useClients>;
 	search: string | undefined;
 	status: ClientStatus | undefined;
 	onClearSearch: () => void;
+	/** Drops the status filter, so every client shows. */
+	onClearStatus: () => void;
 	now: number;
 }) {
 	return (
@@ -61,7 +64,7 @@ export function ClientTable({
 			empty={
 				<div className="p-4">
 					{search === undefined && status !== undefined ? (
-						<NoClientsWithStatus status={status} />
+						<NoClientsWithStatus status={status} onShowAll={onClearStatus} />
 					) : (
 						<ClientsNoMatch search={search} onClearSearch={onClearSearch} />
 					)}
@@ -241,7 +244,13 @@ export function ClientsNoMatch({
 }
 
 /** A status filter that keeps no client, with no search to blame. */
-function NoClientsWithStatus({ status }: { status: ClientStatus }) {
+function NoClientsWithStatus({
+	status,
+	onShowAll,
+}: {
+	status: ClientStatus;
+	onShowAll: () => void;
+}) {
 	return (
 		<EmptyState
 			data-testid="clients-none-with-status"
@@ -252,6 +261,16 @@ function NoClientsWithStatus({ status }: { status: ClientStatus }) {
 				status === "active"
 					? "Every client is closed. Reopen one, or add a new client."
 					: "No client has been closed."
+			}
+			action={
+				<Button
+					size="sm"
+					variant="outline"
+					data-testid="clients-show-all"
+					onClick={onShowAll}
+				>
+					Show all clients
+				</Button>
 			}
 		/>
 	);

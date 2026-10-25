@@ -6,11 +6,14 @@ import {
 	ChevronRight,
 	Compass,
 	PenLine,
+	SearchX,
 	Wrench,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SkillStatusPill } from "./catalog-sample";
+import { EmptyState } from "./empty-state";
 import { ROW_LINK_GROUP, RowChevron } from "./row-link";
 import { SearchField } from "./search-field";
 
@@ -318,12 +321,31 @@ export function SkillIndex({
 				) : null}
 			</div>
 			{sections.length === 0 ? (
-				<p
+				<EmptyState
 					data-testid="skill-index-none"
-					className="type-small text-text-subtle"
-				>
-					No skill matches.
-				</p>
+					compact
+					icon={SearchX}
+					title={draftsOnly && !q ? "No drafts to review" : "No skills match"}
+					description={
+						q
+							? `Nothing matches “${q.trim()}” in a skill's name, slug or description.`
+							: "Every skill has been reviewed."
+					}
+					action={
+						<Button size="sm" variant="outline" asChild>
+							<Link
+								to="/catalog/skills"
+								data-testid="skill-index-clear-filters"
+							>
+								{draftsOnly && q
+									? "Clear filters"
+									: q
+										? "Clear search"
+										: "Show every skill"}
+							</Link>
+						</Button>
+					}
+				/>
 			) : (
 				sections.map((section) => (
 					<section

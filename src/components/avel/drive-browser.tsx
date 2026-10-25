@@ -366,7 +366,7 @@ function DriveLoaded({
 													onChange({ q: undefined, kind: undefined })
 												}
 											>
-												Clear search and kind
+												Clear filters
 											</Button>
 										) : undefined
 									}

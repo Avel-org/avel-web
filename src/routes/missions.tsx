@@ -1,6 +1,6 @@
 import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import type { MissionListItem } from "avel-server/contract";
-import { Plus, Target } from "lucide-react";
+import { Plus, SearchX, Target } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { DataPanel } from "@/components/avel/data-panel";
 import { EmptyState } from "@/components/avel/empty-state";
@@ -122,6 +122,8 @@ function MissionsPage() {
 		? Object.values(counts.byStatus).reduce((sum, n) => sum + n, 0)
 		: undefined;
 	const firstRun = total === 0 && search.q === "";
+	// A search that kept nothing: one way out, not an empty note per group.
+	const noMatch = total === 0 && search.q !== "";
 
 	const open = useCallback(
 		(mission: MissionListItem) =>
@@ -206,6 +208,26 @@ function MissionsPage() {
 											: "No internal missions yet"
 									}
 									description="Missions appear here as they are created, grouped by where each one stands."
+								/>
+							) : noMatch ? (
+								<EmptyState
+									data-testid="missions-no-match"
+									compact
+									icon={SearchX}
+									title="No missions match"
+									description={`Nothing matches “${search.q}” in a mission's client, engagement or type.`}
+									action={
+										<Button
+											size="sm"
+											variant="outline"
+											data-testid="missions-clear-search"
+											onClick={() =>
+												navigate({ search: (prev) => ({ ...prev, q: "" }) })
+											}
+										>
+											Clear search
+										</Button>
+									}
 								/>
 							) : (
 								// biome-ignore lint/a11y/noStaticElementInteractions: J and K move between the rows inside; the rows are the controls.

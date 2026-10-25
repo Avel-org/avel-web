@@ -1,5 +1,6 @@
-import { Bot, LayoutGrid, Network } from "lucide-react";
+import { Bot, LayoutGrid, Network, SearchX } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { loadedRows, type useAgentTemplates } from "@/lib/api/catalog";
 import { AgentCardGrid, AgentCardSkeleton } from "./catalog-agent-card";
 import { AgentGraphCanvas } from "./catalog-agent-graph";
@@ -196,9 +197,19 @@ export function CatalogAgents({
 									<EmptyState
 										data-testid="catalog-agents-no-match"
 										compact
-										icon={Bot}
+										icon={SearchX}
 										title="No agents match"
-										description="No agent matches every filter and search set here. Clear one to see more."
+										description="No agent matches every filter and search set here."
+										action={
+											<Button
+												size="sm"
+												variant="outline"
+												data-testid="catalog-agents-clear-filters"
+												onClick={() => setFilters({})}
+											>
+												Clear filters
+											</Button>
+										}
 									/>
 								) : view === "cards" ? (
 									<AgentCardGrid agents={matching} />

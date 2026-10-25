@@ -222,6 +222,7 @@ function ClientsPage() {
 								search={search.q}
 								status={search.status}
 								onClearSearch={() => setQuery("")}
+								onClearStatus={() => setSearch({ status: undefined })}
 								now={now}
 							/>
 						) : (

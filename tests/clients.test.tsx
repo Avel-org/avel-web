@@ -584,6 +584,8 @@ describe("the Board | Table toggle (ruling 36)", () => {
 		});
 		expect(html).toContain('data-testid="clients-none-with-status"');
 		expect(html).not.toContain('data-testid="clients-no-match"');
+		// The way out drops the status filter.
+		expect(html).toContain('data-testid="clients-show-all"');
 	});
 });
 

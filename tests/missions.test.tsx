@@ -483,6 +483,30 @@ describe("the data in the grouped view", () => {
 		expect(html).toContain("No client missions yet");
 		expect(panels(html)).toEqual([]);
 	});
+
+	it("answers a search that kept nothing once, with a way to clear it", async () => {
+		const zero = {
+			byStatus: missionStatusCounts.parse({
+				draft: 0,
+				active: 0,
+				halted: 0,
+				shipped: 0,
+				archived: 0,
+			}),
+			needsYou: 0,
+		};
+		const html = await render("/missions?q=zzzz", (client) => {
+			client.setQueryData(
+				queryKeys.missions.list(base({ q: "zzzz" })).slice(),
+				page([], { counts: zero }),
+			);
+		});
+		expect(html).toContain('data-testid="missions-no-match"');
+		expect(html).toContain('data-testid="missions-clear-search"');
+		expect(html).not.toContain('data-testid="missions-first-run"');
+		// One answer, not an empty note under every status group.
+		expect(panels(html)).toEqual([]);
+	});
 });
 
 describe("collapsing a strip hides it, and keeps its rows", () => {

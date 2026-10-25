@@ -892,7 +892,14 @@ describe("the index", () => {
 			`href="/catalog/skills?skill=${WITH_ADDITIONS}&amp;q=next.js"`,
 		);
 		const none = await page("?q=zzzz-nothing");
-		expect(element(none, "skill-index-none")).toContain("No skill matches.");
+		expect(element(none, "skill-index-none")).toContain("No skills match");
+		// The way out drops the search: the plain index.
+		expect(tagOf(none, "skill-index-clear-filters")).toContain(
+			'href="/catalog/skills"',
+		);
+		expect(element(none, "skill-index-clear-filters")).toContain(
+			"Clear search",
+		);
 		expect(sectionIds(none)).toEqual([]);
 	});
 });
