@@ -240,6 +240,38 @@ function GateBody({
 	);
 }
 
+/**
+ * The confirmed defects this run was checked against (module 12): each
+ * prior_finding reason names one finding's permanent check, and a match is
+ * its prior_finding_failed rule.
+ */
+export function priorChecks(run: Pick<GateRun, "reasons">): {
+	checked: number;
+	matched: number;
+} {
+	const checked = new Set<string>();
+	const matched = new Set<string>();
+	for (const r of run.reasons) {
+		if (r.kind !== "prior_finding") continue;
+		checked.add(r.findingId);
+		if (r.rule === "prior_finding_failed") matched.add(r.findingId);
+	}
+	return { checked: checked.size, matched: matched.size };
+}
+
+/** "Checked against 3 confirmed defects, none found again", or how many were. */
+export function priorChecksLabel({
+	checked,
+	matched,
+}: {
+	checked: number;
+	matched: number;
+}): string {
+	const what = `Checked against ${checked} confirmed ${checked === 1 ? "defect" : "defects"}`;
+	if (matched === 0) return `${what}, none found again`;
+	return `${what}, ${matched} found again`;
+}
+
 /** The later-queued of two jobs, either of which may be absent. */
 export function newerJob(a: GateJob | null, b: GateJob | null): GateJob | null {
 	if (a === null) return b;
@@ -445,8 +477,24 @@ export function GateReceipt({
 	drafts: Record<string, string>;
 	onDraft: (findingId: string, rationale: string) => void;
 }) {
+	const priors = priorChecks(run);
 	return (
 		<div data-testid="gate-receipt" className="flex flex-col gap-3">
+			{priors.checked > 0 ? (
+				<p
+					data-testid="gate-prior-checks"
+					data-matched={priors.matched}
+					className="flex items-center gap-1.5 type-small text-text-muted"
+				>
+					<StatusGlyph
+						tone={priors.matched > 0 ? "block" : "pass"}
+						className={
+							priors.matched > 0 ? "text-gate-block" : "text-gate-pass"
+						}
+					/>
+					{priorChecksLabel(priors)}
+				</p>
+			) : null}
 			<ul className="flex flex-col divide-y divide-border rounded-card border border-border">
 				{run.gates.map((g) => (
 					<GateRow

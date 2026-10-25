@@ -11,6 +11,7 @@ import {
 	contract,
 	type FindingStatus,
 	type GateJob,
+	type PermanentCheck,
 } from "avel-server/contract";
 import type { z } from "zod";
 import { type ApiClient, call, callPage } from "./client";
@@ -286,6 +287,23 @@ export function useConfirmFinding(missionId: string) {
 		mutationFn: (id: string) =>
 			call(contract.findings.confirm, () =>
 				api.findings.confirm({ params: { id } }),
+			),
+		onSuccess: () => afterTriage(queryClient, missionId),
+	});
+}
+
+/**
+ * PUT /api/findings/:id/check (module 12): attach, replace or remove a
+ * confirmed finding's permanent check. It changes the finding and logs a
+ * row, as a triage does; later missions read it at their next gate run.
+ */
+export function useSetFindingCheck(missionId: string) {
+	const api = useApiClient();
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ id, check }: { id: string; check: PermanentCheck | null }) =>
+			call(contract.findings.setCheck, () =>
+				api.findings.setCheck({ params: { id }, body: { check } }),
 			),
 		onSuccess: () => afterTriage(queryClient, missionId),
 	});

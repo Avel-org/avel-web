@@ -84,6 +84,7 @@ export const WRITES = {
 	runGate: ["gate_job", "activity_log"],
 	confirmFinding: ["finding", "activity_log"],
 	dismissFinding: ["finding", "activity_log"],
+	setFindingCheck: ["finding", "activity_log"],
 	previewExport: ["export", "activity_log"],
 	createExport: ["export", "activity_log"],
 	refreshExport: ["export", "activity_log"],

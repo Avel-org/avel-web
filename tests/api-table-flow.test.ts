@@ -239,6 +239,7 @@ const RUN_WRITE: Record<WriteName, (qc: QueryClient) => unknown> = {
 	runGate: (qc) => afterGateQueued(qc, JOB),
 	confirmFinding: (qc) => afterTriage(qc, M),
 	dismissFinding: (qc) => afterTriage(qc, M),
+	setFindingCheck: (qc) => afterTriage(qc, M),
 	previewExport: (qc) => afterExport(qc),
 	createExport: (qc) => afterExport(qc),
 	refreshExport: (qc) => afterExport(qc),

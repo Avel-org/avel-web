@@ -16,6 +16,7 @@ import { describeError } from "@/lib/error-map";
 import { cn } from "@/lib/utils";
 import { ActionModal } from "./action-modal";
 import { EmptyState } from "./empty-state";
+import { FindingCheckLine } from "./finding-check";
 import { SEVERITY } from "./gate-copy";
 import { Paging, PanelFooter } from "./panel-footer";
 import { Reason } from "./reason";
@@ -246,6 +247,9 @@ export function FindingRow({
 					</div>
 				) : null}
 			</div>
+			{finding.status === "confirmed" ? (
+				<FindingCheckLine finding={finding} missionId={missionId} />
+			) : null}
 			{confirm.error ? (
 				<Reason data-testid={`finding-${finding.id}-refused`}>
 					{describeError(confirm.error).what}

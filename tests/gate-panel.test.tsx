@@ -21,7 +21,12 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { InlineModals } from "@/components/avel/action-modal";
 import {
+	FindingCheckForm,
+	pathsFromLines,
+} from "@/components/avel/finding-check";
+import {
 	DismissFinding,
+	FindingRow,
 	FindingsPanel,
 } from "@/components/avel/findings-panel";
 import {
@@ -29,6 +34,8 @@ import {
 	GateReceipt,
 	GateRefusal,
 	newerJob,
+	priorChecks,
+	priorChecksLabel,
 	queuedLabel,
 	runningLabel,
 } from "@/components/avel/gate-panel";
@@ -643,5 +650,110 @@ describe("a gate run in the background", () => {
 		expect(html).not.toContain("SERVER LOG TEXT");
 		// A failed job holds nothing: the gate can run again.
 		expect(tagOf(html, "gate-run")).not.toMatch(/\sdisabled=""/);
+	});
+});
+
+// Permanent defect checks (module 12, 2026-10-24): a confirmed finding may
+// carry literal text that later missions in its scope must never contain.
+
+describe("a confirmed finding's permanent check", () => {
+	const CHECK = {
+		kind: "forbidden_text" as const,
+		paths: ["src/**/*.tsx"],
+		text: "dangerouslySetInnerHTML",
+		scope: "client" as const,
+	};
+	const CLIENT = "00000000-0000-4000-8000-000000000501";
+	const row = (f: Finding) =>
+		render(
+			<ul>
+				<FindingRow finding={f} missionId={MISSION} />
+			</ul>,
+		);
+
+	it("is offered only once a finding is confirmed", async () => {
+		const open = await row(finding_(1, {}));
+		expect(open).not.toContain("-check-add");
+		const confirmed = finding_(2, { status: "confirmed" });
+		expect(await row(confirmed)).toContain(
+			`data-testid="finding-${confirmed.id}-check-add"`,
+		);
+	});
+
+	it("shows the text it forbids, where, and on which missions, with edit and remove", async () => {
+		const f = finding_(3, {
+			status: "confirmed",
+			clientId: CLIENT,
+			check: CHECK,
+		});
+		const html = await row(f);
+		expect(element(html, `finding-${f.id}-check-text`)).toContain(
+			"dangerouslySetInnerHTML",
+		);
+		expect(html).toContain("src/**/*.tsx");
+		expect(html).toContain("this client&#x27;s missions");
+		expect(html).toContain(`data-testid="finding-${f.id}-check-remove"`);
+	});
+
+	it("sends its paths trimmed and deduplicated, and holds Save until a path and text are given", async () => {
+		expect(
+			pathsFromLines([" src/a.ts ", "", "src/a.ts", "lib/**"].join("\n")),
+		).toEqual(["src/a.ts", "lib/**"]);
+		const html = await render(
+			<FindingCheckForm
+				finding={finding_(4, { status: "confirmed", clientId: CLIENT })}
+				pending={false}
+				error={null}
+				onSubmit={() => {}}
+			/>,
+		);
+		expect(tagOf(html, "finding-check-form-submit")).toContain('disabled=""');
+		expect(tagOf(html, "finding-check-form-scope-client")).toContain(
+			'data-state="checked"',
+		);
+	});
+
+	it("can't be scoped to a client on an internal mission's finding", async () => {
+		const html = await render(
+			<FindingCheckForm
+				finding={finding_(5, { status: "confirmed", clientId: null })}
+				pending={false}
+				error={null}
+				onSubmit={() => {}}
+			/>,
+		);
+		expect(tagOf(html, "finding-check-form-scope-client")).toContain(
+			"disabled",
+		);
+		expect(tagOf(html, "finding-check-form-scope-general")).toContain(
+			'data-state="checked"',
+		);
+	});
+
+	it("counts a run's confirmed defects once each, and those found again", () => {
+		const prior = (id: string, failed: boolean) =>
+			reason({
+				findingId: `prior:${id}`,
+				kind: "prior_finding",
+				rule: failed ? "prior_finding_failed" : "passed",
+				effect: failed ? "block" : "pass",
+				overridable: false,
+			});
+		const run = {
+			reasons: [
+				prior("a", false),
+				prior("b", true),
+				prior("b", true),
+				OVERRIDABLE,
+			],
+		};
+		expect(priorChecks(run)).toEqual({ checked: 2, matched: 1 });
+		expect(priorChecksLabel({ checked: 2, matched: 1 })).toBe(
+			"Checked against 2 confirmed defects, 1 found again",
+		);
+		expect(priorChecksLabel({ checked: 1, matched: 0 })).toBe(
+			"Checked against 1 confirmed defect, none found again",
+		);
+		expect(priorChecks(RUN_BLOCK)).toEqual({ checked: 0, matched: 0 });
 	});
 });
