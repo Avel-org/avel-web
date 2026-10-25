@@ -53,7 +53,9 @@ export function Segmented<V extends string>({
 			data-testid={testId}
 			className={cn(
 				tabsListVariants({ variant: "default" }),
-				"max-w-full flex-wrap",
+				// A wrapped row starts at the left edge, under the first segment,
+				// not centred under the row above.
+				"max-w-full flex-wrap justify-start",
 				className,
 			)}
 		>

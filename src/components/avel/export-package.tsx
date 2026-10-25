@@ -2,7 +2,6 @@ import type { ExportWire } from "avel-server/contract";
 import { ChevronRight, FilePen, FilePlus, FileText, FileX } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { tabsListVariants } from "@/components/ui/tabs";
 import { useDispatch } from "@/lib/api/dispatches";
 import {
 	CONTRACT_ERROR_COPY,
@@ -13,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { BriefModal } from "./dispatch-brief";
 import { RESULT } from "./gate-copy";
 import { fileSize } from "./intake-files";
+import { Segmented } from "./segmented";
 import { HiddenId, ShortHash } from "./short-hash";
 import { StatusGlyph, StatusPill } from "./status-pill";
 
@@ -144,29 +144,19 @@ export function PackageMap({
 	const briefs = packageBriefs(exp);
 	return (
 		<div data-testid={testId} className="flex flex-col gap-3">
-			<fieldset
+			<Segmented
 				data-testid={`${testId}-filter`}
-				className={cn(tabsListVariants({ variant: "default" }), "flex-wrap")}
-			>
-				<legend className="sr-only">Show</legend>
-				{FILTERS.map((f) => {
-					const n = count(f.id);
-					if (f.id === "violations" && n === 0) return null;
-					return (
-						<Button
-							key={f.id}
-							type="button"
-							variant="segment"
-							aria-pressed={filter === f.id}
-							data-testid={`${testId}-filter-${f.id}`}
-							onClick={() => setFilter(f.id)}
-						>
-							{f.label}
-							<span className="tabular-nums text-text-subtle">{n}</span>
-						</Button>
-					);
-				})}
-			</fieldset>
+				legend="Show"
+				// Violations shows only when there is one to show.
+				options={FILTERS.filter(
+					(f) => f.id !== "violations" || count(f.id) > 0,
+				).map((f) => ({ value: f.id, label: f.label, count: count(f.id) }))}
+				value={filter}
+				onChange={(next) => {
+					if (next !== undefined) setFilter(next);
+				}}
+				className="self-start"
+			/>
 			{shown.length === 0 ? (
 				<p className="type-small text-text-subtle">
 					{entries.length === 0
