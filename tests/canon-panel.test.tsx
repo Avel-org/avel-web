@@ -58,7 +58,7 @@ describe("the Canon panel", () => {
 		expect(tagOf(html, "canon-status")).toContain('data-tone="pending"');
 		expect(html).toContain(`data-testid="canon-budget-track-${SESSION}"`);
 		expect(html).toContain(`data-testid="canon-budget-soft-mark-${SESSION}"`);
-		expect(element(html, "canon-spend")).toContain("Spent $0.4200");
+		expect(element(html, "canon-spend")).toContain("Spent $0.42<");
 		expect(html).toContain("12,000 of 180,000 tokens");
 	});
 

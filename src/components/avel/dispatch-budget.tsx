@@ -19,12 +19,14 @@ export function formatTokens(tokens: number): string {
 
 /**
  * "$0.0421" below a dollar, "$12.40" from one up. Spend accrues in
- * fractions of a cent, so a small run keeps four places rather than
- * rounding to $0.00.
+ * fractions of a cent, so a small run keeps up to four places rather than
+ * rounding to $0.00; zeros past the cents are dropped ("$0.90", never
+ * "$0.9000").
  */
 export function formatUsd(usd: number): string {
 	if (usd === 0) return "$0.00";
-	return `$${usd.toFixed(usd < 1 ? 4 : 2)}`;
+	if (usd >= 1) return `$${usd.toFixed(2)}`;
+	return `$${usd.toFixed(4).replace(/(\.\d\d\d??)0+$/, "$1")}`;
 }
 
 /** "1.5×": a ceiling as a multiple of the estimate. */

@@ -512,6 +512,10 @@ describe("a dispatch's budget", () => {
 		expect(formatUsd(0)).toBe("$0.00");
 		expect(formatUsd(0.0421)).toBe("$0.0421");
 		expect(formatUsd(12.4)).toBe("$12.40");
+		// Zeros past the cents go: four places only where they say something.
+		expect(formatUsd(0.9)).toBe("$0.90");
+		expect(formatUsd(0.125)).toBe("$0.125");
+		expect(formatUsd(0.05)).toBe("$0.05");
 		expect(minutesRun({ startedAt: null, closedAt: null }, NOW)).toBeNull();
 		expect(
 			minutesRun(
