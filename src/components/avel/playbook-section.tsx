@@ -50,6 +50,7 @@ export function PlaybooksPanel({
 					data-testid="playbooks-search"
 					label="Search playbooks by name or mission type"
 					placeholder="Search playbooks"
+					shortcut="/"
 					value={search}
 					onChange={onSearch}
 					className="w-full max-w-sm"

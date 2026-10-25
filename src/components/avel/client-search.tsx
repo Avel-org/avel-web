@@ -39,6 +39,7 @@ export function ClientSearch({
 			data-testid="clients-search"
 			label="Search clients"
 			placeholder="Search by name or contact"
+			shortcut="/"
 			maxLength={CLIENT_SEARCH_MAX}
 			value={text}
 			onChange={setText}

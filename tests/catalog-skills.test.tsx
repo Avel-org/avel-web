@@ -755,9 +755,11 @@ describe("the index", () => {
 			'href="/catalog/skills?view=discover"',
 		);
 		expect(tagOf(html, "skill-filter-input")).toContain(
-			'placeholder="Filter skills"',
+			'placeholder="Search skills"',
 		);
-		expect(html).toMatch(/<label[^>]*>Filter skills<\/label>/);
+		expect(html).toMatch(
+			/<label[^>]*>Search skills by name, slug or description<\/label>/,
+		);
 		expect(indexOf(index, "skill-entry-new")).toBeLessThan(
 			indexOf(index, "skill-filter"),
 		);

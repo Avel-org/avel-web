@@ -295,8 +295,9 @@ export function SkillIndex({
 			<div className="flex flex-col gap-2">
 				<SearchField
 					data-testid="skill-filter"
-					label="Filter skills"
-					placeholder="Filter skills"
+					label="Search skills by name, slug or description"
+					placeholder="Search skills"
+					shortcut="/"
 					value={q ?? ""}
 					onChange={onFilter}
 				/>
