@@ -606,6 +606,9 @@ describe("a gate run in the background", () => {
 		expect(html).toContain(">Running checks, 3 of 7<");
 		expect(html).toContain('data-testid="gate-job-check"');
 		expect(html).toContain('aria-valuenow="3"');
+		// The done share carries the running sheen; no sweep once it knows.
+		expect(element(html, "gate-job")).toContain("progress-sheen");
+		expect(html).not.toContain('data-testid="gate-job-sweep"');
 		// In motion is the pending tone, never the accent (audit D3).
 		expect(element(html, "gate-job")).not.toContain("accent");
 		expect(tagOf(html, "gate-run")).toMatch(/\sdisabled=""/);
@@ -621,6 +624,9 @@ describe("a gate run in the background", () => {
 		);
 		expect(tagOf(html, "gate-job")).toContain('data-status="queued"');
 		expect(html).toContain(">Queued, 1 run ahead<");
+		// No checks known yet: a band sweeps the track, so it reads as working.
+		expect(tagOf(html, "gate-job-sweep")).toContain('aria-hidden="true"');
+		expect(element(html, "gate-job-sweep")).toContain("progress-sweep");
 		expect(html).toContain("A gate run is already queued");
 	});
 

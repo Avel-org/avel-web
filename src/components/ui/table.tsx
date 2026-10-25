@@ -51,6 +51,8 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
 	return (
 		<tbody
 			data-slot="table-body"
+			// A row a filter or a refresh brings in rises into place (motion.ts).
+			data-enter="rise"
 			className={cn("[&_tr:last-child]:border-0", className)}
 			{...props}
 		/>

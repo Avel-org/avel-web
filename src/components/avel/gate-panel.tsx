@@ -153,7 +153,8 @@ function GateBody({
 	};
 
 	return (
-		<div className="flex flex-col gap-3">
+		// The job line arriving, and the new receipt once a run ends, fade in.
+		<div data-enter="fade" className="flex flex-col gap-3">
 			<div className="flex flex-wrap items-center gap-2">
 				{latest ? (
 					<p
@@ -377,7 +378,17 @@ function GateJobLine({ job }: { job: GateJob }) {
 					Updating every 2 s
 				</span>
 			</p>
-			{share === null ? null : (
+			{share === null ? (
+				// Queued, or running before it knows its checks: a band sweeps
+				// the track so the line reads as working, not stuck.
+				<span
+					data-testid="gate-job-sweep"
+					aria-hidden="true"
+					className="relative h-1.5 overflow-hidden rounded-full bg-app-raised"
+				>
+					<span className="progress-sweep absolute inset-y-0 left-0 w-1/3 rounded-full bg-gate-pending-solid" />
+				</span>
+			) : (
 				<span
 					role="progressbar"
 					aria-label="Checks done"
@@ -386,8 +397,9 @@ function GateJobLine({ job }: { job: GateJob }) {
 					aria-valuenow={progress?.checksDone}
 					className="h-1.5 overflow-hidden rounded-full bg-app-raised"
 				>
+					{/* The done share grows; a sheen runs along it while it runs. */}
 					<span
-						className="block h-full rounded-full bg-gate-pending-solid transition-[width] duration-(--duration-state) ease-avel"
+						className="progress-sheen block h-full rounded-full bg-gate-pending-solid transition-[width] duration-(--duration-state) ease-avel"
 						style={{ width: `${Math.round(share * 100)}%` }}
 					/>
 				</span>

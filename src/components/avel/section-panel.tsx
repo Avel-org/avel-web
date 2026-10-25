@@ -41,6 +41,8 @@ export function SectionPanel({
 		>
 			<div
 				data-testid={`${testId}-content`}
+				// What replaces the content (loaded data for its skeleton) fades in.
+				data-enter="fade"
 				className="flex flex-col gap-3 p-4"
 			>
 				{description ? (

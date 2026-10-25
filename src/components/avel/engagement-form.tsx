@@ -11,6 +11,7 @@ import {
 	useCreateEngagement,
 	useUpdateEngagement,
 } from "@/lib/api/clients";
+import { landRecord } from "@/shell/motion";
 import { ActionModal, type IssuePath, ModalField } from "./action-modal";
 import { clientIssueCopy } from "./client-form";
 import { useOpenGeneration } from "./use-open-generation";
@@ -50,6 +51,7 @@ export function EngagementFormModal({
 					onSuccess: (saved) => {
 						toast.success(`Started ${saved.name}.`);
 						onOpenChange(false);
+						landRecord(saved.id);
 					},
 				})
 			}
@@ -212,6 +214,7 @@ export function EngagementEditModal({
 						onSuccess: (saved) => {
 							toast.success(`Saved ${saved.name}.`);
 							onOpenChange(false);
+							landRecord(saved.id);
 						},
 					},
 				)

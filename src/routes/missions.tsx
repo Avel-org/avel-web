@@ -241,6 +241,8 @@ function MissionsPage() {
 								// biome-ignore lint/a11y/noStaticElementInteractions: J and K move between the rows inside; the rows are the controls.
 								<div
 									data-testid="missions-views"
+									// Grouped for Tree, or the reverse: the new view fades in.
+									data-enter="fade"
 									className="flex flex-col"
 									onKeyDown={moveBetweenRows}
 								>

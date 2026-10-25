@@ -210,6 +210,7 @@ function BoardSection({
 				<ul
 					aria-label={`${label} clients`}
 					data-testid={`client-cards-${status}`}
+					data-enter="rise"
 					className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-4"
 				>
 					{clients.map((client) => (
@@ -254,6 +255,7 @@ export function ClientCard({
 		<article
 			aria-labelledby={titleId}
 			data-testid={`client-card-${client.id}`}
+			data-record-id={client.id}
 			data-status={client.status}
 			// v3's option card: a hairline that strengthens on hover, the raised
 			// fill under the pointer, and no lift.

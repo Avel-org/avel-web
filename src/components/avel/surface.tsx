@@ -163,7 +163,8 @@ export function Surface<TData, TError>(props: SurfaceProps<TData, TError>) {
 			const { freshness } = props;
 			const { dataUpdatedAt, refetch } = query;
 			return (
-				<div data-testid={testId} data-state={state}>
+				// Empty to rows, or one view for another inside: what comes in fades.
+				<div data-testid={testId} data-state={state} data-enter="fade">
 					{state === "empty" ? props.empty : props.children(query.data)}
 					{freshness && dataUpdatedAt && refetch ? (
 						<ReadAge

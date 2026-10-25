@@ -106,6 +106,9 @@ export function DataPanel({
 				<button
 					type="button"
 					data-testid={`${testId}-toggle`}
+					// A count that changes is a new badge (keyed by its number)
+					// and fades in (motion.ts).
+					data-enter="fade"
 					aria-expanded={open}
 					aria-controls={bodyId}
 					onClick={toggle}
@@ -123,7 +126,11 @@ export function DataPanel({
 						{title}
 					</h2>
 					{hideCount ? null : (
-						<Badge variant="count" data-testid={`${testId}-count`}>
+						<Badge
+							key={count ?? "unknown"}
+							variant="count"
+							data-testid={`${testId}-count`}
+						>
 							{count === undefined ? "—" : count}
 						</Badge>
 					)}
@@ -159,7 +166,9 @@ export function DataPanel({
 				{/* min-w-0: clip, unlike hidden, leaves a grid item's minimum
 				    width at its content's, so one long line would widen the
 				    panel past its column. */}
-				<div className="min-h-0 min-w-0 overflow-clip">
+				{/* What replaces the body's content (loaded data for its
+				    skeleton, Table for Board) fades in (motion.ts). */}
+				<div data-enter="fade" className="min-h-0 min-w-0 overflow-clip">
 					{children}
 					{footer ? (
 						<div

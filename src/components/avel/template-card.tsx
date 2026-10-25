@@ -440,6 +440,7 @@ export function TemplateBoard({
 		<ul
 			aria-label="Templates"
 			data-testid="template-board"
+			data-enter="rise"
 			className={TEMPLATE_GRID}
 		>
 			{templates.map((template) => (

@@ -372,7 +372,12 @@ function DriveLoaded({
 									}
 								/>
 							) : (
-								<section aria-label="All files" className="flex flex-col gap-2">
+								<section
+									aria-label="All files"
+									// List for Grid, or the reverse: the new view fades in.
+									data-enter="fade"
+									className="flex flex-col gap-2"
+								>
 									<h2 className="type-eyebrow">
 										{filtering ? "Matching files" : "All files"}
 									</h2>

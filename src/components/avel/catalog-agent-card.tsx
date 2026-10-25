@@ -470,7 +470,7 @@ export function AgentCardGrid({
 								{TEAM_LABELS[team].meaning}
 							</p>
 						</div>
-						<ul aria-labelledby={headingId} className={GRID}>
+						<ul aria-labelledby={headingId} data-enter="rise" className={GRID}>
 							{members.map((agent) => (
 								<AgentCard key={agent.slug} agent={agent} />
 							))}

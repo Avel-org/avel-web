@@ -22,6 +22,7 @@ import {
 	type CreateConnectionBody,
 	useCreateConnection,
 } from "@/lib/api/connections";
+import { landRecord } from "@/shell/motion";
 import { ActionModal, type IssuePath, ModalField } from "./action-modal";
 import { OptionCards } from "./option-cards";
 import { useOpenGeneration } from "./use-open-generation";
@@ -205,6 +206,7 @@ export function ConnectionFormModal({
 					onSuccess: (saved) => {
 						toast.success(`Added ${saved.label}.`);
 						onOpenChange(false);
+						landRecord(saved.id);
 					},
 				})
 			}

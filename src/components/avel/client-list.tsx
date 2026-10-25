@@ -115,6 +115,7 @@ function ClientRow({ client, now }: { client: Client; now: number }) {
 	return (
 		<TableRow
 			data-testid={`client-row-${client.id}`}
+			data-record-id={client.id}
 			data-status={client.status}
 			// The whole row opens the client: its name link is stretched over
 			// it, so the row that reacts to hover is the link (v3 UX 5).

@@ -121,6 +121,8 @@ export function Inbox() {
 							size="icon"
 							aria-label={label}
 							data-testid="global-inbox"
+							// The badge arriving, or its number changing, fades in.
+							data-enter="fade"
 							className="relative"
 						>
 							<InboxIcon aria-hidden="true" />
@@ -162,6 +164,7 @@ export function InboxBadge({ total }: { total: number }) {
 	if (total === 0) return null;
 	return (
 		<span
+			key={total}
 			aria-hidden="true"
 			data-testid="global-inbox-badge"
 			// The ring is the top bar's own surface: it cuts the badge out of the

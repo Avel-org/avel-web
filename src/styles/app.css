@@ -530,6 +530,42 @@
 	animation: avelPulse 1.6s var(--ease-avel) infinite;
 }
 
+/* A gate run in progress, like the skeleton: it loops only while the work
+   runs, and the reduced-motion rule below stops it. A band crosses the
+   track while the checks are unknown; a sheen runs along a growing bar. */
+@keyframes avelSweep {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(300%);
+	}
+}
+
+@utility progress-sweep {
+	animation: avelSweep 1.4s var(--ease-avel) infinite;
+}
+
+@keyframes avelSheen {
+	from {
+		background-position: 150% 0;
+	}
+	to {
+		background-position: -50% 0;
+	}
+}
+
+@utility progress-sheen {
+	background-image: linear-gradient(
+		90deg,
+		transparent 30%,
+		color-mix(in oklab, var(--color-text-on-solid) 45%, transparent) 50%,
+		transparent 70%
+	);
+	background-size: 200% 100%;
+	animation: avelSheen 1.6s linear infinite;
+}
+
 /* Every state still reads with motion off; only the movement goes. */
 @media (prefers-reduced-motion: reduce) {
 	*,

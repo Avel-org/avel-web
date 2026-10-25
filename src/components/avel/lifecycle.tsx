@@ -159,8 +159,11 @@ function Dot({ standing, tone }: { standing: StepState; tone: StatusTone }) {
 	return (
 		<span
 			aria-hidden="true"
+			// When a step becomes current its centre mark arrives and settles
+			// in (motion.ts); the fill and ring ease over the state duration.
+			data-enter="settle"
 			className={cn(
-				"inline-flex size-3 shrink-0 items-center justify-center rounded-full border",
+				"inline-flex size-3 shrink-0 items-center justify-center rounded-full border transition-colors duration-(--duration-state) ease-avel",
 				standing === "passed" && "border-text-muted bg-text-muted",
 				standing === "current" && ["border-2 bg-app-panel", RING[tone]],
 				standing === "ahead" && "border-border-strong bg-app-panel",
@@ -272,7 +275,8 @@ export function Lifecycle<S extends string>({
 							<span
 								aria-hidden="true"
 								className={cn(
-									"mx-1.5 h-px w-4 sm:w-6",
+									// It fills toward a step the record moves to.
+									"mx-1.5 h-px w-4 transition-colors duration-(--duration-state) ease-avel sm:w-6",
 									i === 0 || standing === "ahead"
 										? "bg-border-strong"
 										: "bg-text-muted",

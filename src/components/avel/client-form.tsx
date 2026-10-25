@@ -16,6 +16,7 @@ import {
 	useUpdateClient,
 } from "@/lib/api/clients";
 import { describeError } from "@/lib/error-map";
+import { landRecord } from "@/shell/motion";
 import {
 	ActionModal,
 	type FieldIssue,
@@ -59,6 +60,7 @@ export function ClientFormModal({
 					onSuccess: (saved) => {
 						toast.success(`Saved ${saved.name}.`);
 						onOpenChange(false);
+						landRecord(saved.id);
 					},
 				},
 			);
@@ -67,6 +69,7 @@ export function ClientFormModal({
 				onSuccess: (saved) => {
 					toast.success(`Added ${saved.name}.`);
 					onOpenChange(false);
+					landRecord(saved.id);
 				},
 			});
 		}

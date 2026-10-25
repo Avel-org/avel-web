@@ -187,6 +187,7 @@ export function ActivityRows({
 		<ol
 			aria-label="Activity"
 			data-testid={nested ? undefined : "activity-rows"}
+			data-enter="rise"
 			className="flex flex-col divide-y divide-border"
 		>
 			{entries.map((entry) => (

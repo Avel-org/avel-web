@@ -338,6 +338,7 @@ export function FileGrid({
 	return (
 		<ul
 			data-testid="drive-file-grid"
+			data-enter="rise"
 			className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2.5"
 		>
 			{files.map((file) => (

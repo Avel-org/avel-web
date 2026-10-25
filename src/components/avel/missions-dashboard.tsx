@@ -415,6 +415,8 @@ function StatusCards({
 						type="button"
 						aria-pressed={pressed}
 						data-testid={`missions-card-${card.id}`}
+						// A changed count is a new number, keyed, and fades in.
+						data-enter="fade"
 						onClick={() => onStatus(nextStatus(card.id, status))}
 						// v3 .option: a card that answers the pointer with the strong
 						// edge, and takes the one selected state when pressed (R10).
@@ -443,6 +445,7 @@ function StatusCards({
 							) : null}
 						</span>
 						<span
+							key={card.count ?? "unknown"}
 							data-testid={`missions-card-${card.id}-count`}
 							className="type-metric text-text"
 						>

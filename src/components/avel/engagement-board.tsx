@@ -203,6 +203,7 @@ export function EngagementCard({
 		<article
 			aria-label={engagement.name}
 			data-testid={`engagement-card-${engagement.id}`}
+			data-record-id={engagement.id}
 			data-status={engagement.status}
 			className="flex flex-col gap-1.5 p-2.5 rounded-card border border-border bg-app-panel shadow-card"
 		>

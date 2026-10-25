@@ -118,12 +118,15 @@ export function Segmented<V extends string>({
 						variant="segment"
 						aria-pressed={option.value === value}
 						data-testid={`${testId}-${id}`}
+						// A count that changes is a new number (keyed) and fades in.
+						data-enter="fade"
 						onClick={() => onChange(option.value)}
 					>
 						{option.icon ? <option.icon aria-hidden="true" /> : null}
 						{option.label}
 						{option.count === undefined ? null : (
 							<span
+								key={option.count ?? "unknown"}
 								data-testid={`${testId}-${id}-count`}
 								// The pressed segment's count lifts with its label.
 								className="type-mono text-text-subtle tabular-nums in-aria-pressed:text-text-muted"

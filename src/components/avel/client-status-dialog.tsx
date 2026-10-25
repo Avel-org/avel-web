@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import type { ApiError } from "@/lib/api";
 import { preconditionReason, useUpdateClient } from "@/lib/api/clients";
+import { landRecord } from "@/shell/motion";
 import { FormError } from "./client-form";
 
 /**
@@ -55,6 +56,8 @@ export function ClientStatusDialog({
 												: `Reopened ${saved.name}.`,
 										);
 										onOpenChange(false);
+										// It moves to its new section; land it there.
+										landRecord(saved.id);
 									},
 								},
 							)

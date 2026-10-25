@@ -319,6 +319,7 @@ function ConnectionCard({
 		<article
 			aria-label={connection.label}
 			data-testid={`connection-card-${connection.id}`}
+			data-record-id={connection.id}
 			data-status={connection.status}
 			className="flex h-full min-w-0 flex-col gap-3 rounded-card border border-border bg-app-panel p-4 shadow-card"
 		>
@@ -584,7 +585,11 @@ export function ConnectionList({
 								stickyHeader={false}
 							/>
 						) : (
-							<ul data-testid="connection-board" className={GRID}>
+							<ul
+								data-testid="connection-board"
+								data-enter="rise"
+								className={GRID}
+							>
 								{rows.map((connection) => (
 									<li key={connection.id} className="min-w-0">
 										<ConnectionCard

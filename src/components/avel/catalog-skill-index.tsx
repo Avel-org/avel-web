@@ -360,7 +360,10 @@ export function SkillIndex({
 							meaning={section.meaning}
 							count={section.skills.length}
 						/>
-						<ul className="flex flex-col divide-y divide-border">
+						<ul
+							data-enter="rise"
+							className="flex flex-col divide-y divide-border"
+						>
 							{section.skills.map((skill) => (
 								<li key={skill.id}>
 									<SkillIndexRow skill={skill} q={q} draftsOnly={draftsOnly} />

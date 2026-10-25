@@ -4,6 +4,7 @@ import {
 	type ReactNode,
 	useCallback,
 	useContext,
+	useEffect,
 	useMemo,
 	useState,
 } from "react";
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { AuthGate } from "./auth-gate";
 import { CommandPalette, usePanelMission } from "./command-palette";
 import { DeviceBoundary } from "./device-boundary";
+import { watchEntering } from "./motion";
 import {
 	useCommandShortcut,
 	useKeyShortcut,
@@ -96,6 +98,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function Shell({ children }: { children: ReactNode }) {
+	// Entrances for every page and portal (motion.ts): one watcher.
+	useEffect(() => watchEntering(document.body), []);
 	const [rail, setRail] = useStoredState("avel.sidebar", "open", RAIL);
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [paletteOpen, setPaletteOpen] = useState(false);
