@@ -378,6 +378,31 @@ describe("pre-flight", () => {
 			"Hold to open pull request",
 		);
 	});
+
+	it("delivers a push preview as a push, never as a zip", async () => {
+		const preview = exp({
+			targetKind: "github_push",
+			connectionId: CONNECTION,
+			baseRef: "avel/sprint-2",
+		});
+		const html = await render(
+			<ExportPreflight
+				missionId={MISSION}
+				previewId={preview.id}
+				onPreviewed={() => {}}
+				onDelivered={() => {}}
+			/>,
+			(qc) => {
+				withPreview(preview)(qc);
+				qc.setQueryData([...queryKeys.missions.detail(MISSION)], {
+					engagement: { id: ENGAGEMENT, name: "Acme" },
+				} as unknown as MissionDetail);
+			},
+		);
+		const deliver = element(html, "export-deliver");
+		expect(deliver).toContain("Hold to push");
+		expect(deliver).not.toContain("zip");
+	});
 });
 
 describe("a GitHub pull request export", () => {

@@ -41,8 +41,8 @@ import { ErrorState, Surface } from "./surface";
  * it does, then Deliver. The preview is a dry-run export the server keeps,
  * named in the URL, so a reload or another tab lands on the same one.
  * Deliver is disabled by the preview's own `blocked`, never by styling,
- * and holds to confirm. A zip or a GitHub pull request delivers; a push
- * straight to GitHub is not built. Delivery sends what the preview recorded,
+ * and holds to confirm. A zip, a GitHub pull request or a push to a branch
+ * delivers, a push behind its repository's policy. Delivery sends what the preview recorded,
  * so a target changed since it is previewed again first.
  */
 
@@ -326,7 +326,7 @@ function Deliver({
 		},
 	};
 	const body = deliverBodyOf(preview);
-	const pr = preview.targetKind === "github_pr";
+	const copy = DELIVER_COPY[preview.targetKind];
 	const writtenId = writtenExportId(create.error);
 	const deliver = () => {
 		if (body === null) return;
@@ -356,19 +356,9 @@ function Deliver({
 				data-testid="export-deliver"
 			>
 				<PackageCheck aria-hidden="true" />
-				{create.isPending
-					? pr
-						? "Opening the pull request"
-						: "Delivering"
-					: pr
-						? "Hold to open pull request"
-						: "Hold to deliver zip"}
+				{create.isPending ? copy.pending : copy.hold}
 			</Button>
-			<Note>
-				{pr
-					? "Renders the package again, checks it against this preview and the branch's tip, then writes a new branch and opens a pull request on GitHub. It takes a few seconds."
-					: "Renders the package again and checks it against this preview before it hands you the zip."}
-			</Note>
+			<Note>{copy.note}</Note>
 			{create.error ? (
 				<GateRefusal
 					error={create.error}
@@ -391,6 +381,28 @@ function Deliver({
 		</div>
 	);
 }
+
+/** What Deliver says, by the preview's own target. */
+const DELIVER_COPY = {
+	zip: {
+		hold: "Hold to deliver zip",
+		pending: "Delivering",
+		note: "Renders the package again and checks it against this preview before it hands you the zip.",
+	},
+	github_pr: {
+		hold: "Hold to open pull request",
+		pending: "Opening the pull request",
+		note: "Renders the package again, checks it against this preview and the branch's tip, then writes a new branch and opens a pull request on GitHub. It takes a few seconds.",
+	},
+	github_push: {
+		hold: "Hold to push",
+		pending: "Pushing",
+		note: "Renders the package again, checks it against this preview and the branch's tip, then commits it to that branch on GitHub. It takes a few seconds.",
+	},
+} as const satisfies Record<
+	ExportWire["targetKind"],
+	{ hold: string; pending: string; note: string }
+>;
 
 function Note({ children }: { children: ReactNode }) {
 	return <p className="type-caption text-text-muted">{children}</p>;
