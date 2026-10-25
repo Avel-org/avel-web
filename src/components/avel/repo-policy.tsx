@@ -141,19 +141,25 @@ export function RepoPolicyCard({
 						</button>
 					</h3>
 					{policy.label ? (
-						<span className="truncate type-mono text-text-subtle">{name}</span>
+						<span className="truncate type-mono text-text-subtle" title={name}>
+							{name}
+						</span>
 					) : null}
+					{/* Under the name, not beside it: beside it, the pill took the
+					    room a name needs and cut it short in a three-column board. */}
+					<span className="mt-1.5 flex">
+						<StatusPill
+							size="sm"
+							tone={policy.allowDirectPushToDefault ? "warn" : "pass"}
+							label={
+								policy.allowDirectPushToDefault
+									? "Direct push allowed"
+									: "No direct push"
+							}
+							data-testid={`repo-policy-push-${policy.id}`}
+						/>
+					</span>
 				</span>
-				<StatusPill
-					size="sm"
-					tone={policy.allowDirectPushToDefault ? "warn" : "pass"}
-					label={
-						policy.allowDirectPushToDefault
-							? "Direct push allowed"
-							: "No direct push"
-					}
-					data-testid={`repo-policy-push-${policy.id}`}
-				/>
 			</header>
 			<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 type-small">
 				<dt className="text-text-subtle">Default branch</dt>
